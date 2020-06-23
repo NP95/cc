@@ -30,76 +30,97 @@
 
 namespace cc {
 
+bool operator<(const Time& lhs, const Time& rhs) {
+  if (lhs.cycle < rhs.cycle) return true;
+  if (lhs.cycle > rhs.cycle) return false;
+  return (lhs.delta < rhs.delta);
+}
+
 Object::Object() {}
 
 Loggable::Loggable() {}
 
 Action::Action() {}
 
-void Event::notify(Context& context) {
+Event::Event(Kernel* k) : k_(k) {}
+
+void Event::notify() {
   struct EvalProcessAction : Action {
     EvalProcessAction(Process* p) : p_(p) {}
-    void eval(Context& context) { p_->eval(context); }
+    void eval(Kernel* k) override { p_->eval(); }
     Process* p_;
   };
-  const Time time{context.time().cycle, context.time().delta + 1};
+  const Time current_time{k()->time()};
+  const Time time{current_time.cycle, current_time.delta + 1};
   for (Process* p : ps_) {
-    Kernel* kernel = context.kernel();
-    kernel->add_action(time, new EvalProcessAction(p));
+    k()->add_action(time, new EvalProcessAction(p));
   }
   ps_.clear();
 }
 
-Process::Process() {}
+Process::Process(Kernel* k) : k_(k) {}
 
-void Process::wait_until(Context& context, Time t) {
+void Process::wait_until(Time t) {
   struct WaitUntilAction : Action {
     WaitUntilAction(Process* p) : p_(p) {}
-    void eval(Context& context) override { p_->eval(context); }
+    void eval(Kernel* k) override { p_->eval(); }
     Process* p_ = nullptr;
   };
-  Kernel* kernel = context.kernel();
-  kernel->add_action(t, new WaitUntilAction(this));
+  k()->add_action(t, new WaitUntilAction(this));
 }
 
 void Process::wait_on(Event& event) {
   event.add_waitee(this);
 }
 
-Module::Module() {}
+Module::Module(Kernel* k) : k_(k) {}
 
-Clock::Clock(int n, int period) : n_(n), period_(period) {}
+Module::~Module() {
+  for (Module* m : ms_) delete m;
+  for (Process* p : ps_) delete p;
+}
 
-void Clock::elaborate() {
+void Module::init() {
+  for (Module* m : ms_) m->init();
+  for (Process* p : ps_) p->init();
+}
+
+void Module::fini() {
+}
+
+Clock::Clock(Kernel* k, int n, int period)
+    : Module(k), n_(n), period_(period), rising_edge_event_(k) {
   struct ClockProcess : Process {
-    ClockProcess(Clock* clk) : clk_(clk) {}
-    void init(Context& context) override {
-      Time time = context.time();
+    ClockProcess(Kernel* k, Clock* clk) : Process(k), clk_(clk) {}
+    void init() override {
+      Time time = k()->time();
       time.cycle += clk_->period();
-      wait_until(context, time);
+      wait_until(time);
     }
-    void eval(Context& context) override {
+    void eval() override {
       // Notify
-      clk_->rising_edge_event().notify(context);
+      clk_->rising_edge_event().notify();
       // Schedule next
-      Time time = context.time();
+      Time time = k()->time();
       time.cycle += clk_->period();
-      wait_until(context, time);
+      wait_until(time);
     }
     Clock* clk_;
   };
-  p_ = create_process<ClockProcess>(this);
+  p_ = new ClockProcess(k, this);
+  add_process(p_);
 }
 
 Kernel::Kernel() {}
 
-void Kernel::run() {
+void Kernel::run(RunMode r, Time t) {
   while (!eq_.empty()) {
     const Event e = eq_.front();
+    if (r == RunMode::ForTime && t < e.time) break;
     std::pop_heap(eq_.begin(), eq_.end(), EventComparer{});
     eq_.pop_back();
-    Context context{this, e.time};
-    e.action->eval(context);
+    time_ = e.time;
+    e.action->eval(this);
   }
 }
 

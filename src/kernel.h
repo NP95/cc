@@ -47,6 +47,8 @@ struct Time {
   delta_type delta = 0;
 };
 
+bool operator<(const Time& lhs, const Time& rhs);
+
 class Object {
  public:
   Object();
@@ -59,27 +61,6 @@ class Loggable : public Object {
   Loggable();
 };
 
-class Agent {
- public:
-  Kernel* k() const { return k_; }
-  void k(Kernel* k) { k_ = k; }
-  
- private:
-  Kernel* k_ = nullptr;
-};
-
-class Context {
- public:
-  Context(Kernel* kernel, Time time) : kernel_(kernel), time_(time) {}
-
-  Kernel* kernel() const { return kernel_; }
-  Time time() const { return time_; }
-
- private:
-  Time time_;
-  Kernel* kernel_;
-};
-
 class Action {
   friend class Process;
 
@@ -87,87 +68,78 @@ class Action {
   Action();
   virtual ~Action() = default;
 
-  virtual void eval(Context& context) = 0;
+  virtual void eval(Kernel* k) = 0;
 };
 
 class Event {
   friend class Process;
  public:
-  Event() {}
+  Event(Kernel* k);
 
-  void notify(Context& context);
+  Kernel* k() const { return k_; }
+
+  void notify();
 
  private:
   void add_waitee(Process* p) { ps_.push_back(p); }
   
   std::vector<Process*> ps_;
+  Kernel* k_;
 };
 
-class Process : public Agent, public Loggable {
+class Process : public Loggable {
   friend class Module;
 
  public:
-  Process();
+  Process(Kernel* k);
   virtual ~Process() = default;
 
-  //
-  virtual void init(Context& context) {}
-  
-  //
-  virtual void eval(Context& context) {}
+  Kernel* k() const { return k_; }
 
   //
-  virtual void wait_until(Context& context, Time t);
+  virtual void init() {}
+  virtual void eval() {}
 
   //
+  virtual void wait_until(Time t);
   virtual void wait_on(Event& event);
+
+ private:
+  Kernel* k_;
 };
 
-class Module : public Agent, public Loggable {
+class Module : public Loggable {
   friend class Kernel;
 
  protected:
-  Module();
+  Module(Kernel* k);
  public:
   //
-  virtual ~Module() {}
+  virtual ~Module();
 
   //
-  virtual void elaborate() {}
+  Kernel* k() const { return k_; }
 
   //
-  template<typename T, typename ...ARGS>
-  T* create_process(ARGS&& ...args) {
-    // ASSERT: only in build phase
-    T* p = new T(std::forward<ARGS>(args)...);
-    p->k(k());
-    p->parent(this);
-    Context context(k(), Time{});
-    p->init(context);
-    return p;
-  }
+  virtual void init();
+  virtual void fini();
 
   //
-  template<typename T, typename ...ARGS>
-  T* create_child(ARGS&& ...args) {
-    // ASSERT: only in build phase
-    T* m = new T(std::forward<ARGS>(args)...);
-    m->k(k());
-    m->parent(this);
-    m->elaborate();
-    return m;
-  }
+  void add_process(Process* p) { ps_.push_back(p); }
+  void add_child(Module* m) { ms_.push_back(m); }
+
+ private:
+  Kernel* k_;
+  std::vector<Process*> ps_;
+  std::vector<Module*> ms_;
 };
 
 class Clock : public Module {
-  
  public:
-  Clock(int n, int period = 10);
+  Clock(Kernel* k, int n, int period = 10);
 
   int n() const { return n_; }
   int period() const { return period_; }
-
-  void elaborate() override;
 
   Event& rising_edge_event() { return rising_edge_event_; }
   const Event& rising_edge_event() const { return rising_edge_event_; }
@@ -177,6 +149,8 @@ class Clock : public Module {
   Process* p_;
   int n_, period_;
 };
+
+enum class RunMode { ToExhaustion, ForTime };
 
 class Kernel {
   friend class Process;
@@ -197,22 +171,15 @@ class Kernel {
  public:
   Kernel();
 
-  template<typename T, typename ...ARGS>
-  Module* create_top(ARGS&& ...args) {
-    top_ = new T(std::forward<ARGS>(args)...);
-    top_->k(this);
-    top_->elaborate();
-    return top_;
-  }
+  // Observers
+  Time time() const { return time_; }
 
-  void run();
+  void run(RunMode r = RunMode::ToExhaustion, Time t = Time{});
 
   void add_action(Time t, Action* a);
  private:
-  
   std::vector<Event> eq_;
-
-  Module* top_ = nullptr;
+  Time time_;
 };
 
 }

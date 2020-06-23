@@ -34,8 +34,8 @@ TEST(Kernel, BasicScheduling) {
   struct TickAction : public cc::Action {
     TickAction(cc::Time::cycle_type expected_cycle)
         : expected_cycle_(expected_cycle) {}
-    void eval(cc::Context& context) override {
-      const cc::Time time = context.time();
+    void eval(cc::Kernel* k) override {
+      const cc::Time time = k->time();
       EXPECT_EQ(time.cycle, expected_cycle_);
       EXPECT_EQ(time.delta, 0);
     }
@@ -52,14 +52,15 @@ TEST(Kernel, BasicScheduling) {
 }
 
 TEST(Kernel, BasicClock) {
-  cc::Kernel k;
+  cc::Kernel* k = new cc::Kernel;
 
   struct OnRisingEdgeProcess : public cc::Process {
-    OnRisingEdgeProcess(cc::Clock* clk) : clk_(clk) {}
-    void init(cc::Context& context) override {
+    OnRisingEdgeProcess(cc::Kernel* k, cc::Clock* clk)
+        : cc::Process(k), clk_(clk) {}
+    void init() override {
       wait_on(clk_->rising_edge_event());
     }
-    void eval(cc::Context& context) override {
+    void eval() override {
       std::cout << "On rising edge: " << i++ << "\n";
       wait_on(clk_->rising_edge_event());
     }
@@ -68,20 +69,23 @@ TEST(Kernel, BasicClock) {
   };
 
   struct TopLevel : public cc::Module {
-    ~TopLevel() {
-      delete clk_;
-      delete p_;
-    }
-    void elaborate() override {
-      clk_ = create_child<cc::Clock>(100);
-      p_ = create_process<OnRisingEdgeProcess>(clk_);
+    TopLevel(cc::Kernel* k) : cc::Module(k) {
+      clk_ = new cc::Clock(k, 100);
+      add_child(clk_);
+      p_ = new OnRisingEdgeProcess(k, clk_);
+      add_process(p_);
+      //      p_->init();
     }
     cc::Clock* clk_;
     cc::Process* p_;
   };
 
-  k.create_top<TopLevel>();
-  k.run();
+  TopLevel* top = new TopLevel(k);
+  top->init();
+  k->run(cc::RunMode::ForTime, cc::Time{100, 0});
+  top->fini();
+  delete top;
+  delete k;
 }
 
 int main(int argc, char** argv) {
