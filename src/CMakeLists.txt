@@ -25,4 +25,4 @@
 ## POSSIBILITY OF SUCH DAMAGE.
 ## ========================================================================= ##
 
-add_executable(main main.cpp)
+add_library(cc kernel.cc)

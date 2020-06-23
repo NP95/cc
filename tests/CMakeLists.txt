@@ -1,4 +1,4 @@
-## ========================================================================= ##
+##========================================================================== //
 ## Copyright (c) 2020, Stephen Henry
 ## All rights reserved.
 ##
@@ -23,14 +23,22 @@
 ## CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ## ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 ## POSSIBILITY OF SUCH DAMAGE.
-## ========================================================================= ##
+##========================================================================== //
 
-cmake_minimum_required(VERSION 3.5)
-project(cc)
+macro (create_test testname testfile)
+  add_executable(test_${testname} ${testfile})
+  target_include_directories(test_${testname} PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${VerilatorDpi_INCLUDE_DIR}
+    ${Verilator_INCLUDE_DIR}
+    )
+  target_link_libraries(test_${testname}
+    cc
+    gtest_main
+    gtest
+    pthread
+    )
+  add_test(NAME ${testname} COMMAND test_${testname})
+endmacro ()
 
-set(CMAKE_CXX_STANDARD 17)
-
-add_subdirectory(third_party)
-add_subdirectory(src)
-enable_testing()
-add_subdirectory(tests)
+create_test(kernel kernel.cc)
