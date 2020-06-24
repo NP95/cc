@@ -37,8 +37,8 @@ TEST(Sim, BasicClock) {
       wait_on(clk_->rising_edge_event());
     }
     void eval() override {
-      const cc::LogMessage msg("On rising edge");
-      report_info(msg);
+      const Message msg("On rising edge");
+      log(msg);
       wait_on(clk_->rising_edge_event());
       n_++;
     }
@@ -53,7 +53,7 @@ TEST(Sim, BasicClock) {
       clk_ = new cc::Clock(k, "Clock", n);
       add_child(clk_);
       p_ = new OnRisingEdgeProcess(k, clk_);
-      add_process(p_);
+      add_child(p_);
     }
     int n() const { return n_; }
     void fini() override {

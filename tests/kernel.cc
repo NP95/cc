@@ -27,6 +27,7 @@
 
 #include "gtest/gtest.h"
 #include "kernel.h"
+#include <memory>
 
 TEST(Kernel, BasicScheduling) {
   cc::Kernel k;
@@ -49,6 +50,33 @@ TEST(Kernel, BasicScheduling) {
   k.add_action(cc::Time{40, 0}, new TickAction(40));
   k.add_action(cc::Time{50, 0}, new TickAction(50));
   k.run();
+}
+
+TEST(Kernel, FatalError) {
+  struct TopModule : cc::Module {
+    struct RaiseErrorProcess : cc::Process {
+      RaiseErrorProcess(cc::Kernel* k) : cc::Process(k, "RaiseErrorProcess") {}
+      void init() override {
+        wait_until(cc::Time{100});
+      }
+      void eval() override {
+        log(Message("Some error condition", Level::Fatal));
+      }
+    };
+    TopModule(cc::Kernel* k) : cc::Module(k, "top") {
+      set_top();
+      p_ = new RaiseErrorProcess(k);
+      add_child(p_);
+    }
+    RaiseErrorProcess* p_;
+  };
+  auto k = std::make_unique<cc::Kernel>();
+  auto top = std::make_unique<TopModule>(k.get());
+  top->init();
+  k->run();
+  ASSERT_TRUE(k->fatal());
+  const cc::Time time = k->time();
+  ASSERT_EQ(time.cycle, 100);
 }
 
 int main(int argc, char** argv) {

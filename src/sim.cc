@@ -56,7 +56,7 @@ Clock::Clock(Kernel* k, const std::string& name, int ticks, int period)
     int ticks_;
   };
   p_ = new ClockProcess(k, this);
-  add_process(p_);
+  add_child(p_);
 }
 
 } // namespace cc

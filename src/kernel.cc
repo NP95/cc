@@ -45,8 +45,13 @@ Kernel::Kernel() {}
 
 void Kernel::run(RunMode r, Time t) {
   while (!eq_.empty()) {
+    // IF a fatal error has occurred, terminate the simulation immediately.
+    if (fatal()) break;
+
     const Event e = eq_.front();
+    // If simulation time has elapsed, terminate.
     if (r == RunMode::ForTime && t < e.time) break;
+
     std::pop_heap(eq_.begin(), eq_.end(), EventComparer{});
     eq_.pop_back();
     time_ = e.time;
@@ -89,43 +94,17 @@ void Object::add_child(Object* c) {
 
 Loggable::Loggable(Kernel* k, const std::string& name) : Object(k, name) {}
 
-void Loggable::report_prefix(Level l, std::ostream& os) const {
-  os << "[" << level_to_char(l) << ";" << path() << "@" << k()->time() << "]: ";
+void Loggable::log_prefix(Level l, std::ostream& os) const {
+  os << "[" << l.to_char() << ";" << path() << "@" << k()->time() << "]: ";
 }
 
-void Loggable::report_debug(const LogMessage& m) const {
-  report_prefix(Level::Debug, std::cout);
-  std::cout << m.msg() << "\n";
-}
-
-void Loggable::report_info(const LogMessage& m) const {
-  report_prefix(Level::Info, std::cout);
-  std::cout << m.msg() << "\n";
-}
-
-void Loggable::report_warning(const LogMessage& m) const {
-  report_prefix(Level::Warning, std::cout);
-  std::cout << m.msg() << "\n";
-}
-
-void Loggable::report_error(const LogMessage& m) const {
-  report_prefix(Level::Error, std::cout);
-  std::cout << m.msg() << "\n";
-}
-
-void Loggable::report_fatal(const LogMessage& m) const {
-  report_prefix(Level::Fatal, std::cout);
-  std::cout << m.msg() << "\n";
-}
-
-char Loggable::level_to_char(Level l) const {
-  switch (l) {
-    case Level::Debug: return 'D'; break;
-    case Level::Info: return 'I'; break;
-    case Level::Warning: return 'W'; break;
-    case Level::Error: return 'E'; break;
-    case Level::Fatal: return 'F'; break;
-    default: return 'X'; break;
+void Loggable::log(const Message& m) const {
+  if (level() >= m.level()) {
+    log_prefix(m.level(), std::cout);
+    std::cout << m.msg() << "\n";
+  }
+  if (m.level() == Level::Fatal) {
+    k()->raise_fatal();
   }
 }
 
@@ -179,7 +158,7 @@ void Module::add_child(Module* m) {
   Object::add_child(m);
 }
 
-void Module::add_process(Process* p) {
+void Module::add_child(Process* p) {
   ps_.push_back(p);
   Object::add_child(p);
 }

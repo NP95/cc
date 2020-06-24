@@ -75,13 +75,16 @@ class Kernel {
   // Observers
   Time time() const { return time_; }
   std::size_t events_n() const { return eq_.size(); }
+  bool fatal() const { return fatal_; }
 
   void run(RunMode r = RunMode::ToExhaustion, Time t = Time{});
-
   void add_action(Time t, Action* a);
+  void raise_fatal() { fatal_ = true; }
  private:
   std::vector<Event> eq_;
   Time time_;
+  //! Flag denoting that a fatal error has occurred.
+  bool fatal_;
 };
 
 class Object {
@@ -108,28 +111,53 @@ class Object {
   std::string name_;
 };
 
-struct LogMessage {
-  LogMessage(const std::string& msg) : msg_(msg) {}
-  std::string msg() const { return msg_; }
- private:
-  std::string msg_;
-};
-
 class Loggable : public Object {
-  enum class Level { Debug, Info, Warning, Error, Fatal };
+ protected:
+
+  struct Level {
+    enum : int { Fatal = 0, Error, Warning, Info, Debug };
+    Level() : level_(Debug) {}
+    Level(int level) : level_(level) {}
+    operator int() const { return level_; }
+    int level() const { return level_; }
+    char to_char() const { return str()[0]; }
+    const char* str() const {
+      switch (level_) {
+        case Debug: return "DEBUG"; break;
+        case Info: return "INFO"; break;
+        case Warning: return "WARNING"; break;
+        case Error: return "ERROR"; break;
+        case Fatal: return "FATAL"; break;
+        default: return "X"; break;
+      }
+    }
+   private:
+    int level_;
+  };
+
+  struct Message {
+    Message(const std::string& msg, Level level = Level::Info)
+        : msg_(msg), level_(level) {}
+    Level level() const { return level_; }
+    std::string msg() const { return msg_; }
+   private:
+    std::string msg_;
+    Level level_;
+  };
+
  public:
   //
   Loggable(Kernel* k, const std::string& name);
 
+  Level level() const { return level_; }
+  void level(const Level& level) { level_ = level; }
+
   //
-  void report_debug(const LogMessage& msg) const;
-  void report_info(const LogMessage& msg) const;
-  void report_warning(const LogMessage& msg) const;
-  void report_error(const LogMessage& msg) const;
-  void report_fatal(const LogMessage& msg) const;
+  void log(const Message& msg) const;
  private:
-  void report_prefix(Level l, std::ostream& os) const;
-  char level_to_char(Level l) const;
+  void log_prefix(Level l, std::ostream& os) const;
+
+  Level level_;
 };
 
 class Action {
@@ -189,7 +217,7 @@ class Module : public Loggable {
 
   //
   void add_child(Module* m);
-  void add_process(Process* p);
+  void add_child(Process* p);
 
  private:
   std::vector<Module*> ms_;
