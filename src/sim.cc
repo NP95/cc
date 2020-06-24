@@ -39,7 +39,7 @@ Clock::Clock(Kernel* k, const std::string& name, int ticks, int period)
     void init() override {
       if (ticks_ == 0) return;
       Time time = k()->time();
-      time.cycle += clk_->period();
+      time.time += clk_->period();
       wait_until(time);
     }
     void eval() override {
@@ -48,7 +48,7 @@ Clock::Clock(Kernel* k, const std::string& name, int ticks, int period)
       if (--ticks_ != 0) {
         // Schedule next
         Time time = k()->time();
-        time.cycle += clk_->period();
+        time.time += clk_->period();
         wait_until(time);
       }
     }

@@ -33,14 +33,14 @@ TEST(Kernel, BasicScheduling) {
   cc::Kernel k;
 
   struct TickAction : public cc::Action {
-    TickAction(cc::Time::cycle_type expected_cycle)
-        : expected_cycle_(expected_cycle) {}
+    TickAction(cc::Time::time_type expected_time)
+        : expected_time_(expected_time) {}
     void eval(cc::Kernel* k) override {
       const cc::Time time = k->time();
-      EXPECT_EQ(time.cycle, expected_cycle_);
+      EXPECT_EQ(time.time, expected_time_);
       EXPECT_EQ(time.delta, 0);
     }
-    cc::Time::cycle_type expected_cycle_;
+    cc::Time::time_type expected_time_;
   };
 
   k.add_action(cc::Time{ 0, 0}, new TickAction( 0));
@@ -76,7 +76,7 @@ TEST(Kernel, FatalError) {
   k->run();
   ASSERT_TRUE(k->fatal());
   const cc::Time time = k->time();
-  ASSERT_EQ(time.cycle, 100);
+  ASSERT_EQ(time.time, 100);
 }
 
 int main(int argc, char** argv) {

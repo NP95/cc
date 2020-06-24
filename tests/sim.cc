@@ -79,6 +79,96 @@ TEST(Sim, BasicClock) {
   }
 }
 
+TEST(Sim, QueueDequeueImmediately) {
+
+  // Enqueue process; perodically enqueues entries into the queue
+  // ensuring that it is non-full (if so error out, as the consuemr
+  // process should be removing the entries immediately after they are
+  // enqueued)
+  struct EnqueueProcess : cc::Process {
+    EnqueueProcess(cc::Kernel* k, cc::Queue<cc::Time>* q, std::size_t n)
+        : cc::Process(k, "EnqueueProcess"), q_(q), n_(n) {
+    }
+    std::size_t n() const { return n_; }
+    void init() override {
+      wait_for(cc::Time{10});
+    }
+    void eval() override {
+      EXPECT_TRUE(q_->empty());
+      EXPECT_TRUE(q_->enqueue(k()->time()));
+
+      if (--n_ != 0) wait_for(cc::Time{10});
+      log(Message{"Enqueued entry"});
+    }
+   private:
+    cc::Queue<cc::Time>* q_;
+    std::size_t n_;
+  };
+
+  // Dequeue process; dequeue entry from the queue whenever the
+  // process received notification that an entry has been placed into
+  // the queue. The dequeue should occur in the delta cycle
+  // immediately preceeding the current dequeue cycle.
+  struct DequeueProcess : cc::Process {
+    DequeueProcess(cc::Kernel* k, cc::Queue<cc::Time>* q, std::size_t n)
+        : cc::Process(k, "DequeueProcess"), q_(q), n_(n) {
+    }
+    std::size_t n() const { return n_; }
+    void init() override {
+      wait_on(q_->non_empty_event());
+    }
+    void eval() override {
+      // Upon invokation, validate than queue has pending entries.
+      EXPECT_FALSE(q_->empty());
+      // Dequeue entry and validate
+      cc::Time t;
+      EXPECT_TRUE(q_->dequeue(t));
+      const cc::Time current_time = k()->time();
+      EXPECT_EQ(current_time.time, t.time);
+      EXPECT_EQ(current_time.delta, t.delta + 1);
+      // Validate that we haven't received more entries than have been
+      // originally enqueued.
+      EXPECT_NE(n_, 0);
+      n_--;
+      log(Message{"Dequeued entry"});
+      wait_on(q_->enqueue_event());
+    }
+   private:
+    cc::Queue<cc::Time>* q_;
+    std::size_t n_;
+  };
+
+  // Top-level module for simulation.
+  struct Top : public cc::Module {
+    Top(cc::Kernel* k) : cc::Module(k, "top") {
+      // Queue channel.
+      q_ = new cc::Queue<cc::Time>(k, "Queue", 16);
+      add_child(q_);
+      // Enqueue Process
+      ep_ = new EnqueueProcess(k, q_, 20);
+      add_child(ep_);
+      // Dequeu process
+      dp_ = new DequeueProcess(k, q_, 20);
+      add_child(dp_);
+    }
+    void validate() {
+      EXPECT_TRUE(q_->empty());
+      EXPECT_FALSE(q_->full());
+    }
+    cc::Queue<cc::Time>* q_;
+    EnqueueProcess* ep_;
+    DequeueProcess* dp_;
+  };
+
+  auto k = std::make_unique<cc::Kernel>();
+  auto top = std::make_unique<Top>(k.get());
+  top->init();
+  k->run();
+  top->validate();
+}
+
+
+
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();

@@ -39,15 +39,17 @@ class Process;
 class Action;
 
 struct Time {
-  using cycle_type = std::uint32_t;
+  using time_type = std::uint32_t;
   using delta_type = std::uint32_t;
 
   Time() = default;
-  
-  cycle_type cycle = 0;
+
+  // TODO: consider changing to a tuple type.
+  time_type time = 0;
   delta_type delta = 0;
 };
 
+Time operator+(const Time& lhs, const Time& rhs);
 bool operator<(const Time& lhs, const Time& rhs);
 std::ostream& operator<<(std::ostream& os, const Time& t);
 
@@ -63,8 +65,9 @@ class Kernel {
 
   struct EventComparer {
     bool operator()(const Event& lhs, const Event& rhs) {
-      if (lhs.time.cycle > rhs.time.cycle) return true;
-      if (lhs.time.cycle < rhs.time.cycle) return false;
+      // TODO: create operators
+      if (lhs.time.time > rhs.time.time) return true;
+      if (lhs.time.time < rhs.time.time) return false;
       return lhs.time.delta < rhs.time.delta;
     }
   };
@@ -198,6 +201,7 @@ class Process : public Loggable {
   virtual void eval() {}
 
   //
+  virtual void wait_for(Time t);
   virtual void wait_until(Time t);
   virtual void wait_on(Event& event);
 };

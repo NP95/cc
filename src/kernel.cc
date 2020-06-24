@@ -31,14 +31,18 @@
 
 namespace cc {
 
+Time operator+(const Time& lhs, const Time& rhs) {
+  return Time{lhs.time + rhs.time, lhs.delta + rhs.delta};
+}
+
 bool operator<(const Time& lhs, const Time& rhs) {
-  if (lhs.cycle < rhs.cycle) return true;
-  if (lhs.cycle > rhs.cycle) return false;
+  if (lhs.time < rhs.time) return true;
+  if (lhs.time > rhs.time) return false;
   return (lhs.delta < rhs.delta);
 }
 
 std::ostream& operator<<(std::ostream& os, const Time& t) {
-  return os << t.cycle << ":" << t.delta;
+  return os << t.time << ":" << t.delta;
 }
 
 Kernel::Kernel() {}
@@ -119,7 +123,7 @@ void Event::notify() {
     Process* p_;
   };
   const Time current_time{k()->time()};
-  const Time time{current_time.cycle, current_time.delta + 1};
+  const Time time{current_time.time, current_time.delta + 1};
   for (Process* p : ps_) {
     k()->add_action(time, new EvalProcessAction(p));
   }
@@ -127,6 +131,10 @@ void Event::notify() {
 }
 
 Process::Process(Kernel* k, const std::string& name) : Loggable(k, name) {}
+
+void Process::wait_for(Time t) {
+  wait_until(k()->time() + t);
+}
 
 void Process::wait_until(Time t) {
   struct WaitUntilAction : Action {
