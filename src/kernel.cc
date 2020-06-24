@@ -66,7 +66,9 @@ void Kernel::run(RunMode r, Time t) {
     std::pop_heap(eq_.begin(), eq_.end(), EventComparer{});
     eq_.pop_back();
     time_ = e.time;
-    e.action->eval(this);
+    if (e.action->eval()) {
+      e.action->release();
+    }
   }
 }
 
@@ -128,25 +130,33 @@ void Loggable::log(const Message& m) const {
   }
 }
 
-Action::Action() {}
+Action::Action(Kernel* k, const std::string& name) : Loggable(k, name) {}
+
+void Action::release() { delete this; }
 
 Event::Event(Kernel* k) : k_(k) {}
 
 void Event::notify() {
   struct EvalProcessAction : Action {
-    EvalProcessAction(Process* p) : p_(p) {}
-    void eval(Kernel* k) override { p_->eval(); }
+    EvalProcessAction(Kernel* k, Process* p)
+        : Action(k, "EvalProcessAction"), p_(p) {}
+    bool eval() override {
+      p_->eval();
+      // Discard after evaluation.
+      return true;
+    }
     Process* p_;
   };
   const Time current_time{k()->time()};
   const Time time{current_time.time, current_time.delta + 1};
   for (Process* p : ps_) {
-    k()->add_action(time, new EvalProcessAction(p));
+    k()->add_action(time, new EvalProcessAction(k(), p));
   }
   ps_.clear();
 }
 
-Process::Process(Kernel* k, const std::string& name) : Loggable(k, name) {}
+Process::Process(Kernel* k, const std::string& name)
+    : Loggable(k, name) {}
 
 void Process::wait_for(Time t) {
   wait_until(k()->time() + t);
@@ -154,11 +164,15 @@ void Process::wait_for(Time t) {
 
 void Process::wait_until(Time t) {
   struct WaitUntilAction : Action {
-    WaitUntilAction(Process* p) : p_(p) {}
-    void eval(Kernel* k) override { p_->eval(); }
+    WaitUntilAction(Kernel* k, Process* p) : Action(k, "WaitUntilAction"), p_(p) {}
+    bool eval() override {
+      p_->eval();
+      // Discard after evaluation.
+      return true;
+    }
     Process* p_ = nullptr;
   };
-  k()->add_action(t, new WaitUntilAction(this));
+  k()->add_action(t, new WaitUntilAction(k(), this));
 }
 
 void Process::wait_on(Event& event) {

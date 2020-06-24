@@ -171,7 +171,6 @@ TEST(Sim, QueueDequeueImmediately) {
 }
 
 
-
 TEST(Sim, QueueBurst) {
 
   // Enqueue process; perodically enqueues entries into the queue

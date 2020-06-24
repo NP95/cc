@@ -199,14 +199,15 @@ class Loggable : public Object {
   Level level_;
 };
 
-class Action {
+class Action : public Loggable {
   friend class Process;
 
  public:
-  Action();
+  Action(Kernel* k, const std::string& name);
   virtual ~Action() = default;
 
-  virtual void eval(Kernel* k) = 0;
+  virtual bool eval() = 0;
+  virtual void release();
 };
 
 class Event {
