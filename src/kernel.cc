@@ -45,7 +45,14 @@ std::ostream& operator<<(std::ostream& os, const Time& t) {
   return os << t.time << ":" << t.delta;
 }
 
-Kernel::Kernel() {}
+RandomSource::RandomSource(seed_type seed) : seed_(seed), mt_(seed) {}
+
+bool RandomSource::random_bool(float true_probability) {
+  std::bernoulli_distribution dist(true_probability);
+  return dist(mt_);
+}
+
+Kernel::Kernel(seed_type seed) : random_source_(seed) {}
 
 void Kernel::run(RunMode r, Time t) {
   while (!eq_.empty()) {
@@ -66,6 +73,10 @@ void Kernel::run(RunMode r, Time t) {
 void Kernel::add_action(Time t, Action* a) {
   eq_.push_back(Event{t, a});
   std::push_heap(eq_.begin(), eq_.end(), EventComparer{});
+}
+
+void Kernel::set_seed(seed_type seed) {
+  random_source_ = RandomSource(seed);
 }
 
 Object::Object(Kernel* k, const std::string& name) : k_(k), name_(name) {}

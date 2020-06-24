@@ -31,6 +31,8 @@
 #include <vector>
 #include <ostream>
 #include <string>
+#include <random>
+#include <limits>
 
 namespace cc {
 
@@ -53,10 +55,35 @@ Time operator+(const Time& lhs, const Time& rhs);
 bool operator<(const Time& lhs, const Time& rhs);
 std::ostream& operator<<(std::ostream& os, const Time& t);
 
+class RandomSource {
+  using mt_type = std::mt19937_64;
+  using seed_type = std::mt19937_64::result_type;
+  
+ public:
+  RandomSource(seed_type seed = 1);
+
+  seed_type seed() const { return seed_; }
+
+  bool random_bool(float true_probability = 0.5f);
+
+  template<typename T>
+  T uniform(const T min = std::numeric_limits<T>::min,
+            const T max = std::numeric_limits<T>::max) {
+    std::uniform_int_distribution<T> dist;
+    return dist(mt_);
+  };
+
+ private:
+  seed_type seed_;
+  mt_type mt_;
+};
+
 enum class RunMode { ToExhaustion, ForTime };
 
 class Kernel {
   friend class Process;
+
+  using seed_type = std::mt19937_64::result_type;
 
   struct Event {
     Time time;
@@ -73,21 +100,27 @@ class Kernel {
   };
   
  public:
-  Kernel();
+  Kernel(seed_type seed = 1);
 
   // Observers
   Time time() const { return time_; }
   std::size_t events_n() const { return eq_.size(); }
   bool fatal() const { return fatal_; }
+  RandomSource& random_source() { return random_source_; }
 
   void run(RunMode r = RunMode::ToExhaustion, Time t = Time{});
   void add_action(Time t, Action* a);
   void raise_fatal() { fatal_ = true; }
+  void set_seed(seed_type seed);
  private:
+  // Simulation event queue.
   std::vector<Event> eq_;
+  // Current simulation time.
   Time time_;
-  //! Flag denoting that a fatal error has occurred.
+  // Flag denoting that a fatal error has occurred.
   bool fatal_;
+  // Current random state.
+  RandomSource random_source_;
 };
 
 class Object {

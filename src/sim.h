@@ -33,6 +33,9 @@
 
 namespace cc {
 
+// Class type used to model a generic clock source; a periodic and
+// deterministic tick from which to initiate other actions.
+//
 class Clock : public Module {
  public:
   Clock(Kernel* k, const std::string& name, int ticks, int period = 10);
@@ -49,6 +52,10 @@ class Clock : public Module {
   int ticks_, period_;
 };
 
+// Class type used to model the behavior of a queue type data
+// structure with events corresponding to enqueue and dequeue events
+// where necessary.
+//
 template<typename T>
 class Queue : public Module {
  public:
@@ -62,13 +69,20 @@ class Queue : public Module {
     ts_.resize(n);
   }
 
+  // The capacity of the queue.
   std::size_t n() const { return n_; }
+  // Flag denoting full status of the queue.
   bool full() const { return full_; }
+  // Flag denoting empty status of the queue.
   bool empty() const { return empty_; }
+  // Event notified on the enqueue of an entry into the queue.
   Event& enqueue_event() { return enqueue_event_; }
+  // Event notified on the dequeue of an entry into the queue.
   Event& dequeue_event() { return dequeue_event_; }
+  // Event notified on the transition to non-empty state;
   Event& non_empty_event() { return non_empty_event_; }
 
+  // Enqueue entry into queue; returns true on success.
   bool enqueue(const T& t) {
     if (full()) return false;
 
@@ -81,6 +95,8 @@ class Queue : public Module {
     enqueue_event_.notify();
     return true;
   }
+
+  // Dequeue entry from queue; returns false on success.
   bool dequeue(T& t) {
     if (empty()) return false;
 
