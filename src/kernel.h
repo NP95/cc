@@ -55,6 +55,8 @@ Time operator+(const Time& lhs, const Time& rhs);
 bool operator<(const Time& lhs, const Time& rhs);
 std::ostream& operator<<(std::ostream& os, const Time& t);
 
+// Class which encapsulates randomization functionality associated
+// with a particular seed value.
 class RandomSource {
   using mt_type = std::mt19937_64;
   using seed_type = std::mt19937_64::result_type;
@@ -62,10 +64,16 @@ class RandomSource {
  public:
   RandomSource(seed_type seed = 1);
 
+  // Initial random seed against which state was initiailization. Not
+  // necessarily representative of the randomization state after
+  // random values have been created.
   seed_type seed() const { return seed_; }
 
+  // Emit a random boolean value with true probabiliy according to a
+  // Bernoulli distribution.
   bool random_bool(float true_probability = 0.5f);
 
+  // Emit a random integral type in the closed-interval [min, max].
   template<typename T>
   T uniform(const T min = std::numeric_limits<T>::min(),
             const T max = std::numeric_limits<T>::max()) {
@@ -216,7 +224,6 @@ class Event {
   Event(Kernel* k);
 
   Kernel* k() const { return k_; }
-
   void notify();
 
  private:
@@ -233,13 +240,19 @@ class Process : public Loggable {
   Process(Kernel* k, const std::string& name);
   virtual ~Process() = default;
 
-  //
+  // Initialization routine (called after elaboration).
   virtual void init() {}
+
+  // Evaluation routine (called upon satisfaction of 'wait' condition).
   virtual void eval() {}
 
-  //
+  // Suspend/Re-evaulate process after delay.
   virtual void wait_for(Time t);
+
+  // Suspend/Re-evaulate process at time.
   virtual void wait_until(Time t);
+
+  // Suspend/Re-evaluate process upon the notification of event.
   virtual void wait_on(Event& event);
 };
 
@@ -249,14 +262,14 @@ class Module : public Loggable {
  protected:
   Module(Kernel* k, const std::string& name);
  public:
-  //
   virtual ~Module();
 
-  //
+  // Initialization routine.
   virtual void init();
+  // Finalization routine.
   virtual void fini();
 
-  //
+  // A child objects.
   void add_child(Module* m);
   void add_child(Process* p);
 
