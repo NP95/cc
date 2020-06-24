@@ -30,12 +30,13 @@
 
 #include <vector>
 #include <ostream>
+#include <string>
 
 namespace cc {
 
 // Forwards:
-class Kernel;
 class Process;
+class Action;
 
 struct Time {
   using cycle_type = std::uint32_t;
@@ -48,17 +49,87 @@ struct Time {
 };
 
 bool operator<(const Time& lhs, const Time& rhs);
+std::ostream& operator<<(std::ostream& os, const Time& t);
+
+enum class RunMode { ToExhaustion, ForTime };
+
+class Kernel {
+  friend class Process;
+
+  struct Event {
+    Time time;
+    Action* action;
+  };
+
+  struct EventComparer {
+    bool operator()(const Event& lhs, const Event& rhs) {
+      if (lhs.time.cycle > rhs.time.cycle) return true;
+      if (lhs.time.cycle < rhs.time.cycle) return false;
+      return lhs.time.delta < rhs.time.delta;
+    }
+  };
+  
+ public:
+  Kernel();
+
+  // Observers
+  Time time() const { return time_; }
+  std::size_t events_n() const { return eq_.size(); }
+
+  void run(RunMode r = RunMode::ToExhaustion, Time t = Time{});
+
+  void add_action(Time t, Action* a);
+ private:
+  std::vector<Event> eq_;
+  Time time_;
+};
 
 class Object {
  public:
-  Object();
+  Object(Kernel* k, const std::string& name);
+  virtual ~Object();
 
-  void parent(Object* o) {}
+  //
+  Kernel* k() const { return k_; }
+  bool is_top() const { return parent_ == nullptr; }
+  std::string path() const;
+  std::string name() const { return name_; }
+
+  //
+  void set_top() { parent_ = nullptr; }
+  void set_parent(Object* o) { parent_ = o; }
+  void add_child(Object* c);
+
+ private:
+  Kernel* k_ = nullptr;
+  Object* parent_ = nullptr;
+  std::vector<Object*> children_;
+  mutable std::string path_;
+  std::string name_;
+};
+
+struct LogMessage {
+  LogMessage(const std::string& msg) : msg_(msg) {}
+  std::string msg() const { return msg_; }
+ private:
+  std::string msg_;
 };
 
 class Loggable : public Object {
+  enum class Level { Debug, Info, Warning, Error, Fatal };
  public:
-  Loggable();
+  //
+  Loggable(Kernel* k, const std::string& name);
+
+  //
+  void report_debug(const LogMessage& msg) const;
+  void report_info(const LogMessage& msg) const;
+  void report_warning(const LogMessage& msg) const;
+  void report_error(const LogMessage& msg) const;
+  void report_fatal(const LogMessage& msg) const;
+ private:
+  void report_prefix(Level l, std::ostream& os) const;
+  char level_to_char(Level l) const;
 };
 
 class Action {
@@ -91,10 +162,8 @@ class Process : public Loggable {
   friend class Module;
 
  public:
-  Process(Kernel* k);
+  Process(Kernel* k, const std::string& name);
   virtual ~Process() = default;
-
-  Kernel* k() const { return k_; }
 
   //
   virtual void init() {}
@@ -103,83 +172,28 @@ class Process : public Loggable {
   //
   virtual void wait_until(Time t);
   virtual void wait_on(Event& event);
-
- private:
-  Kernel* k_;
 };
 
 class Module : public Loggable {
   friend class Kernel;
 
  protected:
-  Module(Kernel* k);
+  Module(Kernel* k, const std::string& name);
  public:
   //
   virtual ~Module();
-
-  //
-  Kernel* k() const { return k_; }
 
   //
   virtual void init();
   virtual void fini();
 
   //
-  void add_process(Process* p) { ps_.push_back(p); }
-  void add_child(Module* m) { ms_.push_back(m); }
+  void add_child(Module* m);
+  void add_process(Process* p);
 
  private:
-  Kernel* k_;
-  std::vector<Process*> ps_;
   std::vector<Module*> ms_;
-};
-
-class Clock : public Module {
- public:
-  Clock(Kernel* k, int n, int period = 10);
-
-  int n() const { return n_; }
-  int period() const { return period_; }
-
-  Event& rising_edge_event() { return rising_edge_event_; }
-  const Event& rising_edge_event() const { return rising_edge_event_; }
-
- private:
-  Event rising_edge_event_;
-  Process* p_;
-  int n_, period_;
-};
-
-enum class RunMode { ToExhaustion, ForTime };
-
-class Kernel {
-  friend class Process;
-
-  struct Event {
-    Time time;
-    Action* action;
-  };
-
-  struct EventComparer {
-    bool operator()(const Event& lhs, const Event& rhs) {
-      if (lhs.time.cycle > rhs.time.cycle) return true;
-      if (lhs.time.cycle < rhs.time.cycle) return false;
-      return lhs.time.delta < rhs.time.delta;
-    }
-  };
-  
- public:
-  Kernel();
-
-  // Observers
-  Time time() const { return time_; }
-
-  void run(RunMode r = RunMode::ToExhaustion, Time t = Time{});
-
-  void add_action(Time t, Action* a);
- private:
-  std::vector<Event> eq_;
-  Time time_;
+  std::vector<Process*> ps_;
 };
 
 }

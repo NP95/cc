@@ -42,3 +42,4 @@ macro (create_test testname testfile)
 endmacro ()
 
 create_test(kernel kernel.cc)
+create_test(sim sim.cc)

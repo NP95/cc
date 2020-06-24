@@ -25,33 +25,30 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "gtest/gtest.h"
+#ifndef CC_SIM_H
+#define CC_SIM_H
+
 #include "kernel.h"
 
-TEST(Kernel, BasicScheduling) {
-  cc::Kernel k;
+namespace cc {
 
-  struct TickAction : public cc::Action {
-    TickAction(cc::Time::cycle_type expected_cycle)
-        : expected_cycle_(expected_cycle) {}
-    void eval(cc::Kernel* k) override {
-      const cc::Time time = k->time();
-      EXPECT_EQ(time.cycle, expected_cycle_);
-      EXPECT_EQ(time.delta, 0);
-    }
-    cc::Time::cycle_type expected_cycle_;
-  };
+class Clock : public Module {
+ public:
+  Clock(Kernel* k, const std::string& name, int ticks, int period = 10);
 
-  k.add_action(cc::Time{ 0, 0}, new TickAction( 0));
-  k.add_action(cc::Time{10, 0}, new TickAction(10));
-  k.add_action(cc::Time{20, 0}, new TickAction(20));
-  k.add_action(cc::Time{30, 0}, new TickAction(30));
-  k.add_action(cc::Time{40, 0}, new TickAction(40));
-  k.add_action(cc::Time{50, 0}, new TickAction(50));
-  k.run();
-}
+  int ticks() const { return ticks_; }
+  int period() const { return period_; }
 
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
+  Event& rising_edge_event() { return rising_edge_event_; }
+  const Event& rising_edge_event() const { return rising_edge_event_; }
+
+ private:
+  Event rising_edge_event_;
+  Process* p_;
+  int ticks_, period_;
+};
+
+} // namespace cc
+
+
+#endif

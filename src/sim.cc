@@ -25,33 +25,38 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "gtest/gtest.h"
-#include "kernel.h"
+#include "sim.h"
 
-TEST(Kernel, BasicScheduling) {
-  cc::Kernel k;
+namespace cc {
 
-  struct TickAction : public cc::Action {
-    TickAction(cc::Time::cycle_type expected_cycle)
-        : expected_cycle_(expected_cycle) {}
-    void eval(cc::Kernel* k) override {
-      const cc::Time time = k->time();
-      EXPECT_EQ(time.cycle, expected_cycle_);
-      EXPECT_EQ(time.delta, 0);
+Clock::Clock(Kernel* k, const std::string& name, int ticks, int period)
+    : Module(k, name), ticks_(ticks), period_(period), rising_edge_event_(k) {
+  struct ClockProcess : Process {
+    ClockProcess(Kernel* k, Clock* clk)
+        : Process(k, "ClockProcess"), clk_(clk) {
+      ticks_ = clk->ticks();
     }
-    cc::Time::cycle_type expected_cycle_;
+    void init() override {
+      if (ticks_ == 0) return;
+      Time time = k()->time();
+      time.cycle += clk_->period();
+      wait_until(time);
+    }
+    void eval() override {
+      // Notify
+      clk_->rising_edge_event().notify();
+      if (--ticks_ != 0) {
+        // Schedule next
+        Time time = k()->time();
+        time.cycle += clk_->period();
+        wait_until(time);
+      }
+    }
+    Clock* clk_;
+    int ticks_;
   };
-
-  k.add_action(cc::Time{ 0, 0}, new TickAction( 0));
-  k.add_action(cc::Time{10, 0}, new TickAction(10));
-  k.add_action(cc::Time{20, 0}, new TickAction(20));
-  k.add_action(cc::Time{30, 0}, new TickAction(30));
-  k.add_action(cc::Time{40, 0}, new TickAction(40));
-  k.add_action(cc::Time{50, 0}, new TickAction(50));
-  k.run();
+  p_ = new ClockProcess(k, this);
+  add_process(p_);
 }
 
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
+} // namespace cc

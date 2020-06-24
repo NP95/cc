@@ -27,6 +27,7 @@
 
 #include "kernel.h"
 #include <algorithm>
+#include <iostream>
 
 namespace cc {
 
@@ -36,9 +37,97 @@ bool operator<(const Time& lhs, const Time& rhs) {
   return (lhs.delta < rhs.delta);
 }
 
-Object::Object() {}
+std::ostream& operator<<(std::ostream& os, const Time& t) {
+  return os << t.cycle << ":" << t.delta;
+}
 
-Loggable::Loggable() {}
+Kernel::Kernel() {}
+
+void Kernel::run(RunMode r, Time t) {
+  while (!eq_.empty()) {
+    const Event e = eq_.front();
+    if (r == RunMode::ForTime && t < e.time) break;
+    std::pop_heap(eq_.begin(), eq_.end(), EventComparer{});
+    eq_.pop_back();
+    time_ = e.time;
+    e.action->eval(this);
+  }
+}
+
+void Kernel::add_action(Time t, Action* a) {
+  eq_.push_back(Event{t, a});
+  std::push_heap(eq_.begin(), eq_.end(), EventComparer{});
+}
+
+Object::Object(Kernel* k, const std::string& name) : k_(k), name_(name) {}
+
+Object::~Object() {
+  for (Object* o : children_) delete o;
+}
+
+std::string Object::path() const {
+  if (path_.empty() && !is_top()) {
+    // Construct path;
+    std::vector<std::string> vs;
+    const Object* current = this;
+    while (current != nullptr) {
+      vs.push_back(current->name());
+      current = current->parent_;
+    }
+    for (int i = vs.size() - 1; i >= 0; i--) {
+      path_ += vs[i];
+      if (i != 0) path_ += '.';
+    }
+  }
+  return path_;
+}
+
+void Object::add_child(Object* c) {
+  children_.push_back(c);
+  c->set_parent(this);
+}
+
+Loggable::Loggable(Kernel* k, const std::string& name) : Object(k, name) {}
+
+void Loggable::report_prefix(Level l, std::ostream& os) const {
+  os << "[" << level_to_char(l) << ";" << path() << "@" << k()->time() << "]: ";
+}
+
+void Loggable::report_debug(const LogMessage& m) const {
+  report_prefix(Level::Debug, std::cout);
+  std::cout << m.msg() << "\n";
+}
+
+void Loggable::report_info(const LogMessage& m) const {
+  report_prefix(Level::Info, std::cout);
+  std::cout << m.msg() << "\n";
+}
+
+void Loggable::report_warning(const LogMessage& m) const {
+  report_prefix(Level::Warning, std::cout);
+  std::cout << m.msg() << "\n";
+}
+
+void Loggable::report_error(const LogMessage& m) const {
+  report_prefix(Level::Error, std::cout);
+  std::cout << m.msg() << "\n";
+}
+
+void Loggable::report_fatal(const LogMessage& m) const {
+  report_prefix(Level::Fatal, std::cout);
+  std::cout << m.msg() << "\n";
+}
+
+char Loggable::level_to_char(Level l) const {
+  switch (l) {
+    case Level::Debug: return 'D'; break;
+    case Level::Info: return 'I'; break;
+    case Level::Warning: return 'W'; break;
+    case Level::Error: return 'E'; break;
+    case Level::Fatal: return 'F'; break;
+    default: return 'X'; break;
+  }
+}
 
 Action::Action() {}
 
@@ -58,7 +147,7 @@ void Event::notify() {
   ps_.clear();
 }
 
-Process::Process(Kernel* k) : k_(k) {}
+Process::Process(Kernel* k, const std::string& name) : Loggable(k, name) {}
 
 void Process::wait_until(Time t) {
   struct WaitUntilAction : Action {
@@ -73,12 +162,9 @@ void Process::wait_on(Event& event) {
   event.add_waitee(this);
 }
 
-Module::Module(Kernel* k) : k_(k) {}
+Module::Module(Kernel* k, const std::string& name) : Loggable(k, name) {}
 
-Module::~Module() {
-  for (Module* m : ms_) delete m;
-  for (Process* p : ps_) delete p;
-}
+Module::~Module() {}
 
 void Module::init() {
   for (Module* m : ms_) m->init();
@@ -88,45 +174,14 @@ void Module::init() {
 void Module::fini() {
 }
 
-Clock::Clock(Kernel* k, int n, int period)
-    : Module(k), n_(n), period_(period), rising_edge_event_(k) {
-  struct ClockProcess : Process {
-    ClockProcess(Kernel* k, Clock* clk) : Process(k), clk_(clk) {}
-    void init() override {
-      Time time = k()->time();
-      time.cycle += clk_->period();
-      wait_until(time);
-    }
-    void eval() override {
-      // Notify
-      clk_->rising_edge_event().notify();
-      // Schedule next
-      Time time = k()->time();
-      time.cycle += clk_->period();
-      wait_until(time);
-    }
-    Clock* clk_;
-  };
-  p_ = new ClockProcess(k, this);
-  add_process(p_);
+void Module::add_child(Module* m) {
+  ms_.push_back(m);
+  Object::add_child(m);
 }
 
-Kernel::Kernel() {}
-
-void Kernel::run(RunMode r, Time t) {
-  while (!eq_.empty()) {
-    const Event e = eq_.front();
-    if (r == RunMode::ForTime && t < e.time) break;
-    std::pop_heap(eq_.begin(), eq_.end(), EventComparer{});
-    eq_.pop_back();
-    time_ = e.time;
-    e.action->eval(this);
-  }
-}
-
-void Kernel::add_action(Time t, Action* a) {
-  eq_.push_back(Event{t, a});
-  std::push_heap(eq_.begin(), eq_.end(), EventComparer{});
+void Module::add_process(Process* p) {
+  ps_.push_back(p);
+  Object::add_child(p);
 }
 
 }

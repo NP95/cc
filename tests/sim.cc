@@ -26,29 +26,57 @@
 //========================================================================== //
 
 #include "gtest/gtest.h"
-#include "kernel.h"
+#include "sim.h"
 
-TEST(Kernel, BasicScheduling) {
-  cc::Kernel k;
-
-  struct TickAction : public cc::Action {
-    TickAction(cc::Time::cycle_type expected_cycle)
-        : expected_cycle_(expected_cycle) {}
-    void eval(cc::Kernel* k) override {
-      const cc::Time time = k->time();
-      EXPECT_EQ(time.cycle, expected_cycle_);
-      EXPECT_EQ(time.delta, 0);
+TEST(Sim, BasicClock) {
+  struct OnRisingEdgeProcess : public cc::Process {
+    OnRisingEdgeProcess(cc::Kernel* k, cc::Clock* clk)
+        : cc::Process(k, "OnRisingEdgeProcess"), clk_(clk) {}
+    int n() const { return n_; }
+    void init() override {
+      wait_on(clk_->rising_edge_event());
     }
-    cc::Time::cycle_type expected_cycle_;
+    void eval() override {
+      const cc::LogMessage msg("On rising edge");
+      report_info(msg);
+      wait_on(clk_->rising_edge_event());
+      n_++;
+    }
+   private:
+    int n_ = 0;
+    cc::Clock* clk_;
   };
 
-  k.add_action(cc::Time{ 0, 0}, new TickAction( 0));
-  k.add_action(cc::Time{10, 0}, new TickAction(10));
-  k.add_action(cc::Time{20, 0}, new TickAction(20));
-  k.add_action(cc::Time{30, 0}, new TickAction(30));
-  k.add_action(cc::Time{40, 0}, new TickAction(40));
-  k.add_action(cc::Time{50, 0}, new TickAction(50));
-  k.run();
+  struct TopLevel : public cc::Module {
+    TopLevel(cc::Kernel* k, int n) : cc::Module(k, "top"), n_(n) {
+      set_top();
+      clk_ = new cc::Clock(k, "Clock", n);
+      add_child(clk_);
+      p_ = new OnRisingEdgeProcess(k, clk_);
+      add_process(p_);
+    }
+    int n() const { return n_; }
+    void fini() override {
+      // Check that process has been invoked N times.
+      EXPECT_EQ(p_->n(), n());
+    }
+   private:
+    cc::Clock* clk_;
+    OnRisingEdgeProcess* p_;
+    int n_;
+  };
+
+  for (int n : {10, 20, 30}) {
+    cc::Kernel* k = new cc::Kernel;
+    TopLevel* top = new TopLevel(k, n);
+    top->init();
+    k->run();
+    top->fini();
+    // Check that outstanding event queue has been exhausted.
+    EXPECT_EQ(k->events_n(), 0);
+    delete top;
+    delete k;
+  }
 }
 
 int main(int argc, char** argv) {
