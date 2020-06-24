@@ -72,6 +72,8 @@ class Queue : public Module {
 
   // The capacity of the queue.
   std::size_t n() const { return n_; }
+  // The number of free entries in the queue.
+  std::size_t free() const { return n() - size(); }
   // The occupancy of the queue.
   std::size_t size() const { return size_; }
   // Flag denoting full status of the queue.

@@ -38,7 +38,8 @@ TEST(Sim, BasicClock) {
       wait_on(clk_->rising_edge_event());
     }
     void eval() override {
-      const Message msg("On rising edge");
+      Message msg("On rising edge: ");
+      msg.append(std::to_string(n_)).level(Level::Debug);
       log(msg);
       wait_on(clk_->rising_edge_event());
       n_++;
@@ -67,9 +68,10 @@ TEST(Sim, BasicClock) {
     int n_;
   };
 
-  for (int n : {10, 20, 30}) {
+  for (int i = 0; i < 100; i++) {
     cc::Kernel* k = new cc::Kernel;
-    TopLevel* top = new TopLevel(k, n);
+    cc::RandomSource& r = k->random_source();
+    TopLevel* top = new TopLevel(k, r.uniform<int>(1, 1000));
     top->init();
     k->run();
     top->fini();
@@ -189,11 +191,14 @@ TEST(Sim, QueueBurst) {
         // Queue is not full, enqueue some random number of entries
         // into queue.
         cc::RandomSource& r = k()->random_source();
-        const int num_to_enqueue = r.uniform<int>(1, std::min(n(), q_->n()));
+        const int num_to_enqueue = r.uniform<int>(1, std::min(n(), q_->free()));
         for (int i = 0; i < num_to_enqueue; i++) {
           const int actual = r.uniform<int>();
           EXPECT_TRUE(q_->enqueue(actual));
-          log(Message("Enqueue"));
+          Message msg("Enqueue: ");
+          msg.append(std::to_string(actual));
+          msg.level(Level::Debug);
+          log(msg);
           d_->push_back(actual);
         }
         n_ -= num_to_enqueue;
@@ -235,7 +240,10 @@ TEST(Sim, QueueBurst) {
         d_->pop_front();
         int actual;
         EXPECT_TRUE(q_->dequeue(actual));
-        log(Message("Dequeue"));
+        Message msg("Dequeue: ");
+        msg.append(std::to_string(actual));
+        msg.level(Level::Debug);
+        log(msg);
         EXPECT_EQ(actual, expected);
       }
       if (n_ != 0) {
@@ -259,16 +267,17 @@ TEST(Sim, QueueBurst) {
       // Expected result stream
       d_ = new std::deque<int>();
       // Enqueue Process
-      ep_ = new EnqueueProcess(k, q_, 20, d_);
+      ep_ = new EnqueueProcess(k, q_, 2000, d_);
       add_child(ep_);
       // Dequeu process
-      dp_ = new DequeueProcess(k, q_, 20, d_);
+      dp_ = new DequeueProcess(k, q_, 2000, d_);
       add_child(dp_);
     }
     ~Top() {
       delete d_;
     }
     void validate() {
+      // Validate post-conditions.
       EXPECT_TRUE(q_->empty());
       EXPECT_FALSE(q_->full());
       EXPECT_TRUE(d_->empty());

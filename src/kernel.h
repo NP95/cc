@@ -30,9 +30,9 @@
 
 #include <vector>
 #include <ostream>
-#include <string>
 #include <random>
 #include <limits>
+#include <sstream>
 
 namespace cc {
 
@@ -176,6 +176,9 @@ class Loggable : public Object {
         : msg_(msg), level_(level) {}
     Level level() const { return level_; }
     std::string msg() const { return msg_; }
+
+    void level(Level level) { level_ = level; }
+    Message& append(const std::string& str);
    private:
     std::string msg_;
     Level level_;

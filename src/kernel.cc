@@ -107,6 +107,11 @@ void Object::add_child(Object* c) {
   c->set_parent(this);
 }
 
+Loggable::Message& Loggable::Message::append(const std::string& str) {
+  msg_ += str;
+  return *this;
+}
+
 Loggable::Loggable(Kernel* k, const std::string& name) : Object(k, name) {}
 
 void Loggable::log_prefix(Level l, std::ostream& os) const {
