@@ -61,16 +61,19 @@ class Queue : public Module {
  public:
   Queue(Kernel* k, const std::string& name, std::size_t n)
       : Module(k, name), n_(n),
-        enqueue_event_(k), dequeue_event_(k), non_empty_event_(k) {
+        enqueue_event_(k), dequeue_event_(k), non_empty_event_(k), non_full_event_(k) {
     empty_ = true;
     full_ = false;
     wr_ptr_ = 0;
     rd_ptr_ = 0;
+    size_ = 0;
     ts_.resize(n);
   }
 
   // The capacity of the queue.
   std::size_t n() const { return n_; }
+  // The occupancy of the queue.
+  std::size_t size() const { return size_; }
   // Flag denoting full status of the queue.
   bool full() const { return full_; }
   // Flag denoting empty status of the queue.
@@ -79,8 +82,10 @@ class Queue : public Module {
   Event& enqueue_event() { return enqueue_event_; }
   // Event notified on the dequeue of an entry into the queue.
   Event& dequeue_event() { return dequeue_event_; }
-  // Event notified on the transition to non-empty state;
+  // Event notified on the transition to non-empty state.
   Event& non_empty_event() { return non_empty_event_; }
+  // Event notified on the transition out of the full state.
+  Event& non_full_event() { return non_full_event_; }
 
   // Enqueue entry into queue; returns true on success.
   bool enqueue(const T& t) {
@@ -88,9 +93,13 @@ class Queue : public Module {
 
     ts_[wr_ptr_] = t;
     if (++wr_ptr_ == n()) wr_ptr_ = 0;
+
+    // If was empty, not empty after an enqueue therefore notify,
+    // awaitees waiting for the queue become non-empty.
     if (empty()) non_empty_event_.notify();
+    
     empty_ = false;
-    full_ = (wr_ptr_ == rd_ptr_);
+    full_ = (++size_ == n_);
 
     enqueue_event_.notify();
     return true;
@@ -101,10 +110,15 @@ class Queue : public Module {
     if (empty()) return false;
 
     t = ts_[rd_ptr_];
+
+    // If was full, not full after dequeue therefore notify non-full
+    // event to indicate transition away from full state.
+    if (full()) non_full_event_.notify();
+
     if (++rd_ptr_ == n()) rd_ptr_ = 0;
-    empty_ = (rd_ptr_ == wr_ptr_);
+    empty_ = (--size_ == 0);
     full_ = false;
-    
+
     dequeue_event_.notify();
     return true;
   }
@@ -112,12 +126,13 @@ class Queue : public Module {
  private:
   bool full_, empty_;
   std::size_t wr_ptr_, rd_ptr_;
-  std::size_t n_;
+  std::size_t n_, size_;
   std::vector<T> ts_;
 
   Event enqueue_event_;
   Event dequeue_event_;
   Event non_empty_event_;
+  Event non_full_event_;
 };
 
 } // namespace cc

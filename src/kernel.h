@@ -67,9 +67,9 @@ class RandomSource {
   bool random_bool(float true_probability = 0.5f);
 
   template<typename T>
-  T uniform(const T min = std::numeric_limits<T>::min,
-            const T max = std::numeric_limits<T>::max) {
-    std::uniform_int_distribution<T> dist;
+  T uniform(const T min = std::numeric_limits<T>::min(),
+            const T max = std::numeric_limits<T>::max()) {
+    std::uniform_int_distribution<T> dist(min, max);
     return dist(mt_);
   };
 

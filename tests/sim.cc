@@ -27,6 +27,7 @@
 
 #include "gtest/gtest.h"
 #include "sim.h"
+#include <deque>
 
 TEST(Sim, BasicClock) {
   struct OnRisingEdgeProcess : public cc::Process {
@@ -168,6 +169,122 @@ TEST(Sim, QueueDequeueImmediately) {
 }
 
 
+
+TEST(Sim, QueueBurst) {
+
+  // Enqueue process; perodically enqueues entries into the queue
+  // ensuring that it is non-full (if so error out, as the consuemr
+  // process should be removing the entries immediately after they are
+  // enqueued)
+  struct EnqueueProcess : cc::Process {
+    EnqueueProcess(cc::Kernel* k, cc::Queue<int>* q, std::size_t n, std::deque<int>* d)
+        : cc::Process(k, "EnqueueProcess"), q_(q), n_(n), d_(d) {
+    }
+    std::size_t n() const { return n_; }
+    void init() override {
+      if (n() != 0) wait_for(cc::Time{10});
+    }
+    void eval() override {
+      if (!q_->full()) {
+        // Queue is not full, enqueue some random number of entries
+        // into queue.
+        cc::RandomSource& r = k()->random_source();
+        const int num_to_enqueue = r.uniform<int>(1, std::min(n(), q_->n()));
+        for (int i = 0; i < num_to_enqueue; i++) {
+          const int actual = r.uniform<int>();
+          EXPECT_TRUE(q_->enqueue(actual));
+          log(Message("Enqueue"));
+          d_->push_back(actual);
+        }
+        n_ -= num_to_enqueue;
+        if (n_ != 0) {
+          // Wait for some random interval.
+          const cc::Time time{r.uniform<cc::Time::time_type>(10, 100)};
+          wait_for(time);
+        }
+      } else if (n_ != 0) {
+        // Queue is full and stimulus to go, await non-full condition.
+        wait_on(q_->non_full_event());
+      }
+    }
+   private:
+    cc::Queue<int>* q_;
+    std::size_t n_;
+    std::deque<int>* d_;
+  };
+
+  // Dequeue process; dequeue entry from the queue whenever the
+  // process received notification that an entry has been placed into
+  // the queue. The dequeue should occur in the delta cycle
+  // immediately preceeding the current dequeue cycle.
+  struct DequeueProcess : cc::Process {
+    DequeueProcess(cc::Kernel* k, cc::Queue<int>* q, std::size_t n, std::deque<int>* d)
+        : cc::Process(k, "DequeueProcess"), q_(q), n_(n), d_(d) {
+    }
+    std::size_t n() const { return n_; }
+    void init() override {
+      wait_on(q_->non_empty_event());
+    }
+    void eval() override {
+      cc::RandomSource& r = k()->random_source();
+      const int num_to_dequeue = r.uniform<int>(0, q_->size());
+      for (int i = 0; i < num_to_dequeue && n_ != 0; i++, n_--) {
+        EXPECT_FALSE(q_->empty());
+        EXPECT_FALSE(d_->empty());
+        const int expected = d_->front();
+        d_->pop_front();
+        int actual;
+        EXPECT_TRUE(q_->dequeue(actual));
+        log(Message("Dequeue"));
+        EXPECT_EQ(actual, expected);
+      }
+      if (n_ != 0) {
+        // Wait for some random interval
+        const cc::Time time{r.uniform<cc::Time::time_type>(10, 100)};
+        wait_for(time);
+      }
+    }
+   private:
+    cc::Queue<int>* q_;
+    std::size_t n_;
+    std::deque<int>* d_;
+  };
+
+  // Top-level module for simulation.
+  struct Top : public cc::Module {
+    Top(cc::Kernel* k) : cc::Module(k, "top") {
+      // Queue channel.
+      q_ = new cc::Queue<int>(k, "Queue", 16);
+      add_child(q_);
+      // Expected result stream
+      d_ = new std::deque<int>();
+      // Enqueue Process
+      ep_ = new EnqueueProcess(k, q_, 20, d_);
+      add_child(ep_);
+      // Dequeu process
+      dp_ = new DequeueProcess(k, q_, 20, d_);
+      add_child(dp_);
+    }
+    ~Top() {
+      delete d_;
+    }
+    void validate() {
+      EXPECT_TRUE(q_->empty());
+      EXPECT_FALSE(q_->full());
+      EXPECT_TRUE(d_->empty());
+    }
+    std::deque<int>* d_;
+    cc::Queue<int>* q_;
+    EnqueueProcess* ep_;
+    DequeueProcess* dp_;
+  };
+
+  auto k = std::make_unique<cc::Kernel>();
+  auto top = std::make_unique<Top>(k.get());
+  top->init();
+  k->run();
+  top->validate();
+}
 
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
