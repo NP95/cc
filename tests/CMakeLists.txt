@@ -43,5 +43,5 @@ endmacro ()
 
 create_test(common common.cc)
 create_test(kernel kernel.cc)
-create_test(sim sim.cc)
+create_test(primitives primitives.cc)
 create_test(cache cache.cc)

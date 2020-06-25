@@ -25,13 +25,13 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "sim.h"
+#include "primitives.h"
 
 #include <deque>
 
 #include "gtest/gtest.h"
 
-TEST(Sim, BasicClock) {
+TEST(Primitives, BasicClock) {
   struct OnRisingEdgeProcess : public cc::kernel::Process {
     OnRisingEdgeProcess(cc::kernel::Kernel* k, cc::Clock* clk)
         : cc::kernel::Process(k, "OnRisingEdgeProcess"), clk_(clk) {}
@@ -85,7 +85,7 @@ TEST(Sim, BasicClock) {
   }
 }
 
-TEST(Sim, QueueDequeueImmediately) {
+TEST(Primitives, QueueDequeueImmediately) {
   // Enqueue process; perodically enqueues entries into the queue
   // ensuring that it is non-full (if so error out, as the consuemr
   // process should be removing the entries immediately after they are
@@ -170,7 +170,7 @@ TEST(Sim, QueueDequeueImmediately) {
   top->validate();
 }
 
-TEST(Sim, QueueBurst) {
+TEST(Primitives, QueueBurst) {
   // Enqueue process; perodically enqueues entries into the queue
   // ensuring that it is non-full (if so error out, as the consuemr
   // process should be removing the entries immediately after they are

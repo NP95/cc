@@ -25,8 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_SIM_H
-#define CC_SIM_H
+#ifndef CC_PRIMITIVES_H
+#define CC_PRIMITIVES_H
 
 #include <vector>
 

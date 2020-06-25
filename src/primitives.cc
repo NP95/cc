@@ -25,7 +25,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "sim.h"
+#include "primitives.h"
 
 namespace cc {
 
