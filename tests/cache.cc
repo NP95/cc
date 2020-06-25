@@ -68,9 +68,9 @@ TEST(Cache, Basic) {
     state.token = rnd.uniform<std::uint64_t>();
     EXPECT_FALSE(set.requires_eviction(ah.tag(a)));
     bool did_install = false;
-    for (cc::CacheModel<State>::line_iterator it = set.begin();
-         it != set.end(); ++it) {
-      if (!it->valid) {
+    for (cc::CacheModel<State>::LineIterator it = set.begin(); it != set.end(); ++it) {
+      const cc::CacheModel<State>::Line& line = it.line();
+      if (!line.valid) {
         did_install = true;
         EXPECT_TRUE(set.install(it, ah.tag(a), state));
         EXPECT_EQ(cache_predict.count(a), 0);

@@ -86,7 +86,7 @@ class CacheModel {
   using tag_type = addr_t;
   using line_id_type = addr_t;
 
- private:
+
   // Underlying type denoting each entry in the generic cache
   // structure.
   struct Line {
@@ -94,86 +94,155 @@ class CacheModel {
     tag_type tag;
     T t;
   };
- public:
   
   using cache_type = typename std::vector<Line>;
-
-  // TODO: create abstractions of these:
+  
   using line_iterator = typename std::vector<Line>::iterator;
   using const_line_iterator =
       typename std::vector<Line>::const_iterator;
 
+  class LineIterator {
+    friend class CacheModel;
+    friend class Set;
+
+    friend bool operator==(const LineIterator& lhs, const LineIterator& rhs) {
+      return lhs.raw_ == rhs.raw_;
+    }
+
+    friend bool operator!=(const LineIterator& lhs, const LineIterator& rhs) {
+      return !operator==(lhs.raw_, rhs.raw_);
+    }
+
+    LineIterator(CacheModel* cache, line_iterator raw) : cache_(cache), raw_(raw) {}
+   public:
+
+    Line& line() { return *raw_; }
+    const Line& line() const { return *raw_; }
+    CacheModel* cache() const { return cache_; }
+
+    // Pre-/Post- Increment operators
+    LineIterator& operator++() { ++raw_; return *this; }
+    LineIterator  operator++(int) const { return LineIterator(cache(), raw_ + 1); }
+
+   private:
+    line_iterator raw() const { return raw_; }
+
+    CacheModel* cache_ = nullptr;
+    line_iterator raw_;
+  };
+
+  class ConstLineIterator {
+    friend class Set;
+    friend class CacheModel;
+
+    friend bool operator==(const ConstLineIterator& lhs,
+                           const ConstLineIterator& rhs) {
+      return lhs.raw_ == rhs.raw_;
+    }
+
+    friend bool operator!=(const ConstLineIterator& lhs,
+                           const ConstLineIterator& rhs) {
+      return !operator==(lhs.raw_, rhs.raw_);
+    }
+
+    ConstLineIterator(const CacheModel* cache, const_line_iterator raw)
+        : cache_(cache), raw_(raw) {}
+    ConstLineIterator(const LineIterator& it)
+        : cache_(it.cache()), raw_(it.raw()) {}
+   public:
+
+    const Line& line() const { return *raw_; }
+    const CacheModel* cache() const { return cache_; }
+
+    // Pre-/Post- Increment operators
+    ConstLineIterator& operator++() { ++raw_; return *this; }
+    ConstLineIterator  operator++(int) const { return ConstLineIterator(cache(), raw_ + 1); }
+
+   private:
+    const_line_iterator raw() const { return raw_; }
+
+    const CacheModel* cache_ = nullptr;
+    const_line_iterator raw_;
+  };
+
   class Set {
     friend class CacheModel;
 
-    Set(line_iterator begin, line_iterator end)
+    Set(LineIterator begin, LineIterator end)
         : begin_(begin), end_(end) {}
    public:
 
     // Iterator to the 'begin' line (the zeroth line in the set).
-    line_iterator begin() { return begin_; }
-    const_line_iterator begin() const { return begin_; }
+    LineIterator begin() { return begin_; }
+    ConstLineIterator begin() const { return begin_; }
 
     // Iterator to the 'end' line (the line past the final line in the
     // set).
-    line_iterator end() { return end_; }
-    const_line_iterator end() const { return end_; }
+    LineIterator end() { return end_; }
+    ConstLineIterator end() const { return ConstLineIterator(end_); }
 
     // Return true if the current tag can be installed in the cache
     // without the necessity of a prior eviction operation.
     bool requires_eviction(const tag_type& tag) const {
-      for (const_line_iterator it = begin(); it != end(); ++it) {
+      for (ConstLineIterator it = begin(); it != end(); ++it) {
         // Eviction whenever entry is not already present in the cache
         // and all ways in the set are already occupied.
-        if (!it->valid || (it->tag == tag)) return false;
+        const Line& line = it.line();
+        if (!line.valid || (line.tag == tag)) return false;
       }
       return true;
     }
 
-    bool install(line_iterator it, addr_t tag, const T& t) {
+    bool install(LineIterator it, addr_t tag, const T& t) {
       // Validate that the current location the set is invalid. An
       // entry cannot be installed in the cache unless the data which is
       // already present has been evicted.
-      if (it->valid) return false;
+
+      Line& line = it.line();
+      if (line.valid) return false;
       
-      it->valid = true;
-      it->tag = tag;
-      it->t = t;
+      line.valid = true;
+      line.tag = tag;
+      line.t = t;
       return true;
     }
 
-    bool update(line_iterator it, addr_t tag, const T& t) {
+    bool update(LineIterator it, addr_t tag, const T& t) {
       // Validate that the current line entry corresponds to a valid
       // entry which points to the current address in memory. Unlike
       // 'install', this method expects that the entry in the cache is
       // already present and is simply being overwritten with new data.
-      if (!it->valid || (it->valid && it->tag != tag)) return false;
+      Line& line = it.line();
+      if (!line.valid || (line.valid && line.tag != tag)) return false;
 
-      it->t = t;
+      line.t = t;
       return true;
     }
 
     // Evict line pointer at by 'it' from the Set and by consequence
     // the owning cache.
-    bool evict(line_iterator it) {
-      it->valid = false;
+    bool evict(LineIterator it) {
+      Line& line = it.line();
+      line.valid = false;
       return true;
     }
 
     // Find the line associated with the current tag otherwise return
     // the end iterator if not present in the cache.
-    line_iterator find(const tag_type& tag) {
-      for (line_iterator it = begin(); it != end(); ++it) {
-        if (it->valid && (it->tag == tag)) return it;
+    LineIterator find(const tag_type& tag) {
+      for (LineIterator it = begin(); it != end(); ++it) {
+        Line& line = it.line();
+        if (line.valid && (line.tag == tag)) return it;
       }
       return end();
     }
 
     // Find the line associated with the current tag otherwise return
     // the constant end iterator if not present in the cache.
-    const_line_iterator find(const tag_type& tag) const {
-      for (const_line_iterator it = begin(); it != end(); ++it) {
-        if (it->valid && (it->tag == tag)) return it;
+    ConstLineIterator find(const tag_type& tag) const {
+      for (ConstLineIterator it = begin(); it != end(); ++it) {
+        Line& line = it.line();
+        if (line.valid && (line.tag == tag)) return it;
       }
       return end();
     }
@@ -182,10 +251,11 @@ class CacheModel {
     // present in the cache and additionally return the state
     // associated with the line.
     bool hit(const tag_type& tag, T& t) {
-      line_iterator it = find(tag);
+      LineIterator it = find(tag);
       if (it == end()) return false;
 
-      t = it->t;
+      Line& line = it.line();
+      t = line.t;
       return true;
     }
     
@@ -194,28 +264,29 @@ class CacheModel {
     bool hit(const tag_type& tag) const { return find(tag) != end(); }
 
    private:
-    line_iterator begin_;
-    line_iterator end_;
+    LineIterator begin_;
+    LineIterator end_;
   };
 
   class ConstSet {
     friend class CacheModel;
 
-    ConstSet(const_line_iterator begin, const_line_iterator end)
+    ConstSet(ConstLineIterator begin, ConstLineIterator end)
         : begin_(begin), end_(end) {}
    public:
 
     //
-    const_line_iterator begin() { return begin_; }
-    const_line_iterator begin() const { return begin_; }
+    ConstLineIterator begin() { return begin_; }
+    ConstLineIterator begin() const { return begin_; }
 
     //
-    const_line_iterator end() { return end_; }
-    const_line_iterator end() const { return end_; }
+    ConstLineIterator end() { return end_; }
+    ConstLineIterator end() const { return end_; }
 
-    const_line_iterator find(const tag_type& tag) const {
-      for (const_line_iterator it = begin(); it != end(); ++it) {
-        if (it->valid && (it->tag == tag)) return it;
+    ConstLineIterator find(const tag_type& tag) const {
+      for (ConstLineIterator it = begin(); it != end(); ++it) {
+        const Line& line = it.line();
+        if (line.valid && (line.tag == tag)) return it;
       }
       return end();
     }
@@ -223,8 +294,8 @@ class CacheModel {
     bool hit(const tag_type& tag) { return find(tag) != end(); }
 
    private:
-    const_line_iterator begin_;
-    const_line_iterator end_;
+    ConstLineIterator begin_;
+    ConstLineIterator end_;
   };
 
  public:
@@ -244,14 +315,16 @@ class CacheModel {
 
   Set set(const line_id_type& line_id) {
     const std::size_t line_id_offset = (line_id * config_.ways_n);
-    line_iterator begin = cache_.begin() + line_id_offset;
-    return Set{begin, begin + config_.ways_n};
+    const LineIterator begin{this, cache_.begin() + line_id_offset};
+    const LineIterator end{this, cache_.begin() + line_id_offset + config_.ways_n};
+    return Set{begin, end};
   }
 
   ConstSet set(const line_id_type& line_id) const {
     const std::size_t line_id_offset = (line_id * config_.ways_n);
-    const_line_iterator begin = cache_.begin() + line_id_offset;
-    return ConstSet{begin, begin + config_.ways_n};
+    const ConstLineIterator begin{this, cache_.begin() + line_id_offset};
+    const ConstLineIterator end{this, cache_.begin() + line_id_offset + config_.ways_n};
+    return ConstSet{begin, end};
   }
 
  private:
