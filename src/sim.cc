@@ -59,4 +59,4 @@ Clock::Clock(kernel::Kernel* k, const std::string& name, int ticks, int period)
   add_child(p_);
 }
 
-} // namespace cc
+}  // namespace cc

@@ -25,11 +25,13 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "gtest/gtest.h"
 #include "kernel.h"
+
+#include <algorithm>
 #include <memory>
 #include <vector>
-#include <algorithm>
+
+#include "gtest/gtest.h"
 
 TEST(Kernel, BasicScheduling) {
   struct TickAction : public cc::kernel::Action {
@@ -46,7 +48,7 @@ TEST(Kernel, BasicScheduling) {
   };
 
   cc::kernel::Kernel k;
-  k.add_action(cc::kernel::Time{ 0, 0}, new TickAction(&k,  0));
+  k.add_action(cc::kernel::Time{0, 0}, new TickAction(&k, 0));
   k.add_action(cc::kernel::Time{10, 0}, new TickAction(&k, 10));
   k.add_action(cc::kernel::Time{20, 0}, new TickAction(&k, 20));
   k.add_action(cc::kernel::Time{30, 0}, new TickAction(&k, 30));
@@ -65,7 +67,8 @@ TEST(Kernel, RandomEventScheduling) {
       // Discard after evaluation.
       return true;
     }
-    bool later_or_coincident(const cc::kernel::Time& lhs, const cc::kernel::Time& rhs) {
+    bool later_or_coincident(const cc::kernel::Time& lhs,
+                             const cc::kernel::Time& rhs) {
       if (lhs.time == rhs.time && lhs.delta == rhs.delta) return true;
       return lhs < rhs;
     }
@@ -75,9 +78,10 @@ TEST(Kernel, RandomEventScheduling) {
   cc::kernel::Kernel k;
   cc::kernel::RandomSource& r = k.random_source();
   std::vector<cc::kernel::Time> random_times;
-  std::generate_n(std::back_inserter(random_times), 10000,
-                  [&r]() { return cc::kernel::Time{r.uniform<cc::kernel::Time::time_type>(),
-                          r.uniform<cc::kernel::Time::delta_type>()}; });
+  std::generate_n(std::back_inserter(random_times), 10000, [&r]() {
+    return cc::kernel::Time{r.uniform<cc::kernel::Time::time_type>(),
+                            r.uniform<cc::kernel::Time::delta_type>()};
+  });
 
   cc::kernel::Time prior_time{0, 0};
   for (const cc::kernel::Time& time : random_times)
@@ -88,10 +92,9 @@ TEST(Kernel, RandomEventScheduling) {
 TEST(Kernel, FatalError) {
   struct TopModule : cc::kernel::Module {
     struct RaiseErrorProcess : cc::kernel::Process {
-      RaiseErrorProcess(cc::kernel::Kernel* k) : cc::kernel::Process(k, "RaiseErrorProcess") {}
-      void init() override {
-        wait_until(cc::kernel::Time{100});
-      }
+      RaiseErrorProcess(cc::kernel::Kernel* k)
+          : cc::kernel::Process(k, "RaiseErrorProcess") {}
+      void init() override { wait_until(cc::kernel::Time{100}); }
       void eval() override {
         log(Message("Some error condition", Level::Fatal));
       }

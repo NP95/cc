@@ -26,6 +26,7 @@
 //========================================================================== //
 
 #include "kernel.h"
+
 #include <algorithm>
 #include <iostream>
 
@@ -77,9 +78,7 @@ void Kernel::add_action(Time t, Action* a) {
   std::push_heap(eq_.begin(), eq_.end(), EventComparer{});
 }
 
-void Kernel::set_seed(seed_type seed) {
-  random_source_ = RandomSource(seed);
-}
+void Kernel::set_seed(seed_type seed) { random_source_ = RandomSource(seed); }
 
 Object::Object(Kernel* k, const std::string& name) : k_(k), name_(name) {}
 
@@ -155,16 +154,14 @@ void Event::notify() {
   ps_.clear();
 }
 
-Process::Process(Kernel* k, const std::string& name)
-    : Loggable(k, name) {}
+Process::Process(Kernel* k, const std::string& name) : Loggable(k, name) {}
 
-void Process::wait_for(Time t) {
-  wait_until(k()->time() + t);
-}
+void Process::wait_for(Time t) { wait_until(k()->time() + t); }
 
 void Process::wait_until(Time t) {
   struct WaitUntilAction : Action {
-    WaitUntilAction(Kernel* k, Process* p) : Action(k, "WaitUntilAction"), p_(p) {}
+    WaitUntilAction(Kernel* k, Process* p)
+        : Action(k, "WaitUntilAction"), p_(p) {}
     bool eval() override {
       p_->eval();
       // Discard after evaluation.
@@ -175,9 +172,7 @@ void Process::wait_until(Time t) {
   k()->add_action(t, new WaitUntilAction(k(), this));
 }
 
-void Process::wait_on(Event& event) {
-  event.add_waitee(this);
-}
+void Process::wait_on(Event& event) { event.add_waitee(this); }
 
 Module::Module(Kernel* k, const std::string& name) : Loggable(k, name) {}
 
@@ -188,8 +183,7 @@ void Module::init() {
   for (Process* p : ps_) p->init();
 }
 
-void Module::fini() {
-}
+void Module::fini() {}
 
 void Module::add_child(Module* m) {
   ms_.push_back(m);
@@ -201,4 +195,4 @@ void Module::add_child(Process* p) {
   Object::add_child(p);
 }
 
-} // namespace cc::kernel
+}  // namespace cc::kernel

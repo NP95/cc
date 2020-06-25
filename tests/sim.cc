@@ -25,18 +25,18 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "gtest/gtest.h"
 #include "sim.h"
+
 #include <deque>
+
+#include "gtest/gtest.h"
 
 TEST(Sim, BasicClock) {
   struct OnRisingEdgeProcess : public cc::kernel::Process {
     OnRisingEdgeProcess(cc::kernel::Kernel* k, cc::Clock* clk)
         : cc::kernel::Process(k, "OnRisingEdgeProcess"), clk_(clk) {}
     int n() const { return n_; }
-    void init() override {
-      wait_on(clk_->rising_edge_event());
-    }
+    void init() override { wait_on(clk_->rising_edge_event()); }
     void eval() override {
       Message msg("On rising edge: ");
       msg.append(std::to_string(n_)).level(Level::Debug);
@@ -44,13 +44,15 @@ TEST(Sim, BasicClock) {
       wait_on(clk_->rising_edge_event());
       n_++;
     }
+
    private:
     int n_ = 0;
     cc::Clock* clk_;
   };
 
   struct TopLevel : public cc::kernel::Module {
-    TopLevel(cc::kernel::Kernel* k, int n) : cc::kernel::Module(k, "top"), n_(n) {
+    TopLevel(cc::kernel::Kernel* k, int n)
+        : cc::kernel::Module(k, "top"), n_(n) {
       set_top();
       clk_ = new cc::Clock(k, "Clock", n);
       add_child(clk_);
@@ -62,6 +64,7 @@ TEST(Sim, BasicClock) {
       // Check that process has been invoked N times.
       EXPECT_EQ(p_->n(), n());
     }
+
    private:
     cc::Clock* clk_;
     OnRisingEdgeProcess* p_;
@@ -83,19 +86,16 @@ TEST(Sim, BasicClock) {
 }
 
 TEST(Sim, QueueDequeueImmediately) {
-
   // Enqueue process; perodically enqueues entries into the queue
   // ensuring that it is non-full (if so error out, as the consuemr
   // process should be removing the entries immediately after they are
   // enqueued)
   struct EnqueueProcess : cc::kernel::Process {
-    EnqueueProcess(cc::kernel::Kernel* k, cc::Queue<cc::kernel::Time>* q, std::size_t n)
-        : cc::kernel::Process(k, "EnqueueProcess"), q_(q), n_(n) {
-    }
+    EnqueueProcess(cc::kernel::Kernel* k, cc::Queue<cc::kernel::Time>* q,
+                   std::size_t n)
+        : cc::kernel::Process(k, "EnqueueProcess"), q_(q), n_(n) {}
     std::size_t n() const { return n_; }
-    void init() override {
-      wait_for(cc::kernel::Time{10});
-    }
+    void init() override { wait_for(cc::kernel::Time{10}); }
     void eval() override {
       EXPECT_TRUE(q_->empty());
       EXPECT_TRUE(q_->enqueue(k()->time()));
@@ -103,6 +103,7 @@ TEST(Sim, QueueDequeueImmediately) {
       if (--n_ != 0) wait_for(cc::kernel::Time{10});
       log(Message{"Enqueued entry"});
     }
+
    private:
     cc::Queue<cc::kernel::Time>* q_;
     std::size_t n_;
@@ -113,13 +114,11 @@ TEST(Sim, QueueDequeueImmediately) {
   // the queue. The dequeue should occur in the delta cycle
   // immediately preceeding the current dequeue cycle.
   struct DequeueProcess : cc::kernel::Process {
-    DequeueProcess(cc::kernel::Kernel* k, cc::Queue<cc::kernel::Time>* q, std::size_t n)
-        : cc::kernel::Process(k, "DequeueProcess"), q_(q), n_(n) {
-    }
+    DequeueProcess(cc::kernel::Kernel* k, cc::Queue<cc::kernel::Time>* q,
+                   std::size_t n)
+        : cc::kernel::Process(k, "DequeueProcess"), q_(q), n_(n) {}
     std::size_t n() const { return n_; }
-    void init() override {
-      wait_on(q_->non_empty_event());
-    }
+    void init() override { wait_on(q_->non_empty_event()); }
     void eval() override {
       // Upon invokation, validate than queue has pending entries.
       EXPECT_FALSE(q_->empty());
@@ -136,6 +135,7 @@ TEST(Sim, QueueDequeueImmediately) {
       log(Message{"Dequeued entry"});
       wait_on(q_->enqueue_event());
     }
+
    private:
     cc::Queue<cc::kernel::Time>* q_;
     std::size_t n_;
@@ -170,18 +170,15 @@ TEST(Sim, QueueDequeueImmediately) {
   top->validate();
 }
 
-
 TEST(Sim, QueueBurst) {
-
   // Enqueue process; perodically enqueues entries into the queue
   // ensuring that it is non-full (if so error out, as the consuemr
   // process should be removing the entries immediately after they are
   // enqueued)
   struct EnqueueProcess : cc::kernel::Process {
-    EnqueueProcess(cc::kernel::Kernel* k, cc::Queue<int>* q,
-                   std::size_t n, std::deque<int>* d)
-        : cc::kernel::Process(k, "EnqueueProcess"), q_(q), n_(n), d_(d) {
-    }
+    EnqueueProcess(cc::kernel::Kernel* k, cc::Queue<int>* q, std::size_t n,
+                   std::deque<int>* d)
+        : cc::kernel::Process(k, "EnqueueProcess"), q_(q), n_(n), d_(d) {}
     std::size_t n() const { return n_; }
     void init() override {
       if (n() != 0) wait_for(cc::kernel::Time{10});
@@ -204,7 +201,8 @@ TEST(Sim, QueueBurst) {
         n_ -= num_to_enqueue;
         if (n_ != 0) {
           // Wait for some random interval.
-          const cc::kernel::Time time{r.uniform<cc::kernel::Time::time_type>(10, 100)};
+          const cc::kernel::Time time{
+              r.uniform<cc::kernel::Time::time_type>(10, 100)};
           wait_for(time);
         }
       } else if (n_ != 0) {
@@ -212,6 +210,7 @@ TEST(Sim, QueueBurst) {
         wait_on(q_->non_full_event());
       }
     }
+
    private:
     cc::Queue<int>* q_;
     std::size_t n_;
@@ -225,12 +224,9 @@ TEST(Sim, QueueBurst) {
   struct DequeueProcess : cc::kernel::Process {
     DequeueProcess(cc::kernel::Kernel* k, cc::Queue<int>* q, std::size_t n,
                    std::deque<int>* d)
-        : cc::kernel::Process(k, "DequeueProcess"), q_(q), n_(n), d_(d) {
-    }
+        : cc::kernel::Process(k, "DequeueProcess"), q_(q), n_(n), d_(d) {}
     std::size_t n() const { return n_; }
-    void init() override {
-      wait_on(q_->non_empty_event());
-    }
+    void init() override { wait_on(q_->non_empty_event()); }
     void eval() override {
       cc::kernel::RandomSource& r = k()->random_source();
       const int num_to_dequeue = r.uniform<int>(0, q_->size());
@@ -254,6 +250,7 @@ TEST(Sim, QueueBurst) {
         wait_for(time);
       }
     }
+
    private:
     cc::Queue<int>* q_;
     std::size_t n_;
@@ -275,9 +272,7 @@ TEST(Sim, QueueBurst) {
       dp_ = new DequeueProcess(k, q_, 2000, d_);
       add_child(dp_);
     }
-    ~Top() {
-      delete d_;
-    }
+    ~Top() { delete d_; }
     void validate() {
       // Validate post-conditions.
       EXPECT_TRUE(q_->empty());

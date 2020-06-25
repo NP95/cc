@@ -28,8 +28,9 @@
 #ifndef CC_SIM_H
 #define CC_SIM_H
 
-#include "kernel.h"
 #include <vector>
+
+#include "kernel.h"
 
 namespace cc {
 
@@ -56,12 +57,16 @@ class Clock : public kernel::Module {
 // structure with events corresponding to enqueue and dequeue events
 // where necessary.
 //
-template<typename T>
+template <typename T>
 class Queue : public kernel::Module {
  public:
   Queue(kernel::Kernel* k, const std::string& name, std::size_t n)
-      : kernel::Module(k, name), n_(n),
-        enqueue_event_(k), dequeue_event_(k), non_empty_event_(k), non_full_event_(k) {
+      : kernel::Module(k, name),
+        n_(n),
+        enqueue_event_(k),
+        dequeue_event_(k),
+        non_empty_event_(k),
+        non_full_event_(k) {
     empty_ = true;
     full_ = false;
     wr_ptr_ = 0;
@@ -99,7 +104,7 @@ class Queue : public kernel::Module {
     // If was empty, not empty after an enqueue therefore notify,
     // awaitees waiting for the queue become non-empty.
     if (empty()) non_empty_event_.notify();
-    
+
     empty_ = false;
     full_ = (++size_ == n_);
 
@@ -137,7 +142,6 @@ class Queue : public kernel::Module {
   kernel::Event non_full_event_;
 };
 
-} // namespace cc
-
+}  // namespace cc
 
 #endif

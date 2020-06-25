@@ -28,11 +28,11 @@
 #ifndef CC_KERNEL_H
 #define CC_KERNEL_H
 
-#include <vector>
+#include <limits>
 #include <ostream>
 #include <random>
-#include <limits>
 #include <sstream>
+#include <vector>
 
 namespace cc::kernel {
 
@@ -60,7 +60,7 @@ std::ostream& operator<<(std::ostream& os, const Time& t);
 class RandomSource {
   using mt_type = std::mt19937_64;
   using seed_type = std::mt19937_64::result_type;
-  
+
  public:
   RandomSource(seed_type seed = 1);
 
@@ -74,7 +74,7 @@ class RandomSource {
   bool random_bool(float true_probability = 0.5f);
 
   // Emit a random integral type in the closed-interval [min, max].
-  template<typename T>
+  template <typename T>
   T uniform(const T min = std::numeric_limits<T>::min(),
             const T max = std::numeric_limits<T>::max()) {
     std::uniform_int_distribution<T> dist(min, max);
@@ -106,7 +106,7 @@ class Kernel {
       return lhs.time.delta < rhs.time.delta;
     }
   };
-  
+
  public:
   Kernel(seed_type seed = 1);
 
@@ -120,6 +120,7 @@ class Kernel {
   void add_action(Time t, Action* a);
   void raise_fatal() { fatal_ = true; }
   void set_seed(seed_type seed);
+
  private:
   // Simulation event queue.
   std::vector<Event> eq_;
@@ -157,7 +158,6 @@ class Object {
 
 class Loggable : public Object {
  protected:
-
   struct Level {
     enum : int { Fatal = 0, Error, Warning, Info, Debug };
     Level() : level_(Debug) {}
@@ -167,14 +167,27 @@ class Loggable : public Object {
     char to_char() const { return str()[0]; }
     const char* str() const {
       switch (level_) {
-        case Debug: return "DEBUG"; break;
-        case Info: return "INFO"; break;
-        case Warning: return "WARNING"; break;
-        case Error: return "ERROR"; break;
-        case Fatal: return "FATAL"; break;
-        default: return "X"; break;
+        case Debug:
+          return "DEBUG";
+          break;
+        case Info:
+          return "INFO";
+          break;
+        case Warning:
+          return "WARNING";
+          break;
+        case Error:
+          return "ERROR";
+          break;
+        case Fatal:
+          return "FATAL";
+          break;
+        default:
+          return "X";
+          break;
       }
     }
+
    private:
     int level_;
   };
@@ -187,6 +200,7 @@ class Loggable : public Object {
 
     void level(Level level) { level_ = level; }
     Message& append(const std::string& str);
+
    private:
     std::string msg_;
     Level level_;
@@ -201,6 +215,7 @@ class Loggable : public Object {
 
   //
   void log(const Message& msg) const;
+
  private:
   void log_prefix(Level l, std::ostream& os) const;
 
@@ -220,6 +235,7 @@ class Action : public Loggable {
 
 class Event {
   friend class Process;
+
  public:
   Event(Kernel* k);
 
@@ -228,7 +244,7 @@ class Event {
 
  private:
   void add_waitee(Process* p) { ps_.push_back(p); }
-  
+
   std::vector<Process*> ps_;
   Kernel* k_;
 };
@@ -261,6 +277,7 @@ class Module : public Loggable {
 
  protected:
   Module(Kernel* k, const std::string& name);
+
  public:
   virtual ~Module();
 
@@ -278,6 +295,6 @@ class Module : public Loggable {
   std::vector<Process*> ps_;
 };
 
-} // namespace cc::kernel
+}  // namespace cc::kernel
 
-#endif //CC_KERNEL_H
+#endif  // CC_KERNEL_H
