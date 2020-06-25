@@ -30,9 +30,9 @@
 #include <deque>
 
 TEST(Sim, BasicClock) {
-  struct OnRisingEdgeProcess : public cc::Process {
-    OnRisingEdgeProcess(cc::Kernel* k, cc::Clock* clk)
-        : cc::Process(k, "OnRisingEdgeProcess"), clk_(clk) {}
+  struct OnRisingEdgeProcess : public cc::kernel::Process {
+    OnRisingEdgeProcess(cc::kernel::Kernel* k, cc::Clock* clk)
+        : cc::kernel::Process(k, "OnRisingEdgeProcess"), clk_(clk) {}
     int n() const { return n_; }
     void init() override {
       wait_on(clk_->rising_edge_event());
@@ -49,8 +49,8 @@ TEST(Sim, BasicClock) {
     cc::Clock* clk_;
   };
 
-  struct TopLevel : public cc::Module {
-    TopLevel(cc::Kernel* k, int n) : cc::Module(k, "top"), n_(n) {
+  struct TopLevel : public cc::kernel::Module {
+    TopLevel(cc::kernel::Kernel* k, int n) : cc::kernel::Module(k, "top"), n_(n) {
       set_top();
       clk_ = new cc::Clock(k, "Clock", n);
       add_child(clk_);
@@ -69,8 +69,8 @@ TEST(Sim, BasicClock) {
   };
 
   for (int i = 0; i < 100; i++) {
-    cc::Kernel* k = new cc::Kernel;
-    cc::RandomSource& r = k->random_source();
+    cc::kernel::Kernel* k = new cc::kernel::Kernel;
+    cc::kernel::RandomSource& r = k->random_source();
     TopLevel* top = new TopLevel(k, r.uniform<int>(1, 1000));
     top->init();
     k->run();
@@ -88,23 +88,23 @@ TEST(Sim, QueueDequeueImmediately) {
   // ensuring that it is non-full (if so error out, as the consuemr
   // process should be removing the entries immediately after they are
   // enqueued)
-  struct EnqueueProcess : cc::Process {
-    EnqueueProcess(cc::Kernel* k, cc::Queue<cc::Time>* q, std::size_t n)
-        : cc::Process(k, "EnqueueProcess"), q_(q), n_(n) {
+  struct EnqueueProcess : cc::kernel::Process {
+    EnqueueProcess(cc::kernel::Kernel* k, cc::Queue<cc::kernel::Time>* q, std::size_t n)
+        : cc::kernel::Process(k, "EnqueueProcess"), q_(q), n_(n) {
     }
     std::size_t n() const { return n_; }
     void init() override {
-      wait_for(cc::Time{10});
+      wait_for(cc::kernel::Time{10});
     }
     void eval() override {
       EXPECT_TRUE(q_->empty());
       EXPECT_TRUE(q_->enqueue(k()->time()));
 
-      if (--n_ != 0) wait_for(cc::Time{10});
+      if (--n_ != 0) wait_for(cc::kernel::Time{10});
       log(Message{"Enqueued entry"});
     }
    private:
-    cc::Queue<cc::Time>* q_;
+    cc::Queue<cc::kernel::Time>* q_;
     std::size_t n_;
   };
 
@@ -112,9 +112,9 @@ TEST(Sim, QueueDequeueImmediately) {
   // process received notification that an entry has been placed into
   // the queue. The dequeue should occur in the delta cycle
   // immediately preceeding the current dequeue cycle.
-  struct DequeueProcess : cc::Process {
-    DequeueProcess(cc::Kernel* k, cc::Queue<cc::Time>* q, std::size_t n)
-        : cc::Process(k, "DequeueProcess"), q_(q), n_(n) {
+  struct DequeueProcess : cc::kernel::Process {
+    DequeueProcess(cc::kernel::Kernel* k, cc::Queue<cc::kernel::Time>* q, std::size_t n)
+        : cc::kernel::Process(k, "DequeueProcess"), q_(q), n_(n) {
     }
     std::size_t n() const { return n_; }
     void init() override {
@@ -124,9 +124,9 @@ TEST(Sim, QueueDequeueImmediately) {
       // Upon invokation, validate than queue has pending entries.
       EXPECT_FALSE(q_->empty());
       // Dequeue entry and validate
-      cc::Time t;
+      cc::kernel::Time t;
       EXPECT_TRUE(q_->dequeue(t));
-      const cc::Time current_time = k()->time();
+      const cc::kernel::Time current_time = k()->time();
       EXPECT_EQ(current_time.time, t.time);
       EXPECT_EQ(current_time.delta, t.delta + 1);
       // Validate that we haven't received more entries than have been
@@ -137,15 +137,15 @@ TEST(Sim, QueueDequeueImmediately) {
       wait_on(q_->enqueue_event());
     }
    private:
-    cc::Queue<cc::Time>* q_;
+    cc::Queue<cc::kernel::Time>* q_;
     std::size_t n_;
   };
 
   // Top-level module for simulation.
-  struct Top : public cc::Module {
-    Top(cc::Kernel* k) : cc::Module(k, "top") {
+  struct Top : public cc::kernel::Module {
+    Top(cc::kernel::Kernel* k) : cc::kernel::Module(k, "top") {
       // Queue channel.
-      q_ = new cc::Queue<cc::Time>(k, "Queue", 16);
+      q_ = new cc::Queue<cc::kernel::Time>(k, "Queue", 16);
       add_child(q_);
       // Enqueue Process
       ep_ = new EnqueueProcess(k, q_, 20);
@@ -158,12 +158,12 @@ TEST(Sim, QueueDequeueImmediately) {
       EXPECT_TRUE(q_->empty());
       EXPECT_FALSE(q_->full());
     }
-    cc::Queue<cc::Time>* q_;
+    cc::Queue<cc::kernel::Time>* q_;
     EnqueueProcess* ep_;
     DequeueProcess* dp_;
   };
 
-  auto k = std::make_unique<cc::Kernel>();
+  auto k = std::make_unique<cc::kernel::Kernel>();
   auto top = std::make_unique<Top>(k.get());
   top->init();
   k->run();
@@ -177,19 +177,20 @@ TEST(Sim, QueueBurst) {
   // ensuring that it is non-full (if so error out, as the consuemr
   // process should be removing the entries immediately after they are
   // enqueued)
-  struct EnqueueProcess : cc::Process {
-    EnqueueProcess(cc::Kernel* k, cc::Queue<int>* q, std::size_t n, std::deque<int>* d)
-        : cc::Process(k, "EnqueueProcess"), q_(q), n_(n), d_(d) {
+  struct EnqueueProcess : cc::kernel::Process {
+    EnqueueProcess(cc::kernel::Kernel* k, cc::Queue<int>* q,
+                   std::size_t n, std::deque<int>* d)
+        : cc::kernel::Process(k, "EnqueueProcess"), q_(q), n_(n), d_(d) {
     }
     std::size_t n() const { return n_; }
     void init() override {
-      if (n() != 0) wait_for(cc::Time{10});
+      if (n() != 0) wait_for(cc::kernel::Time{10});
     }
     void eval() override {
       if (!q_->full()) {
         // Queue is not full, enqueue some random number of entries
         // into queue.
-        cc::RandomSource& r = k()->random_source();
+        cc::kernel::RandomSource& r = k()->random_source();
         const int num_to_enqueue = r.uniform<int>(1, std::min(n(), q_->free()));
         for (int i = 0; i < num_to_enqueue; i++) {
           const int actual = r.uniform<int>();
@@ -203,7 +204,7 @@ TEST(Sim, QueueBurst) {
         n_ -= num_to_enqueue;
         if (n_ != 0) {
           // Wait for some random interval.
-          const cc::Time time{r.uniform<cc::Time::time_type>(10, 100)};
+          const cc::kernel::Time time{r.uniform<cc::kernel::Time::time_type>(10, 100)};
           wait_for(time);
         }
       } else if (n_ != 0) {
@@ -221,16 +222,17 @@ TEST(Sim, QueueBurst) {
   // process received notification that an entry has been placed into
   // the queue. The dequeue should occur in the delta cycle
   // immediately preceeding the current dequeue cycle.
-  struct DequeueProcess : cc::Process {
-    DequeueProcess(cc::Kernel* k, cc::Queue<int>* q, std::size_t n, std::deque<int>* d)
-        : cc::Process(k, "DequeueProcess"), q_(q), n_(n), d_(d) {
+  struct DequeueProcess : cc::kernel::Process {
+    DequeueProcess(cc::kernel::Kernel* k, cc::Queue<int>* q, std::size_t n,
+                   std::deque<int>* d)
+        : cc::kernel::Process(k, "DequeueProcess"), q_(q), n_(n), d_(d) {
     }
     std::size_t n() const { return n_; }
     void init() override {
       wait_on(q_->non_empty_event());
     }
     void eval() override {
-      cc::RandomSource& r = k()->random_source();
+      cc::kernel::RandomSource& r = k()->random_source();
       const int num_to_dequeue = r.uniform<int>(0, q_->size());
       for (int i = 0; i < num_to_dequeue && n_ != 0; i++, n_--) {
         EXPECT_FALSE(q_->empty());
@@ -247,7 +249,8 @@ TEST(Sim, QueueBurst) {
       }
       if (n_ != 0) {
         // Wait for some random interval
-        const cc::Time time{r.uniform<cc::Time::time_type>(10, 100)};
+        using time_type = cc::kernel::Time::time_type;
+        const cc::kernel::Time time{r.uniform<time_type>(10, 100)};
         wait_for(time);
       }
     }
@@ -258,8 +261,8 @@ TEST(Sim, QueueBurst) {
   };
 
   // Top-level module for simulation.
-  struct Top : public cc::Module {
-    Top(cc::Kernel* k) : cc::Module(k, "top") {
+  struct Top : public cc::kernel::Module {
+    Top(cc::kernel::Kernel* k) : cc::kernel::Module(k, "top") {
       // Queue channel.
       q_ = new cc::Queue<int>(k, "Queue", 16);
       add_child(q_);
@@ -287,7 +290,7 @@ TEST(Sim, QueueBurst) {
     DequeueProcess* dp_;
   };
 
-  auto k = std::make_unique<cc::Kernel>();
+  auto k = std::make_unique<cc::kernel::Kernel>();
   auto top = std::make_unique<Top>(k.get());
   top->init();
   k->run();

@@ -29,16 +29,16 @@
 
 namespace cc {
 
-Clock::Clock(Kernel* k, const std::string& name, int ticks, int period)
+Clock::Clock(kernel::Kernel* k, const std::string& name, int ticks, int period)
     : Module(k, name), ticks_(ticks), period_(period), rising_edge_event_(k) {
-  struct ClockProcess : Process {
-    ClockProcess(Kernel* k, Clock* clk)
+  struct ClockProcess : kernel::Process {
+    ClockProcess(kernel::Kernel* k, Clock* clk)
         : Process(k, "ClockProcess"), clk_(clk) {
       ticks_ = clk->ticks();
     }
     void init() override {
       if (ticks_ == 0) return;
-      Time time = k()->time();
+      kernel::Time time = k()->time();
       time.time += clk_->period();
       wait_until(time);
     }
@@ -47,7 +47,7 @@ Clock::Clock(Kernel* k, const std::string& name, int ticks, int period)
       clk_->rising_edge_event().notify();
       if (--ticks_ != 0) {
         // Schedule next
-        Time time = k()->time();
+        kernel::Time time = k()->time();
         time.time += clk_->period();
         wait_until(time);
       }

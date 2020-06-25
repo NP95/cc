@@ -36,19 +36,19 @@ namespace cc {
 // Class type used to model a generic clock source; a periodic and
 // deterministic tick from which to initiate other actions.
 //
-class Clock : public Module {
+class Clock : public kernel::Module {
  public:
-  Clock(Kernel* k, const std::string& name, int ticks, int period = 10);
+  Clock(kernel::Kernel* k, const std::string& name, int ticks, int period = 10);
 
   int ticks() const { return ticks_; }
   int period() const { return period_; }
 
-  Event& rising_edge_event() { return rising_edge_event_; }
-  const Event& rising_edge_event() const { return rising_edge_event_; }
+  kernel::Event& rising_edge_event() { return rising_edge_event_; }
+  const kernel::Event& rising_edge_event() const { return rising_edge_event_; }
 
  private:
-  Event rising_edge_event_;
-  Process* p_;
+  kernel::Event rising_edge_event_;
+  kernel::Process* p_;
   int ticks_, period_;
 };
 
@@ -57,10 +57,10 @@ class Clock : public Module {
 // where necessary.
 //
 template<typename T>
-class Queue : public Module {
+class Queue : public kernel::Module {
  public:
-  Queue(Kernel* k, const std::string& name, std::size_t n)
-      : Module(k, name), n_(n),
+  Queue(kernel::Kernel* k, const std::string& name, std::size_t n)
+      : kernel::Module(k, name), n_(n),
         enqueue_event_(k), dequeue_event_(k), non_empty_event_(k), non_full_event_(k) {
     empty_ = true;
     full_ = false;
@@ -80,14 +80,14 @@ class Queue : public Module {
   bool full() const { return full_; }
   // Flag denoting empty status of the queue.
   bool empty() const { return empty_; }
-  // Event notified on the enqueue of an entry into the queue.
-  Event& enqueue_event() { return enqueue_event_; }
-  // Event notified on the dequeue of an entry into the queue.
-  Event& dequeue_event() { return dequeue_event_; }
-  // Event notified on the transition to non-empty state.
-  Event& non_empty_event() { return non_empty_event_; }
-  // Event notified on the transition out of the full state.
-  Event& non_full_event() { return non_full_event_; }
+  // kernel::Event notified on the enqueue of an entry into the queue.
+  kernel::Event& enqueue_event() { return enqueue_event_; }
+  // kernel::Event notified on the dequeue of an entry into the queue.
+  kernel::Event& dequeue_event() { return dequeue_event_; }
+  // kernel::Event notified on the transition to non-empty state.
+  kernel::Event& non_empty_event() { return non_empty_event_; }
+  // kernel::Event notified on the transition out of the full state.
+  kernel::Event& non_full_event() { return non_full_event_; }
 
   // Enqueue entry into queue; returns true on success.
   bool enqueue(const T& t) {
@@ -131,10 +131,10 @@ class Queue : public Module {
   std::size_t n_, size_;
   std::vector<T> ts_;
 
-  Event enqueue_event_;
-  Event dequeue_event_;
-  Event non_empty_event_;
-  Event non_full_event_;
+  kernel::Event enqueue_event_;
+  kernel::Event dequeue_event_;
+  kernel::Event non_empty_event_;
+  kernel::Event non_full_event_;
 };
 
 } // namespace cc

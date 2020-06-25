@@ -29,7 +29,7 @@
 #include <algorithm>
 #include <iostream>
 
-namespace cc {
+namespace cc::kernel {
 
 Time operator+(const Time& lhs, const Time& rhs) {
   return Time{lhs.time + rhs.time, lhs.delta + rhs.delta};
@@ -201,4 +201,4 @@ void Module::add_child(Process* p) {
   Object::add_child(p);
 }
 
-}
+} // namespace cc::kernel

@@ -34,7 +34,7 @@
 #include <limits>
 #include <sstream>
 
-namespace cc {
+namespace cc::kernel {
 
 // Forwards:
 class Process;
@@ -278,6 +278,6 @@ class Module : public Loggable {
   std::vector<Process*> ps_;
 };
 
-}
+} // namespace cc::kernel
 
 #endif //CC_KERNEL_H
