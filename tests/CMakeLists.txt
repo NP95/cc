@@ -41,5 +41,7 @@ macro (create_test testname testfile)
   add_test(NAME ${testname} COMMAND test_${testname})
 endmacro ()
 
+create_test(common common.cc)
 create_test(kernel kernel.cc)
 create_test(sim sim.cc)
+create_test(cache cache.cc)

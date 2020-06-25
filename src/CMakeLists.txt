@@ -25,4 +25,4 @@
 ## POSSIBILITY OF SUCH DAMAGE.
 ## ========================================================================= ##
 
-add_library(cc kernel.cc sim.cc)
+add_library(cc kernel.cc sim.cc cache.cc)
