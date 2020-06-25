@@ -30,6 +30,7 @@
 
 #include "common.h"
 #include <vector>
+#include <tuple>
 
 namespace cc {
 
@@ -69,7 +70,7 @@ struct CacheAddressHelper {
   std::size_t line_bits() const { return line_bits_; }
 
   addr_t offset(const addr_t& a) const;
-  addr_t line(const addr_t& a) const;
+  addr_t set(const addr_t& a) const;
   addr_t tag(const addr_t& a) const;
   
  private:
@@ -80,10 +81,12 @@ struct CacheAddressHelper {
 
 template<typename T>
 class CacheModel {
+ public:
   
   using tag_type = addr_t;
   using line_id_type = addr_t;
 
+ private:
   // Underlying type denoting each entry in the generic cache
   // structure.
   struct Line {
@@ -91,13 +94,14 @@ class CacheModel {
     tag_type tag;
     T t;
   };
+ public:
   
   using cache_type = typename std::vector<Line>;
+
+  // TODO: create abstractions of these:
   using line_iterator = typename std::vector<Line>::iterator;
   using const_line_iterator =
       typename std::vector<Line>::const_iterator;
-
- public:
 
   class Set {
     friend class CacheModel;
@@ -126,10 +130,34 @@ class CacheModel {
       return true;
     }
 
+    bool install(line_iterator it, addr_t tag, const T& t) {
+      // Validate that the current location the set is invalid. An
+      // entry cannot be installed in the cache unless the data which is
+      // already present has been evicted.
+      if (it->valid) return false;
+      
+      it->valid = true;
+      it->tag = tag;
+      it->t = t;
+      return true;
+    }
+
+    bool update(line_iterator it, addr_t tag, const T& t) {
+      // Validate that the current line entry corresponds to a valid
+      // entry which points to the current address in memory. Unlike
+      // 'install', this method expects that the entry in the cache is
+      // already present and is simply being overwritten with new data.
+      if (!it->valid || (it->valid && it->tag != tag)) return false;
+
+      it->t = t;
+      return true;
+    }
+
     // Evict line pointer at by 'it' from the Set and by consequence
     // the owning cache.
     bool evict(line_iterator it) {
       it->valid = false;
+      return true;
     }
 
     // Find the line associated with the current tag otherwise return
@@ -150,9 +178,20 @@ class CacheModel {
       return end();
     }
 
+    // Return true if the line corresponding to the current tag is
+    // present in the cache and additionally return the state
+    // associated with the line.
+    bool hit(const tag_type& tag, T& t) {
+      line_iterator it = find(tag);
+      if (it == end()) return false;
+
+      t = it->t;
+      return true;
+    }
+    
     // Return true if line corresponding the current tag is present in
     // the cache.
-    bool hit(const tag_type& tag) { return find(tag) != end(); }
+    bool hit(const tag_type& tag) const { return find(tag) != end(); }
 
    private:
     line_iterator begin_;
@@ -200,7 +239,7 @@ class CacheModel {
   const CacheStatistics& stats() const { return stats_; }
 
   bool hit(const addr_t& addr) const {
-    return set(ah_.line(addr)).hit(ah_.tag(addr));
+    return set(ah_.set(addr)).hit(ah_.tag(addr));
   }
 
   Set set(const line_id_type& line_id) {

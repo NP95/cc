@@ -26,6 +26,8 @@
 //========================================================================== //
 
 #include "cache.h"
+#include "kernel.h"
+#include <set>
 
 #include "gtest/gtest.h"
 
@@ -38,12 +40,12 @@ TEST(Cache, AddressHelper) {
   EXPECT_EQ(helper.offset_bits(), 6);
   EXPECT_EQ(helper.line_bits(), 10);
   EXPECT_EQ(helper.offset(0xFFFFF), 0x3F);
-  EXPECT_EQ(helper.line(0xFFFFFFF), 0x3FF);
+  EXPECT_EQ(helper.set(0xFFFFFFF), 0x3FF);
 }
 
 TEST(Cache, Basic) {
   struct State {
-    bool dirty = false;
+    std::uint64_t token;
   };
 
   cc::CacheModelConfig cfg;
@@ -51,10 +53,49 @@ TEST(Cache, Basic) {
   cfg.ways_n = 4;
   cfg.line_bytes_n = 64;
   cc::CacheModel<State> cache(cfg);
-  EXPECT_FALSE(cache.hit(0));
 
-  const cc::CacheModel<State>::Set s{cache.set(0)};
-  EXPECT_FALSE(s.requires_eviction(0));
+  cc::kernel::Kernel k;
+  cc::kernel::RandomSource& rnd = k.random_source();
+  
+  std::map<cc::addr_t, State> cache_predict;
+  const cc::CacheAddressHelper& ah = cache.ah();
+
+  // Install some random state into all lines belonging to a set.
+  for (int way = 0; way < cfg.ways_n; way++) {
+    const cc::addr_t a = way << (ah.line_bits() + ah.offset_bits());
+    cc::CacheModel<State>::Set set = cache.set(ah.set(a));
+    State state;
+    state.token = rnd.uniform<std::uint64_t>();
+    EXPECT_FALSE(set.requires_eviction(ah.tag(a)));
+    bool did_install = false;
+    for (cc::CacheModel<State>::line_iterator it = set.begin();
+         it != set.end(); ++it) {
+      if (!it->valid) {
+        did_install = true;
+        EXPECT_TRUE(set.install(it, ah.tag(a), state));
+        EXPECT_EQ(cache_predict.count(a), 0);
+        cache_predict[a] = state;
+        break;
+      }
+    }
+    EXPECT_TRUE(did_install);
+  }
+
+  // Read back all previously installed entries and validate that
+  // 1) they are indeed present in the cache, 2) the values contained
+  // in by the line are what was expeted.
+  for (const std::pair<cc::addr_t, State> & p: cache_predict) {
+    const cc::addr_t a = p.first;
+    const State state_expected = p.second;
+
+    cc::CacheModel<State>::Set set = cache.set(ah.set(a));
+    State state_actual;
+    // Validate that the address is present in the cache.
+    EXPECT_TRUE(set.hit(ah.tag(a), state_actual));
+    // Validate that the state recovered from the cache model is equal
+    // to that which was originally installed.
+    EXPECT_EQ(state_expected.token, state_actual.token);
+  }
 }
 
 int main(int argc, char** argv) {

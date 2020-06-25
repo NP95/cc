@@ -39,7 +39,7 @@ addr_t CacheAddressHelper::offset(const addr_t& a) const {
   return a & mask<addr_t>(offset_bits_);
 }
 
-addr_t CacheAddressHelper::line(const addr_t& a) const {
+addr_t CacheAddressHelper::set(const addr_t& a) const {
   return (a >> offset_bits_) & mask<addr_t>(line_bits_);
 }
 
