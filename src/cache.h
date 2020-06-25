@@ -34,6 +34,8 @@
 
 namespace cc {
 
+//
+//
 struct CacheModelConfig {
 
   // The number of sets
@@ -52,6 +54,8 @@ struct CacheModelConfig {
   std::size_t bytes() const;
 };
 
+//
+//
 struct CacheStatistics {
   // The total number of evictions experienced by the cache.
   std::uint64_t evictions = 0;
@@ -63,6 +67,8 @@ struct CacheStatistics {
   std::uint64_t misses = 0;
 };
 
+//
+//
 struct CacheAddressHelper {
   CacheAddressHelper(const CacheModelConfig& config);
 
@@ -79,6 +85,9 @@ struct CacheAddressHelper {
   CacheModelConfig config_;
 };
 
+
+//
+//
 template<typename T>
 class CacheModel {
  public:
@@ -101,6 +110,8 @@ class CacheModel {
   using const_line_iterator =
       typename std::vector<Line>::const_iterator;
 
+  // An interator denoting the location of a line within the class.
+  //
   class LineIterator {
     friend class CacheModel;
     friend class Set;
@@ -131,6 +142,8 @@ class CacheModel {
     line_iterator raw_;
   };
 
+  // An constant iterator denoting the location of a line within the class.
+  //
   class ConstLineIterator {
     friend class Set;
     friend class CacheModel;
@@ -165,6 +178,9 @@ class CacheModel {
     const_line_iterator raw_;
   };
 
+
+  // Structure representing a collection of lines with the same set.
+  //
   class Set {
     friend class CacheModel;
 
@@ -268,6 +284,10 @@ class CacheModel {
     LineIterator end_;
   };
 
+
+  // Constant (immutable) structure repreenting a collection of lines
+  // within the same set of a parent (owning) cache.
+  //
   class ConstSet {
     friend class CacheModel;
 
@@ -306,13 +326,17 @@ class CacheModel {
 
   // Address Helper for the current cache configuration.
   const CacheAddressHelper& ah() const { return ah_; }
+
+  // Cache statistics record.
   CacheStatistics& stats() { return stats_; }
   const CacheStatistics& stats() const { return stats_; }
 
+  // Return true if address is present in the cache.
   bool hit(const addr_t& addr) const {
     return set(ah_.set(addr)).hit(ah_.tag(addr));
   }
 
+  // Return cache set corresponding to the line id.
   Set set(const line_id_type& line_id) {
     const std::size_t line_id_offset = (line_id * config_.ways_n);
     const LineIterator begin{this, cache_.begin() + line_id_offset};
@@ -320,6 +344,7 @@ class CacheModel {
     return Set{begin, end};
   }
 
+  // Return cache set corresponding to the line id (constant).
   ConstSet set(const line_id_type& line_id) const {
     const std::size_t line_id_offset = (line_id * config_.ways_n);
     const ConstLineIterator begin{this, cache_.begin() + line_id_offset};
@@ -328,9 +353,16 @@ class CacheModel {
   }
 
  private:
+  // Current cache configuration.
   CacheModelConfig config_;
+
+  // Helper class to assist with address field extraction.
   CacheAddressHelper ah_;
+
+  // Record maintain the set of cache statistics.
   CacheStatistics stats_;
+
+  // Cache state structure.
   cache_type cache_;
 };
 

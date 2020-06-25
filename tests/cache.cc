@@ -95,6 +95,18 @@ TEST(Cache, Basic) {
     // Validate that the state recovered from the cache model is equal
     // to that which was originally installed.
     EXPECT_EQ(state_expected.token, state_actual.token);
+    // Find line in cache.
+    cc::CacheModel<State>::LineIterator it = set.find(ah.tag(a));
+    EXPECT_NE(it, set.end());
+    // Validate state of line.
+    EXPECT_TRUE(it.line().valid);
+    // Evict line.
+    set.evict(it);
+    it = set.find(a);
+    // Expect to no longer be in the set.
+    EXPECT_EQ(it, set.end());
+    // Expect to no longer be in the cache.
+    EXPECT_FALSE(cache.hit(a));
   }
 }
 
