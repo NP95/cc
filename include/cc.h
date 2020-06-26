@@ -28,7 +28,10 @@
 #ifndef CC_INCLUDE_CC_H
 #define CC_INCLUDE_CC_H
 
+#include "cc/common.h"
 #include "cc/kernel.h"
 #include "cc/primitives.h"
+#include "cc/cache.h"
+#include "cc/protocol.h"
 
 #endif
