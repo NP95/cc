@@ -25,8 +25,65 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
+#include "cc.h"
+#include <vector>
 
+struct SimConfig {
+  // Toplevel name
+  std::string name;
+
+  std::vector<cc::L2CacheModelConfig> l2cfgs;
+};
+
+class SimTop : cc::kernel::Module {
+ public:
+  SimTop(cc::kernel::Kernel* k, const SimConfig& config)
+      : cc::kernel::Module(k, config.name), config_(config) {
+    build();
+  }
+  virtual ~SimTop() {
+    for (cc::L2CacheModel* l2c : l2cs_) delete l2c;
+  }
+
+  // Return simulation configuration.
+  SimConfig config() const { return config_; }
+
+  // Invoke simulation.
+  void run() {
+    // Build and elaborate simulation environment.
+    elaborate();
+    // Run Design Rule Check to validate environment correctness.
+    drc();
+    // Run simulation.
+    k()->run();
+  }
+  
+ protected:
+  // Construct top-level simulation enviornment and associated
+  // collateral.
+  void build() {
+    for (const cc::L2CacheModelConfig& l2cfg : config_.l2cfgs) {
+      cc::L2CacheModel* l2c = new cc::L2CacheModel(k(), l2cfg);
+      add_child(l2c);
+      l2cs_.push_back(l2c);
+    }
+  }
+  void elaborate() {
+    Module::elaborate();
+  }
+  void drc() {
+    Module::drc();
+  }
+ private:
+  SimConfig config_;
+  std::vector<cc::L2CacheModel*> l2cs_;
+};
 
 int main(int argc, char** argv) {
+  SimConfig cfg;
+  cfg.name = "top";
+  cc::kernel::Kernel k;
+  SimTop top(&k, cfg);
+  top.run();
   return 0;
 }

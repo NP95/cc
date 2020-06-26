@@ -25,33 +25,54 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_COMMON_H
-#define CC_INCLUDE_CC_COMMON_H
+#ifndef CC_INCLUDE_CC_SIM_H
+#define CC_INCLUDE_CC_SIM_H
 
-#include <cstdint>
-#include <cstddef>
+#include "kernel.h"
+#include <vector>
 
 namespace cc {
 
-using addr_t = std::uint64_t;
 
-template<typename T>
-T log2ceil(T t) {
-  int n = 0;
-  while (t) {
-    t >>= 1;
-    n++;
-  }
-  return n;
-}
+struct L1CacheModelConfig {
+  // L1 Cache Model name
+  std::string name = "l1cache";
+};
 
-template<typename T>
-T mask(std::size_t bits) {
-  if (bits == 0) return 0;
+class L1CacheModel : public kernel::Module {
+ public:
+  L1CacheModel(kernel::Kernel* k, const L1CacheModelConfig& config);
+  virtual ~L1CacheModel();
 
-  T t = 1;
-  return (t << bits) - 1;
-}
+  L1CacheModelConfig config() const { return config_; }
+ protected:
+  virtual void elaborate() override;
+  virtual void drc() override;
+ private:
+  L1CacheModelConfig config_;
+};
+
+struct L2CacheModelConfig {
+  // L2 Cache Model name
+  std::string name = "l2cache";
+  // Child L1 client configurations.
+  std::vector<L1CacheModelConfig> l1cfgs;
+};
+
+class L2CacheModel : public kernel::Module {
+ public:
+  L2CacheModel(kernel::Kernel* k, const L2CacheModelConfig& config);
+  virtual ~L2CacheModel();
+
+  L2CacheModelConfig config() const { return config_; }
+ protected:
+  virtual void elaborate() override;
+  virtual void drc() override;
+ private:
+  void build();
+  L2CacheModelConfig config_;
+  std::vector<L1CacheModel*> l1cs_;
+};
 
 } // namespace cc
 

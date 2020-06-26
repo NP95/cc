@@ -25,34 +25,52 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_COMMON_H
-#define CC_INCLUDE_CC_COMMON_H
-
-#include <cstdint>
-#include <cstddef>
+#include "cc/sim.h"
 
 namespace cc {
 
-using addr_t = std::uint64_t;
-
-template<typename T>
-T log2ceil(T t) {
-  int n = 0;
-  while (t) {
-    t >>= 1;
-    n++;
-  }
-  return n;
+L1CacheModel::L1CacheModel(kernel::Kernel* k, const L1CacheModelConfig& config)
+    : kernel::Module(k, config.name), config_(config) {
 }
 
-template<typename T>
-T mask(std::size_t bits) {
-  if (bits == 0) return 0;
+L1CacheModel::~L1CacheModel() {
+}
 
-  T t = 1;
-  return (t << bits) - 1;
+void L1CacheModel::elaborate() {
+  Module::elaborate();
+  // Do elaborate
+}
+
+void L1CacheModel::drc() {
+  Module::drc();
+  // Do DRC
+}
+
+L2CacheModel::L2CacheModel(kernel::Kernel* k, const L2CacheModelConfig& config)
+    : kernel::Module(k, config.name), config_(config) {
+  build();
+}
+
+L2CacheModel::~L2CacheModel() {
+  for (L1CacheModel* l1c : l1cs_) delete l1c;
+}
+
+void L2CacheModel::build() {
+  for (const L1CacheModelConfig& l1cfg : config_.l1cfgs) {
+    L1CacheModel* l1c = new L1CacheModel(k(), l1cfg);
+    add_child(l1c);
+    l1cs_.push_back(l1c);
+  }
+}
+
+void L2CacheModel::elaborate() {
+  Module::elaborate();
+  // Do elaborate
+}
+
+void L2CacheModel::drc() {
+  Module::drc();
+  // Do DRC
 }
 
 } // namespace cc
-
-#endif

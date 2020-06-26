@@ -33,5 +33,6 @@
 #include "cc/primitives.h"
 #include "cc/cache.h"
 #include "cc/protocol.h"
+#include "cc/sim.h"
 
 #endif

@@ -178,6 +178,14 @@ Module::Module(Kernel* k, const std::string& name) : Loggable(k, name) {}
 
 Module::~Module() {}
 
+void Module::elaborate() {
+  for (Module* m : ms_) m->elaborate();
+}
+
+void Module::drc() {
+  for (Module* m : ms_) m->drc();
+}
+
 void Module::init() {
   for (Module* m : ms_) m->init();
   for (Process* p : ps_) p->init();

@@ -281,6 +281,10 @@ class Module : public Loggable {
  public:
   virtual ~Module();
 
+  // Invoke elaboration.
+  virtual void elaborate();
+  // Run Design Rule Check.
+  virtual void drc();
   // Initialization routine.
   virtual void init();
   // Finalization routine.
