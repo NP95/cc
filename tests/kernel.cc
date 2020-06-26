@@ -25,7 +25,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "kernel.h"
+#include "cc/kernel.h"
 
 #include <algorithm>
 #include <memory>

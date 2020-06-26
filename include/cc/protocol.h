@@ -25,24 +25,30 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "cc/common.h"
+#ifndef CC_INCLUDE_CC_PROTOCOL_H
+#define CC_INCLUDE_CC_PROTOCOL_H
 
-#include "gtest/gtest.h"
+#include "common.h"
 
-TEST(Common, Log2Ceil) {
-  EXPECT_EQ(cc::log2ceil(0), 0);
-  EXPECT_EQ(cc::log2ceil(7), 3);
-  EXPECT_EQ(cc::log2ceil(120), 7);
-  EXPECT_EQ(cc::log2ceil(255), 8);
-}
+namespace cc {
 
-TEST(Common, Mask) {
-  EXPECT_EQ(cc::mask<std::uint32_t>(0), 0);
-  EXPECT_EQ(cc::mask<std::uint32_t>(1), 1);
-  EXPECT_EQ(cc::mask<std::uint32_t>(2), 3);
-}
+// Transaction opcode: Load/Store instruction
+//
+enum class Opcode { Load, Store };
 
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
+class Transaction {
+ public:
+  Transaction(Opcode opcode, addr_t addr);
+
+  addr_t addr() const { return addr_; }
+  Opcode opcode() const { return opcode_; }
+
+ private:
+  addr_t addr_;
+  Opcode opcode_;
+};
+
+
+} // namespace cc
+
+#endif

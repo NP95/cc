@@ -25,24 +25,69 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "cc/common.h"
+#include "primitives.h"
 
-#include "gtest/gtest.h"
+namespace cc {
 
-TEST(Common, Log2Ceil) {
-  EXPECT_EQ(cc::log2ceil(0), 0);
-  EXPECT_EQ(cc::log2ceil(7), 3);
-  EXPECT_EQ(cc::log2ceil(120), 7);
-  EXPECT_EQ(cc::log2ceil(255), 8);
+Clock::Clock(kernel::Kernel* k, const std::string& name, int ticks, int period)
+    : Module(k, name), ticks_(ticks), period_(period), rising_edge_event_(k) {
+  struct ClockProcess : kernel::Process {
+    ClockProcess(kernel::Kernel* k, Clock* clk)
+        : Process(k, "ClockProcess"), clk_(clk) {
+      ticks_ = clk->ticks();
+    }
+    void init() override {
+      if (ticks_ == 0) return;
+      kernel::Time time = k()->time();
+      time.time += clk_->period();
+      wait_until(time);
+    }
+    void eval() override {
+      // Notify
+      clk_->rising_edge_event().notify();
+      if (--ticks_ != 0) {
+        // Schedule next
+        kernel::Time time = k()->time();
+        time.time += clk_->period();
+        wait_until(time);
+      }
+    }
+    Clock* clk_;
+    int ticks_;
+  };
+  p_ = new ClockProcess(k, this);
+  add_child(p_);
 }
 
-TEST(Common, Mask) {
-  EXPECT_EQ(cc::mask<std::uint32_t>(0), 0);
-  EXPECT_EQ(cc::mask<std::uint32_t>(1), 1);
-  EXPECT_EQ(cc::mask<std::uint32_t>(2), 3);
+/*
+
+TransactionSource::TransactionSource(kernel::Kernel* k, const std::string& name)
+    : kernel::Module(k, name), matured_event_(k), exhausted_event_(k)
+{}
+
+
+Transaction* TransactionSource::head() {
+  return nullptr;
 }
 
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
+
+void TransactionSource::consume() {
 }
+
+
+ProgrammaticTransactionSource::ProgrammaticTransactionSource(
+    kernel::Kernel* k, const std::string& name)
+    : TransactionSource(k, name)
+{}
+
+
+void ProgrammaticTransactionSource::add_command(Opcode opcode, kernel::Time t) {
+}
+
+bool ProgrammaticTransactionSource::cb_replenish() {
+  return false;
+}
+
+*/
+
+}  // namespace cc

@@ -25,24 +25,10 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "cc/common.h"
+#ifndef CC_INCLUDE_CC_H
+#define CC_INCLUDE_CC_H
 
-#include "gtest/gtest.h"
+#include "cc/kernel.h"
+#include "cc/primitives.h"
 
-TEST(Common, Log2Ceil) {
-  EXPECT_EQ(cc::log2ceil(0), 0);
-  EXPECT_EQ(cc::log2ceil(7), 3);
-  EXPECT_EQ(cc::log2ceil(120), 7);
-  EXPECT_EQ(cc::log2ceil(255), 8);
-}
-
-TEST(Common, Mask) {
-  EXPECT_EQ(cc::mask<std::uint32_t>(0), 0);
-  EXPECT_EQ(cc::mask<std::uint32_t>(1), 1);
-  EXPECT_EQ(cc::mask<std::uint32_t>(2), 3);
-}
-
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
+#endif

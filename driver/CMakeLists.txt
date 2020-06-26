@@ -25,14 +25,5 @@
 ## POSSIBILITY OF SUCH DAMAGE.
 ## ========================================================================= ##
 
-cmake_minimum_required(VERSION 3.5)
-project(cc)
-
-set(CMAKE_CXX_STANDARD 17)
-
-add_subdirectory(third_party)
-include_directories(include)
-add_subdirectory(libcc)
-add_subdirectory(driver)
-enable_testing()
-add_subdirectory(tests)
+add_executable(driver main.cc)
+target_link_libraries(driver cc)

@@ -25,34 +25,12 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "cache.h"
+#include "protocol.h"
 
 namespace cc {
 
-CacheAddressHelper::CacheAddressHelper(const CacheModelConfig& config)
-    : config_(config) {
-  offset_bits_ = log2ceil(config.line_bytes_n - 1);
-  line_bits_ = log2ceil(config.sets_n - 1);
-}
-
-addr_t CacheAddressHelper::offset(const addr_t& a) const {
-  return a & mask<addr_t>(offset_bits_);
-}
-
-addr_t CacheAddressHelper::set(const addr_t& a) const {
-  return (a >> offset_bits_) & mask<addr_t>(line_bits_);
-}
-
-addr_t CacheAddressHelper::tag(const addr_t& a) const {
-  return (a >> (offset_bits_ + line_bits_));
-}
-
-std::size_t CacheModelConfig::lines() const {
-  return ways_n * sets_n;
-}
-
-std::size_t CacheModelConfig::bytes() const {
-  return line_bytes_n * lines();
-}
+Transaction::Transaction(Opcode opcode, addr_t addr)
+    : opcode_(opcode), addr_(addr)
+{}
 
 } // namespace cc

@@ -25,12 +25,13 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_PRIMITIVES_H
-#define CC_PRIMITIVES_H
+#ifndef CC_INCLUDE_CC_PRIMITIVES_H
+#define CC_INCLUDE_CC_PRIMITIVES_H
 
 #include <vector>
 
 #include "kernel.h"
+#include "protocol.h"
 
 namespace cc {
 
@@ -141,6 +142,71 @@ class Queue : public kernel::Module {
   kernel::Event non_empty_event_;
   kernel::Event non_full_event_;
 };
+
+/*
+
+// Abstract base class encapsulating the concept of a transaction
+// source; more specifically, a block response to model the issue of
+// of load or store instructions to a cache.
+//
+class TransactionSource : public kernel::Module {
+ protected:
+
+  // Transaction frontier record.
+  struct Frontier {
+    Transaction* t;
+    kernel::Time time;
+  };
+  
+ public:
+  TransactionSource(kernel::Kernel* k, const std::string& name);
+  virtual ~TransactionSource() = default;
+
+  // Flag denoting whether the transaction source has been exhausted.
+  virtual bool done() const { return done_; }
+  // Event notified whenever a transaction has become available.
+  kernel::Event& matured_event() { return matured_event_; }
+  // Event notified whenever the source has been exhausted.
+  kernel::Event& exhausted_event() { return exhausted_event_; }
+
+  // Transaction at the head of the source queue; nullptr if source
+  // has been exhausted.
+  Transaction* head();
+
+  // Consume transaction at the head of the source queue.
+  virtual void consume();
+
+ protected:
+
+  virtual bool cb_replenish() = 0;
+
+  // Child indicates that all transaction have been issued.
+  virtual void set_done() { done_ = true; }
+
+ private:
+  kernel::Event matured_event_;
+  kernel::Event exhausted_event_;
+  bool done_ = false;
+  std::vector<Frontier> ts_;
+};
+
+
+// Elementary realization of a transaction source. Transactions are
+// programmatically constructed and issued to the source before the
+// start of the simulation. Upon exhaustion of the transactions
+// the source remained exhausted for the duration of the simulation.
+//
+class ProgrammaticTransactionSource : public TransactionSource {
+ public:
+  ProgrammaticTransactionSource(kernel::Kernel* k, const std::string& name);
+
+  void add_command(Opcode opcode, kernel::Time t);
+
+ private:
+  bool cb_replenish() override;
+};
+
+*/
 
 }  // namespace cc
 

@@ -25,8 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "cache.h"
-#include "kernel.h"
+#include "cc/cache.h"
+#include "cc/kernel.h"
 #include <set>
 
 #include "gtest/gtest.h"
@@ -44,6 +44,8 @@ TEST(Cache, AddressHelper) {
 }
 
 TEST(Cache, Basic) {
+  // Test to validate correctness of the ability to access state in
+  // every line of a set.
   struct State {
     std::uint64_t token;
   };
@@ -108,6 +110,20 @@ TEST(Cache, Basic) {
     // Expect to no longer be in the cache.
     EXPECT_FALSE(cache.hit(a));
   }
+}
+
+TEST(Cache, Invalidate) {
+  // Test to validate invalidation operation correctness.
+  struct State {};
+  cc::CacheModel<State> cache(cc::CacheModelConfig{});
+  EXPECT_FALSE(cache.hit(0));
+  cc::CacheModel<State>::Set set = cache.set(0);
+  EXPECT_FALSE(set.hit(0));
+  set.install(set.begin(), 0, {});
+  EXPECT_TRUE(set.hit(0));
+  cache.invalidate();
+  EXPECT_FALSE(cache.hit(0));
+  EXPECT_FALSE(set.hit(0));
 }
 
 int main(int argc, char** argv) {

@@ -25,8 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_KERNEL_H
-#define CC_KERNEL_H
+#ifndef CC_INCLUDE_CC_KERNEL_H
+#define CC_INCLUDE_CC_KERNEL_H
 
 #include <limits>
 #include <ostream>

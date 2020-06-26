@@ -25,38 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "primitives.h"
 
-namespace cc {
 
-Clock::Clock(kernel::Kernel* k, const std::string& name, int ticks, int period)
-    : Module(k, name), ticks_(ticks), period_(period), rising_edge_event_(k) {
-  struct ClockProcess : kernel::Process {
-    ClockProcess(kernel::Kernel* k, Clock* clk)
-        : Process(k, "ClockProcess"), clk_(clk) {
-      ticks_ = clk->ticks();
-    }
-    void init() override {
-      if (ticks_ == 0) return;
-      kernel::Time time = k()->time();
-      time.time += clk_->period();
-      wait_until(time);
-    }
-    void eval() override {
-      // Notify
-      clk_->rising_edge_event().notify();
-      if (--ticks_ != 0) {
-        // Schedule next
-        kernel::Time time = k()->time();
-        time.time += clk_->period();
-        wait_until(time);
-      }
-    }
-    Clock* clk_;
-    int ticks_;
-  };
-  p_ = new ClockProcess(k, this);
-  add_child(p_);
+int main(int argc, char** argv) {
+  return 0;
 }
-
-}  // namespace cc

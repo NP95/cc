@@ -25,19 +25,19 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_CACHE_H
-#define CC_CACHE_H
+#ifndef CC_INCLUDE_CC_CACHE_H
+#define CC_INCLUDE_CC_CACHE_H
+
+#include <tuple>
+#include <vector>
 
 #include "common.h"
-#include <vector>
-#include <tuple>
 
 namespace cc {
 
 //
 //
 struct CacheModelConfig {
-
   // The number of sets
   std::uint16_t sets_n = 1024;
 
@@ -78,23 +78,20 @@ struct CacheAddressHelper {
   addr_t offset(const addr_t& a) const;
   addr_t set(const addr_t& a) const;
   addr_t tag(const addr_t& a) const;
-  
+
  private:
   std::size_t offset_bits_;
   std::size_t line_bits_;
   CacheModelConfig config_;
 };
 
-
 //
 //
-template<typename T>
+template <typename T>
 class CacheModel {
  public:
-  
   using tag_type = addr_t;
   using line_id_type = addr_t;
-
 
   // Underlying type denoting each entry in the generic cache
   // structure.
@@ -103,12 +100,11 @@ class CacheModel {
     tag_type tag;
     T t;
   };
-  
+
   using cache_type = typename std::vector<Line>;
-  
+
   using line_iterator = typename std::vector<Line>::iterator;
-  using const_line_iterator =
-      typename std::vector<Line>::const_iterator;
+  using const_line_iterator = typename std::vector<Line>::const_iterator;
 
   // An interator denoting the location of a line within the class.
   //
@@ -124,16 +120,22 @@ class CacheModel {
       return !operator==(lhs.raw_, rhs.raw_);
     }
 
-    LineIterator(CacheModel* cache, line_iterator raw) : cache_(cache), raw_(raw) {}
-   public:
+    LineIterator(CacheModel* cache, line_iterator raw)
+        : cache_(cache), raw_(raw) {}
 
+   public:
     Line& line() { return *raw_; }
     const Line& line() const { return *raw_; }
     CacheModel* cache() const { return cache_; }
 
     // Pre-/Post- Increment operators
-    LineIterator& operator++() { ++raw_; return *this; }
-    LineIterator  operator++(int) const { return LineIterator(cache(), raw_ + 1); }
+    LineIterator& operator++() {
+      ++raw_;
+      return *this;
+    }
+    LineIterator operator++(int) const {
+      return LineIterator(cache(), raw_ + 1);
+    }
 
    private:
     line_iterator raw() const { return raw_; }
@@ -162,14 +164,19 @@ class CacheModel {
         : cache_(cache), raw_(raw) {}
     ConstLineIterator(const LineIterator& it)
         : cache_(it.cache()), raw_(it.raw()) {}
-   public:
 
+   public:
     const Line& line() const { return *raw_; }
     const CacheModel* cache() const { return cache_; }
 
     // Pre-/Post- Increment operators
-    ConstLineIterator& operator++() { ++raw_; return *this; }
-    ConstLineIterator  operator++(int) const { return ConstLineIterator(cache(), raw_ + 1); }
+    ConstLineIterator& operator++() {
+      ++raw_;
+      return *this;
+    }
+    ConstLineIterator operator++(int) const {
+      return ConstLineIterator(cache(), raw_ + 1);
+    }
 
    private:
     const_line_iterator raw() const { return raw_; }
@@ -178,16 +185,14 @@ class CacheModel {
     const_line_iterator raw_;
   };
 
-
   // Structure representing a collection of lines with the same set.
   //
   class Set {
     friend class CacheModel;
 
-    Set(LineIterator begin, LineIterator end)
-        : begin_(begin), end_(end) {}
-   public:
+    Set(LineIterator begin, LineIterator end) : begin_(begin), end_(end) {}
 
+   public:
     // Iterator to the 'begin' line (the zeroth line in the set).
     LineIterator begin() { return begin_; }
     ConstLineIterator begin() const { return begin_; }
@@ -216,7 +221,7 @@ class CacheModel {
 
       Line& line = it.line();
       if (line.valid) return false;
-      
+
       line.valid = true;
       line.tag = tag;
       line.t = t;
@@ -257,7 +262,7 @@ class CacheModel {
     // the constant end iterator if not present in the cache.
     ConstLineIterator find(const tag_type& tag) const {
       for (ConstLineIterator it = begin(); it != end(); ++it) {
-        Line& line = it.line();
+        const Line& line = it.line();
         if (line.valid && (line.tag == tag)) return it;
       }
       return end();
@@ -274,7 +279,7 @@ class CacheModel {
       t = line.t;
       return true;
     }
-    
+
     // Return true if line corresponding the current tag is present in
     // the cache.
     bool hit(const tag_type& tag) const { return find(tag) != end(); }
@@ -284,7 +289,6 @@ class CacheModel {
     LineIterator end_;
   };
 
-
   // Constant (immutable) structure repreenting a collection of lines
   // within the same set of a parent (owning) cache.
   //
@@ -293,8 +297,8 @@ class CacheModel {
 
     ConstSet(ConstLineIterator begin, ConstLineIterator end)
         : begin_(begin), end_(end) {}
-   public:
 
+   public:
     //
     ConstLineIterator begin() { return begin_; }
     ConstLineIterator begin() const { return begin_; }
@@ -319,7 +323,6 @@ class CacheModel {
   };
 
  public:
-  
   CacheModel(const CacheModelConfig& config) : config_(config), ah_(config) {
     cache_.resize(config.lines());
   }
@@ -340,7 +343,8 @@ class CacheModel {
   Set set(const line_id_type& line_id) {
     const std::size_t line_id_offset = (line_id * config_.ways_n);
     const LineIterator begin{this, cache_.begin() + line_id_offset};
-    const LineIterator end{this, cache_.begin() + line_id_offset + config_.ways_n};
+    const LineIterator end{this,
+                           cache_.begin() + line_id_offset + config_.ways_n};
     return Set{begin, end};
   }
 
@@ -348,8 +352,13 @@ class CacheModel {
   ConstSet set(const line_id_type& line_id) const {
     const std::size_t line_id_offset = (line_id * config_.ways_n);
     const ConstLineIterator begin{this, cache_.begin() + line_id_offset};
-    const ConstLineIterator end{this, cache_.begin() + line_id_offset + config_.ways_n};
+    const ConstLineIterator end{
+        this, cache_.begin() + line_id_offset + config_.ways_n};
     return ConstSet{begin, end};
+  }
+
+  void invalidate() {
+    for (Line& l : cache_) l.valid = false;
   }
 
  private:
@@ -366,7 +375,6 @@ class CacheModel {
   cache_type cache_;
 };
 
-
-} // namespace cc
+}  // namespace cc
 
 #endif

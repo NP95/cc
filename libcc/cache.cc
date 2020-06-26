@@ -25,24 +25,30 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "cc/common.h"
+#include "cache.h"
 
-#include "gtest/gtest.h"
+namespace cc {
 
-TEST(Common, Log2Ceil) {
-  EXPECT_EQ(cc::log2ceil(0), 0);
-  EXPECT_EQ(cc::log2ceil(7), 3);
-  EXPECT_EQ(cc::log2ceil(120), 7);
-  EXPECT_EQ(cc::log2ceil(255), 8);
+CacheAddressHelper::CacheAddressHelper(const CacheModelConfig& config)
+    : config_(config) {
+  offset_bits_ = log2ceil(config.line_bytes_n - 1);
+  line_bits_ = log2ceil(config.sets_n - 1);
 }
 
-TEST(Common, Mask) {
-  EXPECT_EQ(cc::mask<std::uint32_t>(0), 0);
-  EXPECT_EQ(cc::mask<std::uint32_t>(1), 1);
-  EXPECT_EQ(cc::mask<std::uint32_t>(2), 3);
+addr_t CacheAddressHelper::offset(const addr_t& a) const {
+  return a & mask<addr_t>(offset_bits_);
 }
 
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
+addr_t CacheAddressHelper::set(const addr_t& a) const {
+  return (a >> offset_bits_) & mask<addr_t>(line_bits_);
 }
+
+addr_t CacheAddressHelper::tag(const addr_t& a) const {
+  return (a >> (offset_bits_ + line_bits_));
+}
+
+std::size_t CacheModelConfig::lines() const { return ways_n * sets_n; }
+
+std::size_t CacheModelConfig::bytes() const { return line_bytes_n * lines(); }
+
+}  // namespace cc
