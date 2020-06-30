@@ -180,7 +180,7 @@ class Arbiter : public kernel::Module {
   void add_requester(RequesterIntf<T>* intf) { intfs_.push_back(intf); }
  private:
 
-  void elaborate() override {
+  void elab() override {
     // Construct EventOr denoting the event which is notified when the
     // arbiter goes from having no requestors to having non-zero
     // requestors.
@@ -191,12 +191,6 @@ class Arbiter : public kernel::Module {
   }
 
   void drc() override {
-  }
-
-  void init() override {
-  }
-
-  void fini() override {
   }
   
   kernel::Event grant_event_;

@@ -33,6 +33,7 @@
 
 #include "gtest/gtest.h"
 
+/*
 TEST(Kernel, BasicScheduling) {
   struct TickAction : public cc::kernel::Action {
     TickAction(cc::kernel::Kernel* k, cc::kernel::Time::time_type expected_time)
@@ -88,9 +89,10 @@ TEST(Kernel, RandomEventScheduling) {
     k.add_action(time, new CheckTime(&k, &prior_time));
   k.run();
 }
+*/
 
 TEST(Kernel, FatalError) {
-  struct TopModule : cc::kernel::Module {
+  struct TopModule : cc::kernel::TopModule {
     struct RaiseErrorProcess : cc::kernel::Process {
       RaiseErrorProcess(cc::kernel::Kernel* k)
           : cc::kernel::Process(k, "RaiseErrorProcess") {}
@@ -99,7 +101,7 @@ TEST(Kernel, FatalError) {
         log(Message("Some error condition", Level::Fatal));
       }
     };
-    TopModule(cc::kernel::Kernel* k) : cc::kernel::Module(k, "top") {
+    TopModule(cc::kernel::Kernel* k) : cc::kernel::TopModule(k, "top") {
       set_top();
       p_ = new RaiseErrorProcess(k);
       add_child_process(p_);
@@ -108,7 +110,6 @@ TEST(Kernel, FatalError) {
   };
   auto k = std::make_unique<cc::kernel::Kernel>();
   auto top = std::make_unique<TopModule>(k.get());
-  top->init();
   k->run();
   ASSERT_TRUE(k->fatal());
   const cc::kernel::Time time = k->time();
@@ -117,7 +118,7 @@ TEST(Kernel, FatalError) {
 
 TEST(Kernel, EventOr) {
   // Test to validate correctness of the EventOr notification mechanism.
-  struct Top : cc::kernel::Module {
+  struct Top : cc::kernel::TopModule {
 
     // Producer Process; invoked on random intervals;
     struct ProducerProcess : cc::kernel::Process {
@@ -126,6 +127,9 @@ TEST(Kernel, EventOr) {
       }
       std::size_t n() const { return n_; }
       cc::kernel::Event& e() { return e_; }
+      void validate() {
+        EXPECT_EQ(n(), 0);
+      }
      private:
       void init() override {
         if (n_ != 0) { wait_for(random_interval()); }
@@ -148,18 +152,19 @@ TEST(Kernel, EventOr) {
     // Consumer Process; invoked by the child (producer) events.
     struct ConsumerProcess : cc::kernel::Process {
       ConsumerProcess(cc::kernel::Kernel* k, std::size_t n)
-          : cc::kernel::Process(k, "ConsumerProcess"), eor_(k, "eor"), n_(n) {
-      }
-      ~ConsumerProcess() {
-        EXPECT_EQ(n(), 0);
+          : cc::kernel::Process(k, "ConsumerProcess"), n_(n) {
+        eor_ = new cc::kernel::EventOr(k, "eor");
+        add_child(eor_);
       }
       int n() const { return n_; }
-      void add_child_event(cc::kernel::Event& e) { eor_.add_child_event(&e); }
-      void finalize() { eor_.finalize(); }
+      void add_child_event(cc::kernel::Event& e) { eor_->add_child_event(&e); }
+      void finalize() { eor_->finalize(); }
+      void validate() {
+        EXPECT_EQ(n(), 0);
+      }
      private:
       void init() override {
-        eor_.init();
-        wait_on(eor_);
+        wait_on(*eor_);
       }
       void eval() override {
         // Check for extraneous notifications.
@@ -167,15 +172,14 @@ TEST(Kernel, EventOr) {
         const Message msg{"Notified!", Level::Debug};
         log(msg);
         n_--;
-        wait_on(eor_);
+        wait_on(*eor_);
       }
-      cc::kernel::EventOr eor_;
+      cc::kernel::EventOr* eor_;
       int n_;
     };
 
     Top(cc::kernel::Kernel* k, std::size_t n, std::size_t event_n)
-        : cc::kernel::Module(k, "top"), n_(n), event_n_(event_n) {
-      set_top();
+        : cc::kernel::TopModule(k, "top"), n_(n), event_n_(event_n) {
       cps_ = new ConsumerProcess(k, n * event_n);
       add_child_process(cps_);
       for (std::size_t i = 0; i < n; i++) {
@@ -190,6 +194,10 @@ TEST(Kernel, EventOr) {
     }
     std::size_t n() const { return n_; }
     std::size_t event_n() const { return event_n_; }
+    void validate() {
+      cps_->validate();
+      for (ProducerProcess* pp : pps_) { pp->validate(); }
+    }
    private:
     ConsumerProcess* cps_;
     std::vector<ProducerProcess*> pps_;
@@ -198,9 +206,49 @@ TEST(Kernel, EventOr) {
   };
   cc::kernel::Kernel k;
   Top top(&k, 3, 10);
-  top.init();
   k.run();
+  top.validate();
 };
+
+TEST(Kernel, VisitObjectHierarchy) {
+  struct Top : cc::kernel::TopModule {
+    struct AChild : cc::kernel::Module {
+      AChild(cc::kernel::Kernel* k, const std::string& name)
+          : cc::kernel::Module(k, name) {
+      }
+    };
+    Top(cc::kernel::Kernel* k)
+        : cc::kernel::TopModule(k, "top") {
+      a_ = new AChild(k, "a");
+      add_child_module(a_);
+      b_ = new AChild(k, "b");
+      add_child_module(b_);
+      c_ = new AChild(k, "c");
+      add_child_module(c_);
+    }
+    AChild *a_, *b_, *c_;
+  };
+
+  cc::kernel::Kernel k;
+  Top top(&k);
+
+  struct HeirarchyVisitor : cc::kernel::ObjectVisitor {
+    HeirarchyVisitor(std::vector<std::string>& vs) : vs_(vs) {}
+    void visit(cc::kernel::TopModule* o) override {
+      vs_.push_back(o->path());
+    }
+    void visit(cc::kernel::Module* o) override {
+      vs_.push_back(o->path());
+    }
+   private:
+    std::vector<std::string>& vs_;
+  };
+  std::vector<std::string> dfs;
+  const std::vector<std::string> expect{"top.a", "top.b", "top.c", "top"};
+  HeirarchyVisitor visitor(dfs);
+  visitor.iterate(&top);
+  EXPECT_EQ(dfs, expect);
+}
 
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);

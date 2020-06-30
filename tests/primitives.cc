@@ -36,7 +36,9 @@ TEST(Primitives, BasicClock) {
     OnRisingEdgeProcess(cc::kernel::Kernel* k, cc::Clock* clk)
         : cc::kernel::Process(k, "OnRisingEdgeProcess"), clk_(clk) {}
     int n() const { return n_; }
-    void init() override { wait_on(clk_->rising_edge_event()); clk_->init(); }
+    void init() override {
+      wait_on(clk_->rising_edge_event());
+    }
     void eval() override {
       Message msg("On rising edge: ");
       msg.append(std::to_string(n_)).level(Level::Debug);
@@ -60,7 +62,7 @@ TEST(Primitives, BasicClock) {
       add_child_process(p_);
     }
     int n() const { return n_; }
-    void fini() override {
+    void validate() {
       // Check that process has been invoked N times.
       EXPECT_EQ(p_->n(), n());
     }
@@ -75,9 +77,8 @@ TEST(Primitives, BasicClock) {
     cc::kernel::Kernel* k = new cc::kernel::Kernel;
     cc::kernel::RandomSource& r = k->random_source();
     TopLevel* top = new TopLevel(k, r.uniform<int>(1, 1000));
-    top->init();
     k->run();
-    top->fini();
+    top->validate();
     // Check that outstanding event queue has been exhausted.
     EXPECT_EQ(k->events_n(), 0);
     delete top;
@@ -165,7 +166,6 @@ TEST(Primitives, QueueDequeueImmediately) {
 
   auto k = std::make_unique<cc::kernel::Kernel>();
   auto top = std::make_unique<Top>(k.get());
-  top->init();
   k->run();
   top->validate();
 }
@@ -287,7 +287,6 @@ TEST(Primitives, QueueBurst) {
 
   auto k = std::make_unique<cc::kernel::Kernel>();
   auto top = std::make_unique<Top>(k.get());
-  top->init();
   k->run();
   top->validate();
 }

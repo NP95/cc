@@ -50,7 +50,7 @@ class L1CacheModel : public kernel::Module {
 
   L1CacheModelConfig config() const { return config_; }
  protected:
-  virtual void elaborate() override;
+  virtual void elab() override;
   virtual void drc() override;
  private:
   TransactionSource* ts_;
@@ -71,7 +71,7 @@ class L2CacheModel : public kernel::Module {
 
   L2CacheModelConfig config() const { return config_; }
  protected:
-  virtual void elaborate() override;
+  virtual void elab() override;
   virtual void drc() override;
  private:
   void build();

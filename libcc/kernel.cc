@@ -57,6 +57,14 @@ bool RandomSource::random_bool(float true_probability) {
   return dist(mt_);
 }
 
+void ObjectVisitor::iterate(Object* root) {
+  root->accept(this);
+}
+
+void Object::iterate_children(ObjectVisitor* visitor) {
+  for (Object* o : children_) { o->accept(visitor); }
+}
+
 LogContext::LogContext(std::ostream* os) : os_(os) {}
 
 LogContext::~LogContext() {
@@ -76,6 +84,66 @@ void LogContext::info(const std::string& name, bool nl) {
 Kernel::Kernel(seed_type seed) : random_source_(seed) {}
 
 void Kernel::run(RunMode r, Time t) {
+  // Build phase is already complete by this stage and it is assume
+  // that the object heirarchy has been correct constructed at this point.
+
+  // Check top is set.
+  
+  // Build and elaborate simulation environment.
+  invoke_elab();
+  // Run Design Rule Check to validate environment correctness.
+  invoke_drc();
+  // Invoke initialization phase.
+  invoke_init();
+  // Run simulation.
+  invoke_run(r, t);
+  // Run finalization.
+  invoke_fini();
+}
+
+void Kernel::add_action(Time t, Action* a) {
+  eq_.push_back(Event{t, a});
+  std::push_heap(eq_.begin(), eq_.end(), EventComparer{});
+}
+
+void Kernel::set_seed(seed_type seed) { random_source_ = RandomSource(seed); }
+
+void Kernel::invoke_elab() {
+  set_phase(Phase::Elab);
+  log_context().info("Elaborating simulation.");
+
+  struct InvokeElabVisitor : ObjectVisitor {
+    void visit(Module* o) override { o->elab(); }
+  };
+  InvokeElabVisitor visitor;
+  visitor.iterate(top());
+}
+
+void Kernel::invoke_drc() {
+  set_phase(Phase::Drc);
+  log_context().info("Running Design Rule Check.");
+
+  struct InvokeDrcVisitor : ObjectVisitor {
+    void visit(Module* o) override { o->drc(); }
+  };
+  InvokeDrcVisitor visitor;
+  visitor.iterate(top());
+}
+
+void Kernel::invoke_init() {
+  set_phase(Phase::Init);
+  log_context().info("Invoking initialization");
+
+  struct InvokeInitVisitor : ObjectVisitor {
+    void visit(Process* o) override { o->init(); }
+  };
+  InvokeInitVisitor visitor;
+  visitor.iterate(top());
+}
+
+void Kernel::invoke_run(RunMode r, Time t) {
+  set_phase(Phase::Run);
+  log_context().info("Starting simulation.");
   while (!eq_.empty()) {
     // IF a fatal error has occurred, terminate the simulation immediately.
     if (fatal()) break;
@@ -93,12 +161,16 @@ void Kernel::run(RunMode r, Time t) {
   }
 }
 
-void Kernel::add_action(Time t, Action* a) {
-  eq_.push_back(Event{t, a});
-  std::push_heap(eq_.begin(), eq_.end(), EventComparer{});
-}
+void Kernel::invoke_fini() {
+  set_phase(Phase::Fini);
+  log_context().info("Finalizing.");
 
-void Kernel::set_seed(seed_type seed) { random_source_ = RandomSource(seed); }
+  struct InvokeFiniVisitor : ObjectVisitor {
+    void visit(Process* o) override { o->fini(); }
+  };
+  InvokeFiniVisitor visitor;
+  visitor.iterate(top());
+}
 
 Object::Object(Kernel* k, const std::string& name) : k_(k), name_(name) {}
 
@@ -107,7 +179,7 @@ Object::~Object() {
 }
 
 std::string Object::path() const {
-  if (path_.empty() && !is_top()) {
+  if (path_.empty()) {
     // Construct path;
     std::vector<std::string> vs;
     const Object* current = this;
@@ -160,14 +232,6 @@ ProcessHost::ProcessHost(Kernel* k, const std::string& name)
 void ProcessHost::add_child_process(Process* p) {
   Object::add_child(p);
   ps_.push_back(p);
-}
-
-void ProcessHost::init() {
-  for (Process* p : ps_) p->init();
-}
-
-void ProcessHost::fini() {
-  for (Process* p : ps_) p->fini();
 }
 
 Event::Event(Kernel* k, const std::string& name) : ProcessHost(k, name) {}
@@ -253,8 +317,8 @@ Module::Module(Kernel* k, const std::string& name) : ProcessHost(k, name) {}
 
 Module::~Module() {}
 
-void Module::elaborate() {
-  for (Module* m : ms_) m->elaborate();
+void Module::elab() {
+  for (Module* m : ms_) m->elab();
 }
 
 void Module::drc() {
@@ -265,5 +329,10 @@ void Module::add_child_module(Module* m) {
   Object::add_child(m);
   ms_.push_back(m);
 }
+
+TopModule::TopModule(Kernel* k, const std::string& name) : Module(k, name) {
+  set_top();
+}
+
 
 }  // namespace cc::kernel

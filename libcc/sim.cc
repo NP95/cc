@@ -36,13 +36,11 @@ L1CacheModel::L1CacheModel(kernel::Kernel* k, const L1CacheModelConfig& config)
 L1CacheModel::~L1CacheModel() {
 }
 
-void L1CacheModel::elaborate() {
-  Module::elaborate();
+void L1CacheModel::elab() {
   // Do elaborate
 }
 
 void L1CacheModel::drc() {
-  Module::drc();
   // Do DRC
   if (ts_ == nullptr) {
     // No transaction source associated with L1; raise warning.
@@ -68,8 +66,7 @@ void L2CacheModel::build() {
   }
 }
 
-void L2CacheModel::elaborate() {
-  Module::elaborate();
+void L2CacheModel::elab() {
   // Do elaborate
 }
 
