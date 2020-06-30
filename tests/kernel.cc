@@ -33,63 +33,81 @@
 
 #include "gtest/gtest.h"
 
-/*
 TEST(Kernel, BasicScheduling) {
-  struct TickAction : public cc::kernel::Action {
-    TickAction(cc::kernel::Kernel* k, cc::kernel::Time::time_type expected_time)
-        : cc::kernel::Action(k, "TickAction"), expected_time_(expected_time) {}
-    bool eval() override {
-      const cc::kernel::Time time = k()->time();
-      EXPECT_EQ(time.time, expected_time_);
-      EXPECT_EQ(time.delta, 0);
-      // Discard after evaluation.
-      return true;
-    }
-    cc::kernel::Time::time_type expected_time_;
-  };
+  struct Top : cc::kernel::TopModule {
+  
+    struct TickAction : public cc::kernel::Action {
+      TickAction(cc::kernel::Kernel* k, cc::kernel::Time::time_type expected_time)
+          : cc::kernel::Action(k, "TickAction"), expected_time_(expected_time) {}
+      bool eval() override {
+        const cc::kernel::Time time = k()->time();
+        EXPECT_EQ(time.time, expected_time_);
+        EXPECT_EQ(time.delta, 0);
+        // Discard after evaluation.
+        return true;
+      }
+      cc::kernel::Time::time_type expected_time_;
+    };
 
+    Top(cc::kernel::Kernel* k) : cc::kernel::TopModule(k, "top") {
+      k->add_action(cc::kernel::Time{0, 0}, new TickAction(k, 0));
+      k->add_action(cc::kernel::Time{10, 0}, new TickAction(k, 10));
+      k->add_action(cc::kernel::Time{20, 0}, new TickAction(k, 20));
+      k->add_action(cc::kernel::Time{30, 0}, new TickAction(k, 30));
+      k->add_action(cc::kernel::Time{40, 0}, new TickAction(k, 40));
+      k->add_action(cc::kernel::Time{50, 0}, new TickAction(k, 50));
+    }
+    void validate() {
+    }
+  };
   cc::kernel::Kernel k;
-  k.add_action(cc::kernel::Time{0, 0}, new TickAction(&k, 0));
-  k.add_action(cc::kernel::Time{10, 0}, new TickAction(&k, 10));
-  k.add_action(cc::kernel::Time{20, 0}, new TickAction(&k, 20));
-  k.add_action(cc::kernel::Time{30, 0}, new TickAction(&k, 30));
-  k.add_action(cc::kernel::Time{40, 0}, new TickAction(&k, 40));
-  k.add_action(cc::kernel::Time{50, 0}, new TickAction(&k, 50));
+  Top top(&k);
   k.run();
+  top.validate();
 }
 
 TEST(Kernel, RandomEventScheduling) {
-  struct CheckTime : public cc::kernel::Action {
-    CheckTime(cc::kernel::Kernel* k, cc::kernel::Time* time)
-        : cc::kernel::Action(k, "CheckTimeAction"), time_(time) {}
-    bool eval() override {
-      EXPECT_TRUE(later_or_coincident(*time_, k()->time()));
-      *time_ = k()->time();
-      // Discard after evaluation.
-      return true;
+  struct Top : cc::kernel::TopModule {
+  
+    struct CheckTime : public cc::kernel::Action {
+      CheckTime(cc::kernel::Kernel* k, cc::kernel::Time* time)
+          : cc::kernel::Action(k, "CheckTimeAction"), time_(time) {}
+      bool eval() override {
+        EXPECT_TRUE(later_or_coincident(*time_, k()->time()));
+        *time_ = k()->time();
+        // Discard after evaluation.
+        return true;
+      }
+      bool later_or_coincident(const cc::kernel::Time& lhs,
+                               const cc::kernel::Time& rhs) {
+        if (lhs.time == rhs.time && lhs.delta == rhs.delta) return true;
+        return lhs < rhs;
+      }
+      cc::kernel::Time* time_ = nullptr;
+    };
+
+    Top(cc::kernel::Kernel* k) : cc::kernel::TopModule(k, "top") {
+      cc::kernel::RandomSource& r = k->random_source();
+      std::vector<cc::kernel::Time> random_times;
+      std::generate_n(std::back_inserter(random_times), 10000, [&r]() {
+          return cc::kernel::Time{r.uniform<cc::kernel::Time::time_type>(),
+                r.uniform<cc::kernel::Time::delta_type>()};
+        });
+
+      for (const cc::kernel::Time& time : random_times)
+        k->add_action(time, new CheckTime(k, &prior_time));
     }
-    bool later_or_coincident(const cc::kernel::Time& lhs,
-                             const cc::kernel::Time& rhs) {
-      if (lhs.time == rhs.time && lhs.delta == rhs.delta) return true;
-      return lhs < rhs;
+    void validate() {
     }
-    cc::kernel::Time* time_ = nullptr;
+   private:
+    cc::kernel::Time prior_time{0, 0};
   };
 
   cc::kernel::Kernel k;
-  cc::kernel::RandomSource& r = k.random_source();
-  std::vector<cc::kernel::Time> random_times;
-  std::generate_n(std::back_inserter(random_times), 10000, [&r]() {
-    return cc::kernel::Time{r.uniform<cc::kernel::Time::time_type>(),
-                            r.uniform<cc::kernel::Time::delta_type>()};
-  });
-
-  cc::kernel::Time prior_time{0, 0};
-  for (const cc::kernel::Time& time : random_times)
-    k.add_action(time, new CheckTime(&k, &prior_time));
+  Top top(&k);
   k.run();
+  top.validate();
 }
-*/
 
 TEST(Kernel, FatalError) {
   struct TopModule : cc::kernel::TopModule {
