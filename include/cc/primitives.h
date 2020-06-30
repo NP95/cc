@@ -143,8 +143,6 @@ class Queue : public kernel::Module {
   kernel::Event non_full_event_;
 };
 
-/*
-
 // Abstract base class encapsulating the concept of a transaction
 // source; more specifically, a block response to model the issue of
 // of load or store instructions to a cache.
@@ -205,8 +203,6 @@ class ProgrammaticTransactionSource : public TransactionSource {
  private:
   bool cb_replenish() override;
 };
-
-*/
 
 }  // namespace cc
 

@@ -31,38 +31,50 @@
 struct SimConfig {
   // Toplevel name
   std::string name;
+  // Level 2 Cache configuration.
+  std::vector<cc::L2CacheModelConfig> l2configs;
+};
 
-  std::vector<cc::L2CacheModelConfig> l2cfgs;
+struct SimContext {
+  // Simulation configuration.
+  SimConfig simconfig;
+  // Kernel associated with current simulation instance.
+  cc::kernel::Kernel* k = nullptr;
 };
 
 class SimTop : cc::kernel::Module {
  public:
-  SimTop(cc::kernel::Kernel* k, const SimConfig& config)
-      : cc::kernel::Module(k, config.name), config_(config) {
+  SimTop(const SimContext& simcontext)
+      : cc::kernel::Module(simcontext.k, simcontext.simconfig.name)
+      , simcontext_(simcontext) {
     build();
-  }
-  virtual ~SimTop() {
-    for (cc::L2CacheModel* l2c : l2cs_) delete l2c;
   }
 
   // Return simulation configuration.
-  SimConfig config() const { return config_; }
+  SimContext simcontext() const { return simcontext_; }
 
   // Invoke simulation.
   void run() {
+    cc::kernel::LogContext& log_context = k()->log_context();
+
     // Build and elaborate simulation environment.
+    log_context.info("Elaborating simulation.");
     elaborate();
     // Run Design Rule Check to validate environment correctness.
+    log_context.info("Running Design Rule Check.");
     drc();
     // Run simulation.
+    log_context.info("Starting simulation.");
     k()->run();
+    log_context.info("Starting complete!");
   }
-  
+
  protected:
   // Construct top-level simulation enviornment and associated
   // collateral.
   void build() {
-    for (const cc::L2CacheModelConfig& l2cfg : config_.l2cfgs) {
+    const SimConfig& simconfig = simcontext_.simconfig;
+    for (const cc::L2CacheModelConfig& l2cfg : simconfig.l2configs) {
       cc::L2CacheModel* l2c = new cc::L2CacheModel(k(), l2cfg);
       add_child(l2c);
       l2cs_.push_back(l2c);
@@ -75,15 +87,30 @@ class SimTop : cc::kernel::Module {
     Module::drc();
   }
  private:
-  SimConfig config_;
+  SimContext simcontext_;
   std::vector<cc::L2CacheModel*> l2cs_;
 };
 
 int main(int argc, char** argv) {
-  SimConfig cfg;
-  cfg.name = "top";
-  cc::kernel::Kernel k;
-  SimTop top(&k, cfg);
+  // Simulation configuration.
+  SimConfig simconfig;
+  simconfig.name = "top";
+  cc::L2CacheModelConfig l2config;
+  l2config.name = "l2cache";
+  cc::L1CacheModelConfig l1config;
+  l1config.name = "l1cache";
+  l1config.ts = nullptr;
+  l2config.l1configs.push_back(l1config);
+  simconfig.l2configs.push_back(l2config);
+
+  SimContext simcontext;
+  simcontext.k = new cc::kernel::Kernel;
+  simcontext.simconfig = simconfig;
+
+  SimTop top(simcontext);
   top.run();
+
+  delete simcontext.k;
+
   return 0;
 }

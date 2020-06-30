@@ -29,7 +29,7 @@
 #define CC_INCLUDE_CC_KERNEL_H
 
 #include <limits>
-#include <ostream>
+#include <iostream>
 #include <random>
 #include <sstream>
 #include <vector>
@@ -86,6 +86,18 @@ class RandomSource {
   mt_type mt_;
 };
 
+class LogContext {
+ public:
+  LogContext(std::ostream* os = std::addressof(std::cout));
+  ~LogContext();
+
+  std::ostream& os() { return *os_; }
+
+  void info(const std::string& name, bool nl = true);
+ private:
+  std::ostream* os_ = nullptr;
+};
+
 enum class RunMode { ToExhaustion, ForTime };
 
 class Kernel {
@@ -115,6 +127,7 @@ class Kernel {
   std::size_t events_n() const { return eq_.size(); }
   bool fatal() const { return fatal_; }
   RandomSource& random_source() { return random_source_; }
+  LogContext& log_context() { return log_context_; }
 
   void run(RunMode r = RunMode::ToExhaustion, Time t = Time{});
   void add_action(Time t, Action* a);
@@ -130,6 +143,8 @@ class Kernel {
   bool fatal_;
   // Current random state.
   RandomSource random_source_;
+  //
+  LogContext log_context_;
 };
 
 class Object {

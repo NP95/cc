@@ -29,14 +29,18 @@
 #define CC_INCLUDE_CC_SIM_H
 
 #include "kernel.h"
+#include "primitives.h"
 #include <vector>
 
 namespace cc {
 
-
 struct L1CacheModelConfig {
   // L1 Cache Model name
   std::string name = "l1cache";
+  // Pointer to the transaction source instance for the current l1
+  // cache instance (models the notion of a microprocessor
+  // periodically emitting load/store instructions to memory).
+  TransactionSource* ts = nullptr;
 };
 
 class L1CacheModel : public kernel::Module {
@@ -49,6 +53,7 @@ class L1CacheModel : public kernel::Module {
   virtual void elaborate() override;
   virtual void drc() override;
  private:
+  TransactionSource* ts_;
   L1CacheModelConfig config_;
 };
 
@@ -56,7 +61,7 @@ struct L2CacheModelConfig {
   // L2 Cache Model name
   std::string name = "l2cache";
   // Child L1 client configurations.
-  std::vector<L1CacheModelConfig> l1cfgs;
+  std::vector<L1CacheModelConfig> l1configs;
 };
 
 class L2CacheModel : public kernel::Module {

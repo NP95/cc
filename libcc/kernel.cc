@@ -53,6 +53,22 @@ bool RandomSource::random_bool(float true_probability) {
   return dist(mt_);
 }
 
+LogContext::LogContext(std::ostream* os) : os_(os) {}
+
+LogContext::~LogContext() {
+  if (os_ != std::addressof(std::cout)) {
+    os_->flush();
+    delete os_;
+  }
+}
+
+void LogContext::info(const std::string& name, bool nl) {
+  if (os_) {
+    *os_ << name;
+    if (nl) *os_ << "\n";
+  }
+}
+
 Kernel::Kernel(seed_type seed) : random_source_(seed) {}
 
 void Kernel::run(RunMode r, Time t) {
@@ -121,8 +137,9 @@ void Loggable::log_prefix(Level l, std::ostream& os) const {
 
 void Loggable::log(const Message& m) const {
   if (level() >= m.level()) {
-    log_prefix(m.level(), std::cout);
-    std::cout << m.msg() << "\n";
+    LogContext& log_context = k()->log_context();
+    log_prefix(m.level(), log_context.os());
+    log_context.os() << m.msg() << "\n";
   }
   if (m.level() == Level::Fatal) {
     k()->raise_fatal();

@@ -30,7 +30,7 @@
 namespace cc {
 
 L1CacheModel::L1CacheModel(kernel::Kernel* k, const L1CacheModelConfig& config)
-    : kernel::Module(k, config.name), config_(config) {
+    : kernel::Module(k, config.name), config_(config), ts_(config.ts) {
 }
 
 L1CacheModel::~L1CacheModel() {
@@ -44,6 +44,12 @@ void L1CacheModel::elaborate() {
 void L1CacheModel::drc() {
   Module::drc();
   // Do DRC
+  if (ts_ == nullptr) {
+    // No transaction source associated with L1; raise warning.
+    const Message msg(
+        "L1Cache has no associated transaction source.", Level::Warning);
+    log(msg);
+  }
 }
 
 L2CacheModel::L2CacheModel(kernel::Kernel* k, const L2CacheModelConfig& config)
@@ -52,11 +58,10 @@ L2CacheModel::L2CacheModel(kernel::Kernel* k, const L2CacheModelConfig& config)
 }
 
 L2CacheModel::~L2CacheModel() {
-  for (L1CacheModel* l1c : l1cs_) delete l1c;
 }
 
 void L2CacheModel::build() {
-  for (const L1CacheModelConfig& l1cfg : config_.l1cfgs) {
+  for (const L1CacheModelConfig& l1cfg : config_.l1configs) {
     L1CacheModel* l1c = new L1CacheModel(k(), l1cfg);
     add_child(l1c);
     l1cs_.push_back(l1c);
