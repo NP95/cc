@@ -30,7 +30,8 @@
 namespace cc {
 
 Clock::Clock(kernel::Kernel* k, const std::string& name, int ticks, int period)
-    : Module(k, name), ticks_(ticks), period_(period), rising_edge_event_(k) {
+    : Module(k, name), ticks_(ticks), period_(period),
+      rising_edge_event_(k, "rising_edge_event") {
   struct ClockProcess : kernel::Process {
     ClockProcess(kernel::Kernel* k, Clock* clk)
         : Process(k, "ClockProcess"), clk_(clk) {
@@ -56,8 +57,10 @@ Clock::Clock(kernel::Kernel* k, const std::string& name, int ticks, int period)
     int ticks_;
   };
   p_ = new ClockProcess(k, this);
-  add_child(p_);
+  add_child_process(p_);
 }
+
+
 
 /*
 

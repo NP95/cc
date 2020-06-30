@@ -63,11 +63,11 @@ class Queue : public kernel::Module {
  public:
   Queue(kernel::Kernel* k, const std::string& name, std::size_t n)
       : kernel::Module(k, name),
-        n_(n),
-        enqueue_event_(k),
-        dequeue_event_(k),
-        non_empty_event_(k),
-        non_full_event_(k) {
+      n_(n),
+      enqueue_event_(k, "enqueue_event"),
+      dequeue_event_(k, "dequeue_event"),
+      non_empty_event_(k, "non_empty_event"),
+      non_full_event_(k, "non_full_event") {
     empty_ = true;
     full_ = false;
     wr_ptr_ = 0;
@@ -142,6 +142,68 @@ class Queue : public kernel::Module {
   kernel::Event non_empty_event_;
   kernel::Event non_full_event_;
 };
+
+template<typename T>
+class RequesterIntf {
+ public:
+  virtual ~RequesterIntf() = default;
+
+  // Return flag indicating whether the current agent is currently
+  // requesting.
+  virtual bool is_requesting() const = 0;
+
+  // Acknowledge success of agent's participation in current
+  // tournament.
+  virtual void grant() = 0;
+
+  // Reference to underlying state being arbitrated.
+  virtual T& data() = 0;
+  virtual const T& data() const = 0;
+
+  // Event notified on rising-edge of requester event.
+  virtual kernel::Event& request_arrival_event() = 0;
+};
+
+
+template<typename T>
+class Arbiter : public kernel::Module {
+ public:
+  Arbiter(kernel::Kernel* k, const std::string& name);
+  virtual ~Arbiter() = default;
+
+  // Event denoting rising edge to the ready to grant state.
+  kernel::Event& grant_event() { return grant_event_; }
+
+  T& data();
+  const T& data() const;
+
+  void add_requester(RequesterIntf<T>* intf) { intfs_.push_back(intf); }
+ private:
+
+  void elaborate() override {
+    // Construct EventOr denoting the event which is notified when the
+    // arbiter goes from having no requestors to having non-zero
+    // requestors.
+    for (RequesterIntf<T>* r : intfs_) {
+      request_or_event_.add_child(&r->request_arrival_event());
+    }
+    request_or_event_.finalize();
+  }
+
+  void drc() override {
+  }
+
+  void init() override {
+  }
+
+  void fini() override {
+  }
+  
+  kernel::Event grant_event_;
+  kernel::EventOr request_or_event_;
+  std::vector<RequesterIntf<T>*> intfs_;
+};
+
 
 // Abstract base class encapsulating the concept of a transaction
 // source; more specifically, a block response to model the issue of

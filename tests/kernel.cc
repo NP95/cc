@@ -102,7 +102,7 @@ TEST(Kernel, FatalError) {
     TopModule(cc::kernel::Kernel* k) : cc::kernel::Module(k, "top") {
       set_top();
       p_ = new RaiseErrorProcess(k);
-      add_child(p_);
+      add_child_process(p_);
     }
     RaiseErrorProcess* p_;
   };
@@ -114,6 +114,93 @@ TEST(Kernel, FatalError) {
   const cc::kernel::Time time = k->time();
   ASSERT_EQ(time.time, 100);
 }
+
+TEST(Kernel, EventOr) {
+  // Test to validate correctness of the EventOr notification mechanism.
+  struct Top : cc::kernel::Module {
+
+    // Producer Process; invoked on random intervals;
+    struct ProducerProcess : cc::kernel::Process {
+      ProducerProcess(cc::kernel::Kernel* k, const std::string& name, std::size_t n)
+          : cc::kernel::Process(k, name), e_(k, "e"), n_(n) {
+      }
+      std::size_t n() const { return n_; }
+      cc::kernel::Event& e() { return e_; }
+     private:
+      void init() override {
+        if (n_ != 0) { wait_for(random_interval()); }
+      }
+      void eval() override {
+        const Message msg("Raise notify.", Level::Debug);
+        log(msg);
+        e_.notify();
+        if (--n_ != 0) { wait_for(random_interval()); }
+      }
+      cc::kernel::Time random_interval() {
+        cc::kernel::RandomSource& r = k()->random_source();
+        const cc::kernel::Time time{r.uniform<cc::kernel::Time::time_type>(10, 100)};
+        return time;
+      }
+      cc::kernel::Event e_;
+      std::size_t n_;
+    };
+
+    // Consumer Process; invoked by the child (producer) events.
+    struct ConsumerProcess : cc::kernel::Process {
+      ConsumerProcess(cc::kernel::Kernel* k, std::size_t n)
+          : cc::kernel::Process(k, "ConsumerProcess"), eor_(k, "eor"), n_(n) {
+      }
+      ~ConsumerProcess() {
+        EXPECT_EQ(n(), 0);
+      }
+      int n() const { return n_; }
+      void add_child_event(cc::kernel::Event& e) { eor_.add_child_event(&e); }
+      void finalize() { eor_.finalize(); }
+     private:
+      void init() override {
+        eor_.init();
+        wait_on(eor_);
+      }
+      void eval() override {
+        // Check for extraneous notifications.
+        EXPECT_NE(n_, 0);
+        const Message msg{"Notified!", Level::Debug};
+        log(msg);
+        n_--;
+        wait_on(eor_);
+      }
+      cc::kernel::EventOr eor_;
+      int n_;
+    };
+
+    Top(cc::kernel::Kernel* k, std::size_t n, std::size_t event_n)
+        : cc::kernel::Module(k, "top"), n_(n), event_n_(event_n) {
+      set_top();
+      cps_ = new ConsumerProcess(k, n * event_n);
+      add_child_process(cps_);
+      for (std::size_t i = 0; i < n; i++) {
+        std::string process_name{"ProducerProcess"};
+        process_name += std::to_string(i);
+        ProducerProcess* pp = new ProducerProcess(k, process_name, event_n);
+        cps_->add_child_event(pp->e());
+        pps_.push_back(pp);
+        add_child_process(pp);
+      }
+      cps_->finalize();
+    }
+    std::size_t n() const { return n_; }
+    std::size_t event_n() const { return event_n_; }
+   private:
+    ConsumerProcess* cps_;
+    std::vector<ProducerProcess*> pps_;
+    std::size_t n_;
+    std::size_t event_n_;
+  };
+  cc::kernel::Kernel k;
+  Top top(&k, 3, 10);
+  top.init();
+  k.run();
+};
 
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);

@@ -36,7 +36,7 @@ TEST(Primitives, BasicClock) {
     OnRisingEdgeProcess(cc::kernel::Kernel* k, cc::Clock* clk)
         : cc::kernel::Process(k, "OnRisingEdgeProcess"), clk_(clk) {}
     int n() const { return n_; }
-    void init() override { wait_on(clk_->rising_edge_event()); }
+    void init() override { wait_on(clk_->rising_edge_event()); clk_->init(); }
     void eval() override {
       Message msg("On rising edge: ");
       msg.append(std::to_string(n_)).level(Level::Debug);
@@ -57,7 +57,7 @@ TEST(Primitives, BasicClock) {
       clk_ = new cc::Clock(k, "Clock", n);
       add_child(clk_);
       p_ = new OnRisingEdgeProcess(k, clk_);
-      add_child(p_);
+      add_child_process(p_);
     }
     int n() const { return n_; }
     void fini() override {
@@ -149,10 +149,10 @@ TEST(Primitives, QueueDequeueImmediately) {
       add_child(q_);
       // Enqueue Process
       ep_ = new EnqueueProcess(k, q_, 20);
-      add_child(ep_);
+      add_child_process(ep_);
       // Dequeu process
       dp_ = new DequeueProcess(k, q_, 20);
-      add_child(dp_);
+      add_child_process(dp_);
     }
     void validate() {
       EXPECT_TRUE(q_->empty());
@@ -267,10 +267,10 @@ TEST(Primitives, QueueBurst) {
       d_ = new std::deque<int>();
       // Enqueue Process
       ep_ = new EnqueueProcess(k, q_, 2000, d_);
-      add_child(ep_);
+      add_child_process(ep_);
       // Dequeu process
       dp_ = new DequeueProcess(k, q_, 2000, d_);
-      add_child(dp_);
+      add_child_process(dp_);
     }
     ~Top() { delete d_; }
     void validate() {

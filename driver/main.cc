@@ -55,6 +55,9 @@ class SimTop : cc::kernel::Module {
 
   // Invoke simulation.
   void run() {
+    /// TODO: Move into RUN.
+
+    
     cc::kernel::LogContext& log_context = k()->log_context();
 
     // Build and elaborate simulation environment.
@@ -63,6 +66,9 @@ class SimTop : cc::kernel::Module {
     // Run Design Rule Check to validate environment correctness.
     log_context.info("Running Design Rule Check.");
     drc();
+    // Invoke initialization phase.
+    // TODO!
+    
     // Run simulation.
     log_context.info("Starting simulation.");
     k()->run();

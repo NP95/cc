@@ -39,12 +39,15 @@ namespace cc::kernel {
 // Forwards:
 class Process;
 class Action;
+class Event;
 
 struct Time {
   using time_type = std::uint32_t;
   using delta_type = std::uint32_t;
 
   Time() = default;
+
+  std::string to_string() const;
 
   // TODO: consider changing to a tuple type.
   time_type time = 0;
@@ -237,6 +240,8 @@ class Loggable : public Object {
   Level level_;
 };
 
+//
+//
 class Action : public Loggable {
   friend class Process;
 
@@ -248,22 +253,8 @@ class Action : public Loggable {
   virtual void release();
 };
 
-class Event {
-  friend class Process;
-
- public:
-  Event(Kernel* k);
-
-  Kernel* k() const { return k_; }
-  void notify();
-
- private:
-  void add_waitee(Process* p) { ps_.push_back(p); }
-
-  std::vector<Process*> ps_;
-  Kernel* k_;
-};
-
+//
+//
 class Process : public Loggable {
   friend class Module;
 
@@ -273,6 +264,9 @@ class Process : public Loggable {
 
   // Initialization routine (called after elaboration).
   virtual void init() {}
+
+  // Finalization routine (classed at end of simulation).
+  virtual void fini() {}
 
   // Evaluation routine (called upon satisfaction of 'wait' condition).
   virtual void eval() {}
@@ -287,7 +281,56 @@ class Process : public Loggable {
   virtual void wait_on(Event& event);
 };
 
-class Module : public Loggable {
+//
+//
+class ProcessHost : public Loggable {
+ public:
+  ProcessHost(Kernel* k, const std::string& name);
+
+  // Add evaluate-able process
+  virtual void add_child_process(Process* p);
+  // Initialization routine.
+  virtual void init();
+  // Finalization routine.
+  virtual void fini();
+  
+ private:
+  std::vector<Process*> ps_;
+};
+
+//
+//
+class Event : public ProcessHost {
+  friend class Process;
+
+ public:
+  Event(Kernel* k, const std::string& name);
+
+  void notify();
+
+ private:
+  void add_waitee(Process* p) { ps_.push_back(p); }
+
+  std::vector<Process*> ps_;
+};
+
+// Event subtype to model the composition of an "or-list" of events.
+//
+class EventOr : public Event {
+ public:
+  EventOr(Kernel* k, const std::string& name);
+
+  // Add child event.
+  void add_child_event(Event* child) { childs_.push_back(child); }
+  void finalize();
+ private:
+  std::vector<Event*> childs_;
+  std::vector<Process*> fwdps_;
+};
+
+//
+//
+class Module : public ProcessHost {
   friend class Kernel;
 
  protected:
@@ -300,18 +343,12 @@ class Module : public Loggable {
   virtual void elaborate();
   // Run Design Rule Check.
   virtual void drc();
-  // Initialization routine.
-  virtual void init();
-  // Finalization routine.
-  virtual void fini();
 
   // A child objects.
-  void add_child(Module* m);
-  void add_child(Process* p);
+  void add_child_module(Module* m);
 
  private:
   std::vector<Module*> ms_;
-  std::vector<Process*> ps_;
 };
 
 }  // namespace cc::kernel

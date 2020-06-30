@@ -42,8 +42,12 @@ bool operator<(const Time& lhs, const Time& rhs) {
   return (lhs.delta < rhs.delta);
 }
 
+std::string Time::to_string() const {
+  return std::string{std::to_string(time) + ":" + std::to_string(delta)};
+}
+
 std::ostream& operator<<(std::ostream& os, const Time& t) {
-  return os << t.time << ":" << t.delta;
+  return os << t.to_string();
 }
 
 RandomSource::RandomSource(seed_type seed) : seed_(seed), mt_(seed) {}
@@ -150,7 +154,23 @@ Action::Action(Kernel* k, const std::string& name) : Loggable(k, name) {}
 
 void Action::release() { delete this; }
 
-Event::Event(Kernel* k) : k_(k) {}
+ProcessHost::ProcessHost(Kernel* k, const std::string& name)
+    : Loggable(k, name) {}
+
+void ProcessHost::add_child_process(Process* p) {
+  Object::add_child(p);
+  ps_.push_back(p);
+}
+
+void ProcessHost::init() {
+  for (Process* p : ps_) p->init();
+}
+
+void ProcessHost::fini() {
+  for (Process* p : ps_) p->fini();
+}
+
+Event::Event(Kernel* k, const std::string& name) : ProcessHost(k, name) {}
 
 void Event::notify() {
   struct EvalProcessAction : Action {
@@ -169,6 +189,44 @@ void Event::notify() {
     k()->add_action(time, new EvalProcessAction(k(), p));
   }
   ps_.clear();
+}
+
+EventOr::EventOr(Kernel* k, const std::string& name)
+    : Event(k, name) {}
+
+void EventOr::finalize() {
+  // Forwarding process awaits the notification of one of the
+  // associated child events and then forwards the notification to the
+  // associated parent event (to be scheduled in the subsequent delta
+  // cycle).
+  struct EventNotifyForwardProcess : Process {
+    EventNotifyForwardProcess(Kernel* k, Event* parent, Event* e, const std::string& name)
+        : Process(k, name), parent_(parent), e_(e) {}
+
+    // Pointer to parent event object.
+    Event* parent() const { return e_; }
+    // Pointer to underlying event object.
+    Event* e() const { return e_; }
+
+    void init() override {
+      wait_on(*e());
+    }
+    void eval() override {
+      parent_->notify();
+      wait_on(*e());
+    }
+   private:
+    Kernel* k_;
+    Event* e_;
+    Event* parent_;
+  };
+  for (Event* e : childs_) {
+    const std::string process_name = name() + ".fwd." + e->name();
+    EventNotifyForwardProcess* fwdp =
+        new EventNotifyForwardProcess(k(), this, e, process_name);
+    fwdps_.push_back(fwdp);
+    add_child_process(fwdp);
+  }
 }
 
 Process::Process(Kernel* k, const std::string& name) : Loggable(k, name) {}
@@ -191,7 +249,7 @@ void Process::wait_until(Time t) {
 
 void Process::wait_on(Event& event) { event.add_waitee(this); }
 
-Module::Module(Kernel* k, const std::string& name) : Loggable(k, name) {}
+Module::Module(Kernel* k, const std::string& name) : ProcessHost(k, name) {}
 
 Module::~Module() {}
 
@@ -203,21 +261,9 @@ void Module::drc() {
   for (Module* m : ms_) m->drc();
 }
 
-void Module::init() {
-  for (Module* m : ms_) m->init();
-  for (Process* p : ps_) p->init();
-}
-
-void Module::fini() {}
-
-void Module::add_child(Module* m) {
-  ms_.push_back(m);
+void Module::add_child_module(Module* m) {
   Object::add_child(m);
-}
-
-void Module::add_child(Process* p) {
-  ps_.push_back(p);
-  Object::add_child(p);
+  ms_.push_back(m);
 }
 
 }  // namespace cc::kernel
