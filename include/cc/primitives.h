@@ -143,6 +143,9 @@ class Queue : public kernel::Module {
   kernel::Event non_full_event_;
 };
 
+
+//
+//
 template<typename T>
 class RequesterIntf {
  public:
@@ -165,6 +168,8 @@ class RequesterIntf {
 };
 
 
+//
+//
 template<typename T>
 class Arbiter : public kernel::Module {
  public:
