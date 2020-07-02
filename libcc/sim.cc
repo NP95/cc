@@ -34,15 +34,25 @@ MessageQueue::MessageQueue(kernel::Kernel* k, const std::string& name, std::size
   build(n);
 }
 
-bool MessageQueue::is_requesting() const {
-  return false;
+bool MessageQueue::has_req() const {
+  return !q_->empty();
 }
 
-void MessageQueue::grant() {
-}
-
-Message* MessageQueue::data() const {
+const Message* MessageQueue::peek() const {
   return nullptr;
+}
+
+const Message* MessageQueue::dequeue() {
+  return nullptr;
+  /*
+  const Message* msg;
+  if (!q_->dequeue(msg)) {
+    const LogMessage msg{"Attempt to dequeue Message failed.", Level::Fatal};
+    log(msg);
+    return nullptr;
+  }
+  return msg;
+  */
 }
 
 kernel::Event& MessageQueue::request_arrival_event() {
@@ -50,28 +60,95 @@ kernel::Event& MessageQueue::request_arrival_event() {
 }
 
 void MessageQueue::build(std::size_t n) {
-  q_ = new Queue<Message*>(k(), "queue", n);
+  q_ = new Queue<const Message*>(k(), "queue", n);
   add_child(q_);
 }
 
+class ProcessorModel::MainProcess : kernel::Process {
+ public:
+  MainProcess(kernel::Kernel* k, const std::string& name, ProcessorModel* parent)
+      : kernel::Process(k, name), parent_(parent) {
+  }
+ private:
+
+  // Initialization
+  virtual void init() override {
+    Stimulus* stim = parent_->stim_;
+    if (!stim->done()) {
+      const Stimulus::Frontier& f{stim->front()};
+      wait_for(f.time);
+    }
+  }
+
+  // Finalization
+  virtual void fini() override {
+  }
+
+  // Elaboration
+  virtual void eval() override {
+    parent_->mature_event_.notify();
+  }
+
+  ProcessorModel* parent_ = nullptr;
+};
+
 ProcessorModel::ProcessorModel(kernel::Kernel* k, const std::string& name)
-    : kernel::Module(k, name) {
+    : kernel::Module(k, name), mature_event_(k, "mature_event") {
   build();
 }
 
-bool ProcessorModel::is_requesting() const {
-  return false;
+bool ProcessorModel::has_req() const {
+  if (stim_->done()) return false;
+
+  const Stimulus::Frontier& f = stim_->front();
+  return f.time <= k()->time();
 }
 
-void ProcessorModel::grant() {
+const Message* ProcessorModel::peek() const {
+  if (!has_req()) return nullptr;
+  
+  if (msg_ == nullptr) { construct_new_message(); }
+  return msg_;
 }
 
-Message* ProcessorModel::data() const {
-  return nullptr;
+void ProcessorModel::construct_new_message() const {
+  const Stimulus::Frontier& f = stim_->front();
+  Command cmd = f.cmd;
+  // Transaction starts. Create transction and form message.
+  Transaction* t = new Transaction;
+  CpuMessage* m = new CpuMessage(t);
+  m->set_addr(cmd.addr());
+  switch (cmd.opcode()) {
+    case Command::Load: {
+      // Construct Load instrduction message.
+      m->set_opcode(CpuMessage::Load);
+    } break;
+    case Command::Store: {
+      // Construct Store instrduction message.
+      m->set_opcode(CpuMessage::Store);
+    } break;
+    default: {
+      const LogMessage msg{"Unknown command opcode.", Level::Fatal};
+      log(msg);
+    };
+  }
+  // Message placeholder.
+  msg_ = m;
+}
+
+const Message* ProcessorModel::dequeue() {
+  if (msg_ == nullptr) { construct_new_message(); }
+  
+  // Add transaction to processor transaction table.
+  ts_.insert(msg_->t());
+  // Consume stimulus command, from which this command had been constructed.
+  stim_->consume();
+  // Nullify preconstructed and return old.
+  return std::exchange(msg_, nullptr);
 }
 
 kernel::Event& ProcessorModel::request_arrival_event() {
-  return stim_->matured_event();
+  return mature_event_;
 }
 
 void ProcessorModel::build() {

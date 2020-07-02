@@ -36,10 +36,21 @@ Time operator+(const Time& lhs, const Time& rhs) {
   return Time{lhs.time + rhs.time, lhs.delta + rhs.delta};
 }
 
+bool operator==(const Time& lhs, const Time& rhs) {
+  if (lhs.time != rhs.time) return false;
+  if (lhs.delta != rhs.delta) return false;
+  return true;
+}
+
 bool operator<(const Time& lhs, const Time& rhs) {
   if (lhs.time < rhs.time) return true;
   if (lhs.time > rhs.time) return false;
   return (lhs.delta < rhs.delta);
+}
+
+bool operator<=(const Time& lhs, const Time& rhs) {
+  if (operator==(lhs, rhs)) return true;
+  return operator<(lhs, rhs);
 }
 
 std::string Time::to_string() const {

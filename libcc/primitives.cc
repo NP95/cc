@@ -60,33 +60,4 @@ Clock::Clock(kernel::Kernel* k, const std::string& name, int ticks, int period)
   add_child_process(p_);
 }
 
-Stimulus::Stimulus(kernel::Kernel* k, const std::string& name)
-    : kernel::Module(k, name)
-    , matured_event_(k, "matured_event")
-    , exhausted_event_(k, "exhausted_event")
-{}
-
-
-Command* Stimulus::head() {
-  return nullptr;
-}
-
-
-void Stimulus::consume() {
-}
-
-
-ProgrammaticStimulus::ProgrammaticStimulus(
-    kernel::Kernel* k, const std::string& name)
-    : Stimulus(k, name)
-{}
-
-
-void ProgrammaticStimulus::add_command(const Command& c) {
-}
-
-bool ProgrammaticStimulus::cb_replenish() {
-  return false;
-}
-
 }  // namespace cc

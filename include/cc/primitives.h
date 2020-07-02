@@ -152,19 +152,27 @@ class RequesterIntf {
  public:
   virtual ~RequesterIntf() = default;
 
-  // Return flag indicating whether the current agent is currently
-  // requesting.
-  virtual bool is_requesting() const = 0;
+  // Flag indicating the current agent is requesting.
+  virtual bool has_req() const { return false; }
 
-  // Acknowledge success of agent's participation in current
-  // tournament.
-  virtual void grant() = 0;
-
+  // Peek at the current 'T' without consuming it.
+  virtual T peek() const = 0;
+  
   // Reference to underlying state being arbitrated.
-  virtual T data() const = 0;
+  virtual T dequeue() = 0;
 
-  // Event notified on rising-edge of requester event.
+  // Set blocked status of requestor.
+  void set_blocked(bool b = true) { blocked_ = true; }
+
+  // Flag indicating that the current agent is blocked.
+  bool blocked() const { return blocked_; }
+
+  // Event denoting the arrival of a requester at the interface.
   virtual kernel::Event& request_arrival_event() = 0;
+
+ private:
+  // Flag indicating that the current requestor is blocked.
+  bool blocked_ = false;
 };
 
 
@@ -173,6 +181,57 @@ class RequesterIntf {
 template<typename T>
 class Arbiter : public kernel::Module {
  public:
+
+  // Helper class which encapsulates the concept of a single
+  // arbitration round.
+  class Tournament {
+    friend class Arbiter;
+    Tournament(Arbiter* parent) : parent_(parent) { execute(); }
+   public:
+    // Return the winning requester interface.
+    RequesterIntf<T>* intf() const { return intf_; }
+    bool has_requester() const { return has_requester_; }
+    bool deadlock() const { return deadlock_; }
+
+    // Advance arbitration state to the next index if prior
+    // arbitration has succeeded.
+    void advance() const {
+      if (intf_ != nullptr) {
+        parent_->idx_ = (idx_ + 1) % parent_->n();
+      }
+    }
+
+   private:
+    void execute() {
+      for (std::size_t i = 0; i < parent_->n(); i++) {
+        // Compute index of next requester interface in roundrobin order.
+        idx_ = (parent_->idx_ + i) % parent_->n();
+        RequesterIntf<T>* cur = parent_->intfs_[idx_];
+
+        if (!cur->has_req()) continue;
+        // Current agent is requesting, proceed.
+
+        has_requester_ = true;
+        if (!cur->blocked()) {
+          // Current agent is requesting and is not blocked by some
+          // protocol condition.
+          intf_ = cur;
+          return;
+        }
+      }
+
+      // A deadlock has occurred iff there are pending work items in the
+      // child queues, but all of these queues are currently blocked
+      // awaiting the completion of some other action.
+      deadlock_ = has_requester_;
+    }
+    bool deadlock_ = false;
+    bool has_requester_ = false;
+    RequesterIntf<T>* intf_ = nullptr;
+    Arbiter* parent_ = nullptr;
+    std::size_t idx_;
+  };
+  
   Arbiter(kernel::Kernel* k, const std::string& name)
       : kernel::Module(k, name)
       , grant_event_(k, "grant_event")
@@ -180,11 +239,13 @@ class Arbiter : public kernel::Module {
   {}
   virtual ~Arbiter() = default;
 
+  // The number of requesting agents.
+  std::size_t n() const { return intfs_.size(); }
   // Event denoting rising edge to the ready to grant state.
-  kernel::Event& grant_event() { return grant_event_; }
-
-  T data() const;
-
+  kernel::Event& wake_event() { return grant_event_; }
+  // Initiate an arbitration tournament.
+  Tournament tournament() { return Tournament(this); }
+  // Add a requester to the current arbiter (Build-/Elaboration-Phases only).
   void add_requester(RequesterIntf<T>* intf) { intfs_.push_back(intf); }
  private:
 
@@ -205,9 +266,14 @@ class Arbiter : public kernel::Module {
 
   void drc() override {
   }
-  
+
+  // Deprecate?
   kernel::Event grant_event_;
+  //
   kernel::EventOr request_or_event_;
+  // Current arbitration index.
+  std::size_t idx_ = 0;
+  //
   std::vector<RequesterIntf<T>*> intfs_;
 };
 
@@ -235,62 +301,30 @@ class Command {
 // source; more specifically, a block response to model the issue of
 // of load or store instructions to a cache.
 //
-class Stimulus : public kernel::Module {
- protected:
+class Stimulus {
+ public:
 
   // Transaction frontier record.
   struct Frontier {
-    Command cmd;
     kernel::Time time;
+    Command cmd;
   };
   
- public:
-  Stimulus(kernel::Kernel* k, const std::string& name);
+  Stimulus() = default;
   virtual ~Stimulus() = default;
 
   // Flag denoting whether the transaction source has been exhausted.
-  virtual bool done() const { return done_; }
-  // Event notified whenever a transaction has become available.
-  kernel::Event& matured_event() { return matured_event_; }
-  // Event notified whenever the source has been exhausted.
-  kernel::Event& exhausted_event() { return exhausted_event_; }
-
+  virtual bool done() const { return true; }
+  
   // Transaction at the head of the source queue; nullptr if source
   // has been exhausted.
-  Command* head();
+  virtual Frontier& front() = 0;
+  virtual const Frontier& front() const = 0;
 
   // Consume transaction at the head of the source queue.
-  virtual void consume();
-
- protected:
-
-  virtual bool cb_replenish() = 0;
-
-  // Child indicates that all transaction have been issued.
-  virtual void set_done() { done_ = true; }
-
- private:
-  kernel::Event matured_event_;
-  kernel::Event exhausted_event_;
-  bool done_ = false;
-  std::vector<Frontier> ts_;
+  virtual void consume() {}
 };
 
-
-// Elementary realization of a transaction source. Transactions are
-// programmatically constructed and issued to the source before the
-// start of the simulation. Upon exhaustion of the transactions
-// the source remained exhausted for the duration of the simulation.
-//
-class ProgrammaticStimulus : public Stimulus {
- public:
-  ProgrammaticStimulus(kernel::Kernel* k, const std::string& name);
-
-  void add_command(const Command& c);
-
- private:
-  bool cb_replenish() override;
-};
 
 }  // namespace cc
 

@@ -71,11 +71,13 @@ class L1CacheModel : public kernel::Module {
   // Associated message queues for coherency messages.
   std::vector<MessageQueue*> mqs_;
   // Message servicing arbiter.
-  Arbiter<Message*>* arb_;
-  // Cache configuration.
-  L1CacheModelConfig config_;
+  Arbiter<const Message*>* arb_;
   // Main process of execution.
   MainProcess* main_;
+  // Cache Instance
+  // TODO
+  // Cache configuration.
+  L1CacheModelConfig config_;
 };
 
 } // namespace cc

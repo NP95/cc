@@ -36,8 +36,12 @@ class L1CacheModel::MainProcess : public kernel::Process {
       : kernel::Process(k, name), model_(model)
   {}
 
+  Arbiter<const Message*>* arb() const { return model_->arb_; }
+
   // Initialization
   void init() override {
+    // Await the arrival of requesters
+    wait_on(arb()->wake_event());
   }
 
   // Finalization
@@ -46,6 +50,36 @@ class L1CacheModel::MainProcess : public kernel::Process {
 
   // Evaluation
   void eval() override {
+    Arbiter<const Message*>::Tournament t = arb()->tournament();
+    if (t.deadlock()) {
+      const LogMessage msg{"A protocol deadlock has been detected.", Level::Fatal};
+      log(msg);
+    }
+
+    if (t.has_requester()) {
+      RequesterIntf<const Message*>* intf = t.intf();
+      const Message* msg = intf->peek();
+      switch (msg->cls()) {
+        case Message::Cpu: {
+
+
+          // Consume message.
+          intf->dequeue();
+        } break;
+        default: {
+          // Invalid message has been received; cannot proceed. Error out.
+          LogMessage lmsg{"Invalid message received: "};
+          lmsg.level(Level::Error);
+          lmsg.append(msg->to_string());
+          log(lmsg);
+        } break;
+      }
+
+      // Advance arbitration state.
+      t.advance();
+    } else {
+      wait_on(arb()->wake_event());
+    }
   }
  private:
   // Pointer to parent module.
@@ -72,7 +106,7 @@ void L1CacheModel::build() {
   mqs_.push_back(mq);
 
   // Arbiter
-  arb_ = new Arbiter<Message*>(k(), "arb");
+  arb_ = new Arbiter<const Message*>(k(), "arb");
   arb_->add_requester(proc_);
   for (MessageQueue* mq : mqs_) {
     arb_->add_requester(mq);

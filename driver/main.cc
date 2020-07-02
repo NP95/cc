@@ -67,6 +67,12 @@ class SimTop : cc::kernel::Module {
       l2cs_.push_back(l2c);
     }
   }
+
+  void elab() {
+  }
+
+  void drc() {
+  }
  private:
   SimContext simcontext_;
   std::vector<cc::L2CacheModel*> l2cs_;
@@ -80,7 +86,11 @@ int main(int argc, char** argv) {
   l2config.name = "l2cache";
   cc::L1CacheModelConfig l1config;
   l1config.name = "l1cache";
-  l1config.ts = nullptr;
+
+  cc::ProgrammaticStimulus* stim = new cc::ProgrammaticStimulus;
+
+  stim->push_back(cc::kernel::Time{100}, cc::Command{cc::Command::Load, 0});
+  l1config.stim = stim;
   l2config.l1configs.push_back(l1config);
   simconfig.l2configs.push_back(l2config);
 
