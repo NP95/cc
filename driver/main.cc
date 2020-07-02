@@ -67,12 +67,6 @@ class SimTop : cc::kernel::Module {
       l2cs_.push_back(l2c);
     }
   }
-  void elaborate() {
-    Module::elaborate();
-  }
-  void drc() {
-    Module::drc();
-  }
  private:
   SimContext simcontext_;
   std::vector<cc::L2CacheModel*> l2cs_;

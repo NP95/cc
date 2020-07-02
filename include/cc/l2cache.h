@@ -25,16 +25,42 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_H
-#define CC_INCLUDE_CC_H
+#ifndef CC_INCLUDE_CC_L2CACHE_H
+#define CC_INCLUDE_CC_L2CACHE_H
 
-#include "cc/common.h"
-#include "cc/kernel.h"
-#include "cc/primitives.h"
-#include "cc/cache.h"
-#include "cc/protocol.h"
-#include "cc/sim.h"
-#include "cc/l1cache.h"
-#include "cc/l2cache.h"
+#include "kernel.h"
+#include "primitives.h"
+#include "l1cache.h"
+#include <vector>
+
+namespace cc {
+
+//
+//
+struct L2CacheModelConfig {
+  // L2 Cache Model name
+  std::string name = "l2cache";
+  // Child L1 client configurations.
+  std::vector<L1CacheModelConfig> l1configs;
+};
+
+//
+//
+class L2CacheModel : public kernel::Module {
+ public:
+  L2CacheModel(kernel::Kernel* k, const L2CacheModelConfig& config);
+  virtual ~L2CacheModel();
+
+  L2CacheModelConfig config() const { return config_; }
+ protected:
+  virtual void elab() override;
+  virtual void drc() override;
+ private:
+  void build();
+  L2CacheModelConfig config_;
+  std::vector<L1CacheModel*> l1cs_;
+};
+
+} // namespace cc
 
 #endif

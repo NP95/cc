@@ -25,16 +25,34 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_H
-#define CC_INCLUDE_CC_H
-
-#include "cc/common.h"
-#include "cc/kernel.h"
-#include "cc/primitives.h"
-#include "cc/cache.h"
-#include "cc/protocol.h"
-#include "cc/sim.h"
-#include "cc/l1cache.h"
 #include "cc/l2cache.h"
 
-#endif
+namespace cc {
+
+L2CacheModel::L2CacheModel(kernel::Kernel* k, const L2CacheModelConfig& config)
+    : kernel::Module(k, config.name), config_(config) {
+  build();
+}
+
+L2CacheModel::~L2CacheModel() {
+}
+
+
+void L2CacheModel::build() {
+  for (const L1CacheModelConfig& l1cfg : config_.l1configs) {
+    l1cs_.push_back(new L1CacheModel(k(), l1cfg));
+  }
+}
+
+void L2CacheModel::elab() {
+  // Do elaborate
+}
+ 
+void L2CacheModel::drc() {
+  if (l1cs_.empty()) {
+    const LogMessage msg{"L2 has no child L1 cache(s).", Level::Fatal};
+    log(msg);
+  }
+}
+
+} // namespace cc

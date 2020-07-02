@@ -60,37 +60,33 @@ Clock::Clock(kernel::Kernel* k, const std::string& name, int ticks, int period)
   add_child_process(p_);
 }
 
-
-
-/*
-
-TransactionSource::TransactionSource(kernel::Kernel* k, const std::string& name)
-    : kernel::Module(k, name), matured_event_(k), exhausted_event_(k)
+Stimulus::Stimulus(kernel::Kernel* k, const std::string& name)
+    : kernel::Module(k, name)
+    , matured_event_(k, "matured_event")
+    , exhausted_event_(k, "exhausted_event")
 {}
 
 
-Transaction* TransactionSource::head() {
+Command* Stimulus::head() {
   return nullptr;
 }
 
 
-void TransactionSource::consume() {
+void Stimulus::consume() {
 }
 
 
-ProgrammaticTransactionSource::ProgrammaticTransactionSource(
+ProgrammaticStimulus::ProgrammaticStimulus(
     kernel::Kernel* k, const std::string& name)
-    : TransactionSource(k, name)
+    : Stimulus(k, name)
 {}
 
 
-void ProgrammaticTransactionSource::add_command(Opcode opcode, kernel::Time t) {
+void ProgrammaticStimulus::add_command(const Command& c) {
 }
 
-bool ProgrammaticTransactionSource::cb_replenish() {
+bool ProgrammaticStimulus::cb_replenish() {
   return false;
 }
-
-*/
 
 }  // namespace cc

@@ -30,6 +30,7 @@
 
 #include <vector>
 
+#include "common.h"
 #include "kernel.h"
 #include "protocol.h"
 
@@ -160,8 +161,7 @@ class RequesterIntf {
   virtual void grant() = 0;
 
   // Reference to underlying state being arbitrated.
-  virtual T& data() = 0;
-  virtual const T& data() const = 0;
+  virtual T data() const = 0;
 
   // Event notified on rising-edge of requester event.
   virtual kernel::Event& request_arrival_event() = 0;
@@ -173,26 +173,34 @@ class RequesterIntf {
 template<typename T>
 class Arbiter : public kernel::Module {
  public:
-  Arbiter(kernel::Kernel* k, const std::string& name);
+  Arbiter(kernel::Kernel* k, const std::string& name)
+      : kernel::Module(k, name)
+      , grant_event_(k, "grant_event")
+      , request_or_event_(k, "request_event")
+  {}
   virtual ~Arbiter() = default;
 
   // Event denoting rising edge to the ready to grant state.
   kernel::Event& grant_event() { return grant_event_; }
 
-  T& data();
-  const T& data() const;
+  T data() const;
 
   void add_requester(RequesterIntf<T>* intf) { intfs_.push_back(intf); }
  private:
 
   void elab() override {
-    // Construct EventOr denoting the event which is notified when the
-    // arbiter goes from having no requestors to having non-zero
-    // requestors.
-    for (RequesterIntf<T>* r : intfs_) {
-      request_or_event_.add_child(&r->request_arrival_event());
+    if (!intfs_.empty()) {
+      // Construct EventOr denoting the event which is notified when the
+      // arbiter goes from having no requestors to having non-zero
+      // requestors.
+      for (RequesterIntf<T>* r : intfs_) {
+        request_or_event_.add_child(&r->request_arrival_event());
+      }
+      request_or_event_.finalize();
+    } else {
+      const LogMessage msg{"Arbiter has no associated requestors.", Level::Error};
+      log(msg);
     }
-    request_or_event_.finalize();
   }
 
   void drc() override {
@@ -204,22 +212,41 @@ class Arbiter : public kernel::Module {
 };
 
 
+// Basic (load/store) command class.
+//
+class Command {
+ public:
+  enum Opcode { Load, Store };
+
+  Command(Opcode opcode, addr_t addr)
+      : opcode_(opcode), addr_(addr)
+  {}
+
+  addr_t addr() const { return addr_; }
+  Opcode opcode() const { return opcode_; }
+
+ private:
+  addr_t addr_;
+  Opcode opcode_;
+};
+
+
 // Abstract base class encapsulating the concept of a transaction
 // source; more specifically, a block response to model the issue of
 // of load or store instructions to a cache.
 //
-class TransactionSource : public kernel::Module {
+class Stimulus : public kernel::Module {
  protected:
 
   // Transaction frontier record.
   struct Frontier {
-    Transaction* t;
+    Command cmd;
     kernel::Time time;
   };
   
  public:
-  TransactionSource(kernel::Kernel* k, const std::string& name);
-  virtual ~TransactionSource() = default;
+  Stimulus(kernel::Kernel* k, const std::string& name);
+  virtual ~Stimulus() = default;
 
   // Flag denoting whether the transaction source has been exhausted.
   virtual bool done() const { return done_; }
@@ -230,7 +257,7 @@ class TransactionSource : public kernel::Module {
 
   // Transaction at the head of the source queue; nullptr if source
   // has been exhausted.
-  Transaction* head();
+  Command* head();
 
   // Consume transaction at the head of the source queue.
   virtual void consume();
@@ -255,11 +282,11 @@ class TransactionSource : public kernel::Module {
 // start of the simulation. Upon exhaustion of the transactions
 // the source remained exhausted for the duration of the simulation.
 //
-class ProgrammaticTransactionSource : public TransactionSource {
+class ProgrammaticStimulus : public Stimulus {
  public:
-  ProgrammaticTransactionSource(kernel::Kernel* k, const std::string& name);
+  ProgrammaticStimulus(kernel::Kernel* k, const std::string& name);
 
-  void add_command(Opcode opcode, kernel::Time t);
+  void add_command(const Command& c);
 
  private:
   bool cb_replenish() override;

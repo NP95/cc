@@ -200,7 +200,7 @@ void Object::add_child(Object* c) {
   c->set_parent(this);
 }
 
-Loggable::Message& Loggable::Message::append(const std::string& str) {
+Loggable::LogMessage& Loggable::LogMessage::append(const std::string& str) {
   msg_ += str;
   return *this;
 }
@@ -211,7 +211,7 @@ void Loggable::log_prefix(Level l, std::ostream& os) const {
   os << "[" << l.to_char() << ";" << path() << "@" << k()->time() << "]: ";
 }
 
-void Loggable::log(const Message& m) const {
+void Loggable::log(const LogMessage& m) const {
   if (level() >= m.level()) {
     LogContext& log_context = k()->log_context();
     log_prefix(m.level(), log_context.os());

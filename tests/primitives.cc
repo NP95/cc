@@ -40,7 +40,7 @@ TEST(Primitives, BasicClock) {
       wait_on(clk_->rising_edge_event());
     }
     void eval() override {
-      Message msg("On rising edge: ");
+      LogMessage msg("On rising edge: ");
       msg.append(std::to_string(n_)).level(Level::Debug);
       log(msg);
       wait_on(clk_->rising_edge_event());
@@ -102,7 +102,7 @@ TEST(Primitives, QueueDequeueImmediately) {
       EXPECT_TRUE(q_->enqueue(k()->time()));
 
       if (--n_ != 0) wait_for(cc::kernel::Time{10});
-      log(Message{"Enqueued entry"});
+      log(LogMessage{"Enqueued entry"});
     }
 
    private:
@@ -133,7 +133,7 @@ TEST(Primitives, QueueDequeueImmediately) {
       // originally enqueued.
       EXPECT_NE(n_, 0);
       n_--;
-      log(Message{"Dequeued entry"});
+      log(LogMessage{"Dequeued entry"});
       wait_on(q_->enqueue_event());
     }
 
@@ -192,7 +192,7 @@ TEST(Primitives, QueueBurst) {
         for (int i = 0; i < num_to_enqueue; i++) {
           const int actual = r.uniform<int>();
           EXPECT_TRUE(q_->enqueue(actual));
-          Message msg("Enqueue: ");
+          LogMessage msg("Enqueue: ");
           msg.append(std::to_string(actual));
           msg.level(Level::Debug);
           log(msg);
@@ -237,7 +237,7 @@ TEST(Primitives, QueueBurst) {
         d_->pop_front();
         int actual;
         EXPECT_TRUE(q_->dequeue(actual));
-        Message msg("Dequeue: ");
+        LogMessage msg("Dequeue: ");
         msg.append(std::to_string(actual));
         msg.level(Level::Debug);
         log(msg);

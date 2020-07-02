@@ -29,8 +29,4 @@
 
 namespace cc {
 
-Transaction::Transaction(Opcode opcode, addr_t addr)
-    : opcode_(opcode), addr_(addr)
-{}
-
 } // namespace cc

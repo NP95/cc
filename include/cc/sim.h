@@ -34,49 +34,65 @@
 
 namespace cc {
 
-struct L1CacheModelConfig {
-  // L1 Cache Model name
-  std::string name = "l1cache";
-  // Pointer to the transaction source instance for the current l1
-  // cache instance (models the notion of a microprocessor
-  // periodically emitting load/store instructions to memory).
-  TransactionSource* ts = nullptr;
+
+//
+//
+
+//
+//
+struct Transaction {
+  
 };
 
-class L1CacheModel : public kernel::Module {
- public:
-  L1CacheModel(kernel::Kernel* k, const L1CacheModelConfig& config);
-  virtual ~L1CacheModel();
+//
+//
+struct Message {
+  // Pointer to the transaction to which this message is a party.
+  Transaction* t;
+};
 
-  L1CacheModelConfig config() const { return config_; }
- protected:
-  virtual void elab() override;
-  virtual void drc() override;
+
+//
+//
+class MessageQueue : public kernel::Module, public RequesterIntf<Message*> {
+ public:
+  MessageQueue(kernel::Kernel* k, const std::string& name, std::size_t n);
+
+  // Queue depth.
+  std::size_t n() const { return q_->n(); }
+  
+  // Requester Interface:
+  bool is_requesting() const override;
+  void grant() override;
+  Message* data() const override;
+  kernel::Event& request_arrival_event() override;
+  
  private:
-  TransactionSource* ts_;
-  L1CacheModelConfig config_;
+  // Construct module
+  void build(std::size_t n);
+  // Queue primitive.
+  Queue<Message*>* q_ = nullptr;
 };
 
-struct L2CacheModelConfig {
-  // L2 Cache Model name
-  std::string name = "l2cache";
-  // Child L1 client configurations.
-  std::vector<L1CacheModelConfig> l1configs;
-};
-
-class L2CacheModel : public kernel::Module {
+//
+//
+class ProcessorModel : public kernel::Module, public RequesterIntf<Message*> {
  public:
-  L2CacheModel(kernel::Kernel* k, const L2CacheModelConfig& config);
-  virtual ~L2CacheModel();
+  ProcessorModel(kernel::Kernel* k, const std::string& name);
 
-  L2CacheModelConfig config() const { return config_; }
- protected:
-  virtual void elab() override;
-  virtual void drc() override;
+  // Set stimulus object for processor.
+  void set_stimulus(Stimulus* stim) { stim_ = stim; }
+  
+  // Requester Interface:
+  bool is_requesting() const override;
+  void grant() override;
+  Message* data() const override;
+  kernel::Event& request_arrival_event() override;
  private:
   void build();
-  L2CacheModelConfig config_;
-  std::vector<L1CacheModel*> l1cs_;
+  void elab() override;
+  void drc() override;
+  Stimulus* stim_ = nullptr;
 };
 
 } // namespace cc

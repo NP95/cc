@@ -25,16 +25,59 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_H
-#define CC_INCLUDE_CC_H
+#ifndef CC_INCLUDE_CC_L1CACHE_H
+#define CC_INCLUDE_CC_L1CACHE_H
 
-#include "cc/common.h"
-#include "cc/kernel.h"
-#include "cc/primitives.h"
-#include "cc/cache.h"
-#include "cc/protocol.h"
-#include "cc/sim.h"
-#include "cc/l1cache.h"
-#include "cc/l2cache.h"
+#include <string>
+#include "kernel.h"
+
+namespace cc {
+
+class Stimulus;
+class Message;
+class MessageQueue;
+template<typename> class Arbiter;
+class ProcessorModel;
+
+//
+//
+struct L1CacheModelConfig {
+  // L1 Cache Model name
+  std::string name = "l1cache";
+  // Pointer to the transaction source instance for the current l1
+  // cache instance (models the notion of a microprocessor
+  // periodically emitting load/store instructions to memory).
+  Stimulus* stim = nullptr;
+};
+
+//
+//
+class L1CacheModel : public kernel::Module {
+  class MainProcess;
+ public:
+  L1CacheModel(kernel::Kernel* k, const L1CacheModelConfig& config);
+  virtual ~L1CacheModel();
+
+  L1CacheModelConfig config() const { return config_; }
+ protected:
+  virtual void elab() override;
+  virtual void drc() override;
+ private:
+  void build();
+  // L1 Cache stimulus (models the concept of a processor data path
+  // emitting instructions into the cache as part of a programs
+  // execution).
+  ProcessorModel* proc_;
+  // Associated message queues for coherency messages.
+  std::vector<MessageQueue*> mqs_;
+  // Message servicing arbiter.
+  Arbiter<Message*>* arb_;
+  // Cache configuration.
+  L1CacheModelConfig config_;
+  // Main process of execution.
+  MainProcess* main_;
+};
+
+} // namespace cc
 
 #endif

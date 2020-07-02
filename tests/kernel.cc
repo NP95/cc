@@ -116,7 +116,7 @@ TEST(Kernel, FatalError) {
           : cc::kernel::Process(k, "RaiseErrorProcess") {}
       void init() override { wait_until(cc::kernel::Time{100}); }
       void eval() override {
-        log(Message("Some error condition", Level::Fatal));
+        log(LogMessage("Some error condition", Level::Fatal));
       }
     };
     TopModule(cc::kernel::Kernel* k) : cc::kernel::TopModule(k, "top") {
@@ -153,7 +153,7 @@ TEST(Kernel, EventOr) {
         if (n_ != 0) { wait_for(random_interval()); }
       }
       void eval() override {
-        const Message msg("Raise notify.", Level::Debug);
+        const LogMessage msg("Raise notify.", Level::Debug);
         log(msg);
         e_.notify();
         if (--n_ != 0) { wait_for(random_interval()); }
@@ -187,7 +187,7 @@ TEST(Kernel, EventOr) {
       void eval() override {
         // Check for extraneous notifications.
         EXPECT_NE(n_, 0);
-        const Message msg{"Notified!", Level::Debug};
+        const LogMessage msg{"Notified!", Level::Debug};
         log(msg);
         n_--;
         wait_on(*eor_);

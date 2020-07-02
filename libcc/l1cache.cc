@@ -25,16 +25,74 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_H
-#define CC_INCLUDE_CC_H
-
-#include "cc/common.h"
-#include "cc/kernel.h"
-#include "cc/primitives.h"
-#include "cc/cache.h"
-#include "cc/protocol.h"
-#include "cc/sim.h"
 #include "cc/l1cache.h"
-#include "cc/l2cache.h"
+#include "cc/sim.h"
 
-#endif
+namespace cc {
+
+class L1CacheModel::MainProcess : public kernel::Process {
+ public:
+  MainProcess(kernel::Kernel* k, const std::string& name, L1CacheModel* model)
+      : kernel::Process(k, name), model_(model)
+  {}
+
+  // Initialization
+  void init() override {
+  }
+
+  // Finalization
+  void fini() override {
+  }
+
+  // Evaluation
+  void eval() override {
+  }
+ private:
+  // Pointer to parent module.
+  L1CacheModel* model_ = nullptr;
+};
+
+L1CacheModel::L1CacheModel(kernel::Kernel* k, const L1CacheModelConfig& config)
+    : kernel::Module(k, config.name), config_(config) {
+  build();
+}
+
+L1CacheModel::~L1CacheModel() {
+}
+
+void L1CacheModel::build() {
+  // Capture stimulus;
+  proc_ = new ProcessorModel(k(), "cpu");
+  proc_->set_stimulus(config_.stim);
+  add_child(proc_);
+
+  // Construct queues: TBD
+  MessageQueue* mq = new MessageQueue(k(), "cmdq", 16);
+  add_child(mq);
+  mqs_.push_back(mq);
+
+  // Arbiter
+  arb_ = new Arbiter<Message*>(k(), "arb");
+  arb_->add_requester(proc_);
+  for (MessageQueue* mq : mqs_) {
+    arb_->add_requester(mq);
+  }
+  add_child(arb_);
+
+  // Main thread of execution
+  main_ = new MainProcess(k(), "main", this);
+  add_child(main_);
+}
+
+void L1CacheModel::elab() {
+  // Do elaborate
+}
+ 
+void L1CacheModel::drc() {
+  if (mqs_.empty()) {
+    const LogMessage msg{"L1Cache has no message queues.", Level::Fatal};
+    log(msg);
+  }
+}
+
+} // namespace cc

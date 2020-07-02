@@ -28,26 +28,9 @@
 #ifndef CC_INCLUDE_CC_PROTOCOL_H
 #define CC_INCLUDE_CC_PROTOCOL_H
 
-#include "common.h"
-
 namespace cc {
 
-// Transaction opcode: Load/Store instruction
-//
-enum class Opcode { Load, Store };
-
-class Transaction {
- public:
-  Transaction(Opcode opcode, addr_t addr);
-
-  addr_t addr() const { return addr_; }
-  Opcode opcode() const { return opcode_; }
-
- private:
-  addr_t addr_;
-  Opcode opcode_;
-};
-
+// TODO
 
 } // namespace cc
 

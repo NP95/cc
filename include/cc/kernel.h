@@ -270,14 +270,14 @@ class Loggable : public Object {
     int level_;
   };
 
-  struct Message {
-    Message(const std::string& msg, Level level = Level::Info)
+  struct LogMessage {
+    LogMessage(const std::string& msg, Level level = Level::Info)
         : msg_(msg), level_(level) {}
     Level level() const { return level_; }
     std::string msg() const { return msg_; }
 
     void level(Level level) { level_ = level; }
-    Message& append(const std::string& str);
+    LogMessage& append(const std::string& str);
 
    private:
     std::string msg_;
@@ -293,7 +293,7 @@ class Loggable : public Object {
   void level(const Level& level) { level_ = level; }
 
   //
-  void log(const Message& msg) const;
+  void log(const LogMessage& msg) const;
 
  private:
   void log_prefix(Level l, std::ostream& os) const;

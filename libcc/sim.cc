@@ -29,50 +29,65 @@
 
 namespace cc {
 
-L1CacheModel::L1CacheModel(kernel::Kernel* k, const L1CacheModelConfig& config)
-    : kernel::Module(k, config.name), config_(config), ts_(config.ts) {
+MessageQueue::MessageQueue(kernel::Kernel* k, const std::string& name, std::size_t n)
+    : kernel::Module(k, name) {
+  build(n);
 }
 
-L1CacheModel::~L1CacheModel() {
+bool MessageQueue::is_requesting() const {
+  return false;
 }
 
-void L1CacheModel::elab() {
-  // Do elaborate
+void MessageQueue::grant() {
 }
 
-void L1CacheModel::drc() {
-  // Do DRC
-  if (ts_ == nullptr) {
-    // No transaction source associated with L1; raise warning.
-    const Message msg(
-        "L1Cache has no associated transaction source.", Level::Warning);
-    log(msg);
-  }
+Message* MessageQueue::data() const {
+  return nullptr;
 }
 
-L2CacheModel::L2CacheModel(kernel::Kernel* k, const L2CacheModelConfig& config)
-    : kernel::Module(k, config.name), config_(config) {
+kernel::Event& MessageQueue::request_arrival_event() {
+  return q_->non_empty_event();
+}
+
+void MessageQueue::build(std::size_t n) {
+  q_ = new Queue<Message*>(k(), "queue", n);
+  add_child(q_);
+}
+
+ProcessorModel::ProcessorModel(kernel::Kernel* k, const std::string& name)
+    : kernel::Module(k, name) {
   build();
 }
 
-L2CacheModel::~L2CacheModel() {
+bool ProcessorModel::is_requesting() const {
+  return false;
 }
 
-void L2CacheModel::build() {
-  for (const L1CacheModelConfig& l1cfg : config_.l1configs) {
-    L1CacheModel* l1c = new L1CacheModel(k(), l1cfg);
-    add_child(l1c);
-    l1cs_.push_back(l1c);
-  }
+void ProcessorModel::grant() {
 }
 
-void L2CacheModel::elab() {
-  // Do elaborate
+Message* ProcessorModel::data() const {
+  return nullptr;
 }
 
-void L2CacheModel::drc() {
-  Module::drc();
+kernel::Event& ProcessorModel::request_arrival_event() {
+  return stim_->matured_event();
+}
+
+void ProcessorModel::build() {
+}
+
+void ProcessorModel::elab() {
+}
+
+void ProcessorModel::drc() {
   // Do DRC
+  if (stim_ == nullptr) {
+    // No transaction source associated with L1; raise warning.
+    const LogMessage msg(
+        "L1Cache has no associated stimulus.", Level::Warning);
+    log(msg);
+  }
 }
 
 } // namespace cc
