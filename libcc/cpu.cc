@@ -35,6 +35,14 @@ class Cpu::MainProcess : public kernel::Process {
   MainProcess(kernel::Kernel* k, const std::string& name, Cpu* parent)
       : kernel::Process(k, name), parent_(parent) {
   }
+  void dequeued() {
+    Stimulus* stim = parent_->stim_;
+    stim->consume();
+    if (!stim->done()) {
+      const Stimulus::Frontier& f{stim->front()};
+      wait_for(f.time);
+    }
+  }
  private:
 
   // Initialization
@@ -55,6 +63,7 @@ class Cpu::MainProcess : public kernel::Process {
     parent_->mature_event_.notify();
   }
 
+  // Point to process owner module.
   Cpu* parent_ = nullptr;
 };
 
@@ -107,16 +116,16 @@ void Cpu::construct_new_message() const {
   Command cmd = f.cmd;
   // Transaction starts. Create transction and form message.
   Transaction* t = new Transaction;
-  CpuRequestMessage* m = new CpuRequestMessage(t);
+  CpuCommandMessage* m = new CpuCommandMessage(t);
   m->set_addr(cmd.addr());
   switch (cmd.opcode()) {
     case Command::Load: {
       // Construct Load instrduction message.
-      m->set_opcode(CpuRequestMessage::Load);
+      m->set_opcode(CpuCommandMessage::Load);
     } break;
     case Command::Store: {
       // Construct Store instrduction message.
-      m->set_opcode(CpuRequestMessage::Store);
+      m->set_opcode(CpuCommandMessage::Store);
     } break;
     default: {
       const LogMessage msg{"Unknown command opcode.", Level::Fatal};
@@ -144,7 +153,7 @@ const Message* Cpu::dequeue() {
   // Add transaction to processor transaction table.
   ts_.insert(t);
   // Consume stimulus command, from which this command had been constructed.
-  stim_->consume();
+  main_->dequeued();
   // Nullify preconstructed and return old.
   return std::exchange(msg_, nullptr);
 }

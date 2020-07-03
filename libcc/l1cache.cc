@@ -33,10 +33,7 @@ namespace cc {
 
 class L1CacheModel::MainProcess : public kernel::Process {
   enum class Consequence {
-    Invalid,
-    Blocked,
-    Consume,
-    Discard
+    Invalid, Blocked, Consume, Discard 
   };
 
  public:
@@ -63,6 +60,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
     } else {
       handle_new_message();
     }
+    wait_on(arb()->request_arrival_event());
   }
  private:
   void try_emit_message() {
@@ -92,7 +90,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
 
     LogMessage lmsg{"Process "};
     lmsg.append(msg->to_string_short());
-    switch (handle_message(msg, lmsg)) {
+    switch (dispatch_message(msg, lmsg)) {
       case Consequence::Blocked: {
         // Block message; cannot advance against current state.
         intf->set_blocked(true);
@@ -125,17 +123,28 @@ class L1CacheModel::MainProcess : public kernel::Process {
     // Advance arbitration state.
     t.advance();
   }
-  Consequence handle_message(const Message* msg, LogMessage& lmsg) {
+  Consequence dispatch_message(const Message* msg, LogMessage& lmsg) {
     Consequence c{Consequence::Invalid};
     switch (msg->cls()) {
-      case Message::Cpu: {
+      case Message::CpuCmd: {
+        const CpuCommandMessage* req =
+            static_cast<const CpuCommandMessage*>(msg);
         // Construct response message.
-        CpuResponseMessage* rsp = new CpuResponseMessage;
-        rsp->set_cls(Message::Cpu);
-        rsp->set_t(msg->t());
+        CpuResponseMessage* rsp = new CpuResponseMessage(req->t());
+        rsp->set_cls(Message::CpuRsp);
         rsp->set_origin(model_);
+        switch (req->opcode()) {
+          case CpuCommandMessage::Load:
+            rsp->set_opcode(CpuResponseMessage::Load);
+            break;
+          case CpuCommandMessage::Store:
+            rsp->set_opcode(CpuResponseMessage::Store);
+            break;
+          default:
+            ;
+        }
         //
-        const kernel::Time time{200, 0};
+        const kernel::Time time{k()->time().time + 4, 0};
         // Issue response to CPU.
         model_->issue(model_->cpu_, time, rsp);
         //
@@ -194,8 +203,8 @@ void L1CacheModel::build() {
 
 void L1CacheModel::elab() {
   add_end_point(EndPoints::CpuRsp, cpu_);
-  add_end_point(EndPoints::CmdReq, msgreqq_);
-  add_end_point(EndPoints::CmdRsp, msgrspq_);
+  add_end_point(EndPoints::L1CmdReq, msgreqq_);
+  add_end_point(EndPoints::L1CmdRsp, msgrspq_);
 }
 
 void L1CacheModel::drc() {

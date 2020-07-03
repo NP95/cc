@@ -47,7 +47,13 @@ struct L2CacheModelConfig {
 //
 //
 class L2CacheModel : public kernel::Module {
+  class MainProcess;
  public:
+  enum EndPoints : kernel::end_point_id_t {
+    L1CmdReq,
+    L1CmdRsp    
+  };
+  
   L2CacheModel(kernel::Kernel* k, const L2CacheModelConfig& config);
   virtual ~L2CacheModel();
 
@@ -57,8 +63,19 @@ class L2CacheModel : public kernel::Module {
   virtual void drc() override;
  private:
   void build();
+
+  // L2 Cache Configuration.
   L2CacheModelConfig config_;
+  // Child L1 Caches
   std::vector<L1CacheModel*> l1cs_;
+  // L1 Command Request
+  MessageQueue* l1cmdreqq_;
+  // L1 Command Response
+  MessageQueue* l1cmdrspq_;
+  // Queue selection arbiter
+  Arbiter<const Message*>* arb_;
+  //
+  MainProcess* main_;
 };
 
 } // namespace cc

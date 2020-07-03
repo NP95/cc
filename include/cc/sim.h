@@ -54,7 +54,8 @@ class Transaction {
 
 #define MESSAGE_CLASSES(__func)                 \
   __func(Invalid)                               \
-  __func(Cpu)
+  __func(CpuCmd)                                \
+  __func(CpuRsp)
 
 //
 //

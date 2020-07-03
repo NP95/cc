@@ -90,6 +90,7 @@ int main(int argc, char** argv) {
   cc::ProgrammaticStimulus* stim = new cc::ProgrammaticStimulus;
 
   stim->push_back(cc::kernel::Time{100}, cc::Command{cc::Command::Load, 0});
+  stim->push_back(cc::kernel::Time{100}, cc::Command{cc::Command::Load, 0});
   l1config.stim = stim;
   l2config.l1configs.push_back(l1config);
   simconfig.l2configs.push_back(l2config);

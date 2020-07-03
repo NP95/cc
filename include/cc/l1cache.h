@@ -38,6 +38,7 @@ class Message;
 class MessageQueue;
 template<typename> class Arbiter;
 class Cpu;
+class L2CacheModel;
 
 //
 //
@@ -49,6 +50,12 @@ struct L1CacheModelConfig {
   // cache instance (models the notion of a microprocessor
   // periodically emitting load/store instructions to memory).
   Stimulus* stim = nullptr;
+
+  // Number of slots in the command queue.
+  std::size_t l1_cmdq_slots_n = 3;
+
+  // Number of credits/slots reserved to the L2 cache command queue.
+  std::size_t l2_cmdq_credits_n = 3;
 
   // LD/ST pipe flush penalty (cycles)
   std::size_t ldst_flush_penalty_n = 3;
@@ -64,9 +71,9 @@ class L1CacheModel : public kernel::Agent<const Message*> {
     // CPU Response: return path back to originating CPU.
     CpuRsp,
     // Command Request: ingress commands from parent L2Cache.
-    CmdReq,
+    L1CmdReq,
     // Command Response: ingress command response from parent L2Cache.
-    CmdRsp
+    L1CmdRsp
   };
   
   L1CacheModel(kernel::Kernel* k, const L1CacheModelConfig& config);
@@ -74,6 +81,9 @@ class L1CacheModel : public kernel::Agent<const Message*> {
 
   // Return current L1 configuration.
   L1CacheModelConfig config() const { return config_; }
+
+  // Set parent L2Cache (Elaboration-Phase)
+  void set_parent(L2CacheModel* l2cache) { l2cache_ = l2cache; }
   
  protected:
   virtual void elab() override;
@@ -94,8 +104,11 @@ class L1CacheModel : public kernel::Agent<const Message*> {
   MainProcess* main_;
   // Cache Instance
   // TODO
+  // Pointer to parent L2.
+  L2CacheModel* l2cache_;
   // Cache configuration.
   L1CacheModelConfig config_;
+  
 };
 
 } // namespace cc
