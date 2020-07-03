@@ -42,10 +42,10 @@ struct SimContext {
   cc::kernel::Kernel* k = nullptr;
 };
 
-class SimTop : cc::kernel::Module {
+class SimTop : cc::kernel::TopModule {
  public:
   SimTop(const SimContext& simcontext)
-      : cc::kernel::Module(simcontext.k, simcontext.simconfig.name)
+      : cc::kernel::TopModule(simcontext.k, simcontext.simconfig.name)
       , simcontext_(simcontext) {
     build();
   }
@@ -63,15 +63,15 @@ class SimTop : cc::kernel::Module {
     const SimConfig& simconfig = simcontext_.simconfig;
     for (const cc::L2CacheModelConfig& l2cfg : simconfig.l2configs) {
       cc::L2CacheModel* l2c = new cc::L2CacheModel(k(), l2cfg);
-      add_child(l2c);
+      add_child_module(l2c);
       l2cs_.push_back(l2c);
     }
   }
 
-  void elab() {
+  void elab() override {
   }
 
-  void drc() {
+  void drc() override {
   }
  private:
   SimContext simcontext_;
@@ -98,8 +98,10 @@ int main(int argc, char** argv) {
   simcontext.k = new cc::kernel::Kernel;
   simcontext.simconfig = simconfig;
 
-  SimTop top(simcontext);
-  top.run();
+  // TODO: pass object ownership to constructing agent.
+  
+  SimTop* top = new SimTop(simcontext);
+  top->run();
 
   delete simcontext.k;
 

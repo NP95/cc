@@ -65,54 +65,49 @@ class Message {
     MESSAGE_CLASSES(__declare_enum)
   };
 #undef __declare_enum
-  
+
+  Message() {}
   Message(Transaction* t, Cls cls) : t_(t), cls_(cls) {}
   virtual ~Message() = default;
 
   Transaction* t() const { return t_; }
   Cls cls() const { return cls_; }
+  kernel::Agent<const Message*>* agent() const { return origin_; }
+
   std::string to_string_short() const {
     return "Some message";
   }
   std::string to_string() const {
     return "Some message";
   }
+
+  void set_origin(kernel::Agent<const Message*>* origin) { origin_ = origin; }
+  void set_t(Transaction* t) { t_ = t; }
+  void set_cls(Cls cls) { cls_ = cls; }
   
  private:
   // Parent transaction;
   Transaction* t_;
   // Message type
   Cls cls_;
+  // Originating agent.
+  kernel::Agent<const Message*>* origin_;
 };
 
 
 //
 //
-class CpuMessage : public Message {
- public:
-  enum Opcode { Load, Store };
-  
-  CpuMessage(Transaction* t) : Message(t, Cpu) {}
-
-  Opcode opcode() const { return opcode_; }
-  addr_t addr() const { return addr_; }
-
-  void set_addr(addr_t addr) { addr_ = addr; }
-  void set_opcode(Opcode opcode) { opcode_ = opcode; }
- private:
-  addr_t addr_;
-  Opcode opcode_;
-};
-
-
-//
-//
-class MessageQueue : public kernel::Module, public RequesterIntf<const Message*> {
+class MessageQueue : public kernel::Module
+                   , public kernel::EndPointIntf<const Message*>
+                   , public kernel::RequesterIntf<const Message*> {
  public:
   MessageQueue(kernel::Kernel* k, const std::string& name, std::size_t n);
 
   // Queue depth.
   std::size_t n() const { return q_->n(); }
+
+  // Endpoint Interface:
+  void push(const Message* msg) override;
   
   // Requester Interface:
   bool has_req() const override;
@@ -127,38 +122,6 @@ class MessageQueue : public kernel::Module, public RequesterIntf<const Message*>
 };
 
 
-//
-//
-class ProcessorModel : public kernel::Module, public RequesterIntf<const Message*> {
-  class MainProcess;
- public:
-  ProcessorModel(kernel::Kernel* k, const std::string& name);
-
-  // Set stimulus object for processor.
-  void set_stimulus(Stimulus* stim) { stim_ = stim; }
-  
-  // Requester Interface:
-  bool has_req() const override;
-  const Message* peek() const override;
-  const Message* dequeue() override;
-  kernel::Event& request_arrival_event() override;
- private:
-  void build();
-  void elab() override;
-  void drc() override;
-  void construct_new_message() const;
-  //
-  kernel::Event mature_event_;
-  //
-  Stimulus* stim_ = nullptr;
-  //
-  MainProcess* main_ = nullptr;
-  // Set of outstanding transactions.
-  std::set<Transaction*> ts_;
-  // Current head-of-queue message to be emitted.
-  mutable const Message* msg_ = nullptr;
-};
-
 
 // Elementary realization of a transaction source. Transactions are
 // programmatically constructed and issued to the source before the
@@ -169,7 +132,7 @@ class ProgrammaticStimulus : public Stimulus {
  public:
   ProgrammaticStimulus() {}
 
-  bool done() const override { return true; }
+  bool done() const override { return cs_.empty(); }
   Frontier& front() override { return cs_.front(); }
   const Frontier& front() const override { return cs_.front(); }
 

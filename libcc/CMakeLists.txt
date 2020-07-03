@@ -25,5 +25,5 @@
 ## POSSIBILITY OF SUCH DAMAGE.
 ## ========================================================================= ##
 
-add_library(cc SHARED kernel.cc primitives.cc cache.cc protocol.cc sim.cc l1cache.cc l2cache.cc)
+add_library(cc SHARED kernel.cc primitives.cc cache.cc protocol.cc sim.cc l1cache.cc l2cache.cc cpu.cc)
 target_include_directories(cc PRIVATE ${CMAKE_SOURCE_DIR}/include/cc)

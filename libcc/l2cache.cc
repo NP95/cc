@@ -40,7 +40,9 @@ L2CacheModel::~L2CacheModel() {
 
 void L2CacheModel::build() {
   for (const L1CacheModelConfig& l1cfg : config_.l1configs) {
-    l1cs_.push_back(new L1CacheModel(k(), l1cfg));
+    L1CacheModel* l1c = new L1CacheModel(k(), l1cfg);
+    add_child_module(l1c);
+    l1cs_.push_back(l1c);
   }
 }
 

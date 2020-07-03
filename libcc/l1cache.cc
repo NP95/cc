@@ -26,6 +26,7 @@
 //========================================================================== //
 
 #include "cc/l1cache.h"
+#include "cc/cpu.h"
 #include "cc/sim.h"
 
 namespace cc {
@@ -48,7 +49,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
   // Initialization
   void init() override {
     // Await the arrival of requesters
-    wait_on(arb()->wake_event());
+    wait_on(arb()->request_arrival_event());
   }
 
   // Finalization
@@ -73,7 +74,8 @@ class L1CacheModel::MainProcess : public kernel::Process {
     // presence of a protocol violation and is therefore by definition
     // unrecoverable.
     if (t.deadlock()) {
-      const LogMessage msg{"A protocol deadlock has been detected.", Level::Fatal};
+      const LogMessage msg{
+        "A protocol deadlock has been detected.", Level::Fatal};
       log(msg);
     }
 
@@ -81,9 +83,10 @@ class L1CacheModel::MainProcess : public kernel::Process {
     // should never have been invoked if there are no requesters, but
     // incase it has block and await new events.
     if (!t.has_requester()) {
-      wait_on(arb()->wake_event());
+      wait_on(arb()->request_arrival_event());
       return;
     }
+    kernel::RequesterIntf<const Message*>* intf = t.intf();
     const Message* msg = intf->peek();
     bool do_destruct = false;
 
@@ -110,7 +113,9 @@ class L1CacheModel::MainProcess : public kernel::Process {
         do_destruct = true;
         // wait(clk.rising_edge_event());
       } break;
+      case Consequence::Invalid:
       default: {
+        do_destruct = true;
       } break;
     }
     // Emit status information.
@@ -124,10 +129,17 @@ class L1CacheModel::MainProcess : public kernel::Process {
     Consequence c{Consequence::Invalid};
     switch (msg->cls()) {
       case Message::Cpu: {
-
-
-        // Consume message.
-        intf->dequeue();
+        // Construct response message.
+        CpuResponseMessage* rsp = new CpuResponseMessage;
+        rsp->set_cls(Message::Cpu);
+        rsp->set_t(msg->t());
+        rsp->set_origin(model_);
+        //
+        const kernel::Time time{200, 0};
+        // Issue response to CPU.
+        model_->issue(model_->cpu_, time, rsp);
+        //
+        c = Consequence::Consume;
       } break;
       default: {
         // Invalid message has been received; cannot proceed. Error out.
@@ -147,7 +159,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
 };
 
 L1CacheModel::L1CacheModel(kernel::Kernel* k, const L1CacheModelConfig& config)
-    : kernel::Module(k, config.name), config_(config) {
+    : kernel::Agent<const Message*>(k, config.name), config_(config) {
   build();
 }
 
@@ -156,37 +168,37 @@ L1CacheModel::~L1CacheModel() {
 
 void L1CacheModel::build() {
   // Capture stimulus;
-  proc_ = new ProcessorModel(k(), "cpu");
-  proc_->set_stimulus(config_.stim);
-  add_child(proc_);
+  cpu_ = new Cpu(k(), "cpu");
+  cpu_->set_stimulus(config_.stim);
+  add_child_module(cpu_);
 
-  // Construct queues: TBD
-  MessageQueue* mq = new MessageQueue(k(), "cmdq", 16);
-  add_child(mq);
-  mqs_.push_back(mq);
+  // Construct queues: Command Request Queue
+  msgreqq_ = new MessageQueue(k(), "cmdreqq", 16);
+  add_child_module(msgreqq_);
+
+  // Construct queues: Command Response Queue
+  msgrspq_ = new MessageQueue(k(), "cmdrspq", 16);
+  add_child_module(msgrspq_);
 
   // Arbiter
   arb_ = new Arbiter<const Message*>(k(), "arb");
-  arb_->add_requester(proc_);
-  for (MessageQueue* mq : mqs_) {
-    arb_->add_requester(mq);
-  }
-  add_child(arb_);
+  arb_->add_requester(cpu_);
+  arb_->add_requester(msgreqq_);
+  arb_->add_requester(msgrspq_);
+  add_child_module(arb_);
 
   // Main thread of execution
   main_ = new MainProcess(k(), "main", this);
-  add_child(main_);
+  add_child_process(main_);
 }
 
 void L1CacheModel::elab() {
-  // Do elaborate
+  add_end_point(EndPoints::CpuRsp, cpu_);
+  add_end_point(EndPoints::CmdReq, msgreqq_);
+  add_end_point(EndPoints::CmdRsp, msgrspq_);
 }
 
 void L1CacheModel::drc() {
-  if (mqs_.empty()) {
-    const LogMessage msg{"L1Cache has no message queues.", Level::Fatal};
-    log(msg);
-  }
 }
 
 } // namespace cc

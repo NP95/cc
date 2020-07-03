@@ -148,37 +148,6 @@ class Queue : public kernel::Module {
 //
 //
 template<typename T>
-class RequesterIntf {
- public:
-  virtual ~RequesterIntf() = default;
-
-  // Flag indicating the current agent is requesting.
-  virtual bool has_req() const { return false; }
-
-  // Peek at the current 'T' without consuming it.
-  virtual T peek() const = 0;
-  
-  // Reference to underlying state being arbitrated.
-  virtual T dequeue() = 0;
-
-  // Set blocked status of requestor.
-  void set_blocked(bool b = true) { blocked_ = true; }
-
-  // Flag indicating that the current agent is blocked.
-  bool blocked() const { return blocked_; }
-
-  // Event denoting the arrival of a requester at the interface.
-  virtual kernel::Event& request_arrival_event() = 0;
-
- private:
-  // Flag indicating that the current requestor is blocked.
-  bool blocked_ = false;
-};
-
-
-//
-//
-template<typename T>
 class Arbiter : public kernel::Module {
  public:
 
@@ -189,7 +158,7 @@ class Arbiter : public kernel::Module {
     Tournament(Arbiter* parent) : parent_(parent) { execute(); }
    public:
     // Return the winning requester interface.
-    RequesterIntf<T>* intf() const { return intf_; }
+    kernel::RequesterIntf<T>* intf() const { return intf_; }
     bool has_requester() const { return intf_ != nullptr; }
     bool deadlock() const { return deadlock_; }
 
@@ -208,7 +177,7 @@ class Arbiter : public kernel::Module {
       for (std::size_t i = 0; i < parent_->n(); i++) {
         // Compute index of next requester interface in roundrobin order.
         idx_ = (parent_->idx_ + i) % parent_->n();
-        RequesterIntf<T>* cur = parent_->intfs_[idx_];
+        kernel::RequesterIntf<T>* cur = parent_->intfs_[idx_];
 
         if (!cur->has_req()) continue;
         // Current agent is requesting, proceed.
@@ -227,37 +196,40 @@ class Arbiter : public kernel::Module {
       deadlock_ = (requesters == parent_->n());
     }
     bool deadlock_ = false;
-    RequesterIntf<T>* intf_ = nullptr;
+    kernel::RequesterIntf<T>* intf_ = nullptr;
     Arbiter* parent_ = nullptr;
     std::size_t idx_;
   };
   
   Arbiter(kernel::Kernel* k, const std::string& name)
-      : kernel::Module(k, name)
-      , grant_event_(k, "grant_event")
-      , request_or_event_(k, "request_event")
-  {}
+      : kernel::Module(k, name) {
+    build();
+  }
   virtual ~Arbiter() = default;
 
   // The number of requesting agents.
   std::size_t n() const { return intfs_.size(); }
   // Event denoting rising edge to the ready to grant state.
-  kernel::Event& wake_event() { return grant_event_; }
+  kernel::Event& request_arrival_event() { return *request_arrival_event_; }
   // Initiate an arbitration tournament.
   Tournament tournament() { return Tournament(this); }
   // Add a requester to the current arbiter (Build-/Elaboration-Phases only).
-  void add_requester(RequesterIntf<T>* intf) { intfs_.push_back(intf); }
+  void add_requester(kernel::RequesterIntf<T>* intf) { intfs_.push_back(intf); }
  private:
+  void build() {
+    request_arrival_event_ = new kernel::EventOr(k(), "request_arrival_event");
+    add_child(request_arrival_event_);
+  }
 
   void elab() override {
     if (!intfs_.empty()) {
       // Construct EventOr denoting the event which is notified when the
       // arbiter goes from having no requestors to having non-zero
       // requestors.
-      for (RequesterIntf<T>* r : intfs_) {
-        request_or_event_.add_child(&r->request_arrival_event());
+      for (kernel::RequesterIntf<T>* r : intfs_) {
+        request_arrival_event_->add_child_event(&r->request_arrival_event());
       }
-      request_or_event_.finalize();
+      request_arrival_event_->finalize();
     } else {
       const LogMessage msg{"Arbiter has no associated requestors.", Level::Error};
       log(msg);
@@ -267,14 +239,12 @@ class Arbiter : public kernel::Module {
   void drc() override {
   }
 
-  // Deprecate?
-  kernel::Event grant_event_;
   //
-  kernel::EventOr request_or_event_;
+  kernel::EventOr* request_arrival_event_ = nullptr;
   // Current arbitration index.
   std::size_t idx_ = 0;
   //
-  std::vector<RequesterIntf<T>*> intfs_;
+  std::vector<kernel::RequesterIntf<T>*> intfs_;
 };
 
 

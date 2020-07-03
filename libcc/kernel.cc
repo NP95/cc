@@ -328,14 +328,6 @@ Module::Module(Kernel* k, const std::string& name) : ProcessHost(k, name) {}
 
 Module::~Module() {}
 
-void Module::elab() {
-  for (Module* m : ms_) m->elab();
-}
-
-void Module::drc() {
-  for (Module* m : ms_) m->drc();
-}
-
 void Module::add_child_module(Module* m) {
   Object::add_child(m);
   ms_.push_back(m);
@@ -344,6 +336,5 @@ void Module::add_child_module(Module* m) {
 TopModule::TopModule(Kernel* k, const std::string& name) : Module(k, name) {
   set_top();
 }
-
 
 }  // namespace cc::kernel

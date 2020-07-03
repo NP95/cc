@@ -33,6 +33,7 @@
 #include <random>
 #include <sstream>
 #include <vector>
+#include <map>
 
 namespace cc::kernel {
 
@@ -280,6 +281,7 @@ class Loggable : public Object {
 
     void level(Level level) { level_ = level; }
     LogMessage& append(const std::string& str);
+    void clear() { msg_.clear(); }
 
    private:
     std::string msg_;
@@ -405,9 +407,9 @@ class Module : public ProcessHost {
   virtual ~Module();
 
   // Invoke elaboration.
-  virtual void elab();
+  virtual void elab() {}
   // Run Design Rule Check.
-  virtual void drc();
+  virtual void drc() {}
 
   // A child objects.
   void add_child_module(Module* m);
@@ -422,6 +424,109 @@ class TopModule : public Module {
   DECLARE_VISITEE;
  public:
   TopModule(Kernel* k, const std::string& name);
+};
+
+
+// Type denoting a 'end-point' entity.
+using end_point_id_t = std::size_t;
+
+//
+//
+template<typename T>
+class EndPointIntf {
+ public:
+  virtual ~EndPointIntf() = default;
+
+  virtual void push(T t) = 0;
+};
+
+//
+//
+template<typename T>
+class Agent : public Module {
+ public:
+  Agent(Kernel* k, const std::string& name)
+      : Module(k, name)
+  {}
+
+  virtual EndPointIntf<T>* end_point(end_point_id_t id) {
+    auto it = eps_.find(id);
+    if (it == eps_.end()) {
+      LogMessage lmsg("Invalid end-point id: ");
+      lmsg.append(std::to_string(id));
+      lmsg.level(Level::Fatal);
+      log(lmsg);
+    }
+    return it->second;
+  }
+
+ protected:
+  // (Run-Phase only)
+  void issue(EndPointIntf<T>* intf, const Time& time, T t) {
+    struct EnqueueAction : Action {
+      EnqueueAction(Kernel* k, EndPointIntf<T>* intf, T t)
+          : Action(k, "enqueue_action"), intf_(intf), t_(t)
+      {}
+      bool eval() override {
+        intf_->push(t_);
+        return true;
+      }
+     private:
+      EndPointIntf<T>* intf_ = nullptr;
+      T t_;
+    };
+    k()->add_action(time, new EnqueueAction(k(), intf, t));
+  }
+  
+  // (Build-/Elaboration-Phase only)
+  void add_end_point(end_point_id_t id, EndPointIntf<T>* intf) {
+    // Grow vector if necessary.
+    if (eps_.count(id) != 0) {
+      log(LogMessage{
+          "Overwriting previously registers end-point.", Level::Warning});
+    }
+    LogMessage lmsg{"Registering end-point: "};
+    lmsg.append(std::to_string(id));
+    lmsg.level(Level::Debug);
+    log(lmsg);
+    // Set mapping.
+    eps_[id] = intf;
+  }
+
+ private:
+  // End-Point Collection.
+  std::map<end_point_id_t, EndPointIntf<T>* > eps_;
+};
+
+
+//
+//
+template<typename T>
+class RequesterIntf {
+ public:
+  virtual ~RequesterIntf() = default;
+
+  // Flag indicating the current agent is requesting.
+  virtual bool has_req() const { return false; }
+
+  // Peek at the current 'T' without consuming it.
+  virtual T peek() const = 0;
+  
+  // Reference to underlying state being arbitrated.
+  virtual T dequeue() = 0;
+
+  // Set blocked status of requestor.
+  void set_blocked(bool b = true) { blocked_ = true; }
+
+  // Flag indicating that the current agent is blocked.
+  bool blocked() const { return blocked_; }
+
+  // Event denoting the arrival of a requester at the interface.
+  virtual kernel::Event& request_arrival_event() = 0;
+
+ private:
+  // Flag indicating that the current requestor is blocked.
+  bool blocked_ = false;
 };
 
 }  // namespace cc::kernel

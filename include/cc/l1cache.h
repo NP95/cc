@@ -37,7 +37,7 @@ class Stimulus;
 class Message;
 class MessageQueue;
 template<typename> class Arbiter;
-class ProcessorModel;
+class Cpu;
 
 //
 //
@@ -56,13 +56,25 @@ struct L1CacheModelConfig {
 
 //
 //
-class L1CacheModel : public kernel::Module {
+class L1CacheModel : public kernel::Agent<const Message*> {
   class MainProcess;
  public:
+  // End-points
+  enum EndPoints : kernel::end_point_id_t {
+    // CPU Response: return path back to originating CPU.
+    CpuRsp,
+    // Command Request: ingress commands from parent L2Cache.
+    CmdReq,
+    // Command Response: ingress command response from parent L2Cache.
+    CmdRsp
+  };
+  
   L1CacheModel(kernel::Kernel* k, const L1CacheModelConfig& config);
   virtual ~L1CacheModel();
 
+  // Return current L1 configuration.
   L1CacheModelConfig config() const { return config_; }
+  
  protected:
   virtual void elab() override;
   virtual void drc() override;
@@ -71,9 +83,11 @@ class L1CacheModel : public kernel::Module {
   // L1 Cache stimulus (models the concept of a processor data path
   // emitting instructions into the cache as part of a programs
   // execution).
-  ProcessorModel* proc_;
-  // Associated message queues for coherency messages.
-  std::vector<MessageQueue*> mqs_;
+  Cpu* cpu_;
+  // Coherence message request queue 
+  MessageQueue* msgreqq_;
+  // Coherency message response queue
+  MessageQueue* msgrspq_;
   // Message servicing arbiter.
   Arbiter<const Message*>* arb_;
   // Main process of execution.
