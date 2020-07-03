@@ -31,6 +31,13 @@
 namespace cc {
 
 class L1CacheModel::MainProcess : public kernel::Process {
+  enum class Consequence {
+    Invalid,
+    Blocked,
+    Consume,
+    Discard
+  };
+
  public:
   MainProcess(kernel::Kernel* k, const std::string& name, L1CacheModel* model)
       : kernel::Process(k, name), model_(model)
@@ -50,40 +57,93 @@ class L1CacheModel::MainProcess : public kernel::Process {
 
   // Evaluation
   void eval() override {
+    if (!pmsgs_.empty()) {
+      try_emit_message();
+    } else {
+      handle_new_message();
+    }
+  }
+ private:
+  void try_emit_message() {
+  }
+  void handle_new_message() {
     Arbiter<const Message*>::Tournament t = arb()->tournament();
+
+    // Detect deadlock at L1Cache front-end. This occurs only in the
+    // presence of a protocol violation and is therefore by definition
+    // unrecoverable.
     if (t.deadlock()) {
       const LogMessage msg{"A protocol deadlock has been detected.", Level::Fatal};
       log(msg);
     }
 
-    if (t.has_requester()) {
-      RequesterIntf<const Message*>* intf = t.intf();
-      const Message* msg = intf->peek();
-      switch (msg->cls()) {
-        case Message::Cpu: {
-
-
-          // Consume message.
-          intf->dequeue();
-        } break;
-        default: {
-          // Invalid message has been received; cannot proceed. Error out.
-          LogMessage lmsg{"Invalid message received: "};
-          lmsg.level(Level::Error);
-          lmsg.append(msg->to_string());
-          log(lmsg);
-        } break;
-      }
-
-      // Advance arbitration state.
-      t.advance();
-    } else {
+    // Detect whether requesters are available. Ideally, this block
+    // should never have been invoked if there are no requesters, but
+    // incase it has block and await new events.
+    if (!t.has_requester()) {
       wait_on(arb()->wake_event());
+      return;
     }
+    const Message* msg = intf->peek();
+    bool do_destruct = false;
+
+    LogMessage lmsg{"Process "};
+    lmsg.append(msg->to_string_short());
+    switch (handle_message(msg, lmsg)) {
+      case Consequence::Blocked: {
+        // Block message; cannot advance against current state.
+        intf->set_blocked(true);
+        // Incur pipeline flush penalty.
+        // TODO:
+        const L1CacheModelConfig& config = model_->config();
+        // wait(clk.rising_edge_event(), config.ldst_flush_penalty_n);
+      } break;
+      case Consequence::Consume: {
+        // Consume message; action is complete.
+        intf->dequeue();
+        do_destruct = true;
+        // wait(clk.rising_edge_event());
+      } break;
+      case Consequence::Discard: {
+        // Throw message away.
+        intf->dequeue();
+        do_destruct = true;
+        // wait(clk.rising_edge_event());
+      } break;
+      default: {
+      } break;
+    }
+    // Emit status information.
+    log(lmsg);
+    // Destroy message if complete.
+    if (do_destruct) { delete msg; }
+    // Advance arbitration state.
+    t.advance();
   }
- private:
+  Consequence handle_message(const Message* msg, LogMessage& lmsg) {
+    Consequence c{Consequence::Invalid};
+    switch (msg->cls()) {
+      case Message::Cpu: {
+
+
+        // Consume message.
+        intf->dequeue();
+      } break;
+      default: {
+        // Invalid message has been received; cannot proceed. Error out.
+        lmsg.append("; Invalid message received: ");
+        lmsg.level(Level::Error);
+        lmsg.append(msg->to_string());
+        c = Consequence::Discard;
+      } break;
+    }
+    return c;
+  }
+
   // Pointer to parent module.
   L1CacheModel* model_ = nullptr;
+  // Pending message queue
+  std::vector<const Message*> pmsgs_;
 };
 
 L1CacheModel::L1CacheModel(kernel::Kernel* k, const L1CacheModelConfig& config)
@@ -121,7 +181,7 @@ void L1CacheModel::build() {
 void L1CacheModel::elab() {
   // Do elaborate
 }
- 
+
 void L1CacheModel::drc() {
   if (mqs_.empty()) {
     const LogMessage msg{"L1Cache has no message queues.", Level::Fatal};

@@ -190,7 +190,7 @@ class Arbiter : public kernel::Module {
    public:
     // Return the winning requester interface.
     RequesterIntf<T>* intf() const { return intf_; }
-    bool has_requester() const { return has_requester_; }
+    bool has_requester() const { return intf_ != nullptr; }
     bool deadlock() const { return deadlock_; }
 
     // Advance arbitration state to the next index if prior
@@ -203,6 +203,8 @@ class Arbiter : public kernel::Module {
 
    private:
     void execute() {
+      std::size_t requesters = 0;
+      intf_ = nullptr;
       for (std::size_t i = 0; i < parent_->n(); i++) {
         // Compute index of next requester interface in roundrobin order.
         idx_ = (parent_->idx_ + i) % parent_->n();
@@ -211,7 +213,7 @@ class Arbiter : public kernel::Module {
         if (!cur->has_req()) continue;
         // Current agent is requesting, proceed.
 
-        has_requester_ = true;
+        requesters++;
         if (!cur->blocked()) {
           // Current agent is requesting and is not blocked by some
           // protocol condition.
@@ -219,14 +221,12 @@ class Arbiter : public kernel::Module {
           return;
         }
       }
-
       // A deadlock has occurred iff there are pending work items in the
       // child queues, but all of these queues are currently blocked
       // awaiting the completion of some other action.
-      deadlock_ = has_requester_;
+      deadlock_ = (requesters == parent_->n());
     }
     bool deadlock_ = false;
-    bool has_requester_ = false;
     RequesterIntf<T>* intf_ = nullptr;
     Arbiter* parent_ = nullptr;
     std::size_t idx_;

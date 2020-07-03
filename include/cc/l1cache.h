@@ -44,10 +44,14 @@ class ProcessorModel;
 struct L1CacheModelConfig {
   // L1 Cache Model name
   std::string name = "l1cache";
+
   // Pointer to the transaction source instance for the current l1
   // cache instance (models the notion of a microprocessor
   // periodically emitting load/store instructions to memory).
   Stimulus* stim = nullptr;
+
+  // LD/ST pipe flush penalty (cycles)
+  std::size_t ldst_flush_penalty_n = 3;
 };
 
 //

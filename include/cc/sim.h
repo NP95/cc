@@ -43,6 +43,9 @@ class Transaction {
  public:
   Transaction() {}
 
+  std::string to_string_short() const {
+    return "Some transaction";
+  }
   std::string to_string() const {
     return "Some transaction.";
   };
@@ -68,6 +71,9 @@ class Message {
 
   Transaction* t() const { return t_; }
   Cls cls() const { return cls_; }
+  std::string to_string_short() const {
+    return "Some message";
+  }
   std::string to_string() const {
     return "Some message";
   }
