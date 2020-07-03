@@ -30,8 +30,7 @@
 
 #include <vector>
 
-#include "common.h"
-#include "kernel.h"
+#include "cc/kernel.h"
 #include "protocol.h"
 
 namespace cc {
@@ -248,53 +247,31 @@ class Arbiter : public kernel::Module {
 };
 
 
-// Basic (load/store) command class.
 //
-class Command {
+//
+class MessageQueue : public kernel::Module
+                   , public kernel::EndPointIntf<const Message*>
+                   , public kernel::RequesterIntf<const Message*> {
  public:
-  enum Opcode { Load, Store };
+  MessageQueue(kernel::Kernel* k, const std::string& name, std::size_t n);
 
-  Command(Opcode opcode, addr_t addr)
-      : opcode_(opcode), addr_(addr)
-  {}
+  // Queue depth.
+  std::size_t n() const { return q_->n(); }
 
-  addr_t addr() const { return addr_; }
-  Opcode opcode() const { return opcode_; }
-
+  // Endpoint Interface:
+  void push(const Message* msg) override;
+  
+  // Requester Interface:
+  bool has_req() const override;
+  const Message* peek() const override;
+  const Message* dequeue() override;
+  kernel::Event& request_arrival_event() override;
  private:
-  addr_t addr_;
-  Opcode opcode_;
+  // Construct module
+  void build(std::size_t n);
+  // Queue primitive.
+  Queue<const Message*>* q_ = nullptr;
 };
-
-
-// Abstract base class encapsulating the concept of a transaction
-// source; more specifically, a block response to model the issue of
-// of load or store instructions to a cache.
-//
-class Stimulus {
- public:
-
-  // Transaction frontier record.
-  struct Frontier {
-    kernel::Time time;
-    Command cmd;
-  };
-  
-  Stimulus() = default;
-  virtual ~Stimulus() = default;
-
-  // Flag denoting whether the transaction source has been exhausted.
-  virtual bool done() const { return true; }
-  
-  // Transaction at the head of the source queue; nullptr if source
-  // has been exhausted.
-  virtual Frontier& front() = 0;
-  virtual const Frontier& front() const = 0;
-
-  // Consume transaction at the head of the source queue.
-  virtual void consume() {}
-};
-
 
 }  // namespace cc
 

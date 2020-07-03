@@ -26,49 +26,8 @@
 //========================================================================== //
 
 #include "cc/sim.h"
+#include "primitives.h"
 
 namespace cc {
-
-MessageQueue::MessageQueue(kernel::Kernel* k, const std::string& name, std::size_t n)
-    : kernel::Module(k, name) {
-  build(n);
-}
-
-void MessageQueue::push(const Message* msg) {
-  if(!q_->enqueue(msg)) {
-    LogMessage lmsg("Attempt to push new message to full queue.", Level::Error);
-    log(lmsg);
-  }
-}
-
-bool MessageQueue::has_req() const {
-  return !q_->empty();
-}
-
-const Message* MessageQueue::peek() const {
-  return nullptr;
-}
-
-const Message* MessageQueue::dequeue() {
-  return nullptr;
-  /*
-  const Message* msg;
-  if (!q_->dequeue(msg)) {
-    const LogMessage msg{"Attempt to dequeue Message failed.", Level::Fatal};
-    log(msg);
-    return nullptr;
-  }
-  return msg;
-  */
-}
-
-kernel::Event& MessageQueue::request_arrival_event() {
-  return q_->non_empty_event();
-}
-
-void MessageQueue::build(std::size_t n) {
-  q_ = new Queue<const Message*>(k(), "queue", n);
-  add_child(q_);
-}
 
 } // namespace cc

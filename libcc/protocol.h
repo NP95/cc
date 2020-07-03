@@ -25,13 +25,77 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_H
-#define CC_INCLUDE_CC_H
+#ifndef CC_LIBCC_PROTOCOL_H
+#define CC_LIBCC_PROTOCOL_H
 
-#include "cc/types.h"
-#include "cc/kernel.h"
-#include "cc/sim.h"
-#include "cc/l1cache.h"
-#include "cc/l2cache.h"
+#include <string>
+
+namespace cc {
+
+namespace kernel {
+
+// Forwards
+template<typename T> class Agent;
+}
+
+//
+//
+class Transaction {
+ public:
+  Transaction() {}
+
+  std::string to_string_short() const {
+    return "Some transaction";
+  }
+  std::string to_string() const {
+    return "Some transaction.";
+  };
+};
+
+
+#define MESSAGE_CLASSES(__func)                 \
+  __func(Invalid)                               \
+  __func(CpuCmd)                                \
+  __func(CpuRsp)
+
+//
+//
+class Message {
+ public:
+#define __declare_enum(__t) __t,
+  enum Cls {
+    MESSAGE_CLASSES(__declare_enum)
+  };
+#undef __declare_enum
+
+  Message() {}
+  Message(Transaction* t, Cls cls) : t_(t), cls_(cls) {}
+  virtual ~Message() = default;
+
+  Transaction* t() const { return t_; }
+  Cls cls() const { return cls_; }
+  kernel::Agent<const Message*>* agent() const { return origin_; }
+
+  std::string to_string_short() const {
+    return "Some message";
+  }
+  std::string to_string() const {
+    return "Some message";
+  }
+
+  void set_origin(kernel::Agent<const Message*>* origin) { origin_ = origin; }
+  void set_t(Transaction* t) { t_ = t; }
+  void set_cls(Cls cls) { cls_ = cls; }
+  
+ private:
+  // Parent transaction;
+  Transaction* t_;
+  // Message type
+  Cls cls_;
+  // Originating agent.
+  kernel::Agent<const Message*>* origin_;
+};
+
+} // namespace cc
 
 #endif

@@ -25,7 +25,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "cc/cache.h"
+#include "cache.h"
 #include "cc/kernel.h"
 #include <set>
 

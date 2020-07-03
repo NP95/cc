@@ -29,7 +29,7 @@
 #define CC_INCLUDE_CC_SIM_H
 
 #include "kernel.h"
-#include "primitives.h"
+#include "types.h"
 #include <vector>
 #include <deque>
 #include <set>
@@ -37,91 +37,51 @@
 
 namespace cc {
 
+// Basic (load/store) command class.
 //
-//
-class Transaction {
+class Command {
  public:
-  Transaction() {}
+  enum Opcode { Load, Store };
 
-  std::string to_string_short() const {
-    return "Some transaction";
-  }
-  std::string to_string() const {
-    return "Some transaction.";
-  };
-};
+  Command(Opcode opcode, addr_t addr)
+      : opcode_(opcode), addr_(addr)
+  {}
 
+  addr_t addr() const { return addr_; }
+  Opcode opcode() const { return opcode_; }
 
-#define MESSAGE_CLASSES(__func)                 \
-  __func(Invalid)                               \
-  __func(CpuCmd)                                \
-  __func(CpuRsp)
-
-//
-//
-class Message {
- public:
-#define __declare_enum(__t) __t,
-  enum Cls {
-    MESSAGE_CLASSES(__declare_enum)
-  };
-#undef __declare_enum
-
-  Message() {}
-  Message(Transaction* t, Cls cls) : t_(t), cls_(cls) {}
-  virtual ~Message() = default;
-
-  Transaction* t() const { return t_; }
-  Cls cls() const { return cls_; }
-  kernel::Agent<const Message*>* agent() const { return origin_; }
-
-  std::string to_string_short() const {
-    return "Some message";
-  }
-  std::string to_string() const {
-    return "Some message";
-  }
-
-  void set_origin(kernel::Agent<const Message*>* origin) { origin_ = origin; }
-  void set_t(Transaction* t) { t_ = t; }
-  void set_cls(Cls cls) { cls_ = cls; }
-  
  private:
-  // Parent transaction;
-  Transaction* t_;
-  // Message type
-  Cls cls_;
-  // Originating agent.
-  kernel::Agent<const Message*>* origin_;
+  addr_t addr_;
+  Opcode opcode_;
 };
 
-
+// Abstract base class encapsulating the concept of a transaction
+// source; more specifically, a block response to model the issue of
+// of load or store instructions to a cache.
 //
-//
-class MessageQueue : public kernel::Module
-                   , public kernel::EndPointIntf<const Message*>
-                   , public kernel::RequesterIntf<const Message*> {
+class Stimulus {
  public:
-  MessageQueue(kernel::Kernel* k, const std::string& name, std::size_t n);
 
-  // Queue depth.
-  std::size_t n() const { return q_->n(); }
-
-  // Endpoint Interface:
-  void push(const Message* msg) override;
+  // Transaction frontier record.
+  struct Frontier {
+    kernel::Time time;
+    Command cmd;
+  };
   
-  // Requester Interface:
-  bool has_req() const override;
-  const Message* peek() const override;
-  const Message* dequeue() override;
-  kernel::Event& request_arrival_event() override;
- private:
-  // Construct module
-  void build(std::size_t n);
-  // Queue primitive.
-  Queue<const Message*>* q_ = nullptr;
-};
+  Stimulus() = default;
+  virtual ~Stimulus() = default;
 
+  // Flag denoting whether the transaction source has been exhausted.
+  virtual bool done() const { return true; }
+  
+  // Transaction at the head of the source queue; nullptr if source
+  // has been exhausted.
+  virtual Frontier& front() = 0;
+  virtual const Frontier& front() const = 0;
+
+  // Consume transaction at the head of the source queue.
+  virtual void consume() {}
+};
 
 
 // Elementary realization of a transaction source. Transactions are

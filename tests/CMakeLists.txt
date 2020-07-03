@@ -28,7 +28,7 @@
 macro (create_test testname testfile)
   add_executable(test_${testname} ${testfile})
   target_include_directories(test_${testname} PRIVATE
-    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/libcc
     ${VerilatorDpi_INCLUDE_DIR}
     ${Verilator_INCLUDE_DIR}
     )
@@ -41,7 +41,7 @@ macro (create_test testname testfile)
   add_test(NAME ${testname} COMMAND test_${testname})
 endmacro ()
 
-create_test(common common.cc)
+create_test(utility utility.cc)
 create_test(kernel kernel.cc)
 create_test(primitives primitives.cc)
 create_test(cache cache.cc)

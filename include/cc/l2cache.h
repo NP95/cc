@@ -29,7 +29,6 @@
 #define CC_INCLUDE_CC_L2CACHE_H
 
 #include "kernel.h"
-#include "primitives.h"
 #include "l1cache.h"
 #include <vector>
 

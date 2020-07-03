@@ -28,6 +28,8 @@
 #include "cc/l1cache.h"
 #include "cc/cpu.h"
 #include "cc/sim.h"
+#include "primitives.h"
+#include "cpu_msg.h"
 
 namespace cc {
 

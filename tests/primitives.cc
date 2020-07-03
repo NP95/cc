@@ -25,7 +25,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "cc/primitives.h"
+#include "primitives.h"
 
 #include <deque>
 

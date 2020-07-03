@@ -25,13 +25,12 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_CACHE_H
-#define CC_INCLUDE_CC_CACHE_H
+#ifndef CC_LIBCC_CACHE_H
+#define CC_LIBCC_CACHE_H
 
+#include "cc/types.h"
 #include <tuple>
 #include <vector>
-
-#include "common.h"
 
 namespace cc {
 

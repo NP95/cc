@@ -27,6 +27,7 @@
 
 #include "cc/l2cache.h"
 #include "cc/sim.h"
+#include "primitives.h"
 
 namespace cc {
 
