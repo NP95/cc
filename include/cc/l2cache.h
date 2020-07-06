@@ -42,7 +42,7 @@ class Message;
 
 //
 //
-class L2CacheModel : public kernel::Module {
+class L2CacheModel : public kernel::Agent<const Message*> {
   class MainProcess;
  public:
   enum EndPoints : kernel::end_point_id_t {

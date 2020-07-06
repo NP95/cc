@@ -97,6 +97,11 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
  public:
   MOESIL1CacheProtocol() {}
 
+  L1LineState* construct_line() const override {
+    MOESIL1LineState* l1 = new MOESIL1LineState();
+    return l1;
+  }
+
   void apply(L1CacheModelApplyResult& r, L1LineState* line,
              const CpuCommandMessage* msg) const override {
     const MOESIL1LineState* mline = static_cast<const MOESIL1LineState*>(line);

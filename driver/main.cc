@@ -91,10 +91,8 @@ int main(int argc, char** argv) {
   cc::L1CacheModelConfig l1config;
   l1config.name = "l1cache";
   l1config.protocol = p->create_l1();
+  l1config.cconfig = cc::CacheModelConfig();
 
-  // Protocol constructed at this point.
-  //  delete p;
-  
 
   cc::ProgrammaticStimulus* stim = new cc::ProgrammaticStimulus;
 

@@ -41,6 +41,25 @@ class L2CacheModelProtocol;
 
 //
 //
+struct CacheModelConfig {
+  // The number of sets
+  std::uint16_t sets_n = 1024;
+
+  // The number of ways per set (degree of cache associativity).
+  std::uint8_t ways_n = 4;
+
+  // The length of a line in bytes.
+  std::uint8_t line_bytes_n = 64;
+
+  // The total number of cache lines.
+  std::size_t lines() const;
+
+  // The total cache capacity in bytes.
+  std::size_t bytes() const;
+};
+
+//
+//
 struct L1CacheModelConfig {
   // L1 Cache Model name
   std::string name = "l1cache";
@@ -61,6 +80,9 @@ struct L1CacheModelConfig {
 
   // LD/ST pipe flush penalty (cycles)
   std::size_t ldst_flush_penalty_n = 3;
+
+  // Cache configuration.
+  CacheModelConfig cconfig;
 };
 
 //

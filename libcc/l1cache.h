@@ -50,6 +50,7 @@ class L1CacheModel : public kernel::Agent<const Message*> {
   class MainProcess;
 
   friend class MainProcess;
+  friend class L2CacheModel;
   
  public:
   // End-points
@@ -66,18 +67,20 @@ class L1CacheModel : public kernel::Agent<const Message*> {
   virtual ~L1CacheModel();
 
   // Return current L1 configuration.
-  L1CacheModelConfig config() const { return config_; }
+  const L1CacheModelConfig& config() const { return config_; }
+ protected:
   // Pointer to current arbiter child instance.
   Arbiter<const Message*>* arb() const { return arb_; }
   // Pointer to current CPU child instance.
   Cpu* cpu() const { return cpu_; }
-  //
+  // Pointer to owning L2Cache
+  L2CacheModel* l2cache() const { return l2cache_; }
+  // Pointer to command request message queue.
   MessageQueue* msgreqq() const { return msgreqq_; }
 
   // Set parent L2Cache (Elaboration-Phase)
   void set_parent(L2CacheModel* l2cache) { l2cache_ = l2cache; }
   
- protected:
   virtual void elab() override;
   virtual void drc() override;
  private:

@@ -57,7 +57,7 @@ class L2CacheModel::MainProcess : public kernel::Process {
 };
 
 L2CacheModel::L2CacheModel(kernel::Kernel* k, const L2CacheModelConfig& config)
-    : kernel::Module(k, config.name), config_(config) {
+    : kernel::Agent<const Message*>(k, config.name), config_(config) {
   build();
 }
 
@@ -112,6 +112,8 @@ void L2CacheModel::elab() {
   for (L1CacheModel* l1c : l1cs_) {
     l1c->set_parent(this);
   }
+  add_end_point(EndPoints::L1CmdReq, l1cmdreqq_);
+  add_end_point(EndPoints::L1CmdRsp, l1cmdrspq_);
 }
  
 void L2CacheModel::drc() {

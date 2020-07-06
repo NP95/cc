@@ -62,7 +62,8 @@ class Transaction {
 #define MESSAGE_CLASSES(__func)                 \
   __func(Invalid)                               \
   __func(CpuCmd)                                \
-  __func(CpuRsp)
+  __func(CpuRsp)                                \
+  __func(L1L2Cmd)
 
 //
 //
@@ -104,6 +105,20 @@ class Message {
   // Originating agent.
   kernel::Agent<const Message*>* origin_;
 };
+
+class L1L2Message : public Message {
+ public:
+  enum Opcode { GetS, GetE, PutS, PutE };
+  
+  L1L2Message(Transaction* t) : Message(t, L1L2Cmd) {}
+
+  Opcode opcode() const { return opcode_; }
+  void opcode(Opcode opcode) { opcode_ = opcode; }
+  
+ private:
+  Opcode opcode_;
+};
+
 
 using state_t = std::uint8_t;
 
@@ -170,21 +185,15 @@ class L1CacheModelProtocol {
   L1CacheModelProtocol() = default;
   virtual ~L1CacheModelProtocol() = default;
 
-  void set_line(L1LineState* line) { line_ = line; }
-  void set_intf(kernel::RequesterIntf<const Message*>* intf) { intf_ = intf; }
-
+  //
+  virtual L1LineState* construct_line() const = 0;
+  
   //
   virtual void apply(L1CacheModelApplyResult& r, L1LineState* line,
                      const CpuCommandMessage* msg) const = 0;
 
   //
   virtual void commit(const L1CacheModelApplyResult& r, L1LineState* state) const = 0;
-
- private:
-  //
-  L1LineState* line_= nullptr;
-  //
-  kernel::RequesterIntf<const Message*>* intf_ = nullptr;
 };
 
 //
