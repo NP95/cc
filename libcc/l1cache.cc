@@ -119,35 +119,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
   void eval() override {
     switch (state()) {
       case State::AwaitingMessage: {
-        // Idle state, awaiting more work.
-        Arbiter<const Message*>* arb = model_->arb();
-        Arbiter<const Message*>::Tournament t = arb->tournament();
-
-        // Detect deadlock at L1Cache front-end. This occurs only in the
-        // presence of a protocol violation and is therefore by definition
-        // unrecoverable.
-        if (t.deadlock()) {
-          const LogMessage msg{"A protocol deadlock has been detected.",
-                               Level::Fatal};
-          log(msg);
-        }
-
-        // Check for the presence of issue-able messages at the
-        // pipeline front-end.
-        if (t.has_requester()) {
-          // A message is available; begin processing in the next
-          // delta cycle.
-          ctxt_ = Context();
-          ctxt_.t = t;
-          const L1CacheModelConfig& config = model_->config();
-          ctxt_.protocol = config.protocol;
-          set_state(State::ProcessMessage);
-          next_delta();
-        } else {
-          // Otherwise, block awaiting the arrival of a message at on
-          // the of the message queues.
-          wait_on(arb->request_arrival_event());
-        }
+	handle_awaiting_message();
       } break;
 
       case State::ProcessMessage: {
@@ -173,6 +145,38 @@ class L1CacheModel::MainProcess : public kernel::Process {
       default: {
         log(LogMessage{"Unknown state entered", Level::Fatal});
       } break;
+    }
+  }
+
+  void handle_awaiting_message() {
+    // Idle state, awaiting more work.
+    Arbiter<const Message*>* arb = model_->arb();
+    Arbiter<const Message*>::Tournament t = arb->tournament();
+
+    // Detect deadlock at L1Cache front-end. This occurs only in the
+    // presence of a protocol violation and is therefore by definition
+    // unrecoverable.
+    if (t.deadlock()) {
+      const LogMessage msg{"A protocol deadlock has been detected.",
+			   Level::Fatal};
+      log(msg);
+    }
+
+    // Check for the presence of issue-able messages at the
+    // pipeline front-end.
+    if (t.has_requester()) {
+      // A message is available; begin processing in the next
+      // delta cycle.
+      ctxt_ = Context();
+      ctxt_.t = t;
+      const L1CacheModelConfig& config = model_->config();
+      ctxt_.protocol = config.protocol;
+      set_state(State::ProcessMessage);
+      next_delta();
+    } else {
+      // Otherwise, block awaiting the arrival of a message at on
+      // the of the message queues.
+      wait_on(arb->request_arrival_event());
     }
   }
 
