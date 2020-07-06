@@ -97,9 +97,8 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
  public:
   MOESIL1CacheProtocol() {}
 
-  L1CacheModelApplyResult apply(
-      L1LineState* line, const CpuCommandMessage* msg) const override {
-    L1CacheModelApplyResult r;
+  void apply(L1CacheModelApplyResult& r, L1LineState* line,
+             const CpuCommandMessage* msg) const override {
     const MOESIL1LineState* mline = static_cast<const MOESIL1LineState*>(line);
     std::vector<L1UpdateAction>& actions = r.actions();
     switch (msg->opcode()) {
@@ -149,7 +148,6 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
         // Invalid command.
       } break;
     }
-    return r;
   }
 
   void commit(const L1CacheModelApplyResult& r, L1LineState* line) const override {

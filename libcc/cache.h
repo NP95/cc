@@ -138,6 +138,9 @@ class CacheModel {
         : cache_(cache), raw_(raw) {}
 
    public:
+    LineIterator()
+        : cache_(nullptr) {}
+
     Line& line() { return *raw_; }
     const Line& line() const { return *raw_; }
     CacheModel* cache() const { return cache_; }

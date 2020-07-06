@@ -174,8 +174,8 @@ class L1CacheModelProtocol {
   void set_intf(kernel::RequesterIntf<const Message*>* intf) { intf_ = intf; }
 
   //
-  virtual L1CacheModelApplyResult apply(
-      L1LineState* line, const CpuCommandMessage* msg) const = 0;
+  virtual void apply(L1CacheModelApplyResult& r, L1LineState* line,
+                     const CpuCommandMessage* msg) const = 0;
 
   //
   virtual void commit(const L1CacheModelApplyResult& r, L1LineState* state) const = 0;

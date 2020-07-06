@@ -54,7 +54,7 @@ bool operator<=(const Time& lhs, const Time& rhs) {
 }
 
 std::string Time::to_string() const {
-  return std::string{std::to_string(time) + ":" + std::to_string(delta)};
+  return std::string{std::to_string(time) + "." + std::to_string(delta)};
 }
 
 std::ostream& operator<<(std::ostream& os, const Time& t) {
@@ -219,7 +219,7 @@ Loggable::LogMessage& Loggable::LogMessage::append(const std::string& str) {
 Loggable::Loggable(Kernel* k, const std::string& name) : Object(k, name) {}
 
 void Loggable::log_prefix(Level l, std::ostream& os) const {
-  os << "[" << l.to_char() << ";" << path() << "@" << k()->time() << "]: ";
+  os << l.to_char() << "[" << path() << "@" << k()->time() << "]: ";
 }
 
 void Loggable::log(const LogMessage& m) const {

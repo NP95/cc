@@ -37,34 +37,84 @@ namespace cc {
 
 class L1CacheModel::MainProcess : public kernel::Process {
 
-  enum class State {
-    AwaitingMessage, ProcessMessage, IssueMessage, ComputeDelay, IncurFlush
-  };
-
   enum class L1CacheMessageType {
     CpuRsp, GetS, GetE
   };
 
-  class ProtocolResult {
-   public:
-    ProtocolResult() {}
+  // Cleanup
+  struct Context {
+    Context(Arbiter<const Message*>::Tournament t) : t(t)
+    {}
 
-    bool commit() const { return commit_; }
-    void commit(bool commit) { commit_ = commit; }
+    //
+    const Message* msg() const { return intf->peek(); }
 
-    std::vector<L1UpdateAction>& actions() { return actions_; }
-    const std::vector<L1UpdateAction>& actions() const { return actions_; }
+    void consume() {
+      CacheModel<L1LineState*>::Line& line = line_it.line();
+      // Apply protocol update to cache line.
+      protocol->commit(apply_result, line.t());
+      // Remove head-of-line message from nominated Message Queue
+      const Message* msg = intf->dequeue();
+      // Release message back to pool
+      msg->release();
+      // Advance arbitration state.
+      t.advance();
+    }
 
-   private:
-    std::size_t penalty_cycles_n_;
-    
-    // Flag indicating that the message has committed.
-    bool commit_ = false;
+    void discard() {
+      // NOP: state is not owned by context.
+    }
 
-    // Set of actions to be applyed sbusequent to the committment of the
-    // current message.
-    std::vector<L1UpdateAction> actions_;
+    // Originating interface from which the current message was
+    // sourced.
+    kernel::RequesterIntf<const Message*>* intf = nullptr;
+
+    // Current arbiter tournament; retained such that the
+    Arbiter<const Message*>::Tournament t;
+
+    // Set of actions to be carried out on the state of the
+    // cache in response to the application of the message to
+    // the protocol.
+    std::vector<L1UpdateAction> l1_update_actions;
+
+    // Set of messages to be emitted by the cache.
+    std::deque<L1CacheMessageType> l1_cache_messages;
+
+    // State containing the result of the protocol message
+    // application.
+    L1CacheModelApplyResult apply_result;
+
+    // Pointer to the protocol logic object.
+    L1CacheModelProtocol* protocol = nullptr;
+
+    // Iterator to the line into which the current operation is taking
+    // place.
+    CacheModel<L1LineState*>::LineIterator line_it;
   };
+
+#define STATES(__func)                          \
+  __func(AwaitingMessage)                       \
+  __func(ProcessMessage)                        \
+  __func(ExecuteActions)                        \
+  __func(EmitMessages)                          \
+  __func(CommitContext)                         \
+  __func(DiscardContext)
+  
+  enum class State {
+#define __declare_state(__name) __name,
+    STATES(__declare_state)
+#undef __declare_state
+  };
+
+  std::string to_string(State state) {
+    switch (state) {
+      default: return "Unknown";
+#define __declare_to_string(__name) case State::__name: return #__name; break;
+      STATES(__declare_to_string)
+#undef __declare_to_string
+    }
+    return "Invalid";
+  }
   
  public:
   MainProcess(kernel::Kernel* k, const std::string& name, L1CacheModel* model)
@@ -75,7 +125,17 @@ class L1CacheModel::MainProcess : public kernel::Process {
   L1CacheModelProtocol* protocol() const { return model_->config_.protocol; }
   // Current process state
   State state() const { return state_; }
-  void set_state(State state) { state_ = state; }
+  void set_state(State state) {
+    if (state_ != state) {
+      LogMessage msg("State transition: ");
+      msg.level(Level::Debug);
+      msg.append(to_string(state_));
+      msg.append(" -> ");
+      msg.append(to_string(state));
+      log(msg);
+    }
+    state_ = state;
+  }
 
  private:
   // Initialization
@@ -92,35 +152,11 @@ class L1CacheModel::MainProcess : public kernel::Process {
 
     // Evaluation
   void eval() override {
-    Arbiter<const Message*>* arb = model_->arb();
     switch (state()) {
       case State::AwaitingMessage: {
         // Idle state, awaiting more work.
+        Arbiter<const Message*>* arb = model_->arb();
         Arbiter<const Message*>::Tournament t = arb->tournament();
-
-        // Check for the presence of issue-able messages at the
-        // pipeline front-end.
-        if (t.has_requester()) {
-          // A message is available; begin processing in the next
-          // delta cycle.
-          set_state(State::ProcessMessage);
-          next_delta();
-        } else {
-          // Otherwise, block awaiting the arrival of a message at on
-          // the of the message queues.
-          wait_on(arb->request_arrival_event());
-        }
-      } break;
-      case State::ProcessMessage: {
-        Arbiter<const Message*>::Tournament t = arb->tournament();
-
-        if (!t.has_requester()) {
-          // Expect work at this point, if not we have entered this
-          // state erroneously.
-          const LogMessage msg(
-              "Expected work, but no messages found", Level::Fatal);
-          log(msg);
-        }
 
         // Detect deadlock at L1Cache front-end. This occurs only in the
         // presence of a protocol violation and is therefore by definition
@@ -131,93 +167,64 @@ class L1CacheModel::MainProcess : public kernel::Process {
           log(msg);
         }
 
-        set_state(handle_nominated(t.intf()));
+        // Check for the presence of issue-able messages at the
+        // pipeline front-end.
+        if (t.has_requester()) {
+          // A message is available; begin processing in the next
+          // delta cycle.
+          ctxt_ = new Context(t);
+          ctxt_->protocol = protocol();
+          set_state(State::ProcessMessage);
+          next_delta();
+        } else {
+          // Otherwise, block awaiting the arrival of a message at on
+          // the of the message queues.
+          wait_on(arb->request_arrival_event());
+        }
+      } break;
+        
+      case State::ProcessMessage: {
+        handle_nominated_message();
+      } break;
+
+      case State::ExecuteActions: {
+        handle_execute_actions();
+      } break;
+
+      case State::EmitMessages: {
+        handle_emit_messages();
+      } break;
+
+      case State::CommitContext: {
+        ctxt_->consume();
+        delete ctxt_;
+        set_state(State::AwaitingMessage);
         next_delta();
       } break;
-      case State::IssueMessage: {
-        const L1CacheMessageType msg_type = msgs_.front();
-        // Try to issue head-of-line message
-        if (issue_message(msg_type)) {
-          // Message was successfully emitted:
-          msgs_.pop_front();
-          if (!msgs_.empty()) {
-            // Message can now be release back to the owning pool.
-            msg_->release();
 
-            // Return to Idle/AwaitingMessage state after the message
-            // issue cost has been incurred.
-            set_state(State::AwaitingMessage);
-
-            // message_cost(msg_type)
-            wait_for(cc::kernel::Time{10, 0});
-          } else {
-            // Wait for some delay
-            wait_for(cc::kernel::Time{10, 0});
-          }
-        } else {
-          // Could not emit message, try again in the next cycle.
-          wait_for(cc::kernel::Time{10, 0});
-        }
-      } break;
-      case State::ComputeDelay: {
+      case State::DiscardContext: {
+        ctxt_->discard();
+        delete ctxt_;
         set_state(State::AwaitingMessage);
-        // Wait for some delay
-        wait_for(cc::kernel::Time{10, 0});
-      } break;
-      case State::IncurFlush: {
-        // Penalty state which blocks the execution of the cache for
-        // some number of cycles.
-        set_state(State::AwaitingMessage);
-        // Wait for some delay
-        wait_for(cc::kernel::Time{50, 0});
+        next_delta();
       } break;
       default: {
-        const LogMessage msg("Unknown state entered", Level::Fatal);
-        log(msg);
+        log(LogMessage{"Unknown state entered", Level::Fatal});
       } break;
     }
   }
 
-  bool issue_message(L1CacheMessageType type) {
-    bool did_issue = false;
-    switch (type) {
-      case L1CacheMessageType::CpuRsp: {
-        did_issue = true;
-        if (did_issue) {
-          // Form message and emit.
-          CpuResponseMessage* rsp = new CpuResponseMessage(msg_->t());
-          kernel::EndPointIntf<const Message*>* cpu_end_point = model_->cpu();
-          model_->issue(cpu_end_point, kernel::Time{10, 0}, rsp);
-        }
-      } break;
-      case L1CacheMessageType::GetS: {
-        did_issue = true;
-      } break;
-      case L1CacheMessageType::GetE: {
-        did_issue = true;
-      } break;
-      default: {
-      } break;
-    }
-    return did_issue;
-  }
-
-  std::size_t message_cost(L1CacheMessageType type) {
-    return 10;
-  }
-
-  State handle_nominated(kernel::RequesterIntf<const Message*>* intf) {
-    State ret;
-    msg_ = intf->peek();
-    switch (msg_->cls()) {
+  void handle_nominated_message() {
+    const kernel::RequesterIntf<const Message*>* intf = ctxt_->intf;
+    const Message* msg = intf->peek();
+    switch (msg->cls()) {
       case Message::CpuCmd: {
         using CacheModel = CacheModel<L1LineState*>;
         
         CacheModel* cache = model_->cache();
-        L1CacheModelProtocol* p = protocol();;
         CacheAddressHelper ah = cache->ah();
         const CpuCommandMessage* cpucmd =
-            static_cast<const CpuCommandMessage*>(msg_);
+            static_cast<const CpuCommandMessage*>(msg);
 
         // Check cache occupancy status:
         CacheModel::Set set = cache->set(ah.set(cpucmd->addr()));
@@ -226,12 +233,15 @@ class L1CacheModel::MainProcess : public kernel::Process {
           // do not know at present what we can do with it as this
           // is some unknown function of the cache line state, the
           // command opcode and the protocol.
-          CacheModel::LineIterator it = set.find(ah.tag(cpucmd->addr()));
-          CacheModel::Line& line = it.line();
+          ctxt_->line_it = set.find(ah.tag(cpucmd->addr()));
+          CacheModel::Line& line = ctxt_->line_it.line();
 
-          const L1CacheModelApplyResult result = p->apply(line.t(), cpucmd);
 
-          switch (result.status()) {
+          L1CacheModelApplyResult& apply_result = ctxt_->apply_result;
+          const L1CacheModelProtocol* p = ctxt_->protocol;
+          p->apply(apply_result, line.t(), cpucmd);
+
+          switch (apply_result.status()) {
             case L1UpdateStatus::IsBlocked: {
               // The protocol disallows the current message from
               // completing (the reason why this has happeneded is
@@ -240,68 +250,110 @@ class L1CacheModel::MainProcess : public kernel::Process {
 
               // Block the interface, so that it cannot be rescheduled
               // in subsequent timesteps.
+              kernel::RequesterIntf<const Message*>* intf = ctxt_->intf;
               intf->set_blocked(true);
 
               // Incur the penatly associated with the failed attempt;
               // approximately equivalent to the penalty associated
               // with flushing the cache pipeline.
-              ret = State::IncurFlush;
+              set_state(State::DiscardContext);
+              next_delta();
             } break;
             case L1UpdateStatus::CanCommit: {
-              // Process actions
-              const bool has_messages = handle_actions(msg_, result.actions());
-              // Apply result to line state.
-              p->commit(result, line.t());
-              // Remove message from owning Queue instance.
-              intf->dequeue();
-              // Consume message; return to pool or destruct.
-              if (!has_messages) { msg_->release(); }
-              // Compute next state.
-              ret = has_messages ? State::IssueMessage : State::ComputeDelay;
+              set_state(State::ExecuteActions);
+              next_delta();
             } break;
           }
         } else {
           // Cache miss; either service current command by installing
-
+          CacheModel::LineIterator it = set.begin(), nominated_line = set.end();
+          while (it != set.end()) {
+            const L1LineState* line = it.line().t();
+            if (line->is_evictable()) {
+              nominated_line = it;
+              break;
+            }
+            ++it;
+          }
+          if (nominated_line != set.end()) {
+            // Eviction can take place to the current line;
+            // TODO
+          } else {
+            // Eviction cannot take place therefore the current
+            // message is blocked
+            kernel::RequesterIntf<const Message*>* intf = ctxt_->intf;
+            intf->set_blocked(true);
+          }
         }
       } break;
       default: {
         LogMessage lmsg("Invalid message received: ");
-        lmsg.append(msg_->to_string());
+        lmsg.append(msg->to_string());
         lmsg.level(Level::Error);
         log(lmsg);
       } break;
     }
-    return ret;
   }
 
-  bool handle_actions(
-      const Message* msg, const std::vector<L1UpdateAction>& actions) {
-    bool had_message = false;
-    for (L1UpdateAction action : actions) {
+  void handle_execute_actions() {
+    std::deque<L1CacheMessageType>& msgs = ctxt_->l1_cache_messages;
+    for (L1UpdateAction action : ctxt_->l1_update_actions) {
       switch (action) {
         case L1UpdateAction::EmitCpuRsp: {
           // Emit response to requesting CPU
-          msgs_.push_back(L1CacheMessageType::CpuRsp);
-          had_message = true;
+          msgs.push_back(L1CacheMessageType::CpuRsp);
         } break;
         case L1UpdateAction::EmitGetS: {
           // Emit GetS (Get Shared) to owning L2 cache.
-          msgs_.push_back(L1CacheMessageType::GetS);
-          had_message = true;
+          msgs.push_back(L1CacheMessageType::GetS);
         } break;
         case L1UpdateAction::EmitGetE: {
           // Emit GetE (Get Exclusive) to owning L2 cache.
-          msgs_.push_back(L1CacheMessageType::GetE);
-          had_message = true;
+          msgs.push_back(L1CacheMessageType::GetE);
         } break;
         case L1UpdateAction::UnblockCmdQueue: {
+          
         } break;
         default: {
         } break;
       }
     }
-    return had_message;
+    set_state(msgs.empty() ? State::CommitContext : State::EmitMessages);
+    next_delta();
+  }
+
+  void handle_emit_messages() {
+    std::deque<L1CacheMessageType>& msgs = ctxt_->l1_cache_messages;
+    switch (msgs.front()) {
+      case L1CacheMessageType::CpuRsp: {
+        const bool did_issue = true;
+        if (did_issue) {
+          // Form message and emit.
+          const kernel::RequesterIntf<const Message*>* intf = ctxt_->intf;
+          const Message* msg = intf->peek();
+          // Construct message:
+          CpuResponseMessage* rsp = new CpuResponseMessage(msg->t());
+          // Issue to CPU:
+          kernel::EndPointIntf<const Message*>* cpu_end_point = model_->cpu();
+          model_->issue(cpu_end_point, kernel::Time{10, 0}, rsp);
+          // As now issue, discard current message request.
+          msgs.pop_front();
+        }
+      } break;
+      case L1CacheMessageType::GetS: {
+        const bool did_issue = true;
+      } break;
+      case L1CacheMessageType::GetE: {
+        const bool did_issue = true;
+      } break;
+      default: {
+        LogMessage msg("Unknown message type: ", Level::Error);
+        log(msg);
+      } break;
+    }
+
+    if (msgs.empty()) { set_state(State::CommitContext); }
+    next_delta();
   }
 
   // Pointer to parent module.
@@ -310,8 +362,8 @@ class L1CacheModel::MainProcess : public kernel::Process {
   State state_;
   // Set of outstanding messages to be issued by the cache.
   std::deque<L1CacheMessageType> msgs_;
-  // Current message being processed
-  const Message* msg_;
+  // Context of current operation.
+  Context* ctxt_ = nullptr;
 };
 
 L1CacheModel::L1CacheModel(kernel::Kernel* k, const L1CacheModelConfig& config)
