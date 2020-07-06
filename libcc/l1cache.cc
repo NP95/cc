@@ -60,9 +60,15 @@ class L1CacheModel::MainProcess : public kernel::Process {
     CacheModel<L1LineState*>::LineIterator line_it;
   };
 
-#define STATES(__func)                                                  \
-  __func(AwaitingMessage) __func(ProcessMessage) __func(ExecuteActions) \
-      __func(EmitMessages) __func(CommitContext) __func(DiscardContext)
+// clang-format off
+#define STATES(__func)				\
+  __func(AwaitingMessage)			\
+  __func(ProcessMessage)			\
+  __func(ExecuteActions)			\
+  __func(EmitMessages)				\
+  __func(CommitContext)				\
+  __func(DiscardContext)
+// clang-format on
 
   enum class State {
 #define __declare_state(__name) __name,
@@ -83,6 +89,8 @@ class L1CacheModel::MainProcess : public kernel::Process {
     }
     return "Invalid";
   }
+
+#undef STATES
 
  public:
   MainProcess(kernel::Kernel* k, const std::string& name, L1CacheModel* model)
@@ -180,7 +188,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
   }
 
   void handle_nominated_message() {
-    const kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
+    const MsgRequesterIntf* intf = ctxt_.t.intf();
     const Message* msg = intf->peek();
     switch (msg->cls()) {
       case Message::CpuCmd: {
@@ -212,7 +220,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
 
               // Block the interface, so that it cannot be rescheduled
               // in subsequent timesteps.
-              kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
+              MsgRequesterIntf* intf = ctxt_.t.intf();
               intf->set_blocked(true);
 
               // Incur the penatly associated with the failed attempt;
@@ -259,7 +267,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
           } else {
             // Eviction cannot take place therefore the current
             // message is blocked
-            kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
+            MsgRequesterIntf* intf = ctxt_.t.intf();
             intf->set_blocked(true);
             //
             set_state(State::DiscardContext);
@@ -274,26 +282,6 @@ class L1CacheModel::MainProcess : public kernel::Process {
         log(lmsg);
       } break;
     }
-  }
-
-  std::pair<CacheModel<L1LineState*>::LineIterator, bool> nominate_line(
-      CacheModel<L1LineState*>::LineIterator begin, CacheModel<L1LineState*>::LineIterator end) {
-    CacheModel<L1LineState*>::LineIterator it;
-    // Firstly consider empty lines within the set.
-    it = begin;
-    while (it != end) {
-      const CacheModel<L1LineState*>::Line& line = it.line();
-      if (!line.valid()) return std::make_pair(it, false);
-      ++it;
-    }
-    // Otherwise, consider lines which can be evicted.
-    it = begin;
-    while (it != end) {
-      const CacheModel<L1LineState*>::Line& line = it.line();
-      if (line.t()->is_evictable()) return std::make_pair(it, true);
-    }
-    // Otherwise, all lines are busy.
-    return std::make_pair(end, false);
   }
 
   void handle_execute_actions() {
@@ -331,7 +319,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
   void handle_emit_messages() {
     std::deque<L1CacheMessageType>& msgs = ctxt_.l1_cache_messages;
     // Form message and emit.
-    const kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
+    const MsgRequesterIntf* intf = ctxt_.t.intf();
     // Initiating message.
     const Message* msg = intf->peek();
     // Emit messsage:
@@ -392,7 +380,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
     protocol->commit(ctxt_.apply_result, line.t());
     // Remove head-of-line message from nominated Message Queue and
     // return to associated pool.
-    kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
+    MsgRequesterIntf* intf = ctxt_.t.intf();
     const Message* msg = intf->dequeue();
     msg->release();
     // Advance arbitration state.

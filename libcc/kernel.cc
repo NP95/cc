@@ -32,6 +32,16 @@
 
 namespace cc::kernel {
 
+const char* to_string(Phase phases) {
+  switch (phases) {
+#define __declare_to_string(__name)		\
+    case Phase::__name: return #__name; break;
+      PHASES(__declare_to_string)
+  }
+#undef __declare_to_string
+  return "Invalid";
+}
+
 Time operator+(const Time& lhs, const Time& rhs) {
   return Time{lhs.time + rhs.time, lhs.delta + rhs.delta};
 }
@@ -121,8 +131,6 @@ void Kernel::set_seed(seed_type seed) { random_source_ = RandomSource(seed); }
 
 void Kernel::invoke_elab() {
   set_phase(Phase::Elab);
-  log_context().info("Elaborating simulation.");
-
   struct InvokeElabVisitor : ObjectVisitor {
     void visit(Module* o) override { o->elab(); }
   };
@@ -132,8 +140,6 @@ void Kernel::invoke_elab() {
 
 void Kernel::invoke_drc() {
   set_phase(Phase::Drc);
-  log_context().info("Running Design Rule Check.");
-
   struct InvokeDrcVisitor : ObjectVisitor {
     void visit(Module* o) override { o->drc(); }
   };
@@ -143,8 +149,6 @@ void Kernel::invoke_drc() {
 
 void Kernel::invoke_init() {
   set_phase(Phase::Init);
-  log_context().info("Invoking initialization");
-
   struct InvokeInitVisitor : ObjectVisitor {
     void visit(Process* o) override { o->init(); }
   };
@@ -154,7 +158,6 @@ void Kernel::invoke_init() {
 
 void Kernel::invoke_run(RunMode r, Time t) {
   set_phase(Phase::Run);
-  log_context().info("Starting simulation.");
   while (!eq_.empty()) {
     // IF a fatal error has occurred, terminate the simulation immediately.
     if (fatal()) break;
@@ -174,8 +177,6 @@ void Kernel::invoke_run(RunMode r, Time t) {
 
 void Kernel::invoke_fini() {
   set_phase(Phase::Fini);
-  log_context().info("Finalizing.");
-
   struct InvokeFiniVisitor : ObjectVisitor {
     void visit(Process* o) override { o->fini(); }
   };
@@ -219,7 +220,14 @@ Loggable::LogMessage& Loggable::LogMessage::append(const std::string& str) {
 Loggable::Loggable(Kernel* k, const std::string& name) : Object(k, name) {}
 
 void Loggable::log_prefix(Level l, std::ostream& os) const {
-  os << l.to_char() << "[" << path() << "@" << k()->time() << "]: ";
+  const char* t = type_str();
+  os << l.to_char()
+     << "["
+     << to_string(k()->phase())[0] << ";"
+     << path()
+     << ";" << t[0]
+     << "@" << k()->time()
+     << "]: ";
 }
 
 void Loggable::log(const LogMessage& m) const {
@@ -256,7 +264,7 @@ void Event::notify() {
       // Discard after evaluation.
       return true;
     }
-    Process* p_;
+    Process* p_ = nullptr;
   };
   const Time current_time{k()->time()};
   const Time time{current_time.time, current_time.delta + 1};

@@ -37,10 +37,18 @@
 
 namespace cc::kernel {
 
-#define KERNEL_TYPES(__func)                                              \
-  __func(TopModule) __func(Module) __func(EventOr) __func(Event)          \
-      __func(ProcessHost) __func(Process) __func(Action) __func(Loggable) \
-          __func(Object)
+// clang-format off
+#define KERNEL_TYPES(__func)			\
+  __func(TopModule)				\
+  __func(Module)				\
+  __func(EventOr)				\
+  __func(Event)					\
+  __func(ProcessHost)				\
+  __func(Process)				\
+  __func(Action)				\
+  __func(Loggable)				\
+  __func(Object)
+// clang-format on
 
 #define __declare_forwards(__type) class __type;
 KERNEL_TYPES(__declare_forwards)
@@ -56,11 +64,14 @@ struct ObjectVisitor {
 #undef __declare_visit_method
 };
 
-#define DECLARE_VISITEE                         \
+#define DECLARE_VISITEE(__name)                 \
   friend class ObjectVisitor;                   \
   virtual void accept(ObjectVisitor* visitor) { \
     Object::iterate_children(visitor);          \
     visitor->visit(this);                       \
+  }                                             \
+  virtual const char* type_str() const {	\
+    return #__name;				\
   }
 
 struct Time {
@@ -128,6 +139,24 @@ class LogContext {
 
 enum class RunMode { ToExhaustion, ForTime };
 
+// clang-format off
+#define PHASES(__func)				\
+  __func(Build)					\
+  __func(Elab)					\
+  __func(Drc)					\
+  __func(Init)					\
+  __func(Run)					\
+  __func(Fini)
+// clang-format on
+
+enum class Phase {
+#define __declare_enum(__name) __name,
+  PHASES(__declare_enum)
+#undef __declare_enum
+};
+
+const char* to_string(Phase phases);
+
 class Kernel {
   friend class Process;
   friend class Module;
@@ -148,8 +177,6 @@ class Kernel {
       return lhs.time.delta < rhs.time.delta;
     }
   };
-
-  enum class Phase { Build, Elab, Drc, Init, Run, Fini };
 
  public:
   Kernel(seed_type seed = 1);
@@ -198,7 +225,7 @@ class Kernel {
 
 class Object {
   friend class ObjectVisitor;
-  DECLARE_VISITEE;
+  DECLARE_VISITEE(Object);
 
  public:
   Object(Kernel* k, const std::string& name);
@@ -230,7 +257,7 @@ class Object {
 };
 
 class Loggable : public Object {
-  DECLARE_VISITEE;
+  DECLARE_VISITEE(Loggable);
 
  protected:
   struct Level {
@@ -302,7 +329,7 @@ class Loggable : public Object {
 //
 class Action : public Loggable {
   friend class Process;
-  DECLARE_VISITEE;
+  DECLARE_VISITEE(Action);
 
  public:
   Action(Kernel* k, const std::string& name);
@@ -316,7 +343,7 @@ class Action : public Loggable {
 //
 class Process : public Loggable {
   friend class Module;
-  DECLARE_VISITEE;
+  DECLARE_VISITEE(Process);
 
  public:
   Process(Kernel* k, const std::string& name);
@@ -347,7 +374,7 @@ class Process : public Loggable {
 //
 //
 class ProcessHost : public Loggable {
-  DECLARE_VISITEE;
+  DECLARE_VISITEE(ProcessHost);
 
  public:
   ProcessHost(Kernel* k, const std::string& name);
@@ -363,7 +390,7 @@ class ProcessHost : public Loggable {
 //
 class Event : public ProcessHost {
   friend class Process;
-  DECLARE_VISITEE;
+  DECLARE_VISITEE(Event);
 
  public:
   Event(Kernel* k, const std::string& name);
@@ -379,7 +406,7 @@ class Event : public ProcessHost {
 // Event subtype to model the composition of an "or-list" of events.
 //
 class EventOr : public Event {
-  DECLARE_VISITEE;
+  DECLARE_VISITEE(EventOr);
 
  public:
   EventOr(Kernel* k, const std::string& name);
@@ -397,7 +424,7 @@ class EventOr : public Event {
 //
 class Module : public ProcessHost {
   friend class Kernel;
-  DECLARE_VISITEE;
+  DECLARE_VISITEE(Module);
 
  protected:
   Module(Kernel* k, const std::string& name);
@@ -420,7 +447,7 @@ class Module : public ProcessHost {
 //
 //
 class TopModule : public Module {
-  DECLARE_VISITEE;
+  DECLARE_VISITEE(TopModule);
 
  public:
   TopModule(Kernel* k, const std::string& name);

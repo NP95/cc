@@ -45,7 +45,7 @@ class Agent;
 template <typename T>
 class RequesterIntf;
 }  // namespace kernel
-
+  
 //
 //
 class Transaction {
@@ -113,6 +113,8 @@ class L1L2Message : public Message {
 };
 
 using state_t = std::uint8_t;
+
+using MsgRequesterIntf = kernel::RequesterIntf<const Message*>;
 
 //
 //
