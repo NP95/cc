@@ -31,16 +31,14 @@
 #include "cc/cpu.h"
 #include "protocol.h"
 
-
 namespace cc {
-
 
 //
 //
 class CpuCommandMessage : public Message {
  public:
   enum Opcode { Load, Store };
-  
+
   CpuCommandMessage(Transaction* t) : Message(t, CpuCmd) {}
 
   Opcode opcode() const { return opcode_; }
@@ -48,11 +46,11 @@ class CpuCommandMessage : public Message {
 
   void set_addr(addr_t addr) { addr_ = addr; }
   void set_opcode(Opcode opcode) { opcode_ = opcode; }
+
  private:
   addr_t addr_;
   Opcode opcode_;
 };
-
 
 //
 //
@@ -65,11 +63,11 @@ class CpuResponseMessage : public Message {
   Opcode opcode() const { return opcode_; }
 
   void set_opcode(Opcode opcode) { opcode_ = opcode; }
+
  private:
   Opcode opcode_;
 };
 
-
-} // namespace cc
+}  // namespace cc
 
 #endif

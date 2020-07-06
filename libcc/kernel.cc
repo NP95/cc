@@ -68,12 +68,12 @@ bool RandomSource::random_bool(float true_probability) {
   return dist(mt_);
 }
 
-void ObjectVisitor::iterate(Object* root) {
-  root->accept(this);
-}
+void ObjectVisitor::iterate(Object* root) { root->accept(this); }
 
 void Object::iterate_children(ObjectVisitor* visitor) {
-  for (Object* o : children_) { o->accept(visitor); }
+  for (Object* o : children_) {
+    o->accept(visitor);
+  }
 }
 
 LogContext::LogContext(std::ostream* os) : os_(os) {}
@@ -99,7 +99,7 @@ void Kernel::run(RunMode r, Time t) {
   // that the object heirarchy has been correct constructed at this point.
 
   // Check top is set.
-  
+
   // Build and elaborate simulation environment.
   invoke_elab();
   // Run Design Rule Check to validate environment correctness.
@@ -266,8 +266,7 @@ void Event::notify() {
   ps_.clear();
 }
 
-EventOr::EventOr(Kernel* k, const std::string& name)
-    : Event(k, name) {}
+EventOr::EventOr(Kernel* k, const std::string& name) : Event(k, name) {}
 
 void EventOr::finalize() {
   // Forwarding process awaits the notification of one of the
@@ -275,7 +274,8 @@ void EventOr::finalize() {
   // associated parent event (to be scheduled in the subsequent delta
   // cycle).
   struct EventNotifyForwardProcess : Process {
-    EventNotifyForwardProcess(Kernel* k, Event* parent, Event* e, const std::string& name)
+    EventNotifyForwardProcess(Kernel* k, Event* parent, Event* e,
+                              const std::string& name)
         : Process(k, name), parent_(parent), e_(e) {}
 
     // Pointer to parent event object.
@@ -283,13 +283,12 @@ void EventOr::finalize() {
     // Pointer to underlying event object.
     Event* e() const { return e_; }
 
-    void init() override {
-      wait_on(*e());
-    }
+    void init() override { wait_on(*e()); }
     void eval() override {
       parent_->notify();
       wait_on(*e());
     }
+
    private:
     Kernel* k_;
     Event* e_;

@@ -28,35 +28,37 @@
 #ifndef CC_INCLUDE_CC_L2CACHE_H
 #define CC_INCLUDE_CC_L2CACHE_H
 
-#include "kernel.h"
-#include "cfgs.h"
 #include <vector>
+
+#include "cfgs.h"
+#include "kernel.h"
 
 namespace cc {
 
 // Forwards:
 class L1CacheModel;
 class MessageQueue;
-template<typename> class Arbiter;
+template <typename>
+class Arbiter;
 class Message;
 
 //
 //
 class L2CacheModel : public kernel::Agent<const Message*> {
   class MainProcess;
+
  public:
-  enum EndPoints : kernel::end_point_id_t {
-    L1CmdReq,
-    L1CmdRsp    
-  };
-  
+  enum EndPoints : kernel::end_point_id_t { L1CmdReq, L1CmdRsp };
+
   L2CacheModel(kernel::Kernel* k, const L2CacheModelConfig& config);
   virtual ~L2CacheModel();
 
   L2CacheModelConfig config() const { return config_; }
+
  protected:
   virtual void elab() override;
   virtual void drc() override;
+
  private:
   void build();
 
@@ -74,6 +76,6 @@ class L2CacheModel : public kernel::Agent<const Message*> {
   MainProcess* main_;
 };
 
-} // namespace cc
+}  // namespace cc
 
 #endif

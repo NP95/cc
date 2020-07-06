@@ -28,15 +28,15 @@
 #ifndef CC_INCLUDE_CC_COMMON_H
 #define CC_INCLUDE_CC_COMMON_H
 
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 #include <type_traits>
 
 namespace cc {
 
 using addr_t = std::uint64_t;
 
-template<typename T>
+template <typename T>
 T log2ceil(T t) {
   int n = 0;
   while (t) {
@@ -46,7 +46,7 @@ T log2ceil(T t) {
   return n;
 }
 
-template<typename T>
+template <typename T>
 T mask(std::size_t bits) {
   if (bits == 0) return 0;
 
@@ -54,11 +54,11 @@ T mask(std::size_t bits) {
   return (t << bits) - 1;
 }
 
-template<typename T>
+template <typename T>
 typename std::underlying_type<T>::type ut(T e) {
   return static_cast<typename std::underlying_type<T>::type>(e);
 }
 
-} // namespace cc
+}  // namespace cc
 
 #endif

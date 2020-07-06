@@ -28,10 +28,11 @@
 #ifndef CC_LIBCC_CACHE_H
 #define CC_LIBCC_CACHE_H
 
-#include "cc/types.h"
-#include "cc/cfgs.h"
 #include <tuple>
 #include <vector>
+
+#include "cc/cfgs.h"
+#include "cc/types.h"
 
 namespace cc {
 
@@ -82,7 +83,7 @@ class CacheModel {
     friend class CacheModel::Set;
 
     // Accessors;
-    bool valid() const { return valid_ ; }
+    bool valid() const { return valid_; }
     tag_type tag() const { return tag_; }
     T& t() { return t_; }
     const T& t() const { return t_; }
@@ -91,7 +92,7 @@ class CacheModel {
     void valid(bool valid) { valid_ = valid; }
     void tag(tag_type tag) { tag_ = tag; }
     void t(const T& t) { t_ = t; }
-    
+
     bool valid_ = false;
     tag_type tag_;
     T t_;
@@ -120,8 +121,7 @@ class CacheModel {
         : cache_(cache), raw_(raw) {}
 
    public:
-    LineIterator()
-        : cache_(nullptr) {}
+    LineIterator() : cache_(nullptr) {}
 
     Line& line() { return *raw_; }
     const Line& line() const { return *raw_; }

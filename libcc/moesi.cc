@@ -26,46 +26,52 @@
 //========================================================================== //
 
 #include "moesi.h"
+
+#include <string>
+
 #include "cpu_msg.h"
 #include "l1cache.h"
 #include "utility.h"
-#include <string>
 
 namespace cc {
 
-#define DECLARE_L1_STATES(__func)               \
-  __func(I, true)                               \
-  __func(I_S, false)                            \
-  __func(S, true)                               \
-  __func(I_E, false)                            \
-  __func(S_E, false)                            \
-  __func(E, true)                               \
-  __func(E_M, false)                            \
-  __func(M, true)                               \
+// clang-format off  
+#define DECLARE_L1_STATES(__func)		\
+  __func(I, true)				\
+  __func(I_S, false)				\
+  __func(S, true)				\
+  __func(I_E, false)				\
+  __func(S_E, false)				\
+  __func(E, true)				\
+  __func(E_M, false)				\
+  __func(M, true)				\
   __func(M_I, false)
+// clang-format on
 
 #define __declare_states(__state, __stable) __state,
-enum class L1State : state_t {
-  DECLARE_L1_STATES(__declare_states)
-};
+enum class L1State : state_t { DECLARE_L1_STATES(__declare_states) };
 #undef __declare_states
 
 std::string to_string(L1State s) {
 #define __declare_to_string(__state, __stable) \
-  case L1State::__state: return #__state;
+  case L1State::__state:                       \
+    return #__state;
   switch (s) {
     DECLARE_L1_STATES(__declare_to_string)
-    default: return "Bad State";
+    default:
+      return "Bad State";
   }
 #undef __declare_to_string
 }
 
 bool is_stable(L1State s) {
 #define __declare_is_stable(__state, __stable) \
-  case L1State::__state: return __stable;
+  case L1State::__state:                       \
+    return __stable;
   switch (s) {
     DECLARE_L1_STATES(__declare_is_stable)
-    default: return false;
+    default:
+      return false;
   }
 #undef __declare_is_stable
 }
@@ -155,14 +161,14 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
     }
   }
 
-  void commit(const L1CacheModelApplyResult& r, L1LineState* line) const override {
+  void commit(const L1CacheModelApplyResult& r,
+              L1LineState* line) const override {
     MOESIL1LineState* mline = static_cast<MOESIL1LineState*>(line);
     if (ut(mline->state()) != r.state()) {
       // Apply requested state transition:
       mline->set_state(static_cast<L1State>(r.state()));
     }
   }
-  
 };
 
 L1CacheModelProtocol* MOESIProtocolBuilder::create_l1() {
@@ -189,4 +195,4 @@ DirectoryProtocol* MOESIProtocolBuilder::create_dir() {
 
 CC_DECLARE_PROTOCOL_BUILDER("moesi", MOESIProtocolBuilder);
 
-} // namespace cc
+}  // namespace cc

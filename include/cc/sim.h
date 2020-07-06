@@ -28,12 +28,13 @@
 #ifndef CC_INCLUDE_CC_SIM_H
 #define CC_INCLUDE_CC_SIM_H
 
-#include "kernel.h"
-#include "types.h"
-#include <vector>
 #include <deque>
 #include <set>
 #include <string>
+#include <vector>
+
+#include "kernel.h"
+#include "types.h"
 
 namespace cc {
 
@@ -43,9 +44,7 @@ class Command {
  public:
   enum Opcode { Load, Store };
 
-  Command(Opcode opcode, addr_t addr)
-      : opcode_(opcode), addr_(addr)
-  {}
+  Command(Opcode opcode, addr_t addr) : opcode_(opcode), addr_(addr) {}
 
   addr_t addr() const { return addr_; }
   Opcode opcode() const { return opcode_; }
@@ -61,19 +60,18 @@ class Command {
 //
 class Stimulus {
  public:
-
   // Transaction frontier record.
   struct Frontier {
     kernel::Time time;
     Command cmd;
   };
-  
+
   Stimulus() = default;
   virtual ~Stimulus() = default;
 
   // Flag denoting whether the transaction source has been exhausted.
   virtual bool done() const { return true; }
-  
+
   // Transaction at the head of the source queue; nullptr if source
   // has been exhausted.
   virtual Frontier& front() = 0;
@@ -82,7 +80,6 @@ class Stimulus {
   // Consume transaction at the head of the source queue.
   virtual void consume() {}
 };
-
 
 // Elementary realization of a transaction source. Transactions are
 // programmatically constructed and issued to the source before the
@@ -99,10 +96,11 @@ class ProgrammaticStimulus : public Stimulus {
 
   void consume() override { cs_.pop_front(); }
   void push_back(kernel::Time t, const Command& c) { cs_.push_back({t, c}); }
+
  private:
   std::deque<Frontier> cs_;
 };
 
-} // namespace cc
+}  // namespace cc
 
 #endif

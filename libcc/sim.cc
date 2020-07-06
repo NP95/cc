@@ -26,8 +26,7 @@
 //========================================================================== //
 
 #include "cc/sim.h"
+
 #include "primitives.h"
 
-namespace cc {
-
-} // namespace cc
+namespace cc {}  // namespace cc

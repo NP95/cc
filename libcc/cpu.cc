@@ -26,16 +26,15 @@
 //========================================================================== //
 
 #include "cc/cpu.h"
+
 #include "cpu_msg.h"
 
 namespace cc {
 
-
 class Cpu::MainProcess : public kernel::Process {
  public:
   MainProcess(kernel::Kernel* k, const std::string& name, Cpu* parent)
-      : kernel::Process(k, name), parent_(parent) {
-  }
+      : kernel::Process(k, name), parent_(parent) {}
   void dequeued() {
     Stimulus* stim = parent_->stim_;
     stim->consume();
@@ -44,8 +43,8 @@ class Cpu::MainProcess : public kernel::Process {
       wait_for(f.time);
     }
   }
- private:
 
+ private:
   // Initialization
   virtual void init() override {
     Stimulus* stim = parent_->stim_;
@@ -56,13 +55,10 @@ class Cpu::MainProcess : public kernel::Process {
   }
 
   // Finalization
-  virtual void fini() override {
-  }
+  virtual void fini() override {}
 
   // Elaboration
-  virtual void eval() override {
-    parent_->mature_event_.notify();
-  }
+  virtual void eval() override { parent_->mature_event_.notify(); }
 
   // Point to process owner module.
   Cpu* parent_ = nullptr;
@@ -78,7 +74,7 @@ void Cpu::push(const Message* msg) {
   std::set<Transaction*>::iterator it = ts_.find(t);
   if (it == ts_.end()) {
     const LogMessage lmsg{
-      "Message received for transaction which does not exist.", Level::Error};
+        "Message received for transaction which does not exist.", Level::Error};
     log(lmsg);
   }
 
@@ -107,8 +103,10 @@ bool Cpu::has_req() const {
 
 const Message* Cpu::peek() const {
   if (!has_req()) return nullptr;
-  
-  if (msg_ == nullptr) { construct_new_message(); }
+
+  if (msg_ == nullptr) {
+    construct_new_message();
+  }
   return msg_;
 }
 
@@ -138,7 +136,9 @@ void Cpu::construct_new_message() const {
 }
 
 const Message* Cpu::dequeue() {
-  if (msg_ == nullptr) { construct_new_message(); }
+  if (msg_ == nullptr) {
+    construct_new_message();
+  }
 
   Transaction* t = msg_->t();
 
@@ -150,7 +150,7 @@ const Message* Cpu::dequeue() {
   LogMessage lmsg("Message issued: ");
   lmsg.append(msg_->to_string());
   log(lmsg);
-  
+
   // Add transaction to processor transaction table.
   ts_.insert(t);
   // Consume stimulus command, from which this command had been constructed.
@@ -159,9 +159,7 @@ const Message* Cpu::dequeue() {
   return std::exchange(msg_, nullptr);
 }
 
-kernel::Event& Cpu::request_arrival_event() {
-  return mature_event_;
-}
+kernel::Event& Cpu::request_arrival_event() { return mature_event_; }
 
 void Cpu::build() {
   // Construct main thread
@@ -169,17 +167,15 @@ void Cpu::build() {
   add_child_process(main_);
 }
 
-void Cpu::elab() {
-}
+void Cpu::elab() {}
 
 void Cpu::drc() {
   // Do DRC
   if (stim_ == nullptr) {
     // No transaction source associated with L1; raise warning.
-    const LogMessage msg(
-        "L1Cache has no associated stimulus.", Level::Warning);
+    const LogMessage msg("L1Cache has no associated stimulus.", Level::Warning);
     log(msg);
   }
 }
 
-} // namespace 
+}  // namespace cc

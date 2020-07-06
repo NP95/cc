@@ -34,7 +34,6 @@ namespace cc {
 
 class MOESIProtocolBuilder : public ProtocolBuilder {
  public:
-
   // Create an instance of the L1 protocol
   L1CacheModelProtocol* create_l1() override;
 
@@ -43,9 +42,8 @@ class MOESIProtocolBuilder : public ProtocolBuilder {
 
   // Create and instance of the Directory protocol
   DirectoryProtocol* create_dir() override;
-  
 };
 
-} // namespace cc
+}  // namespace cc
 
 #endif

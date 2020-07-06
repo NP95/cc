@@ -93,11 +93,11 @@ struct L2CacheModelConfig {
 
   // Pointer to the cache protocol logic
   L2CacheModelProtocol* protocol = nullptr;
-  
+
   // Child L1 client configurations.
   std::vector<L1CacheModelConfig> l1configs;
 };
 
-} // namespace cc
+}  // namespace cc
 
 #endif

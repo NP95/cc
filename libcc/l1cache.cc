@@ -26,23 +26,21 @@
 //========================================================================== //
 
 #include "l1cache.h"
-#include "primitives.h"
-#include "cpu_msg.h"
+
 #include "cache.h"
-#include "l2cache.h"
 #include "cc/cpu.h"
-#include "cc/sim.h"
 #include "cc/protocol.h"
+#include "cc/sim.h"
+#include "cpu_msg.h"
+#include "l2cache.h"
+#include "primitives.h"
 
 namespace cc {
 
 class L1CacheModel::MainProcess : public kernel::Process {
-
   using CacheModel = CacheModel<L1LineState*>;
-        
-  enum class L1CacheMessageType {
-    CpuRsp, GetS, GetE
-  };
+
+  enum class L1CacheMessageType { CpuRsp, GetS, GetE };
 
   struct Context {
     // Current arbiter tournament; retained such that the
@@ -63,14 +61,10 @@ class L1CacheModel::MainProcess : public kernel::Process {
     CacheModel::LineIterator line_it;
   };
 
-#define STATES(__func)                          \
-  __func(AwaitingMessage)                       \
-  __func(ProcessMessage)                        \
-  __func(ExecuteActions)                        \
-  __func(EmitMessages)                          \
-  __func(CommitContext)                         \
-  __func(DiscardContext)
-  
+#define STATES(__func)                                                  \
+  __func(AwaitingMessage) __func(ProcessMessage) __func(ExecuteActions) \
+      __func(EmitMessages) __func(CommitContext) __func(DiscardContext)
+
   enum class State {
 #define __declare_state(__name) __name,
     STATES(__declare_state)
@@ -79,18 +73,21 @@ class L1CacheModel::MainProcess : public kernel::Process {
 
   std::string to_string(State state) {
     switch (state) {
-      default: return "Unknown";
-#define __declare_to_string(__name) case State::__name: return #__name; break;
-      STATES(__declare_to_string)
+      default:
+        return "Unknown";
+#define __declare_to_string(__name) \
+  case State::__name:               \
+    return #__name;                 \
+    break;
+        STATES(__declare_to_string)
 #undef __declare_to_string
     }
     return "Invalid";
   }
-  
+
  public:
   MainProcess(kernel::Kernel* k, const std::string& name, L1CacheModel* model)
-      : kernel::Process(k, name), model_(model)
-  {}
+      : kernel::Process(k, name), model_(model) {}
 
   // Current process state
   State state() const { return state_; }
@@ -116,10 +113,9 @@ class L1CacheModel::MainProcess : public kernel::Process {
   }
 
   // Finalization
-  void fini() override {
-  }
+  void fini() override {}
 
-    // Evaluation
+  // Evaluation
   void eval() override {
     switch (state()) {
       case State::AwaitingMessage: {
@@ -131,8 +127,8 @@ class L1CacheModel::MainProcess : public kernel::Process {
         // presence of a protocol violation and is therefore by definition
         // unrecoverable.
         if (t.deadlock()) {
-          const LogMessage msg{
-            "A protocol deadlock has been detected.", Level::Fatal};
+          const LogMessage msg{"A protocol deadlock has been detected.",
+                               Level::Fatal};
           log(msg);
         }
 
@@ -153,7 +149,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
           wait_on(arb->request_arrival_event());
         }
       } break;
-        
+
       case State::ProcessMessage: {
         handle_nominated_message();
       } break;
@@ -200,7 +196,6 @@ class L1CacheModel::MainProcess : public kernel::Process {
           ctxt_.line_it = set.find(ah.tag(cpucmd->addr()));
           CacheModel::Line& line = ctxt_.line_it.line();
 
-
           L1CacheModelApplyResult& apply_result = ctxt_.apply_result;
           const L1CacheModelProtocol* p = ctxt_.protocol;
           p->apply(apply_result, line.t(), cpucmd);
@@ -230,8 +225,8 @@ class L1CacheModel::MainProcess : public kernel::Process {
           }
         } else {
           // Cache miss; either service current command by installing
-          const std::pair<CacheModel::LineIterator, bool>
-              line_lookup = nominate_line(set.begin(), set.end());
+          const std::pair<CacheModel::LineIterator, bool> line_lookup =
+              nominate_line(set.begin(), set.end());
 
           // Context iterator to point to nominated line.
           ctxt_.line_it = line_lookup.first;
@@ -296,7 +291,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
     // Otherwise, all lines are busy.
     return std::make_pair(end, false);
   }
-  
+
   void handle_execute_actions() {
     // Incoming actions:
     L1CacheModelApplyResult& apply_result = ctxt_.apply_result;
@@ -356,7 +351,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
           kernel::EndPointIntf<const Message*>* l2_ep =
               l2cache->end_point(L2CacheModel::L1CmdReq);
           model_->issue(l2_ep, kernel::Time{10, 0}, msg);
-          msgs.pop_front();    
+          msgs.pop_front();
         }
       } break;
       case L1CacheMessageType::GetE: {
@@ -368,7 +363,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
           kernel::EndPointIntf<const Message*>* l2_ep =
               l2cache->end_point(L2CacheModel::L1CmdReq);
           model_->issue(l2_ep, kernel::Time{10, 0}, msg);
-          msgs.pop_front();    
+          msgs.pop_front();
         }
       } break;
       default: {
@@ -377,7 +372,9 @@ class L1CacheModel::MainProcess : public kernel::Process {
       } break;
     }
 
-    if (msgs.empty()) { set_state(State::CommitContext); }
+    if (msgs.empty()) {
+      set_state(State::CommitContext);
+    }
     next_delta();
   }
 
@@ -416,8 +413,7 @@ L1CacheModel::L1CacheModel(kernel::Kernel* k, const L1CacheModelConfig& config)
   build();
 }
 
-L1CacheModel::~L1CacheModel() {
-}
+L1CacheModel::~L1CacheModel() {}
 
 void L1CacheModel::build() {
   // Capture stimulus;
@@ -453,7 +449,6 @@ void L1CacheModel::elab() {
   add_end_point(EndPoints::L1CmdRsp, msgrspq_);
 }
 
-void L1CacheModel::drc() {
-}
+void L1CacheModel::drc() {}
 
-} // namespace cc
+}  // namespace cc

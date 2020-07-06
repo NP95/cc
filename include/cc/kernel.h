@@ -28,25 +28,19 @@
 #ifndef CC_INCLUDE_CC_KERNEL_H
 #define CC_INCLUDE_CC_KERNEL_H
 
-#include <limits>
 #include <iostream>
+#include <limits>
+#include <map>
 #include <random>
 #include <sstream>
 #include <vector>
-#include <map>
 
 namespace cc::kernel {
 
-#define KERNEL_TYPES(__func)                    \
-  __func(TopModule)                             \
-  __func(Module)                                \
-  __func(EventOr)                               \
-  __func(Event)                                 \
-  __func(ProcessHost)                           \
-  __func(Process)                               \
-  __func(Action)                                \
-  __func(Loggable)                              \
-  __func(Object)
+#define KERNEL_TYPES(__func)                                              \
+  __func(TopModule) __func(Module) __func(EventOr) __func(Event)          \
+      __func(ProcessHost) __func(Process) __func(Action) __func(Loggable) \
+          __func(Object)
 
 #define __declare_forwards(__type) class __type;
 KERNEL_TYPES(__declare_forwards)
@@ -56,7 +50,7 @@ struct ObjectVisitor {
   virtual ~ObjectVisitor() = default;
   void iterate(Object* root);
 
-#define __declare_visit_method(__type)          \
+#define __declare_visit_method(__type) \
   virtual void visit(__type* o) {}
   KERNEL_TYPES(__declare_visit_method)
 #undef __declare_visit_method
@@ -127,6 +121,7 @@ class LogContext {
   std::ostream& os() { return *os_; }
 
   void info(const std::string& name, bool nl = true);
+
  private:
   std::ostream* os_ = nullptr;
 };
@@ -154,14 +149,7 @@ class Kernel {
     }
   };
 
-  enum class Phase {
-    Build,
-    Elab,
-    Drc,
-    Init,
-    Run,
-    Fini
-  };
+  enum class Phase { Build, Elab, Drc, Init, Run, Fini };
 
  public:
   Kernel(seed_type seed = 1);
@@ -184,14 +172,14 @@ class Kernel {
   // Set current simulation phase.
   void set_phase(Phase phase) { phase_ = phase; }
   void set_top(Object* top) { top_ = top; }
-  
+
   // Simulation phases invocations.
   void invoke_elab();
   void invoke_drc();
   void invoke_init();
   void invoke_run(RunMode r, Time t);
   void invoke_fini();
-  
+
   // Simulation event queue.
   std::vector<Event> eq_;
   // Current simulation time.
@@ -211,6 +199,7 @@ class Kernel {
 class Object {
   friend class ObjectVisitor;
   DECLARE_VISITEE;
+
  public:
   Object(Kernel* k, const std::string& name);
   virtual ~Object();
@@ -222,12 +211,16 @@ class Object {
   std::string name() const { return name_; }
 
   //
-  void set_top() { parent_ = nullptr; k_->set_top(this); }
+  void set_top() {
+    parent_ = nullptr;
+    k_->set_top(this);
+  }
   void set_parent(Object* o) { parent_ = o; }
   void add_child(Object* c);
 
  protected:
   void iterate_children(ObjectVisitor* visitor);
+
  private:
   Kernel* k_ = nullptr;
   Object* parent_ = nullptr;
@@ -238,6 +231,7 @@ class Object {
 
 class Loggable : public Object {
   DECLARE_VISITEE;
+
  protected:
   struct Level {
     enum : int { Fatal = 0, Error, Warning, Info, Debug };
@@ -289,7 +283,6 @@ class Loggable : public Object {
   };
 
  public:
-  
   //
   Loggable(Kernel* k, const std::string& name);
 
@@ -324,8 +317,8 @@ class Action : public Loggable {
 class Process : public Loggable {
   friend class Module;
   DECLARE_VISITEE;
+
  public:
-  
   Process(Kernel* k, const std::string& name);
   virtual ~Process() = default;
 
@@ -355,13 +348,13 @@ class Process : public Loggable {
 //
 class ProcessHost : public Loggable {
   DECLARE_VISITEE;
+
  public:
-  
   ProcessHost(Kernel* k, const std::string& name);
 
   // Add evaluate-able process
   virtual void add_child_process(Process* p);
-  
+
  private:
   std::vector<Process*> ps_;
 };
@@ -371,6 +364,7 @@ class ProcessHost : public Loggable {
 class Event : public ProcessHost {
   friend class Process;
   DECLARE_VISITEE;
+
  public:
   Event(Kernel* k, const std::string& name);
 
@@ -386,13 +380,14 @@ class Event : public ProcessHost {
 //
 class EventOr : public Event {
   DECLARE_VISITEE;
+
  public:
-  
   EventOr(Kernel* k, const std::string& name);
 
   // Add child event.
   void add_child_event(Event* child) { childs_.push_back(child); }
   void finalize();
+
  private:
   std::vector<Event*> childs_;
   std::vector<Process*> fwdps_;
@@ -403,6 +398,7 @@ class EventOr : public Event {
 class Module : public ProcessHost {
   friend class Kernel;
   DECLARE_VISITEE;
+
  protected:
   Module(Kernel* k, const std::string& name);
 
@@ -425,17 +421,17 @@ class Module : public ProcessHost {
 //
 class TopModule : public Module {
   DECLARE_VISITEE;
+
  public:
   TopModule(Kernel* k, const std::string& name);
 };
-
 
 // Type denoting a 'end-point' entity.
 using end_point_id_t = std::size_t;
 
 //
 //
-template<typename T>
+template <typename T>
 class EndPointIntf {
  public:
   virtual ~EndPointIntf() = default;
@@ -445,12 +441,10 @@ class EndPointIntf {
 
 //
 //
-template<typename T>
+template <typename T>
 class Agent : public Module {
  public:
-  Agent(Kernel* k, const std::string& name)
-      : Module(k, name)
-  {}
+  Agent(Kernel* k, const std::string& name) : Module(k, name) {}
 
   virtual EndPointIntf<T>* end_point(end_point_id_t id) {
     auto it = eps_.find(id);
@@ -468,25 +462,25 @@ class Agent : public Module {
   void issue(EndPointIntf<T>* intf, const Time& time, T t) {
     struct EnqueueAction : Action {
       EnqueueAction(Kernel* k, EndPointIntf<T>* intf, T t)
-          : Action(k, "enqueue_action"), intf_(intf), t_(t)
-      {}
+          : Action(k, "enqueue_action"), intf_(intf), t_(t) {}
       bool eval() override {
         intf_->push(t_);
         return true;
       }
+
      private:
       EndPointIntf<T>* intf_ = nullptr;
       T t_;
     };
     k()->add_action(time, new EnqueueAction(k(), intf, t));
   }
-  
+
   // (Build-/Elaboration-Phase only)
   void add_end_point(end_point_id_t id, EndPointIntf<T>* intf) {
     // Grow vector if necessary.
     if (eps_.count(id) != 0) {
-      log(LogMessage{
-          "Overwriting previously registers end-point.", Level::Warning});
+      log(LogMessage{"Overwriting previously registers end-point.",
+                     Level::Warning});
     }
     LogMessage lmsg{"Registering end-point: "};
     lmsg.append(std::to_string(id));
@@ -498,13 +492,12 @@ class Agent : public Module {
 
  private:
   // End-Point Collection.
-  std::map<end_point_id_t, EndPointIntf<T>* > eps_;
+  std::map<end_point_id_t, EndPointIntf<T>*> eps_;
 };
 
-
 //
 //
-template<typename T>
+template <typename T>
 class RequesterIntf {
  public:
   virtual ~RequesterIntf() = default;
@@ -514,7 +507,7 @@ class RequesterIntf {
 
   // Peek at the current 'T' without consuming it.
   virtual T peek() const = 0;
-  
+
   // Reference to underlying state being arbitrated.
   virtual T dequeue() = 0;
 

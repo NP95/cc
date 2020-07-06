@@ -28,9 +28,10 @@
 #ifndef CC_INCLUDE_CC_CPU_H
 #define CC_INCLUDE_CC_CPU_H
 
+#include <set>
+
 #include "kernel.h"
 #include "sim.h"
-#include <set>
 
 namespace cc {
 
@@ -38,14 +39,13 @@ namespace cc {
 class Transaction;
 class Message;
 
-
 //
 //
-class Cpu : public kernel::Module
-          , public kernel::EndPointIntf<const Message*>
-          , public kernel::RequesterIntf<const Message*> {
-
+class Cpu : public kernel::Module,
+            public kernel::EndPointIntf<const Message*>,
+            public kernel::RequesterIntf<const Message*> {
   class MainProcess;
+
  public:
   Cpu(kernel::Kernel* k, const std::string& name);
 
@@ -60,6 +60,7 @@ class Cpu : public kernel::Module
   const Message* peek() const override;
   const Message* dequeue() override;
   kernel::Event& request_arrival_event() override;
+
  private:
   void build();
   void elab() override;
@@ -77,6 +78,6 @@ class Cpu : public kernel::Module
   mutable const Message* msg_ = nullptr;
 };
 
-} // namespace cc
+}  // namespace cc
 
 #endif

@@ -30,7 +30,9 @@
 namespace cc {
 
 Clock::Clock(kernel::Kernel* k, const std::string& name, int ticks, int period)
-    : Module(k, name), ticks_(ticks), period_(period),
+    : Module(k, name),
+      ticks_(ticks),
+      period_(period),
       rising_edge_event_(k, "rising_edge_event") {
   struct ClockProcess : kernel::Process {
     ClockProcess(kernel::Kernel* k, Clock* clk)
@@ -60,25 +62,22 @@ Clock::Clock(kernel::Kernel* k, const std::string& name, int ticks, int period)
   add_child_process(p_);
 }
 
-MessageQueue::MessageQueue(kernel::Kernel* k, const std::string& name, std::size_t n)
+MessageQueue::MessageQueue(kernel::Kernel* k, const std::string& name,
+                           std::size_t n)
     : kernel::Module(k, name) {
   build(n);
 }
 
 void MessageQueue::push(const Message* msg) {
-  if(!q_->enqueue(msg)) {
+  if (!q_->enqueue(msg)) {
     LogMessage lmsg("Attempt to push new message to full queue.", Level::Error);
     log(lmsg);
   }
 }
 
-bool MessageQueue::has_req() const {
-  return !q_->empty();
-}
+bool MessageQueue::has_req() const { return !q_->empty(); }
 
-const Message* MessageQueue::peek() const {
-  return nullptr;
-}
+const Message* MessageQueue::peek() const { return nullptr; }
 
 const Message* MessageQueue::dequeue() {
   return nullptr;

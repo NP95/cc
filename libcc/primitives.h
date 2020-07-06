@@ -64,11 +64,11 @@ class Queue : public kernel::Module {
  public:
   Queue(kernel::Kernel* k, const std::string& name, std::size_t n)
       : kernel::Module(k, name),
-      n_(n),
-      enqueue_event_(k, "enqueue_event"),
-      dequeue_event_(k, "dequeue_event"),
-      non_empty_event_(k, "non_empty_event"),
-      non_full_event_(k, "non_full_event") {
+        n_(n),
+        enqueue_event_(k, "enqueue_event"),
+        dequeue_event_(k, "dequeue_event"),
+        non_empty_event_(k, "non_empty_event"),
+        non_full_event_(k, "non_full_event") {
     empty_ = true;
     full_ = false;
     wr_ptr_ = 0;
@@ -144,18 +144,17 @@ class Queue : public kernel::Module {
   kernel::Event non_full_event_;
 };
 
-
 //
 //
-template<typename T>
+template <typename T>
 class Arbiter : public kernel::Module {
  public:
-
   // Helper class which encapsulates the concept of a single
   // arbitration round.
   class Tournament {
     friend class Arbiter;
     Tournament(Arbiter* parent) : parent_(parent) { execute(); }
+
    public:
     Tournament() : parent_(nullptr) {}
     // Return the winning requester interface.
@@ -201,7 +200,7 @@ class Arbiter : public kernel::Module {
     Arbiter* parent_ = nullptr;
     std::size_t idx_;
   };
-  
+
   Arbiter(kernel::Kernel* k, const std::string& name)
       : kernel::Module(k, name) {
     build();
@@ -216,6 +215,7 @@ class Arbiter : public kernel::Module {
   Tournament tournament() { return Tournament(this); }
   // Add a requester to the current arbiter (Build-/Elaboration-Phases only).
   void add_requester(kernel::RequesterIntf<T>* intf) { intfs_.push_back(intf); }
+
  private:
   void build() {
     request_arrival_event_ = new kernel::EventOr(k(), "request_arrival_event");
@@ -232,13 +232,13 @@ class Arbiter : public kernel::Module {
       }
       request_arrival_event_->finalize();
     } else {
-      const LogMessage msg{"Arbiter has no associated requestors.", Level::Error};
+      const LogMessage msg{"Arbiter has no associated requestors.",
+                           Level::Error};
       log(msg);
     }
   }
 
-  void drc() override {
-  }
+  void drc() override {}
 
   //
   kernel::EventOr* request_arrival_event_ = nullptr;
@@ -248,12 +248,11 @@ class Arbiter : public kernel::Module {
   std::vector<kernel::RequesterIntf<T>*> intfs_;
 };
 
-
 //
 //
-class MessageQueue : public kernel::Module
-                   , public kernel::EndPointIntf<const Message*>
-                   , public kernel::RequesterIntf<const Message*> {
+class MessageQueue : public kernel::Module,
+                     public kernel::EndPointIntf<const Message*>,
+                     public kernel::RequesterIntf<const Message*> {
  public:
   MessageQueue(kernel::Kernel* k, const std::string& name, std::size_t n);
 
@@ -262,12 +261,13 @@ class MessageQueue : public kernel::Module
 
   // Endpoint Interface:
   void push(const Message* msg) override;
-  
+
   // Requester Interface:
   bool has_req() const override;
   const Message* peek() const override;
   const Message* dequeue() override;
   kernel::Event& request_arrival_event() override;
+
  private:
   // Construct module
   void build(std::size_t n);

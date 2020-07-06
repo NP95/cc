@@ -26,6 +26,7 @@
 //========================================================================== //
 
 #include "cc/l2cache.h"
+
 #include "cc/sim.h"
 #include "l1cache.h"
 #include "primitives.h"
@@ -35,8 +36,8 @@ namespace cc {
 class L2CacheModel::MainProcess : public kernel::Process {
  public:
   MainProcess(kernel::Kernel* k, const std::string& name, L2CacheModel* model)
-      : kernel::Process(k, name), model_(model)
-  {}
+      : kernel::Process(k, name), model_(model) {}
+
  private:
   // Initialization:
   void init() override {
@@ -45,12 +46,10 @@ class L2CacheModel::MainProcess : public kernel::Process {
   }
 
   // Evaluation:
-  void eval() override {
-  }
+  void eval() override {}
 
   // Finalization:
-  void fini() override {
-  }
+  void fini() override {}
 
   // Pointer to parent L2.
   L2CacheModel* model_ = nullptr;
@@ -61,22 +60,19 @@ L2CacheModel::L2CacheModel(kernel::Kernel* k, const L2CacheModelConfig& config)
   build();
 }
 
-L2CacheModel::~L2CacheModel() {
-}
-
+L2CacheModel::~L2CacheModel() {}
 
 void L2CacheModel::build() {
-
   // Counter to compute the number of slots in the L2 command queue to
   // support the maximum number of commands from all associated child
-  // L1. 
+  // L1.
   std::size_t l2_cmd_queue_depth_n = 0;
 
   // Counter to compute the number of slots required in the L2
   // response queue to support the maximum number of commands to all
   // associated child L1.
   std::size_t l2_rsp_queue_depth_n = 0;
-  
+
   // Construct child instances.
   for (const L1CacheModelConfig& l1cfg : config_.l1configs) {
     // Compute running count of queue sized.
@@ -115,7 +111,7 @@ void L2CacheModel::elab() {
   add_end_point(EndPoints::L1CmdReq, l1cmdreqq_);
   add_end_point(EndPoints::L1CmdRsp, l1cmdrspq_);
 }
- 
+
 void L2CacheModel::drc() {
   if (l1cs_.empty()) {
     const LogMessage msg{"L2 has no child L1 cache(s).", Level::Fatal};
@@ -123,4 +119,4 @@ void L2CacheModel::drc() {
   }
 }
 
-} // namespace cc
+}  // namespace cc

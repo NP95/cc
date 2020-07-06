@@ -44,4 +44,4 @@ ProtocolBuilder* ProtocolBuilderRegistry::build(const std::string& name) {
   return r;
 }
 
-} // namespace cc
+}  // namespace cc
