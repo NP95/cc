@@ -33,6 +33,8 @@
 
 
 namespace cc {
+
+
 //
 //
 class CpuCommandMessage : public Message {
@@ -51,6 +53,9 @@ class CpuCommandMessage : public Message {
   Opcode opcode_;
 };
 
+
+//
+//
 class CpuResponseMessage : public Message {
  public:
   enum Opcode { Load, Store };

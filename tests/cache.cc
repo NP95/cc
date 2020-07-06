@@ -72,7 +72,7 @@ TEST(Cache, Basic) {
     bool did_install = false;
     for (cc::CacheModel<State>::LineIterator it = set.begin(); it != set.end(); ++it) {
       const cc::CacheModel<State>::Line& line = it.line();
-      if (!line.valid) {
+      if (!line.valid()) {
         did_install = true;
         EXPECT_TRUE(set.install(it, ah.tag(a), state));
         EXPECT_EQ(cache_predict.count(a), 0);
@@ -101,7 +101,7 @@ TEST(Cache, Basic) {
     cc::CacheModel<State>::LineIterator it = set.find(ah.tag(a));
     EXPECT_NE(it, set.end());
     // Validate state of line.
-    EXPECT_TRUE(it.line().valid);
+    EXPECT_TRUE(it.line().valid());
     // Evict line.
     set.evict(it);
     it = set.find(a);

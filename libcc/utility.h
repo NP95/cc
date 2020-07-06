@@ -30,6 +30,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <type_traits>
 
 namespace cc {
 
@@ -51,6 +52,11 @@ T mask(std::size_t bits) {
 
   T t = 1;
   return (t << bits) - 1;
+}
+
+template<typename T>
+typename std::underlying_type<T>::type ut(T e) {
+  return static_cast<typename std::underlying_type<T>::type>(e);
 }
 
 } // namespace cc

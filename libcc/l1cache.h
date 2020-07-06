@@ -25,53 +25,82 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_L2CACHE_H
-#define CC_INCLUDE_CC_L2CACHE_H
+#ifndef CC_INCLUDE_CC_L1CACHE_H
+#define CC_INCLUDE_CC_L1CACHE_H
 
+#include <string>
+#include "cc/cfgs.h"
 #include "kernel.h"
-#include "cfgs.h"
-#include <vector>
 
 namespace cc {
 
 // Forwards:
-class L1CacheModel;
+class Stimulus;
+class Message;
 class MessageQueue;
 template<typename> class Arbiter;
-class Message;
+class Cpu;
+class L2CacheModel;
+template<typename> class CacheModel;
+class L1LineState;
 
 //
 //
-class L2CacheModel : public kernel::Module {
+class L1CacheModel : public kernel::Agent<const Message*> {
   class MainProcess;
+
+  friend class MainProcess;
+  
  public:
+  // End-points
   enum EndPoints : kernel::end_point_id_t {
+    // CPU Response: return path back to originating CPU.
+    CpuRsp,
+    // Command Request: ingress commands from parent L2Cache.
     L1CmdReq,
-    L1CmdRsp    
+    // Command Response: ingress command response from parent L2Cache.
+    L1CmdRsp
   };
   
-  L2CacheModel(kernel::Kernel* k, const L2CacheModelConfig& config);
-  virtual ~L2CacheModel();
+  L1CacheModel(kernel::Kernel* k, const L1CacheModelConfig& config);
+  virtual ~L1CacheModel();
 
-  L2CacheModelConfig config() const { return config_; }
+  // Return current L1 configuration.
+  L1CacheModelConfig config() const { return config_; }
+  Arbiter<const Message*>* arb() const { return arb_; }
+  Cpu* cpu() const { return cpu_; }
+
+  // Set parent L2Cache (Elaboration-Phase)
+  void set_parent(L2CacheModel* l2cache) { l2cache_ = l2cache; }
+  
  protected:
   virtual void elab() override;
   virtual void drc() override;
  private:
+  // Construct l1cache instance
   void build();
-
-  // L2 Cache Configuration.
-  L2CacheModelConfig config_;
-  // Child L1 Caches
-  std::vector<L1CacheModel*> l1cs_;
-  // L1 Command Request
-  MessageQueue* l1cmdreqq_;
-  // L1 Command Response
-  MessageQueue* l1cmdrspq_;
-  // Queue selection arbiter
+  // Accessors:
+  CacheModel<L1LineState*>* cache() const { return cache_; }
+  
+  // L1 Cache stimulus (models the concept of a processor data path
+  // emitting instructions into the cache as part of a programs
+  // execution).
+  Cpu* cpu_;
+  // Coherence message request queue 
+  MessageQueue* msgreqq_;
+  // Coherency message response queue
+  MessageQueue* msgrspq_;
+  // Message servicing arbiter.
   Arbiter<const Message*>* arb_;
-  //
+  // Main process of execution.
   MainProcess* main_;
+  // Cache Instance
+  CacheModel<L1LineState*>* cache_;
+  // Pointer to parent L2.
+  L2CacheModel* l2cache_;
+  // Cache configuration.
+  L1CacheModelConfig config_;
+  
 };
 
 } // namespace cc

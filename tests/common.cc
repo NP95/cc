@@ -25,77 +25,24 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_LIBCC_PROTOCOL_H
-#define CC_LIBCC_PROTOCOL_H
+#include "utility.h"
 
-#include <string>
+#include "gtest/gtest.h"
 
-namespace cc {
-
-namespace kernel {
-
-// Forwards
-template<typename T> class Agent;
+TEST(Common, Log2Ceil) {
+  EXPECT_EQ(cc::log2ceil(0), 0);
+  EXPECT_EQ(cc::log2ceil(7), 3);
+  EXPECT_EQ(cc::log2ceil(120), 7);
+  EXPECT_EQ(cc::log2ceil(255), 8);
 }
 
-//
-//
-class Transaction {
- public:
-  Transaction() {}
+TEST(Common, Mask) {
+  EXPECT_EQ(cc::mask<std::uint32_t>(0), 0);
+  EXPECT_EQ(cc::mask<std::uint32_t>(1), 1);
+  EXPECT_EQ(cc::mask<std::uint32_t>(2), 3);
+}
 
-  std::string to_string_short() const {
-    return "Some transaction";
-  }
-  std::string to_string() const {
-    return "Some transaction.";
-  };
-};
-
-
-#define MESSAGE_CLASSES(__func)                 \
-  __func(Invalid)                               \
-  __func(CpuCmd)                                \
-  __func(CpuRsp)
-
-//
-//
-class Message {
- public:
-#define __declare_enum(__t) __t,
-  enum Cls {
-    MESSAGE_CLASSES(__declare_enum)
-  };
-#undef __declare_enum
-
-  Message() {}
-  Message(Transaction* t, Cls cls) : t_(t), cls_(cls) {}
-  virtual ~Message() = default;
-
-  Transaction* t() const { return t_; }
-  Cls cls() const { return cls_; }
-  kernel::Agent<const Message*>* agent() const { return origin_; }
-
-  std::string to_string_short() const {
-    return "Some message";
-  }
-  std::string to_string() const {
-    return "Some message";
-  }
-
-  void set_origin(kernel::Agent<const Message*>* origin) { origin_ = origin; }
-  void set_t(Transaction* t) { t_ = t; }
-  void set_cls(Cls cls) { cls_ = cls; }
-  
- private:
-  // Parent transaction;
-  Transaction* t_;
-  // Message type
-  Cls cls_;
-  // Originating agent.
-  kernel::Agent<const Message*>* origin_;
-};
-
-} // namespace cc
-
-#endif
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}

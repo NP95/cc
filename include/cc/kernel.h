@@ -338,6 +338,9 @@ class Process : public Loggable {
   // Evaluation routine (called upon satisfaction of 'wait' condition).
   virtual void eval() {}
 
+  // Re-evaluate on the next delta cycle.
+  virtual void next_delta();
+
   // Suspend/Re-evaulate process after delay.
   virtual void wait_for(Time t);
 

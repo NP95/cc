@@ -25,53 +25,25 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_L2CACHE_H
-#define CC_INCLUDE_CC_L2CACHE_H
+#ifndef CC_LIBCC_MOESI_H
+#define CC_LIBCC_MOESI_H
 
-#include "kernel.h"
-#include "cfgs.h"
-#include <vector>
+#include "protocol.h"
 
 namespace cc {
 
-// Forwards:
-class L1CacheModel;
-class MessageQueue;
-template<typename> class Arbiter;
-class Message;
-
-//
-//
-class L2CacheModel : public kernel::Module {
-  class MainProcess;
+class MOESIProtocolBuilder : public ProtocolBuilder {
  public:
-  enum EndPoints : kernel::end_point_id_t {
-    L1CmdReq,
-    L1CmdRsp    
-  };
+
+  // Create an instance of the L1 protocol
+  L1CacheModelProtocol* create_l1() override;
+
+  // Create an instance of the L2 protocol
+  L2CacheModelProtocol* create_l2() override;
+
+  // Create and instance of the Directory protocol
+  DirectoryProtocol* create_dir() override;
   
-  L2CacheModel(kernel::Kernel* k, const L2CacheModelConfig& config);
-  virtual ~L2CacheModel();
-
-  L2CacheModelConfig config() const { return config_; }
- protected:
-  virtual void elab() override;
-  virtual void drc() override;
- private:
-  void build();
-
-  // L2 Cache Configuration.
-  L2CacheModelConfig config_;
-  // Child L1 Caches
-  std::vector<L1CacheModel*> l1cs_;
-  // L1 Command Request
-  MessageQueue* l1cmdreqq_;
-  // L1 Command Response
-  MessageQueue* l1cmdrspq_;
-  // Queue selection arbiter
-  Arbiter<const Message*>* arb_;
-  //
-  MainProcess* main_;
 };
 
 } // namespace cc

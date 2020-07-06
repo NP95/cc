@@ -306,6 +306,12 @@ void EventOr::finalize() {
 
 Process::Process(Kernel* k, const std::string& name) : Loggable(k, name) {}
 
+void Process::next_delta() {
+  // Suspend the current process to be again reinvoked in the delta cycle.
+  const Time current_time = k()->time();
+  wait_until(Time{current_time.time, current_time.delta + 1});
+}
+
 void Process::wait_for(Time t) { wait_until(k()->time() + t); }
 
 void Process::wait_until(Time t) {

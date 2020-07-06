@@ -25,20 +25,19 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_L1CACHE_H
-#define CC_INCLUDE_CC_L1CACHE_H
+#ifndef CC_INCLUDE_CC_CFGS_H
+#define CC_INCLUDE_CC_CFGS_H
 
+#include <cstddef>
 #include <string>
-#include "kernel.h"
+#include <vector>
 
 namespace cc {
 
+// Forwards
 class Stimulus;
-class Message;
-class MessageQueue;
-template<typename> class Arbiter;
-class Cpu;
-class L2CacheModel;
+class L1CacheModelProtocol;
+class L2CacheModelProtocol;
 
 //
 //
@@ -50,6 +49,9 @@ struct L1CacheModelConfig {
   // cache instance (models the notion of a microprocessor
   // periodically emitting load/store instructions to memory).
   Stimulus* stim = nullptr;
+
+  // Protocol to the cache protocol logic.
+  L1CacheModelProtocol* protocol = nullptr;
 
   // Number of slots in the command queue.
   std::size_t l1_cmdq_slots_n = 3;
@@ -63,52 +65,15 @@ struct L1CacheModelConfig {
 
 //
 //
-class L1CacheModel : public kernel::Agent<const Message*> {
-  class MainProcess;
- public:
-  // End-points
-  enum EndPoints : kernel::end_point_id_t {
-    // CPU Response: return path back to originating CPU.
-    CpuRsp,
-    // Command Request: ingress commands from parent L2Cache.
-    L1CmdReq,
-    // Command Response: ingress command response from parent L2Cache.
-    L1CmdRsp
-  };
-  
-  L1CacheModel(kernel::Kernel* k, const L1CacheModelConfig& config);
-  virtual ~L1CacheModel();
+struct L2CacheModelConfig {
+  // L2 Cache Model name
+  std::string name = "l2cache";
 
-  // Return current L1 configuration.
-  L1CacheModelConfig config() const { return config_; }
-
-  // Set parent L2Cache (Elaboration-Phase)
-  void set_parent(L2CacheModel* l2cache) { l2cache_ = l2cache; }
+  // Pointer to the cache protocol logic
+  L2CacheModelProtocol* protocol = nullptr;
   
- protected:
-  virtual void elab() override;
-  virtual void drc() override;
- private:
-  void build();
-  // L1 Cache stimulus (models the concept of a processor data path
-  // emitting instructions into the cache as part of a programs
-  // execution).
-  Cpu* cpu_;
-  // Coherence message request queue 
-  MessageQueue* msgreqq_;
-  // Coherency message response queue
-  MessageQueue* msgrspq_;
-  // Message servicing arbiter.
-  Arbiter<const Message*>* arb_;
-  // Main process of execution.
-  MainProcess* main_;
-  // Cache Instance
-  // TODO
-  // Pointer to parent L2.
-  L2CacheModel* l2cache_;
-  // Cache configuration.
-  L1CacheModelConfig config_;
-  
+  // Child L1 client configurations.
+  std::vector<L1CacheModelConfig> l1configs;
 };
 
 } // namespace cc

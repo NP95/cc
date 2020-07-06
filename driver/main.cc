@@ -82,10 +82,19 @@ int main(int argc, char** argv) {
   // Simulation configuration.
   SimConfig simconfig;
   simconfig.name = "top";
+
+  cc::ProtocolBuilder* p = cc::ProtocolBuilderRegistry::build("moesi");
+  
   cc::L2CacheModelConfig l2config;
   l2config.name = "l2cache";
+  l2config.protocol = p->create_l2();
   cc::L1CacheModelConfig l1config;
   l1config.name = "l1cache";
+  l1config.protocol = p->create_l1();
+
+  // Protocol constructed at this point.
+  //  delete p;
+  
 
   cc::ProgrammaticStimulus* stim = new cc::ProgrammaticStimulus;
 

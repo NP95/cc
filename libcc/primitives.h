@@ -31,9 +31,10 @@
 #include <vector>
 
 #include "cc/kernel.h"
-#include "protocol.h"
 
 namespace cc {
+
+class Message;
 
 // Class type used to model a generic clock source; a periodic and
 // deterministic tick from which to initiate other actions.

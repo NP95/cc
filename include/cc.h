@@ -31,7 +31,7 @@
 #include "cc/types.h"
 #include "cc/kernel.h"
 #include "cc/sim.h"
-#include "cc/l1cache.h"
 #include "cc/l2cache.h"
+#include "cc/protocol.h"
 
 #endif

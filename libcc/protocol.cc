@@ -29,4 +29,19 @@
 
 namespace cc {
 
+using pbr = ProtocolBuilderRegistry;
+
+// Coherence protocol registry
+std::map<std::string, pbr::ProtocolBuilderFactory*> pbr::m_;
+
+ProtocolBuilder* ProtocolBuilderRegistry::build(const std::string& name) {
+  ProtocolBuilder* r = nullptr;
+  auto it = m_.find(name);
+  if (it != m_.end()) {
+    ProtocolBuilderFactory* factory = it->second;
+    r = factory->construct();
+  }
+  return r;
+}
+
 } // namespace cc

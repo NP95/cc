@@ -89,15 +89,30 @@ struct CacheAddressHelper {
 template <typename T>
 class CacheModel {
  public:
+  class Set;
   using tag_type = addr_t;
   using line_id_type = addr_t;
 
   // Underlying type denoting each entry in the generic cache
   // structure.
   struct Line {
-    bool valid = false;
-    tag_type tag;
-    T t;
+    friend class CacheModel;
+    friend class CacheModel::Set;
+
+    // Accessors;
+    bool valid() const { return valid_ ; }
+    tag_type tag() const { return tag_; }
+    T& t() { return t_; }
+    const T& t() const { return t_; }
+
+   private:
+    void valid(bool valid) { valid_ = valid; }
+    void tag(tag_type tag) { tag_ = tag; }
+    void t(const T& t) { t_ = t; }
+    
+    bool valid_ = false;
+    tag_type tag_;
+    T t_;
   };
 
   using cache_type = typename std::vector<Line>;
@@ -208,7 +223,7 @@ class CacheModel {
         // Eviction whenever entry is not already present in the cache
         // and all ways in the set are already occupied.
         const Line& line = it.line();
-        if (!line.valid || (line.tag == tag)) return false;
+        if (!line.valid() || (line.tag() == tag)) return false;
       }
       return true;
     }
@@ -219,11 +234,11 @@ class CacheModel {
       // already present has been evicted.
 
       Line& line = it.line();
-      if (line.valid) return false;
+      if (line.valid()) return false;
 
-      line.valid = true;
-      line.tag = tag;
-      line.t = t;
+      line.valid(true);
+      line.tag(tag);
+      line.t(t);
       return true;
     }
 
@@ -233,9 +248,9 @@ class CacheModel {
       // 'install', this method expects that the entry in the cache is
       // already present and is simply being overwritten with new data.
       Line& line = it.line();
-      if (!line.valid || (line.valid && line.tag != tag)) return false;
+      if (!line.valid() || (line.valid() && line.tag() != tag)) return false;
 
-      line.t = t;
+      line.t(t);
       return true;
     }
 
@@ -243,7 +258,7 @@ class CacheModel {
     // the owning cache.
     bool evict(LineIterator it) {
       Line& line = it.line();
-      line.valid = false;
+      line.valid(false);
       return true;
     }
 
@@ -252,7 +267,7 @@ class CacheModel {
     LineIterator find(const tag_type& tag) {
       for (LineIterator it = begin(); it != end(); ++it) {
         Line& line = it.line();
-        if (line.valid && (line.tag == tag)) return it;
+        if (line.valid() && (line.tag() == tag)) return it;
       }
       return end();
     }
@@ -262,7 +277,7 @@ class CacheModel {
     ConstLineIterator find(const tag_type& tag) const {
       for (ConstLineIterator it = begin(); it != end(); ++it) {
         const Line& line = it.line();
-        if (line.valid && (line.tag == tag)) return it;
+        if (line.valid() && (line.tag() == tag)) return it;
       }
       return end();
     }
@@ -275,7 +290,7 @@ class CacheModel {
       if (it == end()) return false;
 
       Line& line = it.line();
-      t = line.t;
+      t = line.t();
       return true;
     }
 
@@ -309,7 +324,7 @@ class CacheModel {
     ConstLineIterator find(const tag_type& tag) const {
       for (ConstLineIterator it = begin(); it != end(); ++it) {
         const Line& line = it.line();
-        if (line.valid && (line.tag == tag)) return it;
+        if (line.valid() && (line.tag() == tag)) return it;
       }
       return end();
     }
@@ -357,7 +372,7 @@ class CacheModel {
   }
 
   void invalidate() {
-    for (Line& l : cache_) l.valid = false;
+    for (Line& l : cache_) l.valid(false);
   }
 
  private:
