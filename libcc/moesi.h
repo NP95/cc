@@ -32,18 +32,6 @@
 
 namespace cc {
 
-class MOESIProtocolBuilder : public ProtocolBuilder {
- public:
-  // Create an instance of the L1 protocol
-  L1CacheModelProtocol* create_l1() override;
-
-  // Create an instance of the L2 protocol
-  L2CacheModelProtocol* create_l2() override;
-
-  // Create and instance of the Directory protocol
-  DirectoryProtocol* create_dir() override;
-};
-
 }  // namespace cc
 
 #endif

@@ -25,13 +25,14 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "moesi.h"
+//#include "moesi.h"
 
 #include <string>
 
 #include "cpu_msg.h"
 #include "l1cache.h"
 #include "utility.h"
+#include "cc/protocol.h"
 
 namespace cc {
 
@@ -171,27 +172,33 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
   }
 };
 
-L1CacheModelProtocol* MOESIProtocolBuilder::create_l1() {
-  return new MOESIL1CacheProtocol{};
-}
-
 class MOESIL2CacheProtocol : public L2CacheModelProtocol {
  public:
   MOESIL2CacheProtocol() {}
 };
-
-L2CacheModelProtocol* MOESIProtocolBuilder::create_l2() {
-  return new MOESIL2CacheProtocol{};
-}
 
 class MOESIDirectoryProtocol : public DirectoryProtocol {
  public:
   MOESIDirectoryProtocol() {}
 };
 
-DirectoryProtocol* MOESIProtocolBuilder::create_dir() {
-  return new MOESIDirectoryProtocol{};
-}
+class MOESIProtocolBuilder : public ProtocolBuilder {
+ public:
+  // Create an instance of the L1 protocol
+  L1CacheModelProtocol* create_l1() override {
+    return new MOESIL1CacheProtocol{};
+  }
+
+  // Create an instance of the L2 protocol
+  L2CacheModelProtocol* create_l2() override {
+    return new MOESIL2CacheProtocol{};
+  }
+
+  // Create and instance of the Directory protocol
+  DirectoryProtocol* create_dir() override {
+    return new MOESIDirectoryProtocol{};
+  }
+};
 
 CC_DECLARE_PROTOCOL_BUILDER("moesi", MOESIProtocolBuilder);
 
