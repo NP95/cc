@@ -67,8 +67,12 @@ class L1CacheModel : public kernel::Agent<const Message*> {
 
   // Return current L1 configuration.
   L1CacheModelConfig config() const { return config_; }
+  // Pointer to current arbiter child instance.
   Arbiter<const Message*>* arb() const { return arb_; }
+  // Pointer to current CPU child instance.
   Cpu* cpu() const { return cpu_; }
+  //
+  MessageQueue* msgreqq() const { return msgreqq_; }
 
   // Set parent L2Cache (Elaboration-Phase)
   void set_parent(L2CacheModel* l2cache) { l2cache_ = l2cache; }

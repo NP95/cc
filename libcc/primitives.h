@@ -157,6 +157,7 @@ class Arbiter : public kernel::Module {
     friend class Arbiter;
     Tournament(Arbiter* parent) : parent_(parent) { execute(); }
    public:
+    Tournament() : parent_(nullptr) {}
     // Return the winning requester interface.
     kernel::RequesterIntf<T>* intf() const { return intf_; }
     bool has_requester() const { return intf_ != nullptr; }

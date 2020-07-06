@@ -128,7 +128,7 @@ enum class L1UpdateStatus { CanCommit, IsBlocked };
 
 //
 enum class L1UpdateAction {
-  EmitCpuRsp, EmitGetS, EmitGetE, UnblockCmdQueue
+  EmitCpuRsp, EmitGetS, EmitGetE, UnblockCmdReqQueue
 };
 
 //

@@ -41,33 +41,10 @@ class L1CacheModel::MainProcess : public kernel::Process {
     CpuRsp, GetS, GetE
   };
 
-  // Cleanup
   struct Context {
-    Context(Arbiter<const Message*>::Tournament t) : t(t)
-    {}
-
-    //
-    const Message* msg() const { return intf->peek(); }
-
-    void consume() {
-      CacheModel<L1LineState*>::Line& line = line_it.line();
-      // Apply protocol update to cache line.
-      protocol->commit(apply_result, line.t());
-      // Remove head-of-line message from nominated Message Queue
-      const Message* msg = intf->dequeue();
-      // Release message back to pool
-      msg->release();
-      // Advance arbitration state.
-      t.advance();
-    }
-
-    void discard() {
-      // NOP: state is not owned by context.
-    }
-
     // Originating interface from which the current message was
     // sourced.
-    kernel::RequesterIntf<const Message*>* intf = nullptr;
+    //    kernel::RequesterIntf<const Message*>* intf = nullptr;
 
     // Current arbiter tournament; retained such that the
     Arbiter<const Message*>::Tournament t;
@@ -172,8 +149,9 @@ class L1CacheModel::MainProcess : public kernel::Process {
         if (t.has_requester()) {
           // A message is available; begin processing in the next
           // delta cycle.
-          ctxt_ = new Context(t);
-          ctxt_->protocol = protocol();
+          ctxt_ = Context();
+          ctxt_.t = t;
+          ctxt_.protocol = protocol();
           set_state(State::ProcessMessage);
           next_delta();
         } else {
@@ -196,18 +174,13 @@ class L1CacheModel::MainProcess : public kernel::Process {
       } break;
 
       case State::CommitContext: {
-        ctxt_->consume();
-        delete ctxt_;
-        set_state(State::AwaitingMessage);
-        next_delta();
+        handle_commit_context();
       } break;
 
       case State::DiscardContext: {
-        ctxt_->discard();
-        delete ctxt_;
-        set_state(State::AwaitingMessage);
-        next_delta();
+        handle_discard_context();
       } break;
+
       default: {
         log(LogMessage{"Unknown state entered", Level::Fatal});
       } break;
@@ -215,7 +188,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
   }
 
   void handle_nominated_message() {
-    const kernel::RequesterIntf<const Message*>* intf = ctxt_->intf;
+    const kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
     const Message* msg = intf->peek();
     switch (msg->cls()) {
       case Message::CpuCmd: {
@@ -233,12 +206,12 @@ class L1CacheModel::MainProcess : public kernel::Process {
           // do not know at present what we can do with it as this
           // is some unknown function of the cache line state, the
           // command opcode and the protocol.
-          ctxt_->line_it = set.find(ah.tag(cpucmd->addr()));
-          CacheModel::Line& line = ctxt_->line_it.line();
+          ctxt_.line_it = set.find(ah.tag(cpucmd->addr()));
+          CacheModel::Line& line = ctxt_.line_it.line();
 
 
-          L1CacheModelApplyResult& apply_result = ctxt_->apply_result;
-          const L1CacheModelProtocol* p = ctxt_->protocol;
+          L1CacheModelApplyResult& apply_result = ctxt_.apply_result;
+          const L1CacheModelProtocol* p = ctxt_.protocol;
           p->apply(apply_result, line.t(), cpucmd);
 
           switch (apply_result.status()) {
@@ -250,7 +223,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
 
               // Block the interface, so that it cannot be rescheduled
               // in subsequent timesteps.
-              kernel::RequesterIntf<const Message*>* intf = ctxt_->intf;
+              kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
               intf->set_blocked(true);
 
               // Incur the penatly associated with the failed attempt;
@@ -281,7 +254,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
           } else {
             // Eviction cannot take place therefore the current
             // message is blocked
-            kernel::RequesterIntf<const Message*>* intf = ctxt_->intf;
+            kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
             intf->set_blocked(true);
           }
         }
@@ -296,8 +269,8 @@ class L1CacheModel::MainProcess : public kernel::Process {
   }
 
   void handle_execute_actions() {
-    std::deque<L1CacheMessageType>& msgs = ctxt_->l1_cache_messages;
-    for (L1UpdateAction action : ctxt_->l1_update_actions) {
+    std::deque<L1CacheMessageType>& msgs = ctxt_.l1_cache_messages;
+    for (L1UpdateAction action : ctxt_.l1_update_actions) {
       switch (action) {
         case L1UpdateAction::EmitCpuRsp: {
           // Emit response to requesting CPU
@@ -311,8 +284,9 @@ class L1CacheModel::MainProcess : public kernel::Process {
           // Emit GetE (Get Exclusive) to owning L2 cache.
           msgs.push_back(L1CacheMessageType::GetE);
         } break;
-        case L1UpdateAction::UnblockCmdQueue: {
-          
+        case L1UpdateAction::UnblockCmdReqQueue: {
+          MessageQueue* mq = model_->msgreqq();
+          mq->set_blocked(false);
         } break;
         default: {
         } break;
@@ -323,13 +297,13 @@ class L1CacheModel::MainProcess : public kernel::Process {
   }
 
   void handle_emit_messages() {
-    std::deque<L1CacheMessageType>& msgs = ctxt_->l1_cache_messages;
+    std::deque<L1CacheMessageType>& msgs = ctxt_.l1_cache_messages;
     switch (msgs.front()) {
       case L1CacheMessageType::CpuRsp: {
         const bool did_issue = true;
         if (did_issue) {
           // Form message and emit.
-          const kernel::RequesterIntf<const Message*>* intf = ctxt_->intf;
+          const kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
           const Message* msg = intf->peek();
           // Construct message:
           CpuResponseMessage* rsp = new CpuResponseMessage(msg->t());
@@ -356,14 +330,35 @@ class L1CacheModel::MainProcess : public kernel::Process {
     next_delta();
   }
 
-  // Pointer to parent module.
-  L1CacheModel* model_ = nullptr;
+  void handle_commit_context() {
+    using CacheModel = CacheModel<L1LineState*>;
+
+    CacheModel::LineIterator line_it = ctxt_.line_it;
+    CacheModel::Line& line = line_it.line();
+    // Apply protocol update to cache line.
+    protocol()->commit(ctxt_.apply_result, line.t());
+    // Remove head-of-line message from nominated Message Queue and
+    // return to associated pool.
+    kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
+    const Message* msg = intf->dequeue();
+    msg->release();
+    // Advance arbitration state.
+    ctxt_.t.advance();
+    set_state(State::AwaitingMessage);
+    next_delta();
+  }
+
+  void handle_discard_context() {
+    set_state(State::AwaitingMessage);
+    next_delta();
+  }
+
   // Current process state
   State state_;
-  // Set of outstanding messages to be issued by the cache.
-  std::deque<L1CacheMessageType> msgs_;
   // Context of current operation.
-  Context* ctxt_ = nullptr;
+  Context ctxt_;
+  // Pointer to parent module.
+  L1CacheModel* model_ = nullptr;
 };
 
 L1CacheModel::L1CacheModel(kernel::Kernel* k, const L1CacheModelConfig& config)
