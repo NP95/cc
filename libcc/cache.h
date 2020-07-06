@@ -135,6 +135,10 @@ class CacheModel {
     LineIterator operator++(int) const {
       return LineIterator(cache(), raw_ + 1);
     }
+    LineIterator& operator*() { return *raw_; }
+    const LineIterator& operator*() const { return *raw_; }
+    
+    line_iterator operator->() const { return raw_; }
 
    private:
     line_iterator raw() const { return raw_; }
@@ -176,6 +180,10 @@ class CacheModel {
     ConstLineIterator operator++(int) const {
       return ConstLineIterator(cache(), raw_ + 1);
     }
+    ConstLineIterator& operator*() { return *raw_; }
+    const ConstLineIterator& operator*() const { return *raw_; }
+    
+    const_line_iterator operator->() const { return raw_; }
 
    private:
     const_line_iterator raw() const { return raw_; }
@@ -199,16 +207,16 @@ class CacheModel {
       // Firstly consider empty lines within the set.
       it = begin;
       while (it != end) {
-	const Line& line = it.line();
-	if (!line.valid()) return std::make_pair(it, false);
+	// const Line& line = it.line();
+	if (!it->valid()) return std::make_pair(it, false);
 	++it;
       }
       // Otherwise, consider lines which can be evicted.
       it = begin;
       std::vector<LineIterator> ns;
       while (it != end) {
-	const Line& line = it.line();
-	if (line.t()->is_evictable()) ns.push_back(it);
+	const T& t = it->t();
+	if (t->is_evictable()) ns.push_back(it);
       }
       // If no nominations selected, return end()
       if (ns.empty()) return std::make_pair(end, false);
@@ -250,8 +258,7 @@ class CacheModel {
       for (ConstLineIterator it = begin(); it != end(); ++it) {
         // Eviction whenever entry is not already present in the cache
         // and all ways in the set are already occupied.
-        const Line& line = it.line();
-        if (!line.valid() || (line.tag() == tag)) return false;
+        if (!it->valid() || (it->tag() == tag)) return false;
       }
       return true;
     }
@@ -260,13 +267,11 @@ class CacheModel {
       // Validate that the current location the set is invalid. An
       // entry cannot be installed in the cache unless the data which is
       // already present has been evicted.
+      if (it->valid()) return false;
 
-      Line& line = it.line();
-      if (line.valid()) return false;
-
-      line.valid(true);
-      line.tag(tag);
-      line.t(t);
+      it->valid(true);
+      it->tag(tag);
+      it->t(t);
       return true;
     }
 
@@ -275,18 +280,16 @@ class CacheModel {
       // entry which points to the current address in memory. Unlike
       // 'install', this method expects that the entry in the cache is
       // already present and is simply being overwritten with new data.
-      Line& line = it.line();
-      if (!line.valid() || (line.valid() && line.tag() != tag)) return false;
+      if (!it->valid() || (it->valid() && it->tag() != tag)) return false;
 
-      line.t(t);
+      it->t(t);
       return true;
     }
 
     // Evict line pointer at by 'it' from the Set and by consequence
     // the owning cache.
     bool evict(LineIterator it) {
-      Line& line = it.line();
-      line.valid(false);
+      it->valid(false);
       return true;
     }
 
@@ -294,8 +297,7 @@ class CacheModel {
     // the end iterator if not present in the cache.
     LineIterator find(const tag_type& tag) {
       for (LineIterator it = begin(); it != end(); ++it) {
-        Line& line = it.line();
-        if (line.valid() && (line.tag() == tag)) return it;
+        if (it->valid() && (it->tag() == tag)) return it;
       }
       return end();
     }
@@ -304,8 +306,7 @@ class CacheModel {
     // the constant end iterator if not present in the cache.
     ConstLineIterator find(const tag_type& tag) const {
       for (ConstLineIterator it = begin(); it != end(); ++it) {
-        const Line& line = it.line();
-        if (line.valid() && (line.tag() == tag)) return it;
+        if (it->valid() && (it->tag() == tag)) return it;
       }
       return end();
     }
@@ -317,8 +318,7 @@ class CacheModel {
       LineIterator it = find(tag);
       if (it == end()) return false;
 
-      Line& line = it.line();
-      t = line.t();
+      t = it->t();
       return true;
     }
 
@@ -351,8 +351,7 @@ class CacheModel {
 
     ConstLineIterator find(const tag_type& tag) const {
       for (ConstLineIterator it = begin(); it != end(); ++it) {
-        const Line& line = it.line();
-        if (line.valid() && (line.tag() == tag)) return it;
+        if (it->valid() && (it->tag() == tag)) return it;
       }
       return end();
     }
