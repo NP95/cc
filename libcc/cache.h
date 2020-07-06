@@ -184,6 +184,49 @@ class CacheModel {
     const_line_iterator raw_;
   };
 
+  class Evictor {
+  public:
+    enum class Policy { First };
+    
+    explicit Evictor(Policy policy = Policy::First)
+      : policy_(policy) {}
+
+    Policy policy() const { return policy_; }
+
+    std::pair<LineIterator, bool> nominate(
+       LineIterator begin, LineIterator end) const {
+      LineIterator it;
+      // Firstly consider empty lines within the set.
+      it = begin;
+      while (it != end) {
+	const Line& line = it.line();
+	if (!line.valid()) return std::make_pair(it, false);
+	++it;
+      }
+      // Otherwise, consider lines which can be evicted.
+      it = begin;
+      std::vector<LineIterator> ns;
+      while (it != end) {
+	const Line& line = it.line();
+	if (line.t()->is_evictable()) ns.push_back(it);
+      }
+      // If no nominations selected, return end()
+      if (ns.empty()) return std::make_pair(end, false);
+
+      // Otherwise, select according to selected policy.
+      switch (policy()) {
+      case Policy::First: {
+	return std::make_pair(*ns.begin(), false);
+      } break;
+      default: {
+	return std::make_pair(end, false);
+      } break;
+      }
+    }
+  private:
+    Policy policy_;
+  };
+
   // Structure representing a collection of lines with the same set.
   //
   class Set {

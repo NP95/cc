@@ -38,7 +38,6 @@
 namespace cc {
 
 class L1CacheModel::MainProcess : public kernel::Process {
-  using CacheModel = CacheModel<L1LineState*>;
 
   enum class L1CacheMessageType { CpuRsp, GetS, GetE };
 
@@ -58,7 +57,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
 
     // Iterator to the line into which the current operation is taking
     // place.
-    CacheModel::LineIterator line_it;
+    CacheModel<L1LineState*>::LineIterator line_it;
   };
 
 #define STATES(__func)                                                  \
@@ -185,20 +184,20 @@ class L1CacheModel::MainProcess : public kernel::Process {
     const Message* msg = intf->peek();
     switch (msg->cls()) {
       case Message::CpuCmd: {
-        CacheModel* cache = model_->cache();
+        CacheModel<L1LineState*>* cache = model_->cache();
         CacheAddressHelper ah = cache->ah();
         const CpuCommandMessage* cpucmd =
             static_cast<const CpuCommandMessage*>(msg);
 
         // Check cache occupancy status:
-        CacheModel::Set set = cache->set(ah.set(cpucmd->addr()));
+        CacheModel<L1LineState*>::Set set = cache->set(ah.set(cpucmd->addr()));
         if (set.hit(ah.tag(cpucmd->addr()))) {
           // Although the address is presently in the cache, we
           // do not know at present what we can do with it as this
           // is some unknown function of the cache line state, the
           // command opcode and the protocol.
           ctxt_.line_it = set.find(ah.tag(cpucmd->addr()));
-          CacheModel::Line& line = ctxt_.line_it.line();
+          CacheModel<L1LineState*>::Line& line = ctxt_.line_it.line();
 
           L1CacheModelApplyResult& apply_result = ctxt_.apply_result;
           const L1CacheModelProtocol* p = ctxt_.protocol;
@@ -229,8 +228,9 @@ class L1CacheModel::MainProcess : public kernel::Process {
           }
         } else {
           // Cache miss; either service current command by installing
-          const std::pair<CacheModel::LineIterator, bool> line_lookup =
-              nominate_line(set.begin(), set.end());
+	  CacheModel<L1LineState*>::Evictor evictor;
+          const std::pair<CacheModel<L1LineState*>::LineIterator, bool> line_lookup =
+              evictor.nominate(set.begin(), set.end());
 
           // Context iterator to point to nominated line.
           ctxt_.line_it = line_lookup.first;
@@ -276,20 +276,20 @@ class L1CacheModel::MainProcess : public kernel::Process {
     }
   }
 
-  std::pair<CacheModel::LineIterator, bool> nominate_line(
-      CacheModel::LineIterator begin, CacheModel::LineIterator end) {
-    CacheModel::LineIterator it;
+  std::pair<CacheModel<L1LineState*>::LineIterator, bool> nominate_line(
+      CacheModel<L1LineState*>::LineIterator begin, CacheModel<L1LineState*>::LineIterator end) {
+    CacheModel<L1LineState*>::LineIterator it;
     // Firstly consider empty lines within the set.
     it = begin;
     while (it != end) {
-      const CacheModel::Line& line = it.line();
+      const CacheModel<L1LineState*>::Line& line = it.line();
       if (!line.valid()) return std::make_pair(it, false);
       ++it;
     }
     // Otherwise, consider lines which can be evicted.
     it = begin;
     while (it != end) {
-      const CacheModel::Line& line = it.line();
+      const CacheModel<L1LineState*>::Line& line = it.line();
       if (line.t()->is_evictable()) return std::make_pair(it, true);
     }
     // Otherwise, all lines are busy.
@@ -330,13 +330,15 @@ class L1CacheModel::MainProcess : public kernel::Process {
 
   void handle_emit_messages() {
     std::deque<L1CacheMessageType>& msgs = ctxt_.l1_cache_messages;
+    // Form message and emit.
+    const kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
+    // Initiating message.
+    const Message* msg = intf->peek();
+    // Emit messsage:
     switch (msgs.front()) {
       case L1CacheMessageType::CpuRsp: {
         const bool did_issue = true;
         if (did_issue) {
-          // Form message and emit.
-          const kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
-          const Message* msg = intf->peek();
           // Construct message:
           CpuResponseMessage* rsp = new CpuResponseMessage(msg->t());
           // Issue to CPU:
@@ -349,24 +351,24 @@ class L1CacheModel::MainProcess : public kernel::Process {
       case L1CacheMessageType::GetS: {
         const bool did_issue = true;
         if (did_issue) {
-          L1L2Message* msg = new L1L2Message(msg->t());
-          msg->opcode(L1L2Message::GetS);
+          L1L2Message* cmd = new L1L2Message(msg->t());
+          cmd->opcode(L1L2Message::GetS);
           L2CacheModel* l2cache = model_->l2cache();
           kernel::EndPointIntf<const Message*>* l2_ep =
               l2cache->end_point(L2CacheModel::L1CmdReq);
-          model_->issue(l2_ep, kernel::Time{10, 0}, msg);
+          model_->issue(l2_ep, kernel::Time{10, 0}, cmd);
           msgs.pop_front();
         }
       } break;
       case L1CacheMessageType::GetE: {
         const bool did_issue = true;
         if (did_issue) {
-          L1L2Message* msg = new L1L2Message(msg->t());
-          msg->opcode(L1L2Message::GetE);
+          L1L2Message* cmd = new L1L2Message(msg->t());
+          cmd->opcode(L1L2Message::GetE);
           L2CacheModel* l2cache = model_->l2cache();
           kernel::EndPointIntf<const Message*>* l2_ep =
               l2cache->end_point(L2CacheModel::L1CmdReq);
-          model_->issue(l2_ep, kernel::Time{10, 0}, msg);
+          model_->issue(l2_ep, kernel::Time{10, 0}, cmd);
           msgs.pop_front();
         }
       } break;
@@ -383,8 +385,8 @@ class L1CacheModel::MainProcess : public kernel::Process {
   }
 
   void handle_commit_context() {
-    CacheModel::LineIterator line_it = ctxt_.line_it;
-    CacheModel::Line& line = line_it.line();
+    CacheModel<L1LineState*>::LineIterator line_it = ctxt_.line_it;
+    CacheModel<L1LineState*>::Line& line = line_it.line();
     // Apply protocol update to cache line.
     const L1CacheModelProtocol* protocol = ctxt_.protocol;
     protocol->commit(ctxt_.apply_result, line.t());

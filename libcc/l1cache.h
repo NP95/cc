@@ -43,8 +43,7 @@ template <typename>
 class Arbiter;
 class Cpu;
 class L2CacheModel;
-template <typename>
-class CacheModel;
+template <typename> class CacheModel;
 class L1LineState;
 
 //
