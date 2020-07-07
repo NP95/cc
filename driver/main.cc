@@ -33,6 +33,10 @@ struct SimConfig {
   std::string name;
   // Level 2 Cache configuration.
   std::vector<cc::L2CacheModelConfig> l2configs;
+  // NOC configuration
+  cc::NocModelConfig nocconfig;
+  // Directory configurations
+  std::vector<cc::DirectoryModelConfig> dconfigs;
 };
 
 struct SimContext {
@@ -61,38 +65,72 @@ class SimTop : cc::kernel::TopModule {
   // collateral.
   void build() {
     const SimConfig& simconfig = simcontext_.simconfig;
+
+    // Construct NOC instance
+    noc_ = new cc::NocModel(k(), simconfig.nocconfig);
+    add_child_module(noc_);
+
+    // Construct L2 instance
     for (const cc::L2CacheModelConfig& l2cfg : simconfig.l2configs) {
       cc::L2CacheModel* l2c = new cc::L2CacheModel(k(), l2cfg);
+      l2c->set_noc_ep(noc_->get_input(0));
       add_child_module(l2c);
       l2cs_.push_back(l2c);
+    }
+
+    // Construct directory
+    for (const cc::DirectoryModelConfig& dconfig : simconfig.dconfigs) {
+      cc::DirectoryModel* dir = new cc::DirectoryModel(k(), dconfig);
+      add_child_module(dir);
+      dirs_.push_back(dir);
     }
   }
 
   void elab() override {
+    // Construct directory mapper object;
+    cc::DirectoryModel* dir = dirs_.front();
+    cc::DirectoryMapper* dm = new cc::SingleDirectoryMapper(dir);
+    for (cc::L2CacheModel* l2c : l2cs_) {
+      l2c->set_dm(dm);
+    }
   }
 
   void drc() override {
   }
  private:
   SimContext simcontext_;
+
+  // Model L2 Cache instances
   std::vector<cc::L2CacheModel*> l2cs_;
+  // NOC Model instance.
+  cc::NocModel* noc_;
+  // Directories(s)
+  std::vector<cc::DirectoryModel*> dirs_;
 };
 
 int main(int argc, char** argv) {
   // Simulation configuration.
   SimConfig simconfig;
   simconfig.name = "top";
+  simconfig.nocconfig = cc::NocModelConfig();
+  
 
   cc::ProtocolBuilder* p = cc::ProtocolBuilderRegistry::build("moesi");
   
   cc::L2CacheModelConfig l2config;
   l2config.name = "l2cache";
+  l2config.cconfig = cc::CacheModelConfig();
   l2config.protocol = p->create_l2();
+
   cc::L1CacheModelConfig l1config;
   l1config.name = "l1cache";
   l1config.protocol = p->create_l1();
   l1config.cconfig = cc::CacheModelConfig();
 
+  cc::DirectoryModelConfig dconfig;
+  dconfig.name = "directory";
+  dconfig.protocol = p->create_dir();
+  dconfig.cconfig = cc::CacheModelConfig();
 
   cc::ProgrammaticStimulus* stim = new cc::ProgrammaticStimulus;
 
@@ -101,6 +139,7 @@ int main(int argc, char** argv) {
   l1config.stim = stim;
   l2config.l1configs.push_back(l1config);
   simconfig.l2configs.push_back(l2config);
+  simconfig.dconfigs.push_back(dconfig);
 
   SimContext simcontext;
   simcontext.k = new cc::kernel::Kernel;

@@ -252,9 +252,6 @@ TEST(Kernel, VisitObjectHierarchy) {
 
   struct HeirarchyVisitor : cc::kernel::ObjectVisitor {
     HeirarchyVisitor(std::vector<std::string>& vs) : vs_(vs) {}
-    void visit(cc::kernel::TopModule* o) override {
-      vs_.push_back(o->path());
-    }
     void visit(cc::kernel::Module* o) override {
       vs_.push_back(o->path());
     }

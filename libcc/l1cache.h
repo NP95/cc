@@ -25,8 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_L1CACHE_H
-#define CC_INCLUDE_CC_L1CACHE_H
+#ifndef CC_LIBCC_L1CACHE_H
+#define CC_LIBCC_L1CACHE_H
 
 #include <string>
 
@@ -96,19 +96,19 @@ class L1CacheModel : public kernel::Agent<const Message*> {
   // L1 Cache stimulus (models the concept of a processor data path
   // emitting instructions into the cache as part of a programs
   // execution).
-  Cpu* cpu_;
+  Cpu* cpu_ = nullptr;
   // Coherence message request queue
-  MessageQueue* msgreqq_;
+  MessageQueue* msgreqq_ = nullptr;
   // Coherency message response queue
-  MessageQueue* msgrspq_;
+  MessageQueue* msgrspq_ = nullptr;
   // Message servicing arbiter.
-  Arbiter<const Message*>* arb_;
+  Arbiter<const Message*>* arb_ = nullptr;
   // Main process of execution.
-  MainProcess* main_;
+  MainProcess* main_ = nullptr;
   // Cache Instance
-  CacheModel<L1LineState*>* cache_;
+  CacheModel<L1LineState*>* cache_ = nullptr;
   // Pointer to parent L2.
-  L2CacheModel* l2cache_;
+  L2CacheModel* l2cache_ = nullptr;
   // Cache configuration.
   L1CacheModelConfig config_;
 };

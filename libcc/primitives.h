@@ -114,6 +114,13 @@ class Queue : public kernel::Module {
     return true;
   }
 
+  bool peek(T& t) const {
+    if (empty()) return false;
+
+    t = ts_[rd_ptr_];
+    return true;
+  }
+
   // Dequeue entry from queue; returns false on success.
   bool dequeue(T& t) {
     if (empty()) return false;

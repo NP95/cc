@@ -77,19 +77,23 @@ void MessageQueue::push(const Message* msg) {
 
 bool MessageQueue::has_req() const { return !q_->empty(); }
 
-const Message* MessageQueue::peek() const { return nullptr; }
+const Message* MessageQueue::peek() const {
+  const Message* msg;
+  if (!q_->peek(msg)) {
+    const LogMessage lmsg("Attempt to access empty queue.", Level::Fatal);
+    log(lmsg);
+  }
+  return msg;
+}
 
 const Message* MessageQueue::dequeue() {
-  return nullptr;
-  /*
-    const Message* msg;
-    if (!q_->dequeue(msg)) {
-    const LogMessage msg{"Attempt to dequeue Message failed.", Level::Fatal};
-    log(msg);
+  const Message* msg;
+  if (!q_->dequeue(msg)) {
+    const LogMessage lmsg("Attempt to dequeue Message failed.", Level::Fatal);
+    log(lmsg);
     return nullptr;
-    }
-    return msg;
-  */
+  }
+  return msg;
 }
 
 kernel::Event& MessageQueue::request_arrival_event() {

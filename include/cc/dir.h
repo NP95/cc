@@ -25,34 +25,83 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "protocol.h"
+#ifndef CC_INCLUDE_CC_DIR_H
+#define CC_INCLUDE_CC_DIR_H
+
+#include "kernel.h"
+#include "cfgs.h"
+#include "types.h"
 
 namespace cc {
 
-const char* to_string(L2UpdateAction opcode) {
-  switch (opcode) {
-#define __declare_to_string(__name)                     \
-    case L2UpdateAction::__name: return #__name;
-    L2_UPDATE_ACTIONS(__declare_to_string)
-#undef __declare_to_string
+// Forwards
+class Message;
+class MessageQueue;
+template<typename T> class Arbiter;
+
+//
+//
+class DirectoryModel : public kernel::Agent<const Message*> {
+  class MainProcess;
+ public:
+  enum EndPoint : kernel::end_point_id_t { CmdQ, RspQ };
+  
+  DirectoryModel(kernel::Kernel* k, const DirectoryModelConfig& config);
+
+  const DirectoryModelConfig& config() const { return config_; }
+
+ protected:
+  // Build
+  void build();
+  // Elaboration
+  void elab() override;
+  // Design Rule Check (DRC)
+  void drc() override;
+
+  // Accessor(s)
+
+  // Directory arbiter instance.
+  Arbiter<const Message*>* arb() const { return arb_; }
+  
+ private:
+  // Queue selection arbiter
+  Arbiter<const Message*>* arb_ = nullptr;
+  // Command Queue
+  MessageQueue* cmdq_ = nullptr;
+  // Response Queue
+  MessageQueue* rspq_ = nullptr;
+  // Main thread
+  MainProcess* main_ = nullptr;
+  // Current directory configuration.
+  DirectoryModelConfig config_;
+};
+
+//
+//
+class DirectoryMapper {
+ public:
+  DirectoryMapper() = default;
+  virtual ~DirectoryMapper() = default;
+
+  virtual DirectoryModel* lookup(addr_t addr) const = 0;
+};
+
+//
+//
+class SingleDirectoryMapper : public DirectoryMapper {
+ public:
+  SingleDirectoryMapper(DirectoryModel* dm)
+      : dm_(dm) {}
+
+  DirectoryModel* lookup(addr_t addr) const override {
+    return dm_;
   }
-  return "Invalid";
-}
 
+ private:
+  // Directory end-point definition.
+  DirectoryModel* dm_ = nullptr;
+};
 
-using pbr = ProtocolBuilderRegistry;
+} // namespace cc
 
-// Coherence protocol registry
-std::map<std::string, pbr::ProtocolBuilderFactory*> pbr::m_;
-
-ProtocolBuilder* ProtocolBuilderRegistry::build(const std::string& name) {
-  ProtocolBuilder* r = nullptr;
-  auto it = m_.find(name);
-  if (it != m_.end()) {
-    ProtocolBuilderFactory* factory = it->second;
-    r = factory->construct();
-  }
-  return r;
-}
-
-}  // namespace cc
+#endif

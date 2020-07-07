@@ -32,6 +32,8 @@
 #include "cc/kernel.h"
 #include "cc/sim.h"
 #include "cc/l2cache.h"
+#include "cc/noc.h"
 #include "cc/protocol.h"
+#include "cc/dir.h"
 
 #endif

@@ -32,6 +32,7 @@
 #include "cpu_msg.h"
 #include "l1cache.h"
 #include "utility.h"
+#include "cc/msg.h"
 #include "cc/protocol.h"
 
 namespace cc {
@@ -54,25 +55,24 @@ enum class L1State : state_t { DECLARE_L1_STATES(__declare_states) };
 #undef __declare_states
 
 std::string to_string(L1State s) {
-#define __declare_to_string(__state, __stable) \
-  case L1State::__state:                       \
+#define __declare_to_string(__state, __stable)  \
+  case L1State::__state:                        \
     return #__state;
   switch (s) {
     DECLARE_L1_STATES(__declare_to_string)
-    default:
-      return "Bad State";
+    default: return "Invalid";
   }
 #undef __declare_to_string
 }
 
 bool is_stable(L1State s) {
-#define __declare_is_stable(__state, __stable) \
-  case L1State::__state:                       \
+#define __declare_is_stable(__state, __stable)  \
+  case L1State::__state:                        \
     return __stable;
   switch (s) {
     DECLARE_L1_STATES(__declare_is_stable)
     default:
-      return false;
+        return false;
   }
 #undef __declare_is_stable
 }
@@ -172,9 +172,109 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
   }
 };
 
+
+// clang-format off  
+#define DECLARE_L2_STATES(__func)		\
+  __func(I, true)                               \
+  __func(I_S, false)                            \
+  __func(S, true)
+// clang-format on
+
+#define __declare_states(__state, __stable) __state,
+enum class L2State : state_t { DECLARE_L2_STATES(__declare_states) };
+#undef __declare_states
+
+std::string to_string(L2State s) {
+#define __declare_to_string(__state, __stable)  \
+  case L2State::__state:                        \
+    return #__state;
+  switch (s) {
+    DECLARE_L2_STATES(__declare_to_string)
+    default: return "Invalid";
+  }
+#undef __declare_to_string
+}
+
+bool is_stable(L2State s) {
+#define __declare_is_stable(__state, __stable)  \
+  case L2State::__state:                        \
+    return __stable;
+  switch (s) {
+    DECLARE_L2_STATES(__declare_is_stable)
+    default: return "Invalid";
+  }
+#undef __declare_is_stable
+}
+#undef DECLARE_L2_STATES
+
+//
+//
+class MOESIL2LineState : public L2LineState {
+ public:
+  MOESIL2LineState() {}
+
+  // Current line state.
+  L2State state() const { return state_; }
+  void set_state(L2State state) { state_ = state; }
+
+  // Stable state status.
+  bool is_stable() const {
+    using cc::is_stable;
+    return is_stable(state());
+  }
+
+ private:
+  L2State state_ = L2State::I;
+};
+
 class MOESIL2CacheProtocol : public L2CacheModelProtocol {
  public:
   MOESIL2CacheProtocol() {}
+
+
+  //
+  L2LineState* construct_line() const override {
+    MOESIL2LineState* l = new MOESIL2LineState;
+    l->set_state(L2State::I);
+    return l;
+  }
+
+  //
+  void apply(L2CacheModelApplyResult& r, L2LineState* line,
+             const L1L2Message* msg) const override {
+    const MOESIL2LineState* mline = static_cast<MOESIL2LineState*>(line);
+    switch (msg->opcode()) {
+      case L1L2Message::GetS: {
+        r.push(L2UpdateAction::UpdateState);
+        r.state(ut(L2State::I_S));
+        r.push(L2UpdateAction::EmitReadShared);
+      } break;
+      case L1L2Message::GetE: {
+        r.push(L2UpdateAction::EmitReadUnique);
+      } break;
+      case L1L2Message::PutS: {
+        // TODO:
+      } break;
+      case L1L2Message::PutE: {
+        // TODO:
+      } break;
+      default: {
+        // Invalid command
+      } break;
+    }
+  }
+
+  //
+  void commit(const L2CacheModelApplyResult& r,
+              L2LineState* state) const override {
+  }
+
+  //
+  void update_line_state(L2LineState* line, state_t state) const override {
+    MOESIL2LineState* mline = static_cast<MOESIL2LineState*>(line);
+    mline->set_state(static_cast<L2State>(state));
+  }
+  
 };
 
 class MOESIDirectoryProtocol : public DirectoryProtocol {

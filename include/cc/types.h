@@ -34,6 +34,11 @@ namespace cc {
 
 using addr_t = std::uint64_t;
 
+// Underlying primitive type denotign all cache states in the
+// simulation (overloaded where applicable for each coherency
+// protocol)
+using state_t = std::uint8_t;
+
 }  // namespace cc
 
 #endif

@@ -38,6 +38,8 @@ namespace cc {
 class Stimulus;
 class L1CacheModelProtocol;
 class L2CacheModelProtocol;
+class DirectoryProtocol;
+class DirectoryMapper;
 
 //
 //
@@ -96,6 +98,41 @@ struct L2CacheModelConfig {
 
   // Child L1 client configurations.
   std::vector<L1CacheModelConfig> l1configs;
+
+  // Cache configuration.
+  CacheModelConfig cconfig;
+
+  // Directory mapper; recovers destination directory for a given
+  // address.
+  DirectoryMapper* dmap = nullptr;
+};
+
+//
+//
+struct NocModelConfig {
+  // NOC model name
+  std::string name = "noc";
+
+  // The number of ingress ports;
+  std::size_t ingress_ports_n = 1;
+
+  // Ingress Message Queue capacity in messages.
+  std::size_t ingress_q_n = 16;
+};
+
+//
+//
+struct DirectoryModelConfig {
+  // Directory name
+  std::string name = "dir";
+  // Directory Protocol handler
+  DirectoryProtocol* protocol = nullptr;
+  // Command Queue size
+  std::size_t cmd_queue_n = 4;
+  // Response Queue size
+  std::size_t rsp_queue_n = 4;
+  // Cache configuratioh (non-Null Filter case).
+  CacheModelConfig cconfig;
 };
 
 }  // namespace cc

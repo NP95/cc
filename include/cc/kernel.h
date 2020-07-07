@@ -39,7 +39,6 @@ namespace cc::kernel {
 
 // clang-format off
 #define KERNEL_TYPES(__func)			\
-  __func(TopModule)				\
   __func(Module)				\
   __func(EventOr)				\
   __func(Event)					\

@@ -31,6 +31,7 @@
 #include "cc/cpu.h"
 #include "cc/protocol.h"
 #include "cc/sim.h"
+#include "cc/msg.h"
 #include "cpu_msg.h"
 #include "l2cache.h"
 #include "primitives.h"
@@ -60,7 +61,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
     CacheModel<L1LineState*>::LineIterator line_it;
   };
 
-// clang-format off
+  // clang-format off
 #define STATES(__func)				\
   __func(AwaitingMessage)			\
   __func(ProcessMessage)			\
@@ -68,7 +69,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
   __func(EmitMessages)				\
   __func(CommitContext)				\
   __func(DiscardContext)
-// clang-format on
+  // clang-format on
 
   enum class State {
 #define __declare_state(__name) __name,
@@ -80,13 +81,13 @@ class L1CacheModel::MainProcess : public kernel::Process {
     switch (state) {
       default:
         return "Unknown";
-#define __declare_to_string(__name) \
-  case State::__name:               \
-    return #__name;                 \
-    break;
+#define __declare_to_string(__name)             \
+        case State::__name:                     \
+          return #__name;                       \
+          break;
         STATES(__declare_to_string)
 #undef __declare_to_string
-    }
+            }
     return "Invalid";
   }
 
@@ -341,6 +342,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
         if (did_issue) {
           L1L2Message* cmd = new L1L2Message(msg->t());
           cmd->opcode(L1L2Message::GetS);
+          // cmd->addr(msg->addr());
           L2CacheModel* l2cache = model_->l2cache();
           kernel::EndPointIntf<const Message*>* l2_ep =
               l2cache->end_point(L2CacheModel::L1CmdReq);
@@ -353,6 +355,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
         if (did_issue) {
           L1L2Message* cmd = new L1L2Message(msg->t());
           cmd->opcode(L1L2Message::GetE);
+          // cmd->addr(msg->addr());
           L2CacheModel* l2cache = model_->l2cache();
           kernel::EndPointIntf<const Message*>* l2_ep =
               l2cache->end_point(L2CacheModel::L1CmdReq);

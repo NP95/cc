@@ -25,34 +25,12 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "protocol.h"
+#ifndef CC_INCLUDE_CC_AGENT_H
+#define CC_INCLUDE_CC_AGENT_H
 
 namespace cc {
 
-const char* to_string(L2UpdateAction opcode) {
-  switch (opcode) {
-#define __declare_to_string(__name)                     \
-    case L2UpdateAction::__name: return #__name;
-    L2_UPDATE_ACTIONS(__declare_to_string)
-#undef __declare_to_string
-  }
-  return "Invalid";
-}
 
+} // namespace cc
 
-using pbr = ProtocolBuilderRegistry;
-
-// Coherence protocol registry
-std::map<std::string, pbr::ProtocolBuilderFactory*> pbr::m_;
-
-ProtocolBuilder* ProtocolBuilderRegistry::build(const std::string& name) {
-  ProtocolBuilder* r = nullptr;
-  auto it = m_.find(name);
-  if (it != m_.end()) {
-    ProtocolBuilderFactory* factory = it->second;
-    r = factory->construct();
-  }
-  return r;
-}
-
-}  // namespace cc
+#endif

@@ -27,6 +27,7 @@
 
 #include "cc/cpu.h"
 
+#include "cc/msg.h"
 #include "cpu_msg.h"
 
 namespace cc {

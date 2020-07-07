@@ -25,82 +25,90 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_L2CACHE_H
-#define CC_INCLUDE_CC_L2CACHE_H
+#ifndef CC_INCLUDE_CC_NOC_H
+#define CC_INCLUDE_CC_NOC_H
 
-#include <vector>
-
-#include "cfgs.h"
 #include "kernel.h"
+#include "cc/cfgs.h"
+#include "cc/msg.h"
+#include <vector>
 
 namespace cc {
 
-// Forwards:
-class L1CacheModel;
-class MessageQueue;
-template <typename>
-class Arbiter;
 class Message;
-class L2LineState;
-template <typename>
-class CacheModel;
+class MessageQueue;
+template<typename> class Arbiter;
 
 //
 //
-class L2CacheModel : public kernel::Agent<const Message*> {
-  class MainProcess;
-
+class NocMessage : public Message {
  public:
-  enum EndPoints : kernel::end_point_id_t { L1CmdReq, L1CmdRsp };
+  NocMessage(Transaction* t) : Message(t, Message::Noc) {}
 
-  L2CacheModel(kernel::Kernel* k, const L2CacheModelConfig& config);
-  virtual ~L2CacheModel();
+  //
+  const Message* payload() const { return payload_; }
+  void set_payload(const Message* payload) { payload_ = payload; }
 
-  L2CacheModelConfig config() const { return config_; }
+  //
+  kernel::EndPointIntf<const Message*>* ep() const { return ep_; }
+  void set_ep(kernel::EndPointIntf<const Message*>* ep) { ep_ = ep; }
 
-  // Elaboration-Time fix-up(s)
-  
-  // NOC ingress end-point
-  void set_noc_ep(kernel::EndPointIntf<const Message*>* noc_ep) { noc_ep_ = noc_ep; }
+  //
+  kernel::Agent<const Message*>* origin() const { return origin_; }
+  void set_origin(kernel::Agent<const Message*>* origin) { origin_ = origin; }
 
-  void set_dm(cc::DirectoryMapper* dm) { dm_ = dm; }
-
- protected:
-  // Elaboration callback
-  virtual void elab() override;
-  // Design Rule Check (DRC) callback
-  virtual void drc() override;
-  // Pointer to module arbiter instance.
-  Arbiter<const Message*>* arb() const { return arb_; }
-  // Point to module cache instance.
-  CacheModel<L2LineState*>* cache() const { return cache_; }
-  // Registers NOC End-Point interface.
-  kernel::EndPointIntf<const Message*>* noc_ep() const { return noc_ep_; }
-  // Pointer to directory mapper (address to directory mapper).
-  cc::DirectoryMapper* dm() const { return dm_; }
  private:
-  void build();
-
-  // L2 Cache Configuration.
-  L2CacheModelConfig config_;
-  // Child L1 Caches
-  std::vector<L1CacheModel*> l1cs_;
-  // L1 Command Request
-  MessageQueue* l1cmdreqq_ = nullptr;
-  // L1 Command Response
-  MessageQueue* l1cmdrspq_ = nullptr;
-  // Queue selection arbiter
-  Arbiter<const Message*>* arb_ = nullptr;
-  // Cache Instance
-  CacheModel<L2LineState*>* cache_ = nullptr;
-  // End-Point into NOC instance.
-  kernel::EndPointIntf<const Message*>* noc_ep_ = nullptr;
-  // Directory mapper instance.
-  cc::DirectoryMapper* dm_ = nullptr;
-  // Main process of execution.
-  MainProcess* main_;
+  // Message Payload
+  const Message* payload_ = nullptr;
+  // Destination end-point
+  kernel::EndPointIntf<const Message*>* ep_ = nullptr;
+  // Originating agent.
+  kernel::Agent<const Message*>* origin_ = nullptr;
 };
 
-}  // namespace cc
+
+//
+//
+class NocModel : public kernel::Agent<const Message*> {
+  class MainProcess;
+ public:
+  NocModel(kernel::Kernel* k, const NocModelConfig& config);
+
+  const NocModelConfig& config() const { return config_; }
+
+  //
+  kernel::EndPointIntf<const Message*>* get_input(std::size_t n);
+
+ protected:
+
+  // Build Phase
+  void build();
+
+  // Elaboration Phase
+  virtual void elab() override;
+
+  // Design Rule Check Phase
+  virtual void drc() override;
+
+  // Accessors;
+
+  // Arbiter
+  Arbiter<const Message*>* arb() const { return arb_; }
+
+  // Ingress Message Queue(s)
+  const std::vector<MessageQueue*>& imqs() const { return imqs_; }
+  
+ private:
+  // Queue selection arbiter
+  Arbiter<const Message*>* arb_ = nullptr;
+  // Set of ingress Message Queues
+  std::vector<MessageQueue*> imqs_;
+  // Main thread of execution.
+  MainProcess* main_ = nullptr;
+  // NOC Configuration
+  NocModelConfig config_;
+};
+
+} // namespace 
 
 #endif

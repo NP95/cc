@@ -33,41 +33,6 @@
 
 namespace cc {
 
-//
-//
-class CpuCommandMessage : public Message {
- public:
-  enum Opcode { Load, Store };
-
-  CpuCommandMessage(Transaction* t) : Message(t, CpuCmd) {}
-
-  Opcode opcode() const { return opcode_; }
-  addr_t addr() const { return addr_; }
-
-  void set_addr(addr_t addr) { addr_ = addr; }
-  void set_opcode(Opcode opcode) { opcode_ = opcode; }
-
- private:
-  addr_t addr_;
-  Opcode opcode_;
-};
-
-//
-//
-class CpuResponseMessage : public Message {
- public:
-  enum Opcode { Load, Store };
-
-  CpuResponseMessage(Transaction* t) : Message(t, CpuRsp) {}
-
-  Opcode opcode() const { return opcode_; }
-
-  void set_opcode(Opcode opcode) { opcode_ = opcode; }
-
- private:
-  Opcode opcode_;
-};
-
 }  // namespace cc
 
 #endif

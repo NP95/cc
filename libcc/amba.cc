@@ -25,34 +25,40 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "protocol.h"
+#include "amba.h"
 
 namespace cc {
 
-const char* to_string(L2UpdateAction opcode) {
+
+const char* to_string(AceCmdOpcode opcode) {
   switch (opcode) {
-#define __declare_to_string(__name)                     \
-    case L2UpdateAction::__name: return #__name;
-    L2_UPDATE_ACTIONS(__declare_to_string)
+#define __declare_to_string(__name)             \
+    case AceCmdOpcode::__name: return #__name;
+    ACE_COMMAND_OPCODES(__declare_to_string)
+#undef __declare_to_string
+    default: return "Invalid";
+  }
+}
+
+AceCmdOpcode update_to_opcode(L2UpdateAction action) {
+  switch (action) {
+#define __declare_mapping(__opcode)             \
+    case L2UpdateAction::Emit##__opcode:        \
+      return AceCmdOpcode::__opcode; break;
+    ACE_COMMAND_OPCODES(__declare_mapping)
+    default: return AceCmdOpcode::Invalid;
+  }
+#undef DECLARE_MAPPING
+}
+
+const char* to_string(AceSnpOpcode cmd) {
+  switch (cmd) {
+#define __declare_to_string(__name)             \
+    case AceSnpOpcode::__name: return #__name;
+    ACE_SNOOP_OPCODES(__declare_to_string)
 #undef __declare_to_string
   }
   return "Invalid";
 }
 
-
-using pbr = ProtocolBuilderRegistry;
-
-// Coherence protocol registry
-std::map<std::string, pbr::ProtocolBuilderFactory*> pbr::m_;
-
-ProtocolBuilder* ProtocolBuilderRegistry::build(const std::string& name) {
-  ProtocolBuilder* r = nullptr;
-  auto it = m_.find(name);
-  if (it != m_.end()) {
-    ProtocolBuilderFactory* factory = it->second;
-    r = factory->construct();
-  }
-  return r;
-}
-
-}  // namespace cc
+} // namespace cc
