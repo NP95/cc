@@ -205,7 +205,7 @@ class Arbiter : public kernel::Module {
     bool deadlock_ = false;
     kernel::RequesterIntf<T>* intf_ = nullptr;
     Arbiter* parent_ = nullptr;
-    std::size_t idx_;
+    std::size_t idx_ = 0;
   };
 
   Arbiter(kernel::Kernel* k, const std::string& name)

@@ -78,7 +78,7 @@ void MessageQueue::push(const Message* msg) {
 bool MessageQueue::has_req() const { return !q_->empty(); }
 
 const Message* MessageQueue::peek() const {
-  const Message* msg;
+  const Message* msg = nullptr;
   if (!q_->peek(msg)) {
     const LogMessage lmsg("Attempt to access empty queue.", Level::Fatal);
     log(lmsg);
@@ -87,7 +87,7 @@ const Message* MessageQueue::peek() const {
 }
 
 const Message* MessageQueue::dequeue() {
-  const Message* msg;
+  const Message* msg = nullptr;
   if (!q_->dequeue(msg)) {
     const LogMessage lmsg("Attempt to dequeue Message failed.", Level::Fatal);
     log(lmsg);
