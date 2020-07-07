@@ -35,6 +35,7 @@
 #include "amba.h"
 #include "noc.h"
 #include "dir.h"
+#include "utility.h"
 
 namespace cc {
 
@@ -291,8 +292,7 @@ class L2CacheModel::MainProcess : public kernel::Process {
     // Compute home directory for the current address.
     const DirectoryMapper* dmap = model_->dm();
     DirectoryModel* dm = dmap->lookup(0);
-    kernel::EndPointIntf<const Message*>* ep =
-        dm->end_point(DirectoryModel::CmdQ);
+    kernel::EndPointIntf<const Message*>* ep = dm->end_point(ut(DirEp::CmdQ));
     if (ep == nullptr) {
       LogMessage lm("Cannot find end-point for current address");
       lm.level(Level::Fatal);

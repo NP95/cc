@@ -135,6 +135,19 @@ struct DirectoryModelConfig {
   CacheModelConfig cconfig;
 };
 
+//
+//
+struct LLCModelConfig {
+  // LLC name
+  std::string name = "llc";
+  // Cache configuration
+  CacheModelConfig cconfig;
+  // Command Queue size
+  std::size_t cmd_queue_n = 4;
+  // Response Queue size
+  std::size_t rsp_queue_n = 4;
+};
+
 }  // namespace cc
 
 #endif

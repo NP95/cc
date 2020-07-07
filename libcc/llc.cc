@@ -25,23 +25,22 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "cc/dir.h"
-#include "amba.h"
+#include "cc/llc.h"
 #include "primitives.h"
 #include "utility.h"
 
 namespace cc {
 
-const char* to_string(DirEp d) {
+const char* to_string(LLCEp d) {
   switch (d) {
     default: return "Invalid";
-#define __declare_string(__name) case DirEp::__name: return #__name;
-      DIR_MESSAGE_QUEUES(__declare_string)
+#define __declare_string(__name) case LLCEp::__name: return #__name;
+      LLC_MESSAGE_QUEUES(__declare_string)
 #undef __declare_string
   }
 }
 
-class DirectoryModel::MainProcess : public kernel::Process {
+class LLCModel::MainProcess : public kernel::Process {
 
   struct Context {
     // Current arbiter tournament; retained such that the
@@ -71,13 +70,13 @@ class DirectoryModel::MainProcess : public kernel::Process {
           break;
         STATES(__declare_to_string)
 #undef __declare_to_string
-            }
+    }
     return "Invalid";
   }
 #undef STATES
 
  public:
-  MainProcess(kernel::Kernel* k, const std::string& name, DirectoryModel* model)
+  MainProcess(kernel::Kernel* k, const std::string& name, LLCModel* model)
       : kernel::Process(k, name), model_(model) {
   }
 
@@ -97,7 +96,7 @@ class DirectoryModel::MainProcess : public kernel::Process {
  private:
 
   // Initialization
-  void init() {
+  void init() override {
     set_state(State::AwaitingMessage);
     Arbiter<const Message*>* arb = model_->arb();
     // Await the arrival of a new message at the ingress message
@@ -105,91 +104,28 @@ class DirectoryModel::MainProcess : public kernel::Process {
     wait_on(arb->request_arrival_event());
   }
 
-  // Evaluation
-  void eval() {
-    switch (state()) {
-      case State::AwaitingMessage: {
-        handle_awaiting_message();
-      } break;
-      case State::ProcessMessage: {
-        handle_process_message();
-      } break;
-      case State::ExecuteActions: {
-        handle_execute_actions();
-      } break;
-      default: {
-        LogMessage msg("Unknown state: ");
-        msg.append(to_string(state()));
-        msg.level(Level::Fatal);
-        log(msg);
-      } break;
-    }
+  // Elaboration
+  void eval() override {
   }
 
   // Finalization
-  void fini() {
-  }
-
-  void handle_awaiting_message() {
-    // Idle state, awaiting more work.
-    Arbiter<const Message*>* arb = model_->arb();
-    Arbiter<const Message*>::Tournament t = arb->tournament();
-
-    // Detect deadlock at L1Cache front-end. This occurs only in the
-    // presence of a protocol violation and is therefore by definition
-    // unrecoverable.
-    if (t.deadlock()) {
-      const LogMessage msg{"A protocol deadlock has been detected.",
-            Level::Fatal};
-      log(msg);
-    }
-
-    // Check for the presence of issue-able messages at the
-    // pipeline front-end.
-    if (t.has_requester()) {
-      // A message is available; begin processing in the next
-      // delta cycle.
-      ctxt_ = Context();
-      ctxt_.t = t;
-      set_state(State::ProcessMessage);
-      next_delta();
-    } else {
-      // Otherwise, block awaiting the arrival of a message at on
-      // the of the message queues.
-      wait_on(arb->request_arrival_event());
-    }
-  }
-
-  void handle_process_message() {
-    const MsgRequesterIntf* intf = ctxt_.t.intf();
-    const Message* msg = intf->peek();
-    switch (msg->cls()) {
-      case Message::Ace: {
-        log(LogMessage("Got message"));
-      } break;
-      default: {
-      } break;
-    }
-  }
-
-  void handle_execute_actions() {
+  void fini() override {
   }
 
   // Current execution context
   Context ctxt_;
   // Current machine state
   State state_ = State::AwaitingMessage;
-  // Pointer to parent directory instance.
-  DirectoryModel* model_ = nullptr;
+  // Pointer to owning LLC instance.
+  LLCModel* model_ = nullptr;
 };
 
-DirectoryModel::DirectoryModel(
-    kernel::Kernel* k, const DirectoryModelConfig& config)
+LLCModel::LLCModel(kernel::Kernel* k, const LLCModelConfig& config)
     : kernel::Agent<const Message*>(k, config.name), config_(config) {
   build();
 }
 
-void DirectoryModel::build() {
+void LLCModel::build() {
   // Construct command queue
   cmdq_ = new MessageQueue(k(), "cmdq", config_.cmd_queue_n);
   add_child_module(cmdq_);
@@ -209,13 +145,13 @@ void DirectoryModel::build() {
   add_child_process(main_);
 }
 
-void DirectoryModel::elab() {
+void LLCModel::elab() {
   // Register message queue end-points
-  add_end_point(ut(DirEp::CmdQ), cmdq_);
-  add_end_point(ut(DirEp::RspQ), rspq_);
+  add_end_point(ut(LLCEp::CmdQ), cmdq_);
+  add_end_point(ut(LLCEp::RspQ), rspq_);
 }
 
-void DirectoryModel::drc() {
+void LLCModel::drc() {
 }
 
 } // namespace cc
