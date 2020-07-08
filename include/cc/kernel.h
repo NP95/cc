@@ -433,8 +433,6 @@ class Module : public ProcessHost {
  public:
   virtual ~Module();
 
-  // Invoke Pre-DRC elaboration
-  virtual void pre_elab_drc() {}
   // Invoke elaboration.
   virtual void elab() {}
   // Run Design Rule Check.

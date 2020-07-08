@@ -108,8 +108,6 @@ void Kernel::run(RunMode r, Time t) {
   // Build phase is already complete by this stage and it is assume
   // that the object heirarchy has been correct constructed at this point.
 
-  // Check top is set.
-  invoke_pre_elab_drc();
   // Build and elaborate simulation environment.
   invoke_elab();
   // Run Design Rule Check to validate environment correctness.
@@ -128,15 +126,6 @@ void Kernel::add_action(Time t, Action* a) {
 }
 
 void Kernel::set_seed(seed_type seed) { random_source_ = RandomSource(seed); }
-
-void Kernel::invoke_pre_elab_drc() {
-  set_phase(Phase::Elab);
-  struct InvokeElabVisitor : ObjectVisitor {
-    void visit(Module* o) override { o->pre_elab_drc(); }
-  };
-  InvokeElabVisitor visitor;
-  visitor.iterate(top());
-}
 
 void Kernel::invoke_elab() {
   set_phase(Phase::Elab);

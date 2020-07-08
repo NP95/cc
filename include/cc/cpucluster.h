@@ -50,8 +50,6 @@ class CpuCluster : public Agent {
  private:
   // Construction
   void build();
-  // Pre-Elaboration DRC
-  void pre_elab_drc();
   // Elaboration
   void elab();
   // Design Rule Check (DRC)

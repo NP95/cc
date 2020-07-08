@@ -68,18 +68,6 @@ void CpuCluster::build() {
 }
 
 //
-void CpuCluster::pre_elab_drc() {
-  // Validate that baseline agents are present before elaboration
-  // starts.
-  
-  if (cc_ == nullptr) {
-  }
-
-  if (l2c_ == nullptr) {
-  }
-}
-
-//
 void CpuCluster::elab() {
   // Elabration occurs top-down; therefore ensure that all agents are
   // Bind Cache Controller to L2 instanceappropriately bound before an
