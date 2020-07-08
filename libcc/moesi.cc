@@ -35,49 +35,9 @@
 #include "cc/protocol.h"
 #include "cpu.h"
 #include "amba.h"
+#include "moesi_enum.h"
 
 namespace cc {
-
-// clang-format off  
-#define DECLARE_L1_STATES(__func)		\
-  __func(I, true)				\
-  __func(I_S, false)				\
-  __func(S, true)				\
-  __func(I_E, false)				\
-  __func(S_E, false)				\
-  __func(E, true)				\
-  __func(E_M, false)				\
-  __func(M, true)				\
-  __func(M_I, false)
-// clang-format on
-
-#define __declare_states(__state, __stable) __state,
-enum class L1State : state_t { DECLARE_L1_STATES(__declare_states) };
-#undef __declare_states
-
-std::string to_string(L1State s) {
-#define __declare_to_string(__state, __stable)  \
-  case L1State::__state:                        \
-    return #__state;
-  switch (s) {
-    DECLARE_L1_STATES(__declare_to_string)
-    default: return "Invalid";
-  }
-#undef __declare_to_string
-}
-
-bool is_stable(L1State s) {
-#define __declare_is_stable(__state, __stable)  \
-  case L1State::__state:                        \
-    return __stable;
-  switch (s) {
-    DECLARE_L1_STATES(__declare_is_stable)
-    default:
-        return false;
-  }
-#undef __declare_is_stable
-}
-#undef DECLARE_L1_STATES
 
 //
 //
@@ -170,40 +130,6 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
   }
 };
 
-
-// clang-format off  
-#define DECLARE_L2_STATES(__func)		\
-  __func(I, true)                               \
-  __func(I_S, false)                            \
-  __func(S, true)
-// clang-format on
-
-#define __declare_states(__state, __stable) __state,
-enum class L2State : state_t { DECLARE_L2_STATES(__declare_states) };
-#undef __declare_states
-
-std::string to_string(L2State s) {
-#define __declare_to_string(__state, __stable)  \
-  case L2State::__state:                        \
-    return #__state;
-  switch (s) {
-    DECLARE_L2_STATES(__declare_to_string)
-    default: return "Invalid";
-  }
-#undef __declare_to_string
-}
-
-bool is_stable(L2State s) {
-#define __declare_is_stable(__state, __stable)  \
-  case L2State::__state:                        \
-    return __stable;
-  switch (s) {
-    DECLARE_L2_STATES(__declare_is_stable)
-    default: return "Invalid";
-  }
-#undef __declare_is_stable
-}
-#undef DECLARE_L2_STATES
 
 //
 //

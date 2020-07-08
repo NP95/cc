@@ -25,23 +25,22 @@
 ## POSSIBILITY OF SUCH DAMAGE.
 ## ========================================================================= ##
 
-cmake_minimum_required(VERSION 3.5)
-project(cc)
+## Utility macro to generate an header and object file from an
+## enumerate definition file.
+macro (cc_generate_enum enum_file)
+  get_filename_component(enum_prefix ${enum_file} NAME_WE)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+  set(header_file "${enum_prefix}_enum.h")
+  set(source_file "${enum_prefix}_enum.cc")
 
-find_package(Python)
-if(NOT Python_FOUND)
-  # Python used for generic scripting throughout the codebase, therefore
-  # bail if not found within the current environment.
-  message(FATAL "Python executable not found.")
-endif()
-
-add_subdirectory(third_party)
-add_subdirectory(scripts)
-include_directories(include)
-add_subdirectory(libcc)
-add_subdirectory(driver)
-enable_testing()
-add_subdirectory(tests)
+  add_custom_command(
+    OUTPUT ${header_file} ${source_file}
+    COMMAND ${Python_EXECUTABLE}
+      ${CMAKE_SOURCE_DIR}/scripts/generate_enum.py
+      ${CMAKE_CURRENT_SOURCE_DIR}/${enum_file}
+    DEPENDS ${enum_file} ${CMAKE_SOURCE_DIR}/scripts/generate_enum.py
+    COMMENT "Generating ${enum_prefix}.enum..."
+    )
+  add_custom_target(
+    gen_enum_${enum_prefix} DEPENDS ${header_file} ${source_file})
+endmacro ()

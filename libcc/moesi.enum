@@ -27,34 +27,34 @@
 
 @enum_begin(L1State)
 // Invalid
-I
+I;s
 I_S
 // Shared
-S
+S;s
 I_E
 S_E
 // Exclusive
-E
+E;s
 E_M
 // Modified
-M
+M;s
 M_I
 @enum_end
 
 @enum_begin(L2State)
 // Invalid
-I
+I;s
 I_S
 // Shared
-S
+S;s
 @enum_end
 
 @enum_begin(CCState)
 // Invalid
-I
+I;s
 @enum_end
 
 @enum_begin(DirState)
 // Invalid
-I
+I;s
 @enum_end

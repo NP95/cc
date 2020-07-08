@@ -25,6 +25,26 @@
 ## POSSIBILITY OF SUCH DAMAGE.
 ## ========================================================================= ##
 
-add_library(cc SHARED kernel.cc primitives.cc cache.cc protocol.cc sim.cc
-  l1cache.cc l2cache.cc cpu.cc moesi.cc amba.cc noc.cc dir.cc llc.cc cpucluster.cc ccntrl.cc)
+cc_generate_enum(moesi.enum)
+
+add_library(cc SHARED
+  kernel.cc
+  primitives.cc
+  cache.cc
+  protocol.cc
+  sim.cc
+  l1cache.cc
+  l2cache.cc
+  cpu.cc
+  moesi.cc
+  moesi_enum.cc
+  amba.cc
+  noc.cc
+  dir.cc
+  llc.cc
+  cpucluster.cc
+  ccntrl.cc
+  )
+
 target_include_directories(cc PRIVATE ${CMAKE_SOURCE_DIR}/include/cc)
+target_include_directories(cc PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
