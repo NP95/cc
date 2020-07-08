@@ -137,8 +137,8 @@ class NocModel::MainProcess : public kernel::Process {
   }
 
   void handle_issue_message() {
-    kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
-    issue_message(intf->dequeue());
+    //kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
+    //issue_message(intf->dequeue());
     set_state(State::AwaitingMessage);
     wait_for(kernel::Time{10, 0});
   }
@@ -149,7 +149,7 @@ class NocModel::MainProcess : public kernel::Process {
       LogMessage lmsg("Invalid end-point in transport header.", Level::Fatal);
       log(lmsg);
     }
-    model_->issue(nocmsg->ep(), kernel::Time{1000, 0}, nocmsg->payload());
+    //model_->issue(nocmsg->ep(), kernel::Time{1000, 0}, nocmsg->payload());
   }
 
   // Current context
@@ -161,7 +161,7 @@ class NocModel::MainProcess : public kernel::Process {
 };
 
 NocModel::NocModel(kernel::Kernel* k, const NocModelConfig& config)
-    : kernel::Agent<const Message*>(k, config.name), config_(config) {
+    : Agent(k, config.name), config_(config) {
   build();
 }
 

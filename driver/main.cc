@@ -31,12 +31,8 @@
 struct SimConfig {
   // Toplevel name
   std::string name;
-  // Level 2 Cache configuration.
-  std::vector<cc::L2CacheModelConfig> l2configs;
-  // NOC configuration
-  cc::NocModelConfig nocconfig;
-  // Directory configurations
-  std::vector<cc::DirectoryModelConfig> dconfigs;
+  // CPU cluster configuration(s)
+  std::vector<cc::CpuClusterCfg> cpuccfgs;
 };
 
 struct SimContext {
@@ -45,6 +41,32 @@ struct SimContext {
   // Kernel associated with current simulation instance.
   cc::kernel::Kernel* k = nullptr;
 };
+
+
+cc::CpuClusterCfg generate_cfg() {
+  cc::ProtocolBuilder* pbuilder = cc::ProtocolBuilderRegistry::build("moesi");
+
+  cc::CpuClusterCfg cfg;
+
+  cfg.cc_config.pbuilder = pbuilder;
+  cfg.l2c_config.pbuilder = pbuilder;
+  for (int i = 0; i < 1; i++) {
+    cc::L1CacheModelConfig l1c;
+    l1c.pbuilder = pbuilder;
+    cfg.l1c_configs.push_back(l1c);
+
+    cc::CpuConfig cpu;
+    
+    cc::ProgrammaticStimulus* s = new cc::ProgrammaticStimulus;
+    s->push_back(cc::kernel::Time{100}, cc::Command{cc::Command::Load, 0});
+    s->push_back(cc::kernel::Time{100}, cc::Command{cc::Command::Load, 0});
+    cpu.stimulus = s;
+    
+    cfg.cpu_configs.push_back(cpu);
+  }
+  return cfg;
+}
+
 
 class SimTop : cc::kernel::TopModule {
  public:
@@ -67,32 +89,35 @@ class SimTop : cc::kernel::TopModule {
     const SimConfig& simconfig = simcontext_.simconfig;
 
     // Construct NOC instance
-    noc_ = new cc::NocModel(k(), simconfig.nocconfig);
-    add_child_module(noc_);
+    //    noc_ = new cc::NocModel(k(), simconfig.nocconfig);
+    //add_child_module(noc_);
 
-    // Construct L2 instance
-    for (const cc::L2CacheModelConfig& l2cfg : simconfig.l2configs) {
-      cc::L2CacheModel* l2c = new cc::L2CacheModel(k(), l2cfg);
-      l2c->set_noc_ep(noc_->get_input(0));
-      add_child_module(l2c);
-      l2cs_.push_back(l2c);
+    // Construct CPU cluster(s)
+    for (const cc::CpuClusterCfg cfg : simconfig.cpuccfgs) {
+      cc::CpuCluster* cpuc = new cc::CpuCluster(k(), cfg);
+      add_child_module(cpuc);
+      cpuclss_.push_back(cpuc);
     }
 
     // Construct directory
-    for (const cc::DirectoryModelConfig& dconfig : simconfig.dconfigs) {
+    /*
+    for (const cc::DirectoryModelConfig& dconfig : simconfig.configs) {
       cc::DirectoryModel* dir = new cc::DirectoryModel(k(), dconfig);
       add_child_module(dir);
       dirs_.push_back(dir);
     }
+    */
   }
 
   void elab() override {
+    /*
     // Construct directory mapper object;
     cc::DirectoryModel* dir = dirs_.front();
     cc::DirectoryMapper* dm = new cc::SingleDirectoryMapper(dir);
     for (cc::L2CacheModel* l2c : l2cs_) {
       l2c->set_dm(dm);
     }
+    */
   }
 
   void drc() override {
@@ -106,17 +131,18 @@ class SimTop : cc::kernel::TopModule {
   cc::NocModel* noc_;
   // Directories(s)
   std::vector<cc::DirectoryModel*> dirs_;
+  //
+  std::vector<cc::CpuCluster*> cpuclss_;
 };
 
 int main(int argc, char** argv) {
   // Simulation configuration.
   SimConfig simconfig;
   simconfig.name = "top";
-  simconfig.nocconfig = cc::NocModelConfig();
+  //  simconfig.nocconfig = cc::NocModelConfig();
   
 
-  cc::ProtocolBuilder* p = cc::ProtocolBuilderRegistry::build("moesi");
-  
+  /*
   cc::L2CacheModelConfig l2config;
   l2config.name = "l2cache";
   l2config.cconfig = cc::CacheModelConfig();
@@ -131,19 +157,25 @@ int main(int argc, char** argv) {
   dconfig.name = "directory";
   dconfig.protocol = p->create_dir();
   dconfig.cconfig = cc::CacheModelConfig();
+  */
 
-  cc::ProgrammaticStimulus* stim = new cc::ProgrammaticStimulus;
+  /*
+    cc::ProgrammaticStimulus* stim = new cc::ProgrammaticStimulus;
+    stim->push_back(cc::kernel::Time{100}, cc::Command{cc::Command::Load, 0});
+    stim->push_back(cc::kernel::Time{100}, cc::Command{cc::Command::Load, 0});
+  */
 
-  stim->push_back(cc::kernel::Time{100}, cc::Command{cc::Command::Load, 0});
-  stim->push_back(cc::kernel::Time{100}, cc::Command{cc::Command::Load, 0});
+  /*
   l1config.stim = stim;
   l2config.l1configs.push_back(l1config);
   simconfig.l2configs.push_back(l2config);
   simconfig.dconfigs.push_back(dconfig);
+  */
 
   SimContext simcontext;
   simcontext.k = new cc::kernel::Kernel;
   simcontext.simconfig = simconfig;
+  simcontext.simconfig.cpuccfgs.push_back(generate_cfg());
 
   // TODO: pass object ownership to constructing agent.
   

@@ -31,7 +31,8 @@
 #include <string>
 
 #include "cc/cfgs.h"
-#include "kernel.h"
+#include "cc/primitives.h"
+#include "l2cache.h"
 
 namespace cc {
 
@@ -46,25 +47,13 @@ class L2CacheModel;
 template <typename> class CacheModel;
 class L1LineState;
 
+
 //
 //
-class L1CacheModel : public kernel::Agent<const Message*> {
+class L1CacheModel : public Agent {
   class MainProcess;
-
-  friend class MainProcess;
-  friend class L2CacheModel;
-
+  friend class CpuCluster;
  public:
-  // End-points
-  enum EndPoints : kernel::end_point_id_t {
-    // CPU Response: return path back to originating CPU.
-    CpuRsp,
-    // Command Request: ingress commands from parent L2Cache.
-    L1CmdReq,
-    // Command Response: ingress command response from parent L2Cache.
-    L1CmdRsp
-  };
-
   L1CacheModel(kernel::Kernel* k, const L1CacheModelConfig& config);
   virtual ~L1CacheModel();
 
@@ -72,35 +61,48 @@ class L1CacheModel : public kernel::Agent<const Message*> {
   const L1CacheModelConfig& config() const { return config_; }
 
  protected:
+  // Accessors:
   // Pointer to current arbiter child instance.
   Arbiter<const Message*>* arb() const { return arb_; }
   // Pointer to current CPU child instance.
   Cpu* cpu() const { return cpu_; }
   // Pointer to owning L2Cache
-  L2CacheModel* l2cache() const { return l2cache_; }
-  // Pointer to command request message queue.
-  MessageQueue* msgreqq() const { return msgreqq_; }
+  L2CacheModel* l2c() const { return l2c_; }
+  // Accessors:
+  CacheModel<L1LineState*>* cache() const { return cache_; }
+  // CPU -> l1 command queue
+  MessageQueue* cpu_l1__cmd_q() const { return cpu_l1__cmd_q_; }
+  // L1 -> L2 command queue
+  MessageQueue* l1_l2__cmd_q() const { return l1_l2__cmd_q_; }
+  // Protocol
+  L1CacheModelProtocol* protocol() const { return protocol_; }
+  
+  // Build Phase:
+  void build();
 
-  // Set parent L2Cache (Elaboration-Phase)
-  void set_parent(L2CacheModel* l2cache) { l2cache_ = l2cache; }
-
+  // Elaboration Phase:
   virtual void elab() override;
+  // Set parent L2Cache (Elaboration-Phase)
+  void set_l2c(L2CacheModel* l2c) { l2c_ = l2c; }
+  // Set CPU (Elaboration-Phase)
+  void set_cpu(Cpu* cpu) { cpu_ = cpu; }
+  // Set L1 -> L2 Command Queue
+  void set_l1_l2__cmd_q(MessageQueue* mq) { l1_l2__cmd_q_ = mq; }
+  
+  // Design Rule Check (DRC) Phase
   virtual void drc() override;
 
  private:
-  // Construct l1cache instance
-  void build();
-  // Accessors:
-  CacheModel<L1LineState*>* cache() const { return cache_; }
-
   // L1 Cache stimulus (models the concept of a processor data path
   // emitting instructions into the cache as part of a programs
   // execution).
   Cpu* cpu_ = nullptr;
-  // Coherence message request queue
-  MessageQueue* msgreqq_ = nullptr;
-  // Coherency message response queue
-  MessageQueue* msgrspq_ = nullptr;
+  // CPU -> L1 Command Queue
+  MessageQueue* cpu_l1__cmd_q_ = nullptr;
+  // L1 -> L2 Command Queue
+  MessageQueue* l1_l2__cmd_q_ = nullptr;
+  // L2 -> L1 Response Queue
+  MessageQueue* l2_l1__rsp_q_ = nullptr;
   // Message servicing arbiter.
   Arbiter<const Message*>* arb_ = nullptr;
   // Main process of execution.
@@ -108,7 +110,9 @@ class L1CacheModel : public kernel::Agent<const Message*> {
   // Cache Instance
   CacheModel<L1LineState*>* cache_ = nullptr;
   // Pointer to parent L2.
-  L2CacheModel* l2cache_ = nullptr;
+  L2CacheModel* l2c_ = nullptr;
+  // L1 cache protocol
+  L1CacheModelProtocol* protocol_ = nullptr;
   // Cache configuration.
   L1CacheModelConfig config_;
 };

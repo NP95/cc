@@ -26,5 +26,5 @@
 ## ========================================================================= ##
 
 add_library(cc SHARED kernel.cc primitives.cc cache.cc protocol.cc sim.cc
-  l1cache.cc l2cache.cc cpu.cc moesi.cc amba.cc noc.cc dir.cc llc.cc)
+  l1cache.cc l2cache.cc cpu.cc moesi.cc amba.cc noc.cc dir.cc llc.cc cpucluster.cc ccntrl.cc)
 target_include_directories(cc PRIVATE ${CMAKE_SOURCE_DIR}/include/cc)

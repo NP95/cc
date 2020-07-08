@@ -25,13 +25,15 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_L2CACHE_H
-#define CC_INCLUDE_CC_L2CACHE_H
+#ifndef CC_LIBCC_L2CACHE_H
+#define CC_LIBCC_L2CACHE_H
 
 #include <vector>
 
 #include "cfgs.h"
 #include "kernel.h"
+#include "cc/primitives.h"
+#include "cc/msg.h"
 
 namespace cc {
 
@@ -44,11 +46,34 @@ class Message;
 class L2LineState;
 template <typename>
 class CacheModel;
+class CacheController;
+
+enum class L2Opcode {
+  GetS
+};
 
 //
 //
-class L2CacheModel : public kernel::Agent<const Message*> {
+class L1L2__CmdMsg : public Message {
+ public:
+  L1L2__CmdMsg(Transaction* t) : Message(t, MessageClass::L1L2__CmdMsg) {}
+
+  L2Opcode opcode() const { return opcode_; }
+  addr_t addr() const { return addr_; }
+
+  void set_addr(addr_t addr) { addr_ = addr; }
+  void set_opcode(L2Opcode opcode) { opcode_ = opcode; }
+  
+ private:
+  addr_t addr_;
+  L2Opcode opcode_;
+};
+
+//
+//
+class L2CacheModel : public Agent {
   class MainProcess;
+  friend class CpuCluster;
 
  public:
   enum EndPoints : kernel::end_point_id_t { L1CmdReq, L1CmdRsp };
@@ -58,45 +83,58 @@ class L2CacheModel : public kernel::Agent<const Message*> {
 
   L2CacheModelConfig config() const { return config_; }
 
-  // Elaboration-Time fix-up(s)
-  
-  // NOC ingress end-point
-  void set_noc_ep(kernel::EndPointIntf<const Message*>* noc_ep) { noc_ep_ = noc_ep; }
-
-  void set_dm(cc::DirectoryMapper* dm) { dm_ = dm; }
+  // L1 Cache Command Queue (n)
+  MessageQueue* l1_l2__cmd_q(std::size_t n) const { return l1_l2__cmd_qs_[n]; }
 
  protected:
-  // Elaboration callback
-  virtual void elab() override;
-  // Design Rule Check (DRC) callback
-  virtual void drc() override;
+
+  // Accessors:
   // Pointer to module arbiter instance.
   Arbiter<const Message*>* arb() const { return arb_; }
   // Point to module cache instance.
   CacheModel<L2LineState*>* cache() const { return cache_; }
-  // Registers NOC End-Point interface.
-  kernel::EndPointIntf<const Message*>* noc_ep() const { return noc_ep_; }
-  // Pointer to directory mapper (address to directory mapper).
-  cc::DirectoryMapper* dm() const { return dm_; }
- private:
+  // Protocol instance
+  L2CacheModelProtocol* protocol() const { return protocol_; }
+  // L2 -> CC command queue
+  MessageQueue* l2_cc__cmd_q() const { return l2_cc__cmd_q_; }
+  // CC -> L2 response queue
+  MessageQueue* cc_l2__rsp_q() const { return cc_l2__rsp_q_; }
+
+  // Construction:
   void build();
+  // Add L1 cache child.
+  void add_l1c(L1CacheModel* l1c);
+
+  // Elaboration:
+  virtual void elab() override;
+  // Set parent cache controlle
+  void set_cc(CacheController* cc) { cc_ = cc; }
+  // Set L2 -> CC command queue.
+  void set_l2_cc__cmd_q(MessageQueue* mq) { l2_cc__cmd_q_ = mq; }
+  
+  // Design Rule Check (DRC) callback
+  virtual void drc() override;
+
+ private:
 
   // L2 Cache Configuration.
   L2CacheModelConfig config_;
   // Child L1 Caches
   std::vector<L1CacheModel*> l1cs_;
-  // L1 Command Request
-  MessageQueue* l1cmdreqq_ = nullptr;
-  // L1 Command Response
-  MessageQueue* l1cmdrspq_ = nullptr;
+  // L1 -> L2 Command Request
+  std::vector<MessageQueue*> l1_l2__cmd_qs_;
+  // L2 -> CC Command Queue
+  MessageQueue* l2_cc__cmd_q_ = nullptr;
+  // CC -> L2 Response Queue
+  MessageQueue* cc_l2__rsp_q_ = nullptr;
   // Queue selection arbiter
   Arbiter<const Message*>* arb_ = nullptr;
   // Cache Instance
   CacheModel<L2LineState*>* cache_ = nullptr;
-  // End-Point into NOC instance.
-  kernel::EndPointIntf<const Message*>* noc_ep_ = nullptr;
-  // Directory mapper instance.
-  cc::DirectoryMapper* dm_ = nullptr;
+  // Cache Controller instance
+  CacheController* cc_ = nullptr;
+  // L1 cache protocol
+  L2CacheModelProtocol* protocol_ = nullptr;
   // Main process of execution.
   MainProcess* main_;
 };

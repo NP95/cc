@@ -163,6 +163,7 @@ class DirectoryModel::MainProcess : public kernel::Process {
   void handle_process_message() {
     const MsgRequesterIntf* intf = ctxt_.t.intf();
     const Message* msg = intf->peek();
+    /*
     switch (msg->cls()) {
       case Message::Ace: {
         log(LogMessage("Got message"));
@@ -170,6 +171,7 @@ class DirectoryModel::MainProcess : public kernel::Process {
       default: {
       } break;
     }
+    */
   }
 
   void handle_execute_actions() {
@@ -185,7 +187,7 @@ class DirectoryModel::MainProcess : public kernel::Process {
 
 DirectoryModel::DirectoryModel(
     kernel::Kernel* k, const DirectoryModelConfig& config)
-    : kernel::Agent<const Message*>(k, config.name), config_(config) {
+    : Agent(k, config.name), config_(config) {
   build();
 }
 
@@ -211,8 +213,8 @@ void DirectoryModel::build() {
 
 void DirectoryModel::elab() {
   // Register message queue end-points
-  add_end_point(ut(DirEp::CmdQ), cmdq_);
-  add_end_point(ut(DirEp::RspQ), rspq_);
+  // add_end_point(ut(DirEp::CmdQ), cmdq_);
+  // add_end_point(ut(DirEp::RspQ), rspq_);
 }
 
 void DirectoryModel::drc() {

@@ -31,6 +31,7 @@
 #include "kernel.h"
 #include "cfgs.h"
 #include "types.h"
+#include "primitives.h"
 
 namespace cc {
 
@@ -53,7 +54,7 @@ const char* to_string(DirEp d);
 
 //
 //
-class DirectoryModel : public kernel::Agent<const Message*> {
+class DirectoryModel : public Agent {
   class MainProcess;
  public:
   DirectoryModel(kernel::Kernel* k, const DirectoryModelConfig& config);

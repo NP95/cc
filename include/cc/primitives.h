@@ -257,6 +257,43 @@ class Arbiter : public kernel::Module {
 
 //
 //
+template<typename T>
+class Table : kernel::Module {
+
+  struct Entry {
+    // Flag denoting validity of table.
+    bool is_valid = false;
+    // Table entry state.
+    T t;
+  };
+  
+ public:
+  Table(std::size_t n) : n_(n) {
+    t_.resize(n);
+  }
+
+  // Accessors:
+  // Table size.
+  std::size_t n() const { return n_; }
+  // Number of unused slots
+  std::size_t free_n() const { return free_n_; }
+  // Flag denoting whether table is empty.
+  bool is_empty() const { return n() == free_n(); }
+  // Flag denoting whether table is fully utilized.
+  bool is_full() const { return free_n() == 0; }
+
+
+ private:
+  // Count of unused locations in table.
+  std::size_t free_n_;
+  // Table state.
+  std::vector<Entry> t_;
+  // Table size
+  std::size_t n_;
+};
+
+//
+//
 class MessageQueue : public kernel::Module,
                      public kernel::EndPointIntf<const Message*>,
                      public kernel::RequesterIntf<const Message*> {
@@ -280,6 +317,17 @@ class MessageQueue : public kernel::Module,
   void build(std::size_t n);
   // Queue primitive.
   Queue<const Message*>* q_ = nullptr;
+};
+
+//
+//
+class Agent : public kernel::Module {
+ public:
+  Agent(kernel::Kernel* k, const std::string& name);
+
+ protected:
+  // (Run-Phase only)
+  void issue(MessageQueue* mq, const kernel::Time& time, const Message* msg);
 };
 
 }  // namespace cc

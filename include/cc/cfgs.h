@@ -40,6 +40,7 @@ class L1CacheModelProtocol;
 class L2CacheModelProtocol;
 class DirectoryProtocol;
 class DirectoryMapper;
+class ProtocolBuilder;
 
 //
 //
@@ -62,6 +63,15 @@ struct CacheModelConfig {
 
 //
 //
+struct CpuConfig {
+  // Instance name
+  std::string name = "cpu";
+  // CPU stimulus driver
+  Stimulus* stimulus = nullptr;
+};
+
+//
+//
 struct L1CacheModelConfig {
   // L1 Cache Model name
   std::string name = "l1cache";
@@ -70,9 +80,6 @@ struct L1CacheModelConfig {
   // cache instance (models the notion of a microprocessor
   // periodically emitting load/store instructions to memory).
   Stimulus* stim = nullptr;
-
-  // Protocol to the cache protocol logic.
-  L1CacheModelProtocol* protocol = nullptr;
 
   // Number of slots in the command queue.
   std::size_t l1_cmdq_slots_n = 3;
@@ -85,6 +92,9 @@ struct L1CacheModelConfig {
 
   // Cache configuration.
   CacheModelConfig cconfig;
+
+  // Protocol builder instance.
+  ProtocolBuilder* pbuilder = nullptr;
 };
 
 //
@@ -93,18 +103,15 @@ struct L2CacheModelConfig {
   // L2 Cache Model name
   std::string name = "l2cache";
 
-  // Pointer to the cache protocol logic
-  L2CacheModelProtocol* protocol = nullptr;
-
   // Child L1 client configurations.
   std::vector<L1CacheModelConfig> l1configs;
 
   // Cache configuration.
   CacheModelConfig cconfig;
 
-  // Directory mapper; recovers destination directory for a given
-  // address.
-  DirectoryMapper* dmap = nullptr;
+  // Protocol builder instance.
+  ProtocolBuilder* pbuilder = nullptr;
+
 };
 
 //
@@ -125,14 +132,18 @@ struct NocModelConfig {
 struct DirectoryModelConfig {
   // Directory name
   std::string name = "dir";
-  // Directory Protocol handler
-  DirectoryProtocol* protocol = nullptr;
+
   // Command Queue size
   std::size_t cmd_queue_n = 4;
+
   // Response Queue size
   std::size_t rsp_queue_n = 4;
+
   // Cache configuratioh (non-Null Filter case).
   CacheModelConfig cconfig;
+
+  // Protocol builder instance.
+  ProtocolBuilder* pbuilder = nullptr;
 };
 
 //
@@ -140,12 +151,47 @@ struct DirectoryModelConfig {
 struct LLCModelConfig {
   // LLC name
   std::string name = "llc";
+
   // Cache configuration
   CacheModelConfig cconfig;
+
   // Command Queue size
   std::size_t cmd_queue_n = 4;
+
   // Response Queue size
   std::size_t rsp_queue_n = 4;
+
+  // Protocol builder instance.
+  ProtocolBuilder* pbuilder = nullptr;
+};
+
+//
+//
+struct CacheControllerCfg {
+  // Controller name
+  std::string name = "ccntrl";
+
+  // Protocol builder instance.
+  ProtocolBuilder* pbuilder = nullptr;
+};
+
+//
+//
+struct CpuClusterCfg {
+  // Cluster name;
+  std::string name = "cluster";
+
+  // Cache Controller config;
+  CacheControllerCfg cc_config;
+
+  // L2 cache configuration.
+  L2CacheModelConfig l2c_config;
+
+  // L1 cache configuration(s)
+  std::vector<L1CacheModelConfig> l1c_configs;
+
+  // CPU configurations
+  std::vector<CpuConfig> cpu_configs;
 };
 
 }  // namespace cc

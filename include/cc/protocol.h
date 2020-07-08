@@ -37,8 +37,8 @@
 namespace cc {
 
 // Message Forwards:
-class CpuCommandMessage;
-class L1L2Message;
+class CpuL1__CmdMsg;
+class L1L2__CmdMsg;
 
 namespace kernel {
 
@@ -72,10 +72,12 @@ enum class L1UpdateStatus { CanCommit, IsBlocked };
 
 //
 enum class L1UpdateAction {
+  UpdateState,
+  Commit,
+  Block,
   EmitCpuRsp,
   EmitGetS,
-  EmitGetE,
-  UnblockCmdReqQueue
+  EmitGetE
 };
 
 //
@@ -84,31 +86,16 @@ class L1CacheModelApplyResult {
  public:
   L1CacheModelApplyResult() = default;
 
-  // Penalty cycles incurred on
-  std::size_t penalty_cycles_n() const { return penalty_cycles_n_; }
-  void penalty_cycles_n(std::size_t n) { penalty_cycles_n_ = n; }
-
-  // Action result (issue or blocked).
-  L1UpdateStatus status() const { return status_; }
-  void set_status(L1UpdateStatus status) { status_ = status; }
-
-  // Final state of line upon commitment of result.
+  bool empty() const { return actions_.empty(); }
   state_t state() const { return state_; }
-  void set_state(state_t state) { state_ = state; }
-
-  // Actions to be completed by hosting L1 cache.
-  std::vector<L1UpdateAction>& actions() { return actions_; }
-  const std::vector<L1UpdateAction>& actions() const { return actions_; }
+  void state(state_t state) { state_ = state; }
+  L1UpdateAction next() const { return actions_.front(); }
+  void push(L1UpdateAction action) { actions_.push_back(action); }
+  void pop() { actions_.pop_front(); }
 
  private:
-  //
-  L1UpdateStatus status_;
-  //
-  std::size_t penalty_cycles_n_;
-  // State to which line shall transition if result is committed.
   state_t state_;
-  //
-  std::vector<L1UpdateAction> actions_;
+  std::deque<L1UpdateAction> actions_;
 };
 
 //
@@ -123,11 +110,10 @@ class L1CacheModelProtocol {
 
   //
   virtual void apply(L1CacheModelApplyResult& r, L1LineState* line,
-                     const CpuCommandMessage* msg) const = 0;
+                     const CpuL1__CmdMsg* msg) const = 0;
 
   //
-  virtual void commit(const L1CacheModelApplyResult& r,
-                      L1LineState* state) const = 0;
+  virtual void update_line_state(L1LineState* line, state_t state) const = 0;
 };
 
 //
@@ -149,6 +135,8 @@ class L2LineState {
 // clang-format off
 #define L2_UPDATE_ACTIONS(__func)                   \
   __func(UpdateState)                               \
+  __func(Commit)                                    \
+  __func(Block)                                     \
   __func(EmitReadNoSnoop)                           \
   __func(EmitReadOnce)                              \
   __func(EmitReadClean)                             \
@@ -206,7 +194,7 @@ class L2CacheModelProtocol {
 
   //
   virtual void apply(L2CacheModelApplyResult& r, L2LineState* line,
-                     const L1L2Message* msg) const = 0;
+                     const L1L2__CmdMsg* msg) const = 0;
 
   //
   virtual void commit(const L2CacheModelApplyResult& r,

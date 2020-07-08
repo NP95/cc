@@ -29,6 +29,7 @@
 #define CC_INCLUDE_CC_NOC_H
 
 #include "kernel.h"
+#include "cc/primitives.h"
 #include "cc/cfgs.h"
 #include "cc/msg.h"
 #include <vector>
@@ -43,7 +44,7 @@ template<typename> class Arbiter;
 //
 class NocMessage : public Message {
  public:
-  NocMessage(Transaction* t) : Message(t, Message::Noc) {}
+  NocMessage(Transaction* t) : Message(t, MessageClass::Noc) {}
 
   //
   const Message* payload() const { return payload_; }
@@ -69,7 +70,7 @@ class NocMessage : public Message {
 
 //
 //
-class NocModel : public kernel::Agent<const Message*> {
+class NocModel : public Agent {
   class MainProcess;
  public:
   NocModel(kernel::Kernel* k, const NocModelConfig& config);

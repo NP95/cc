@@ -25,41 +25,22 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "cc/llc.h"
+#include "ccntrl.h"
 #include "primitives.h"
-#include "utility.h"
 
 namespace cc {
 
-const char* to_string(LLCEp d) {
-  switch (d) {
-    default: return "Invalid";
-#define __declare_string(__name) case LLCEp::__name: return #__name;
-      LLC_MESSAGE_QUEUES(__declare_string)
-#undef __declare_string
-  }
-}
+class CacheController::MainProcess : public kernel::Process {
 
-class LLCModel::MainProcess : public kernel::Process {
-
-  struct Context {
-    // Current arbiter tournament; retained such that the
-    Arbiter<const Message*>::Tournament t;
-  };
-
-  // clang-format off
-#define STATES(__func)				\
-  __func(AwaitingMessage)			\
-  __func(ProcessMessage)			\
-  __func(ExecuteActions)
-  // clang-format on
+#define STATES(__func)                          \
+  __func(AwaitingMessage)                       \
+  __func(ProcessMessage)
 
   enum class State {
 #define __declare_state(__name) __name,
     STATES(__declare_state)
 #undef __declare_state
   };
-
   std::string to_string(State state) {
     switch (state) {
       default:
@@ -74,13 +55,15 @@ class LLCModel::MainProcess : public kernel::Process {
     return "Invalid";
   }
 #undef STATES
-
+ 
  public:
-  MainProcess(kernel::Kernel* k, const std::string& name, LLCModel* model)
-      : kernel::Process(k, name), model_(model) {
+  MainProcess(kernel::Kernel* k, const std::string& name, CacheController* cc)
+      : Process(k, name), cc_(cc) {
   }
-
   State state() const { return state_; }
+
+ private:
+
   void set_state(State state) {
     if (state_ != state) {
       LogMessage msg("State transition: ");
@@ -93,65 +76,95 @@ class LLCModel::MainProcess : public kernel::Process {
     state_ = state;
   }
 
- private:
-
   // Initialization
   void init() override {
+    Arbiter<const Message*>* arb = cc_->arb();
     set_state(State::AwaitingMessage);
-    Arbiter<const Message*>* arb = model_->arb();
-    // Await the arrival of a new message at the ingress message
-    // queues.
     wait_on(arb->request_arrival_event());
-  }
+  }    
 
-  // Elaboration
+  // Evaluation
   void eval() override {
+    switch (state()) {
+      case State::AwaitingMessage: {
+        handle_awaiting_message();
+      } break;
+      case State::ProcessMessage: {
+        handle_process_message();
+      } break;
+      default: {
+        // Unknown state
+      } break;
+    }
   }
 
   // Finalization
   void fini() override {
   }
 
-  // Current execution context
-  Context ctxt_;
-  // Current machine state
-  State state_ = State::AwaitingMessage;
-  // Pointer to owning LLC instance.
-  LLCModel* model_ = nullptr;
+  void handle_awaiting_message() {
+    set_state(State::ProcessMessage);
+    next_delta();
+  }
+
+  void handle_process_message() {
+    const MsgRequesterIntf* intf = ctxt_.t.intf();
+    const Message* msg = intf->peek();
+    switch (msg->cls()) {
+      case MessageClass::L2CC_AceCmd: {
+        // L2 -> CC bus tranasaction.
+      } break;
+      default: {
+        // Unknown message class.
+      } break;
+    }
+  }
+
+  // Current processing state
+  State state_;
+  // Cache controller instance.
+  CacheController* cc_ = nullptr;
 };
 
-LLCModel::LLCModel(kernel::Kernel* k, const LLCModelConfig& config)
+CacheController::CacheController(
+    kernel::Kernel* k, const CacheControllerCfg& config)
     : Agent(k, config.name), config_(config) {
   build();
 }
 
-void LLCModel::build() {
-  // Construct command queue
-  cmdq_ = new MessageQueue(k(), "cmdq", config_.cmd_queue_n);
-  add_child_module(cmdq_);
-
-  // Construct response queue
-  rspq_ = new MessageQueue(k(), "rspq", config_.rsp_queue_n);
-  add_child_module(rspq_);
-
-  // Construct arbiter
+void CacheController::build() {
+  // Construct L2 to CC command queue
+  l2_cc__cmd_q_ = new MessageQueue(k(), "l2_cc__cmd_q", 3);
+  add_child_module(l2_cc__cmd_q_);
+  // NOC -> CC msg queue.
+  noc_cc__msg_q_ = new MessageQueue(k(), "noc_cc__msg_q_", 3);
+  add_child_module(noc_cc__msg_q_);
+  // Arbiteer
   arb_ = new Arbiter<const Message*>(k(), "arb");
-  arb_->add_requester(cmdq_);
-  arb_->add_requester(rspq_);
   add_child_module(arb_);
-
-  // Construct main thread
+  // Main thread
   main_ = new MainProcess(k(), "main", this);
   add_child_process(main_);
 }
 
-void LLCModel::elab() {
-  // Register message queue end-points
-  // add_end_point(ut(LLCEp::CmdQ), cmdq_);
-  // add_end_point(ut(LLCEp::RspQ), rspq_);
+void CacheController::elab() {
+  // Add ingress queues to arbitrator.
+  arb_->add_requester(l2_cc__cmd_q_);
+  arb_->add_requester(noc_cc__msg_q_);
 }
 
-void LLCModel::drc() {
+void CacheController::drc() {
+
+  if (dm() == nullptr) {
+    // The Directory Mapper object computes the host directory for a
+    // given address. In a single directory system, this is a basic
+    // mapping to a single directory instance, but in more performant
+    // systems this may some non-trivial mapping to multiple home
+    // directories.
+    LogMessage msg("Directory mapper is not defined.", Level::Warning);
+    log(msg);
+  }
 }
+
 
 } // namespace cc

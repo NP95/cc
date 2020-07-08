@@ -28,11 +28,10 @@
 #include "l1cache.h"
 
 #include "cache.h"
-#include "cc/cpu.h"
+#include "cpu.h"
 #include "cc/protocol.h"
 #include "cc/sim.h"
 #include "cc/msg.h"
-#include "cpu_msg.h"
 #include "l2cache.h"
 #include "primitives.h"
 
@@ -46,15 +45,9 @@ class L1CacheModel::MainProcess : public kernel::Process {
     // Current arbiter tournament; retained such that the
     Arbiter<const Message*>::Tournament t;
 
-    // Set of messages to be emitted by the cache.
-    std::deque<L1CacheMessageType> l1_cache_messages;
-
     // State containing the result of the protocol message
     // application.
     L1CacheModelApplyResult apply_result;
-
-    // Pointer to the protocol logic object.
-    L1CacheModelProtocol* protocol = nullptr;
 
     // Iterator to the line into which the current operation is taking
     // place.
@@ -87,7 +80,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
           break;
         STATES(__declare_to_string)
 #undef __declare_to_string
-            }
+    }
     return "Invalid";
   }
 
@@ -127,7 +120,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
   void eval() override {
     switch (state()) {
       case State::AwaitingMessage: {
-	handle_awaiting_message();
+	    handle_awaiting_message();
       } break;
 
       case State::ProcessMessage: {
@@ -136,18 +129,6 @@ class L1CacheModel::MainProcess : public kernel::Process {
 
       case State::ExecuteActions: {
         handle_execute_actions();
-      } break;
-
-      case State::EmitMessages: {
-        handle_emit_messages();
-      } break;
-
-      case State::CommitContext: {
-        handle_commit_context();
-      } break;
-
-      case State::DiscardContext: {
-        handle_discard_context();
       } break;
 
       default: {
@@ -178,7 +159,6 @@ class L1CacheModel::MainProcess : public kernel::Process {
       ctxt_ = Context();
       ctxt_.t = t;
       const L1CacheModelConfig& config = model_->config();
-      ctxt_.protocol = config.protocol;
       set_state(State::ProcessMessage);
       next_delta();
     } else {
@@ -192,12 +172,10 @@ class L1CacheModel::MainProcess : public kernel::Process {
     const MsgRequesterIntf* intf = ctxt_.t.intf();
     const Message* msg = intf->peek();
     switch (msg->cls()) {
-      case Message::CpuCmd: {
+      case MessageClass::CpuL1__CmdMsg: {
         CacheModel<L1LineState*>* cache = model_->cache();
-        CacheAddressHelper ah = cache->ah();
-        const CpuCommandMessage* cpucmd =
-            static_cast<const CpuCommandMessage*>(msg);
-
+        const CacheAddressHelper ah = cache->ah();
+        const CpuL1__CmdMsg* cpucmd = static_cast<const CpuL1__CmdMsg*>(msg);
         // Check cache occupancy status:
         CacheModel<L1LineState*>::Set set = cache->set(ah.set(cpucmd->addr()));
         if (set.hit(ah.tag(cpucmd->addr()))) {
@@ -209,32 +187,10 @@ class L1CacheModel::MainProcess : public kernel::Process {
           CacheModel<L1LineState*>::Line& line = ctxt_.line_it.line();
 
           L1CacheModelApplyResult& apply_result = ctxt_.apply_result;
-          const L1CacheModelProtocol* p = ctxt_.protocol;
+          const L1CacheModelProtocol* p = model_->protocol();
           p->apply(apply_result, line.t(), cpucmd);
-
-          switch (apply_result.status()) {
-            case L1UpdateStatus::IsBlocked: {
-              // The protocol disallows the current message from
-              // completing (the reason why this has happeneded is
-              // unclear within the context of the cache and is known
-              // only to the protocol manager itself).
-
-              // Block the interface, so that it cannot be rescheduled
-              // in subsequent timesteps.
-              MsgRequesterIntf* intf = ctxt_.t.intf();
-              intf->set_blocked(true);
-
-              // Incur the penatly associated with the failed attempt;
-              // approximately equivalent to the penalty associated
-              // with flushing the cache pipeline.
-              set_state(State::DiscardContext);
-              next_delta();
-            } break;
-            case L1UpdateStatus::CanCommit: {
-              set_state(State::ExecuteActions);
-              next_delta();
-            } break;
-          }
+          set_state(State::ExecuteActions);
+          next_delta();
         } else {
           // Cache miss; either service current command by installing
 	  CacheModel<L1LineState*>::Evictor evictor;
@@ -252,7 +208,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
             if (eviction_required) {
               // TODO
             } else {
-              const L1CacheModelProtocol* protocol = ctxt_.protocol;
+              const L1CacheModelProtocol* protocol = model_->protocol();
               // Construct new line; initialized to the invalid state
               // (or the equivalent, as determined by the protocol).
               L1LineState* l1line = protocol->construct_line();
@@ -286,113 +242,43 @@ class L1CacheModel::MainProcess : public kernel::Process {
   }
 
   void handle_execute_actions() {
-    // Incoming actions:
-    L1CacheModelApplyResult& apply_result = ctxt_.apply_result;
-    // Outgoing message requests.
-    std::deque<L1CacheMessageType>& msgs = ctxt_.l1_cache_messages;
-    // Dispatch for all actions
-    for (L1UpdateAction action : apply_result.actions()) {
+    L1CacheModelApplyResult& ar = ctxt_.apply_result;
+    while (!ar.empty()) {
+      const L1UpdateAction action = ar.next();
       switch (action) {
+        case L1UpdateAction::UpdateState: {
+          // Apply line state update.
+          const L1CacheModelProtocol* protocol = model_->protocol();
+          L1LineState* line = ctxt_.line_it->t();
+          protocol->update_line_state(line, ar.state());
+          // Action completeed; discard.
+          ar.pop();
+        } break;
+        case L1UpdateAction::Commit: {
+          kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
+          intf->dequeue();
+          ctxt_.t.advance();
+          ar.pop();
+        } break;
+        case L1UpdateAction::Block: {
+          kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
+          intf->set_blocked(true);
+          ar.pop();
+        } break;
         case L1UpdateAction::EmitCpuRsp: {
-          // Emit response to requesting CPU
-          msgs.push_back(L1CacheMessageType::CpuRsp);
+          ar.pop();
         } break;
         case L1UpdateAction::EmitGetS: {
-          // Emit GetS (Get Shared) to owning L2 cache.
-          msgs.push_back(L1CacheMessageType::GetS);
-        } break;
-        case L1UpdateAction::EmitGetE: {
-          // Emit GetE (Get Exclusive) to owning L2 cache.
-          msgs.push_back(L1CacheMessageType::GetE);
-        } break;
-        case L1UpdateAction::UnblockCmdReqQueue: {
-          MessageQueue* mq = model_->msgreqq();
-          mq->set_blocked(false);
+          L1L2__CmdMsg* msg = new L1L2__CmdMsg(nullptr);
+          msg->set_opcode(L2Opcode::GetS);
+          model_->issue(model_->l1_l2__cmd_q(), kernel::Time{1000, 0}, msg);
+          ar.pop();
         } break;
         default: {
+          // Error, unknown action
         } break;
       }
     }
-    set_state(msgs.empty() ? State::CommitContext : State::EmitMessages);
-    next_delta();
-  }
-
-  void handle_emit_messages() {
-    std::deque<L1CacheMessageType>& msgs = ctxt_.l1_cache_messages;
-    // Form message and emit.
-    const MsgRequesterIntf* intf = ctxt_.t.intf();
-    // Initiating message.
-    const Message* msg = intf->peek();
-    // Emit messsage:
-    switch (msgs.front()) {
-      case L1CacheMessageType::CpuRsp: {
-        const bool did_issue = true;
-        if (did_issue) {
-          // Construct message:
-          CpuResponseMessage* rsp = new CpuResponseMessage(msg->t());
-          // Issue to CPU:
-          kernel::EndPointIntf<const Message*>* cpu_end_point = model_->cpu();
-          model_->issue(cpu_end_point, kernel::Time{10, 0}, rsp);
-          // As now issue, discard current message request.
-          msgs.pop_front();
-        }
-      } break;
-      case L1CacheMessageType::GetS: {
-        const bool did_issue = true;
-        if (did_issue) {
-          L1L2Message* cmd = new L1L2Message(msg->t());
-          cmd->opcode(L1L2Message::GetS);
-          // cmd->addr(msg->addr());
-          L2CacheModel* l2cache = model_->l2cache();
-          kernel::EndPointIntf<const Message*>* l2_ep =
-              l2cache->end_point(L2CacheModel::L1CmdReq);
-          model_->issue(l2_ep, kernel::Time{10, 0}, cmd);
-          msgs.pop_front();
-        }
-      } break;
-      case L1CacheMessageType::GetE: {
-        const bool did_issue = true;
-        if (did_issue) {
-          L1L2Message* cmd = new L1L2Message(msg->t());
-          cmd->opcode(L1L2Message::GetE);
-          // cmd->addr(msg->addr());
-          L2CacheModel* l2cache = model_->l2cache();
-          kernel::EndPointIntf<const Message*>* l2_ep =
-              l2cache->end_point(L2CacheModel::L1CmdReq);
-          model_->issue(l2_ep, kernel::Time{10, 0}, cmd);
-          msgs.pop_front();
-        }
-      } break;
-      default: {
-        LogMessage msg("Unknown message type: ", Level::Error);
-        log(msg);
-      } break;
-    }
-
-    if (msgs.empty()) {
-      set_state(State::CommitContext);
-    }
-    next_delta();
-  }
-
-  void handle_commit_context() {
-    CacheModel<L1LineState*>::LineIterator line_it = ctxt_.line_it;
-    CacheModel<L1LineState*>::Line& line = line_it.line();
-    // Apply protocol update to cache line.
-    const L1CacheModelProtocol* protocol = ctxt_.protocol;
-    protocol->commit(ctxt_.apply_result, line.t());
-    // Remove head-of-line message from nominated Message Queue and
-    // return to associated pool.
-    MsgRequesterIntf* intf = ctxt_.t.intf();
-    const Message* msg = intf->dequeue();
-    msg->release();
-    // Advance arbitration state.
-    ctxt_.t.advance();
-    set_state(State::AwaitingMessage);
-    next_delta();
-  }
-
-  void handle_discard_context() {
     set_state(State::AwaitingMessage);
     next_delta();
   }
@@ -406,31 +292,23 @@ class L1CacheModel::MainProcess : public kernel::Process {
 };
 
 L1CacheModel::L1CacheModel(kernel::Kernel* k, const L1CacheModelConfig& config)
-    : kernel::Agent<const Message*>(k, config.name), config_(config) {
+    : Agent(k, config.name), config_(config) {
   build();
 }
 
 L1CacheModel::~L1CacheModel() {}
 
 void L1CacheModel::build() {
-  // Capture stimulus;
-  cpu_ = new Cpu(k(), "cpu");
-  cpu_->set_stimulus(config_.stim);
-  add_child_module(cpu_);
+  // Construct command request queue
+  cpu_l1__cmd_q_ = new MessageQueue(k(), "cpu_l1__cmd_q", 16);
+  add_child_module(cpu_l1__cmd_q_);
 
-  // Construct queues: Command Request Queue
-  msgreqq_ = new MessageQueue(k(), "cmdreqq", 16);
-  add_child_module(msgreqq_);
-
-  // Construct queues: Command Response Queue
-  msgrspq_ = new MessageQueue(k(), "cmdrspq", 16);
-  add_child_module(msgrspq_);
+  // Construct L2 -> L1 response queue
+  l2_l1__rsp_q_ = new MessageQueue(k(), "l2_l1__rsp_q", 16);
+  add_child_module(l2_l1__rsp_q_);
 
   // Arbiter
   arb_ = new Arbiter<const Message*>(k(), "arb");
-  arb_->add_requester(cpu_);
-  arb_->add_requester(msgreqq_);
-  arb_->add_requester(msgrspq_);
   add_child_module(arb_);
 
   // Main thread of execution
@@ -438,14 +316,24 @@ void L1CacheModel::build() {
   add_child_process(main_);
 
   cache_ = new CacheModel<L1LineState*>(config_.cconfig);
+
+  // Set up protocol
+  protocol_ = config_.pbuilder->create_l1();
 }
 
 void L1CacheModel::elab() {
-  add_end_point(EndPoints::CpuRsp, cpu_);
-  add_end_point(EndPoints::L1CmdReq, msgreqq_);
-  add_end_point(EndPoints::L1CmdRsp, msgrspq_);
+  arb_->add_requester(cpu_l1__cmd_q_);
+  arb_->add_requester(l2_l1__rsp_q_);
 }
 
-void L1CacheModel::drc() {}
+void L1CacheModel::drc() {
+  if (cpu_ == nullptr) {
+    // Error: CPU has not been bound.
+  }
+
+  if (l2c_ == nullptr) {
+    // Error: L2C has not been bound.
+  }
+}
 
 }  // namespace cc

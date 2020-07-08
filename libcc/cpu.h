@@ -25,57 +25,95 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_CPU_H
-#define CC_INCLUDE_CC_CPU_H
+#ifndef CC_LIBCC_CPU_H
+#define CC_LIBCC_CPU_H
 
 #include <set>
 
 #include "kernel.h"
 #include "sim.h"
+#include "cc/cfgs.h"
+#include "cc/msg.h"
+#include "cc/primitives.h"
 
 namespace cc {
 
 // Forwards
-class Transaction;
 class Message;
+class L1CacheModel;
+class MessageQueue;
 
 //
 //
-class Cpu : public kernel::Module,
-            public kernel::EndPointIntf<const Message*>,
-            public kernel::RequesterIntf<const Message*> {
-  class MainProcess;
-
+class CpuL1__CmdMsg : public Message {
  public:
-  Cpu(kernel::Kernel* k, const std::string& name);
+  enum Opcode { Load, Store };
 
-  // Set stimulus object for processor.
-  void set_stimulus(Stimulus* stim) { stim_ = stim; }
+  CpuL1__CmdMsg(Transaction* t) : Message(t, MessageClass::CpuL1__CmdMsg) {}
 
-  // End-Point interface:
-  void push(const Message* msg) override;
+  Opcode opcode() const { return opcode_; }
+  addr_t addr() const { return addr_; }
 
-  // Requester Interface:
-  bool has_req() const override;
-  const Message* peek() const override;
-  const Message* dequeue() override;
-  kernel::Event& request_arrival_event() override;
+  void set_addr(addr_t addr) { addr_ = addr; }
+  void set_opcode(Opcode opcode) { opcode_ = opcode; }
 
  private:
+  addr_t addr_;
+  Opcode opcode_;
+};
+
+//
+//
+class L1Cpu__RspMsg : public Message {
+ public:
+  L1Cpu__RspMsg(Transaction* t) : Message(t, MessageClass::L1Cpu__RspMsg) {}
+};
+
+//
+//
+class Cpu : public Agent {
+  class ProducerProcess;
+  class ConsumerProcess;
+  
+  friend class CpuCluster;
+ public:
+  Cpu(kernel::Kernel* k, const CpuConfig& config);
+
+  // Cache configuration
+  const CpuConfig& config() const { return config_; }
+
+ protected:
+
+  // Accessors;
+  MessageQueue* cpu_l1__cmd_q() const { return cpu_l1__cmd_q_; }
+  
+
+  // Construction:
   void build();
+
+  // Elaboration:
   void elab() override;
+  // Set parent L1 cache instance.
+  void set_l1c(L1CacheModel* l1c) { l1c_ = l1c; }
+  // Set CPU -> L1 command queue
+  void set_cpu_l1__cmd_q(MessageQueue* mq) { cpu_l1__cmd_q_ = mq; }
+
+  // Design Rule Check (DRC):
   void drc() override;
-  void construct_new_message() const;
-  //
-  kernel::Event mature_event_;
-  //
-  Stimulus* stim_ = nullptr;
-  //
-  MainProcess* main_ = nullptr;
-  // Set of outstanding transactions.
-  std::set<Transaction*> ts_;
-  // Current head-of-queue message to be emitted.
-  mutable const Message* msg_ = nullptr;
+
+ private:
+  // 
+  Stimulus* stimulus_ = nullptr;
+  // CPU -> L1 message queue.
+  MessageQueue* cpu_l1__cmd_q_ = nullptr;
+  // Producer thread of execution.
+  ProducerProcess* pp_ = nullptr;
+  // Consumer thread of execution.
+  ConsumerProcess* cp_ = nullptr;
+  // L1Cache instance.
+  L1CacheModel* l1c_ = nullptr;
+  // CPU Configuration.
+  CpuConfig config_;
 };
 
 }  // namespace cc

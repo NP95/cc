@@ -67,7 +67,7 @@ AceCmdOpcode update_to_opcode(L2UpdateAction action);
 //
 class AceCmdMsg : public Message {
  public:
-  AceCmdMsg(Transaction* t) : Message(t, Ace) {}
+  AceCmdMsg(Transaction* t) : Message(t, MessageClass::AceCmd) {}
 
   AceCmdOpcode opcode() const { return opcode_; }
   void opcode(AceCmdOpcode opcode) { opcode_ = opcode; }
@@ -81,7 +81,7 @@ class AceCmdMsg : public Message {
 //
 class AceCmdRspMsg : public Message {
  public:
-  AceCmdRspMsg(Transaction* t) : Message(t, Ace) {}
+  AceCmdRspMsg(Transaction* t) : Message(t, MessageClass::AceCmd) {}
 
   bool pass_dirty() const { return pass_dirty_; }
   bool is_shared() const { return is_shared_; }
@@ -115,7 +115,7 @@ const char* to_string(AceSnpOpcode cmd);
 //
 class AceSnpMsg : public Message {
  public:
-  AceSnpMsg(Transaction* t) : Message(t, Ace) {}
+  AceSnpMsg(Transaction* t) : Message(t, MessageClass::AceSnoop) {}
 
   AceSnpOpcode opcode() const { return opcode_; }
  private:
@@ -126,7 +126,7 @@ class AceSnpMsg : public Message {
 //
 class AceSnpRspMsg : public Message {
  public:
-  AceSnpRspMsg(Transaction* t) : Message(t, Ace) {}
+  AceSnpRspMsg(Transaction* t) : Message(t, MessageClass::AceSnoop) {}
 
   // Observers:
   bool data_transfer() const { return data_transfer_; }

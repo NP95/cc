@@ -25,70 +25,74 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_LLC_H
-#define CC_INCLUDE_CC_LLC_H
+#ifndef CC_LIBCC_CCNTRL_H
+#define CC_LIBCC_CCNTRL_H
 
-#include "kernel.h"
-#include "cfgs.h"
-#include "primitives.h"
+#include "cc/kernel.h"
+#include "cc/cfgs.h"
+#include "cc/primitives.h"
 
 namespace cc {
 
-// Forwards:
 class Message;
 class MessageQueue;
-template<typename T> class Arbiter;
+class L2CacheModel;
 
-#define LLC_MESSAGE_QUEUES(__func)              \
-  __func(CmdQ)                                  \
-  __func(RspQ)
-
-enum class LLCEp : kernel::end_point_id_t {
-#define __declare_enum(__name) __name,
-  LLC_MESSAGE_QUEUES(__declare_enum)
-#undef __declare_enum
-};
-
-const char* to_string(LLCEp d);
-
-//
-//
-class LLCModel : public Agent {
+class CacheController : public Agent {
+  friend class CpuCluster;
   class MainProcess;
  public:
-  LLCModel(kernel::Kernel* k, const LLCModelConfig& config);
+  CacheController(kernel::Kernel* k, const CacheControllerCfg& config);
 
-  // Return model configuration.
-  const LLCModelConfig& config() const { return config_; }
+  // Obtain cache controller configuration.
+  const CacheControllerCfg& config() const { return config_; }
 
  protected:
-  // Construction/Build
+
+  // Accessors:
+  // Pointer to module arbiter instance:
+  Arbiter<const Message*>* arb() const { return arb_; }
+  // Directory Mapper instance.
+  DirectoryMapper* dm() const { return dm_; }
+  // L2 -> Controller (Transaction) Command Queue (owning)
+  MessageQueue* l2_cc__cmd_q() const { return l2_cc__cmd_q_; }
+  // NOC -> CC Ingress Queue
+  MessageQueue* noc_cc__msg_q() const { return noc_cc__msg_q_; }
+  // CC -> NOC Egress Queue
+  MessageQueue* cc_noc__msg_q() const { return cc_noc__msg_q_; }
+  
+  // Construction
   void build();
 
   // Elaboration
-  void elab() override;
+  void elab();
+  // Set slave L2C instance.
+  void set_l2c(L2CacheModel* l2c) { l2c_ = l2c; }
+  // Set directory mapper.
+  void set_dm(DirectoryMapper* dm) { dm_ = dm; }
+  
+  // Design Rule Check (DRC)
+  void drc();
 
-  // Design Rule Check
-  void drc() override;
-
-  // Accessors:
-
-  // Queue arbiter:
-  Arbiter<const Message*>* arb() const { return arb_; }
   
  private:
-  // Command message queue
-  MessageQueue* cmdq_ = nullptr;
-  // Response message queue
-  MessageQueue* rspq_ = nullptr;
-  // Queue selector arbiter
+  // L2 Cache Model to which this controller is bound.
+  L2CacheModel* l2c_ = nullptr;
+  // L2 -> Controller (Transaction) Command Queue (owning)
+  MessageQueue* l2_cc__cmd_q_ = nullptr;
+  // NOC -> CC Ingress Queue
+  MessageQueue* noc_cc__msg_q_ = nullptr;
+  // CC -> NOC Egress Queue
+  MessageQueue* cc_noc__msg_q_ = nullptr;
+  // Queue selection arbiter
   Arbiter<const Message*>* arb_ = nullptr;
-  // Main thread 
+  // Directory Mapper instance
+  DirectoryMapper* dm_ = nullptr;
+  // Main process instance
   MainProcess* main_ = nullptr;
-  // LLC Cache configuration
-  LLCModelConfig config_;
+  // Cache controller configuration.
+  CacheControllerCfg config_;
 };
-
 
 } // namespace cc
 

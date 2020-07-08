@@ -105,4 +105,23 @@ void MessageQueue::build(std::size_t n) {
   add_child(q_);
 }
 
+Agent::Agent(kernel::Kernel* k, const std::string& name) : Module(k, name) {
+}
+
+void Agent::issue(MessageQueue* mq, const kernel::Time& time, const Message* msg) {
+  struct EnqueueAction : kernel::Action {
+    EnqueueAction(kernel::Kernel* k, MessageQueue* mq, const Message* msg)
+        : Action(k, "enqueue_action"), mq_(mq), msg_(msg) {}
+    bool eval() override {
+      mq_->push(msg_);
+      return true;
+    }
+
+   private:
+    MessageQueue* mq_ = nullptr;
+    const Message* msg_;
+  };
+  k()->add_action(time, new EnqueueAction(k(), mq, msg));
+}
+
 }  // namespace cc

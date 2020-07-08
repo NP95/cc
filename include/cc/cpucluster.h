@@ -25,14 +25,50 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_LIBCC_CPU_MSG_H
-#define CC_LIBCC_CPU_MSG_H
+#ifndef CC_INCLUDE_CC_CPUCLUSTER_H
+#define CC_INCLUDE_CC_CPUCLUSTER_H
 
-#include "cc/cpu.h"
-#include "protocol.h"
+#include "kernel.h"
+#include "cfgs.h"
+#include "primitives.h"
 
 namespace cc {
 
-}  // namespace cc
+class Message;
+class CacheController;
+class L2CacheModel;
+class L1CacheModel;
+class Cpu;
+
+class CpuCluster : public Agent {
+ public:
+  CpuCluster(kernel::Kernel* k, const CpuClusterCfg& cfg);
+
+  //
+  const CpuClusterCfg& config() const { return config_; }
+
+ private:
+  // Construction
+  void build();
+  // Pre-Elaboration DRC
+  void pre_elab_drc();
+  // Elaboration
+  void elab();
+  // Design Rule Check (DRC)
+  void drc();
+  
+  //
+  CacheController* cc_ = nullptr;
+  //
+  L2CacheModel* l2c_ = nullptr;
+  //
+  std::vector<L1CacheModel*> l1cs_;
+  //
+  std::vector<Cpu*> cpus_;
+  //
+  CpuClusterCfg config_;
+};
+
+} // namespace cc
 
 #endif

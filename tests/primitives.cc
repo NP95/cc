@@ -25,10 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "primitives.h"
-
+#include "cc/primitives.h"
 #include <deque>
-
 #include "gtest/gtest.h"
 
 TEST(Primitives, BasicClock) {

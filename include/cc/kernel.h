@@ -66,8 +66,8 @@ struct ObjectVisitor {
 #define DECLARE_VISITEE(__name)                 \
   friend class ObjectVisitor;                   \
   virtual void accept(ObjectVisitor* visitor) { \
-    Object::iterate_children(visitor);          \
     visitor->visit(this);                       \
+    Object::iterate_children(visitor);          \
   }                                             \
   virtual const char* type_str() const {	\
     return #__name;				\
@@ -141,6 +141,7 @@ enum class RunMode { ToExhaustion, ForTime };
 // clang-format off
 #define PHASES(__func)				\
   __func(Build)					\
+  __func(PreElabDrc)		                \
   __func(Elab)					\
   __func(Drc)					\
   __func(Init)					\
@@ -200,6 +201,7 @@ class Kernel {
   void set_top(Object* top) { top_ = top; }
 
   // Simulation phases invocations.
+  void invoke_pre_elab_drc();
   void invoke_elab();
   void invoke_drc();
   void invoke_init();
@@ -431,6 +433,8 @@ class Module : public ProcessHost {
  public:
   virtual ~Module();
 
+  // Invoke Pre-DRC elaboration
+  virtual void pre_elab_drc() {}
   // Invoke elaboration.
   virtual void elab() {}
   // Run Design Rule Check.
@@ -463,62 +467,6 @@ class EndPointIntf {
   virtual ~EndPointIntf() = default;
 
   virtual void push(T t) = 0;
-};
-
-//
-//
-template <typename T>
-class Agent : public Module {
- public:
-  Agent(Kernel* k, const std::string& name) : Module(k, name) {}
-
-  virtual EndPointIntf<T>* end_point(end_point_id_t id) {
-    auto it = eps_.find(id);
-    if (it == eps_.end()) {
-      LogMessage lmsg("Invalid end-point id: ");
-      lmsg.append(std::to_string(id));
-      lmsg.level(Level::Fatal);
-      log(lmsg);
-    }
-    return it->second;
-  }
-
- protected:
-  // (Run-Phase only)
-  void issue(EndPointIntf<T>* intf, const Time& time, T t) {
-    struct EnqueueAction : Action {
-      EnqueueAction(Kernel* k, EndPointIntf<T>* intf, T t)
-          : Action(k, "enqueue_action"), intf_(intf), t_(t) {}
-      bool eval() override {
-        intf_->push(t_);
-        return true;
-      }
-
-     private:
-      EndPointIntf<T>* intf_ = nullptr;
-      T t_;
-    };
-    k()->add_action(time, new EnqueueAction(k(), intf, t));
-  }
-
-  // (Build-/Elaboration-Phase only)
-  void add_end_point(end_point_id_t id, EndPointIntf<T>* intf) {
-    // Grow vector if necessary.
-    if (eps_.count(id) != 0) {
-      log(LogMessage{"Overwriting previously registers end-point.",
-                     Level::Warning});
-    }
-    LogMessage lmsg{"Registering end-point: "};
-    lmsg.append(std::to_string(id));
-    lmsg.level(Level::Debug);
-    log(lmsg);
-    // Set mapping.
-    eps_[id] = intf;
-  }
-
- private:
-  // End-Point Collection.
-  std::map<end_point_id_t, EndPointIntf<T>*> eps_;
 };
 
 //
