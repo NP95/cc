@@ -258,7 +258,7 @@ class Arbiter : public kernel::Module {
 //
 //
 template<typename T>
-class Table : kernel::Module {
+class Table : public kernel::Module {
 
   struct Entry {
     // Flag denoting validity of table.
@@ -266,9 +266,33 @@ class Table : kernel::Module {
     // Table entry state.
     T t;
   };
+
+  using raw_iterator = typename std::vector<Entry>::iterator;
   
  public:
-  Table(std::size_t n) : n_(n) {
+
+  class Iterator {
+   public:
+    Iterator() : it_() {}
+    Iterator(raw_iterator it) : it_(it) {}
+
+    // Iterator operators
+    T& operator*() { return it_->t; }
+    const T& operator*() const { return it_->t; }
+    Iterator& operator++() { ++it_; return *this; }
+    Iterator operator++(int) const { return Iterator(it_ + 1); }
+    raw_iterator operator->() const { return it_; }
+    bool operator==(const Iterator& rhs) const{ return it_ == rhs.it_; }
+    bool operator!=(const Iterator& rhs) const { return !operator==(rhs.it_); }
+
+   private:
+    // Pointer to underlying state in parent structure.
+    raw_iterator it_;
+  };
+
+  
+  Table(kernel::Kernel* k, const std::string& name, std::size_t n)
+      : Module(k, name), n_(n) {
     t_.resize(n);
   }
 
@@ -282,6 +306,12 @@ class Table : kernel::Module {
   // Flag denoting whether table is fully utilized.
   bool is_full() const { return free_n() == 0; }
 
+  Iterator begin() { return Iterator(t_.begin()); }
+  Iterator end() { return Iterator(t_.end()); }
+
+  bool install(Iterator it, const T& t) {
+    return false;
+  }
 
  private:
   // Count of unused locations in table.

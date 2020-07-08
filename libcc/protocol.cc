@@ -39,6 +39,16 @@ const char* to_string(L2UpdateAction opcode) {
   return "Invalid";
 }
 
+const char* to_string(CCUpdateAction opcode) {
+  switch (opcode) {
+#define __declare_to_string(__name)                     \
+    case CCUpdateAction::__name: return #__name;
+    CC_UPDATE_ACTIONS(__declare_to_string)
+#undef __declare_to_string
+  }
+  return "Invalid";
+}
+
 
 using pbr = ProtocolBuilderRegistry;
 

@@ -34,6 +34,7 @@
 #include "cc/msg.h"
 #include "cc/protocol.h"
 #include "cpu.h"
+#include "amba.h"
 
 namespace cc {
 
@@ -279,6 +280,33 @@ class MOESIDirectoryProtocol : public DirectoryProtocol {
   MOESIDirectoryProtocol() {}
 };
 
+
+class MOESICacheControllerLineState : public CacheControllerLineState {
+ public:
+  MOESICacheControllerLineState() = default;
+};
+
+class MOESICacheControllerProtocol : public CacheControllerProtocol {
+ public:
+  MOESICacheControllerProtocol() {}
+
+  CacheControllerLineState* construct_line() const override {
+    CacheControllerLineState* line = new MOESICacheControllerLineState;
+    return line;
+  }
+
+  void apply(CCModelApplyResult& r, CacheControllerLineState* line,
+             const AceCmdMsg* msg) const override {
+  }
+
+  void update_line_state(
+      CacheControllerLineState* line, state_t state) const override {
+    //MOESICacheControllerLineState* mline =
+    //static_cast<MOESICacheControllerLineState*>(line);
+    //mline->set_state(static_cast<L1State>(state));
+  }
+};
+
 class MOESIProtocolBuilder : public ProtocolBuilder {
  public:
   // Create an instance of the L1 protocol
@@ -294,6 +322,10 @@ class MOESIProtocolBuilder : public ProtocolBuilder {
   // Create and instance of the Directory protocol
   DirectoryProtocol* create_dir() override {
     return new MOESIDirectoryProtocol{};
+  }
+
+  CacheControllerProtocol* create_cc() override {
+    return new MOESICacheControllerProtocol{};
   }
 };
 

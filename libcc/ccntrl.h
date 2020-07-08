@@ -37,6 +37,8 @@ namespace cc {
 class Message;
 class MessageQueue;
 class L2CacheModel;
+class CacheControllerLineState;
+class CacheControllerProtocol;
 
 class CacheController : public Agent {
   friend class CpuCluster;
@@ -54,6 +56,10 @@ class CacheController : public Agent {
   Arbiter<const Message*>* arb() const { return arb_; }
   // Directory Mapper instance.
   DirectoryMapper* dm() const { return dm_; }
+  // Protocol instance
+  CacheControllerProtocol* protocol() const { return protocol_; }
+  // Transaction table.
+  Table<CacheControllerLineState*>* table() const { return table_; }
   // L2 -> Controller (Transaction) Command Queue (owning)
   MessageQueue* l2_cc__cmd_q() const { return l2_cc__cmd_q_; }
   // NOC -> CC Ingress Queue
@@ -90,6 +96,10 @@ class CacheController : public Agent {
   DirectoryMapper* dm_ = nullptr;
   // Main process instance
   MainProcess* main_ = nullptr;
+  // Transaction table instance.
+  Table<CacheControllerLineState*>* table_ = nullptr;
+  // Cache controller protocol instance.
+  CacheControllerProtocol* protocol_ = nullptr;
   // Cache controller configuration.
   CacheControllerCfg config_;
 };

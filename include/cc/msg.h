@@ -59,6 +59,8 @@ class Transaction {
   __func(L1L2__CmdMsg)                          \
   __func(L2CC__AceCmd)                          \
   __func(CCL2__AceSnoop)                        \
+  __func(AceCmd)                                \
+  __func(AceSnoop)                              \
   __func(Noc)
 // clang-format on
 

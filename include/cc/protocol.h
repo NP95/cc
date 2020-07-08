@@ -39,6 +39,7 @@ namespace cc {
 // Message Forwards:
 class CpuL1__CmdMsg;
 class L1L2__CmdMsg;
+class AceCmdMsg;
 
 namespace kernel {
 
@@ -228,6 +229,68 @@ class DirectoryProtocol {
   virtual ~DirectoryProtocol() = default;
 };
 
+
+//
+//
+
+// clang-format off
+#define CC_UPDATE_ACTIONS(__func)                   \
+  __func(UpdateState)                               \
+  __func(Commit)                                    \
+  __func(Block)                                     \
+  __func(EmitToDir)
+// clang-format on
+
+enum class CCUpdateAction {
+#define __declare_enum(__name) __name,
+  CC_UPDATE_ACTIONS(__declare_enum)
+#undef __declare_enum
+};
+
+const char* to_string(CCUpdateAction opcode);
+
+//
+//
+class CCModelApplyResult {
+ public:
+  CCModelApplyResult() = default;
+
+  bool empty() const { return actions_.empty(); }
+  state_t state() const { return state_; }
+  void state(state_t state) { state_ = state; }
+  CCUpdateAction next() const { return actions_.front(); }
+  void push(CCUpdateAction action) { actions_.push_back(action); }
+  void pop() { actions_.pop_front(); }
+
+ private:
+  state_t state_;
+  std::deque<CCUpdateAction> actions_;
+};
+
+//
+//
+class CacheControllerLineState {
+ public:
+  CacheControllerLineState() = default;
+  virtual ~CacheControllerLineState() = default;
+};
+
+class CacheControllerProtocol {
+ public:
+  CacheControllerProtocol() = default;
+  virtual ~CacheControllerProtocol() = default;
+
+  virtual CacheControllerLineState* construct_line() const = 0;
+
+  //
+  virtual void apply(CCModelApplyResult& r, CacheControllerLineState* line,
+                     const AceCmdMsg* msg) const = 0;
+
+  //
+  virtual void update_line_state(
+      CacheControllerLineState* line, state_t state) const = 0;
+};
+
 //
 //
 class ProtocolBuilder {
@@ -240,8 +303,11 @@ class ProtocolBuilder {
   // Create an instance of the L2 protocol
   virtual L2CacheModelProtocol* create_l2() = 0;
 
-  // Create and instance of the Directory protocol
+  // Create an instance of the Directory protocol
   virtual DirectoryProtocol* create_dir() = 0;
+
+  // Create an instance of a Cache Controller protocol.
+  virtual CacheControllerProtocol* create_cc() = 0;
 };
 
 //
