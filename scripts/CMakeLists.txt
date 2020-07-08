@@ -33,12 +33,13 @@ macro (cc_generate_enum enum_file)
   set(header_file "${enum_prefix}_enum.h")
   set(source_file "${enum_prefix}_enum.cc")
 
+  set(script_py ${CMAKE_SOURCE_DIR}/scripts/generate_enum.py)
+
   add_custom_command(
     OUTPUT ${header_file} ${source_file}
-    COMMAND ${Python_EXECUTABLE}
-      ${CMAKE_SOURCE_DIR}/scripts/generate_enum.py
+    COMMAND ${Python_EXECUTABLE} ${script_py}
       ${CMAKE_CURRENT_SOURCE_DIR}/${enum_file}
-    DEPENDS ${enum_file} ${CMAKE_SOURCE_DIR}/scripts/generate_enum.py
+    DEPENDS ${enum_file} ${script_py}
     COMMENT "Generating ${enum_prefix}.enum..."
     )
   add_custom_target(
