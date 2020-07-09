@@ -37,6 +37,9 @@
 
 namespace cc::kernel {
 
+// Forwards
+class Kernel;
+
 // clang-format off
 #define KERNEL_TYPES(__func)			\
   __func(Module)				\
@@ -157,73 +160,6 @@ enum class Phase {
 
 const char* to_string(Phase phases);
 
-class Kernel {
-  friend class Process;
-  friend class Module;
-  friend class Object;
-
-  using seed_type = std::mt19937_64::result_type;
-
-  struct Event {
-    Time time;
-    Action* action;
-  };
-
-  struct EventComparer {
-    bool operator()(const Event& lhs, const Event& rhs) {
-      // TODO: create operators
-      if (lhs.time.time > rhs.time.time) return true;
-      if (lhs.time.time < rhs.time.time) return false;
-      return lhs.time.delta < rhs.time.delta;
-    }
-  };
-
- public:
-  Kernel(seed_type seed = 1);
-
-  // Observers
-  Time time() const { return time_; }
-  std::size_t events_n() const { return eq_.size(); }
-  bool fatal() const { return fatal_; }
-  RandomSource& random_source() { return random_source_; }
-  LogContext& log_context() { return log_context_; }
-  Phase phase() const { return phase_; }
-  Object* top() const { return top_; }
-
-  void run(RunMode r = RunMode::ToExhaustion, Time t = Time{});
-  void add_action(Time t, Action* a);
-  void raise_fatal() { fatal_ = true; }
-  void set_seed(seed_type seed);
-
- private:
-  // Set current simulation phase.
-  void set_phase(Phase phase) { phase_ = phase; }
-  void set_top(Object* top) { top_ = top; }
-
-  // Simulation phases invocations.
-  void invoke_pre_elab_drc();
-  void invoke_elab();
-  void invoke_drc();
-  void invoke_init();
-  void invoke_run(RunMode r, Time t);
-  void invoke_fini();
-
-  // Simulation event queue.
-  std::vector<Event> eq_;
-  // Current simulation time.
-  Time time_;
-  // Flag denoting that a fatal error has occurred.
-  bool fatal_{false};
-  // Current random state.
-  RandomSource random_source_;
-  //
-  LogContext log_context_;
-  // Current simulation phase.
-  Phase phase_{Phase::Build};
-  // Simulation top-level.
-  Object* top_{nullptr};
-};
-
 class Object {
   friend class ObjectVisitor;
   DECLARE_VISITEE(Object);
@@ -239,10 +175,7 @@ class Object {
   std::string name() const { return name_; }
 
   //
-  void set_top() {
-    parent_ = nullptr;
-    k_->set_top(this);
-  }
+  void set_top();
   void set_parent(Object* o) { parent_ = o; }
   void add_child(Object* c);
 
@@ -450,24 +383,80 @@ class Module : public ProcessHost {
 
 //
 //
+class Kernel : public Module {
+  friend class Process;
+  friend class Module;
+  friend class Object;
+
+  using seed_type = std::mt19937_64::result_type;
+
+  struct Event {
+    Time time;
+    Action* action;
+  };
+
+  struct EventComparer {
+    bool operator()(const Event& lhs, const Event& rhs) {
+      // TODO: create operators
+      if (lhs.time.time > rhs.time.time) return true;
+      if (lhs.time.time < rhs.time.time) return false;
+      return lhs.time.delta < rhs.time.delta;
+    }
+  };
+
+ public:
+  Kernel(seed_type seed = 1);
+
+  // Observers
+  Time time() const { return time_; }
+  std::size_t events_n() const { return eq_.size(); }
+  bool fatal() const { return fatal_; }
+  RandomSource& random_source() { return random_source_; }
+  LogContext& log_context() { return log_context_; }
+  Phase phase() const { return phase_; }
+  Object* top() const { return top_; }
+
+  // Deprecate this method;
+  void run(RunMode r = RunMode::ToExhaustion, Time t = Time{});
+  void add_action(Time t, Action* a);
+  void raise_fatal() { fatal_ = true; }
+  void set_seed(seed_type seed);
+
+  //private:
+  // Set current simulation phase.
+  void set_phase(Phase phase) { phase_ = phase; }
+  void set_top(Object* top) { top_ = top; }
+
+  // Simulation phases invocations.
+  void invoke_elab();
+  void invoke_drc();
+  void invoke_init();
+  void invoke_run(RunMode r, Time t);
+  void invoke_fini();
+
+  // Simulation event queue.
+  std::vector<Event> eq_;
+  // Current simulation time.
+  Time time_;
+  // Flag denoting that a fatal error has occurred.
+  bool fatal_{false};
+  // Current random state.
+  RandomSource random_source_;
+  //
+  LogContext log_context_;
+  // Current simulation phase.
+  Phase phase_{Phase::Build};
+  // Simulation top-level.
+  Object* top_{nullptr};
+};
+
+//
+//
 class TopModule : public Module {
   DECLARE_VISITEE(TopModule);
 
  public:
   TopModule(Kernel* k, const std::string& name);
-};
-
-// Type denoting a 'end-point' entity.
-using end_point_id_t = std::size_t;
-
-//
-//
-template <typename T>
-class EndPointIntf {
- public:
-  virtual ~EndPointIntf() = default;
-
-  virtual void push(T t) = 0;
 };
 
 //

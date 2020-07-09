@@ -31,9 +31,6 @@
 #include "cc/types.h"
 #include "cc/kernel.h"
 #include "cc/sim.h"
-#include "cc/noc.h"
-#include "cc/dir.h"
-#include "cc/primitives.h"
-#include "cc/cpucluster.h"
+#include "cc/soc.h"
 
 #endif

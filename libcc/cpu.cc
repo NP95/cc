@@ -27,7 +27,7 @@
 
 #include "cpu.h"
 #include "utility.h"
-#include "cc/msg.h"
+#include "msg.h"
 #include "l1cache.h"
 #include <sstream>
 

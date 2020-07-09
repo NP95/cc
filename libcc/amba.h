@@ -28,7 +28,7 @@
 #ifndef CC_LIBCC_AMBA_H
 #define CC_LIBCC_AMBA_H
 
-#include "cc/msg.h"
+#include "msg.h"
 #include "protocol.h"
 #include "amba_enum.h"
 

@@ -25,79 +25,91 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_LIBCC_CPU_H
-#define CC_LIBCC_CPU_H
-
-#include <set>
+#ifndef CC_LIBCC_DIR_H
+#define CC_LIBCC_DIR_H
 
 #include "kernel.h"
-#include "sim.h"
-#include "cc/cfgs.h"
-#include "msg.h"
+#include "cfgs.h"
+#include "types.h"
 #include "primitives.h"
-#include "cpu_enum.h"
 
 namespace cc {
 
 // Forwards
 class Message;
-class L1CacheModel;
 class MessageQueue;
+template<typename T> class Arbiter;
 
 //
 //
-class L1Cpu__RspMsg : public Message {
+class DirectoryModel : public Agent {
+  class MainProcess;
+
+  friend class SocTop;
  public:
-  L1Cpu__RspMsg(Transaction* t) : Message(t, MessageClass::L1Cpu__RspMsg) {}
-};
+  DirectoryModel(kernel::Kernel* k, const DirectoryModelConfig& config);
+  ~DirectoryModel();
 
-//
-//
-class Cpu : public Agent {
-  class ProducerProcess;
-  class ConsumerProcess;
-  
-  friend class CpuCluster;
- public:
-  Cpu(kernel::Kernel* k, const CpuConfig& config);
+  const DirectoryModelConfig& config() const { return config_; }
 
-  // Cache configuration
-  const CpuConfig& config() const { return config_; }
+  // Accessors:
+  MessageQueue* noc_dir__msg_q() const { return noc_dir__msg_q_; }
 
  protected:
-
-  // Accessors;
-  MessageQueue* cpu_l1__cmd_q() const { return cpu_l1__cmd_q_; }
-  
-
-  // Construction:
+  // Build
   void build();
-
-  // Elaboration:
+  // Elaboration
   void elab() override;
-  // Set parent L1 cache instance.
-  void set_l1c(L1CacheModel* l1c) { l1c_ = l1c; }
-  // Set CPU -> L1 command queue
-  void set_cpu_l1__cmd_q(MessageQueue* mq) { cpu_l1__cmd_q_ = mq; }
-
-  // Design Rule Check (DRC):
+  //
+  void set_dir_noc__msg_q(MessageQueue* mq) { dir_noc__msg_q_ = mq; }
+  
+  // Design Rule Check (DRC)
   void drc() override;
 
+  // Accessor(s)
+
+  // Directory arbiter instance.
+  Arbiter<const Message*>* arb() const { return arb_; }
+  
  private:
-  // 
-  Stimulus* stimulus_ = nullptr;
-  // CPU -> L1 message queue.
-  MessageQueue* cpu_l1__cmd_q_ = nullptr;
-  // Producer thread of execution.
-  ProducerProcess* pp_ = nullptr;
-  // Consumer thread of execution.
-  ConsumerProcess* cp_ = nullptr;
-  // L1Cache instance.
-  L1CacheModel* l1c_ = nullptr;
-  // CPU Configuration.
-  CpuConfig config_;
+  // Queue selection arbiter
+  Arbiter<const Message*>* arb_ = nullptr;
+  // NOC -> DIR message queue (owned by directory)
+  MessageQueue* noc_dir__msg_q_ = nullptr;
+  // DIR -> NOC message queue (owned by noc)
+  MessageQueue* dir_noc__msg_q_ = nullptr;
+  // Main thread
+  MainProcess* main_ = nullptr;
+  // Current directory configuration.
+  DirectoryModelConfig config_;
 };
 
-}  // namespace cc
+//
+//
+class DirectoryMapper {
+ public:
+  DirectoryMapper() = default;
+  virtual ~DirectoryMapper() = default;
+
+  virtual DirectoryModel* lookup(addr_t addr) const = 0;
+};
+
+//
+//
+class SingleDirectoryMapper : public DirectoryMapper {
+ public:
+  SingleDirectoryMapper(DirectoryModel* dm)
+      : dm_(dm) {}
+
+  DirectoryModel* lookup(addr_t addr) const override {
+    return dm_;
+  }
+
+ private:
+  // Directory end-point definition.
+  DirectoryModel* dm_ = nullptr;
+};
+
+} // namespace cc
 
 #endif

@@ -194,6 +194,18 @@ struct CpuClusterCfg {
   std::vector<CpuConfig> cpu_configs;
 };
 
+//
+struct SocCfg {
+  // Toplevel name
+  std::string name = "top";
+  //
+  std::vector<CpuClusterCfg> ccls;
+  //
+  std::vector<DirectoryModelConfig> dcfgs;
+  //
+  NocModelConfig noccfg;
+};
+
 }  // namespace cc
 
 #endif

@@ -32,6 +32,7 @@ cc_generate_enum(cpu.enum)
 cc_generate_enum(l1cache.enum)
 cc_generate_enum(l2cache.enum)
 cc_generate_enum(ccntrl.enum)
+cc_generate_enum(msg.enum)
 
 add_library(cc SHARED
   kernel.cc
@@ -57,6 +58,8 @@ add_library(cc SHARED
   ccntrl.cc
   ccntrl_enum.cc
   utility.cc
+  soc.cc
+  msg_enum.cc
   )
 
 target_include_directories(cc PRIVATE ${CMAKE_SOURCE_DIR}/include/cc)

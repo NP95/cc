@@ -27,11 +27,17 @@
 
 #include "cc/sim.h"
 #include "protocol.h"
+#include "cpucluster.h"
 
 namespace cc {
 
+CpuCluster* construct_cpu_cluster(kernel::Kernel* k, const CpuClusterCfg& cfg) {
+  return new CpuCluster(k, cfg);
+}
+
+
 ProtocolBuilder* construct_protocol_builder(const std::string& name) {
-  return cc::ProtocolBuilderRegistry::build(name);
+  return ProtocolBuilderRegistry::build(name);
 }
 
 }  // namespace cc

@@ -35,6 +35,7 @@
 
 #include "kernel.h"
 #include "types.h"
+#include "cfgs.h"
 
 namespace cc {
 
@@ -100,6 +101,12 @@ class ProgrammaticStimulus : public Stimulus {
  private:
   std::deque<Frontier> cs_;
 };
+
+
+class CpuCluster;
+
+CpuCluster* construct_cpu_cluster(kernel::Kernel* k, const CpuClusterCfg&);
+
 
 class ProtocolBuilder;
 

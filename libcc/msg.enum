@@ -25,48 +25,14 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_CPUCLUSTER_H
-#define CC_INCLUDE_CC_CPUCLUSTER_H
+#emit:to_string
 
-#include "kernel.h"
-#include "cfgs.h"
-#include "primitives.h"
-
-namespace cc {
-
-class Message;
-class CacheController;
-class L2CacheModel;
-class L1CacheModel;
-class Cpu;
-
-class CpuCluster : public Agent {
- public:
-  CpuCluster(kernel::Kernel* k, const CpuClusterCfg& cfg);
-
-  //
-  const CpuClusterCfg& config() const { return config_; }
-
- private:
-  // Construction
-  void build();
-  // Elaboration
-  void elab();
-  // Design Rule Check (DRC)
-  void drc();
-  
-  //
-  CacheController* cc_ = nullptr;
-  //
-  L2CacheModel* l2c_ = nullptr;
-  //
-  std::vector<L1CacheModel*> l1cs_;
-  //
-  std::vector<Cpu*> cpus_;
-  //
-  CpuClusterCfg config_;
-};
-
-} // namespace cc
-
-#endif
+@enum_begin(MessageClass)
+Invalid
+CpuL1__CmdMsg
+L1Cpu__RspMsg
+L1L2__CmdMsg
+AceCmd
+AceSnoop
+Noc
+@enum_end

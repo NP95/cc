@@ -25,21 +25,12 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "cc/dir.h"
+#include "dir.h"
 #include "amba.h"
 #include "primitives.h"
 #include "utility.h"
 
 namespace cc {
-
-const char* to_string(DirEp d) {
-  switch (d) {
-    default: return "Invalid";
-#define __declare_string(__name) case DirEp::__name: return #__name;
-      DIR_MESSAGE_QUEUES(__declare_string)
-#undef __declare_string
-  }
-}
 
 class DirectoryModel::MainProcess : public kernel::Process {
 
@@ -163,15 +154,15 @@ class DirectoryModel::MainProcess : public kernel::Process {
   void handle_process_message() {
     const MsgRequesterIntf* intf = ctxt_.t.intf();
     const Message* msg = intf->peek();
-    /*
+
     switch (msg->cls()) {
-      case Message::Ace: {
+      case MessageClass::AceCmd: {
         log(LogMessage("Got message"));
       } break;
       default: {
       } break;
     }
-    */
+
   }
 
   void handle_execute_actions() {
@@ -191,19 +182,17 @@ DirectoryModel::DirectoryModel(
   build();
 }
 
+DirectoryModel::~DirectoryModel() {
+  delete noc_dir__msg_q_;
+}
+
 void DirectoryModel::build() {
   // Construct command queue
-  cmdq_ = new MessageQueue(k(), "cmdq", config_.cmd_queue_n);
-  add_child_module(cmdq_);
-
-  // Construct response queue
-  rspq_ = new MessageQueue(k(), "rspq", config_.rsp_queue_n);
-  add_child_module(rspq_);
+  noc_dir__msg_q_ = new MessageQueue(k(), "noc_dir__msg_q", 3);
+  add_child_module(noc_dir__msg_q_);
 
   // Construct arbiter
   arb_ = new Arbiter<const Message*>(k(), "arb");
-  arb_->add_requester(cmdq_);
-  arb_->add_requester(rspq_);
   add_child_module(arb_);
 
   // Construct main thread
@@ -213,8 +202,7 @@ void DirectoryModel::build() {
 
 void DirectoryModel::elab() {
   // Register message queue end-points
-  // add_end_point(ut(DirEp::CmdQ), cmdq_);
-  // add_end_point(ut(DirEp::RspQ), rspq_);
+  arb_->add_requester(noc_dir__msg_q_);
 }
 
 void DirectoryModel::drc() {

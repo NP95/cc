@@ -31,7 +31,7 @@
 #include <string>
 
 #include "cc/cfgs.h"
-#include "cc/primitives.h"
+#include "primitives.h"
 #include "l2cache.h"
 #include "l1cache_enum.h"
 

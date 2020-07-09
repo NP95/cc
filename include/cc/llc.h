@@ -30,10 +30,10 @@
 
 #include "kernel.h"
 #include "cfgs.h"
-#include "primitives.h"
+//#include "primitives.h"
 
 namespace cc {
-
+/*
 // Forwards:
 class Message;
 class MessageQueue;
@@ -89,7 +89,7 @@ class LLCModel : public Agent {
   LLCModelConfig config_;
 };
 
-
+*/
 } // namespace cc
 
 #endif

@@ -28,9 +28,11 @@
 #include "ccntrl.h"
 #include "ccntrl_enum.h"
 #include "primitives.h"
-#include "cc/msg.h"
+#include "msg.h"
 #include "protocol.h"
 #include "amba.h"
+#include "noc.h"
+#include "dir.h"
 
 namespace cc {
 
@@ -135,7 +137,7 @@ class CacheController::MainProcess : public kernel::Process {
     const kernel::RequesterIntf<const Message*>* intf = context_.t.intf();
     const Message* msg = intf->peek();
     switch (msg->cls()) {
-      case MessageClass::L2CC__AceCmd: {
+      case MessageClass::AceCmd: {
         // L2 -> CC bus tranasaction.
         const AceCmdMsg* acemsg = static_cast<const AceCmdMsg*>(msg);
         Table<CacheControllerLineState*>* table = cc_->table();
@@ -176,6 +178,9 @@ class CacheController::MainProcess : public kernel::Process {
   }
 
   void handle_execute_actions() {
+    const MsgRequesterIntf* intf = context_.t.intf();
+    const Message* msg = intf->peek();
+
     CCModelApplyResult& ar = context_.ar;
     while (!ar.empty()) {
       const CCUpdateAction action = ar.next();
@@ -193,7 +198,17 @@ class CacheController::MainProcess : public kernel::Process {
         case CCUpdateAction::Block: {
           ar.pop();
         } break;
-        case CCUpdateAction::EmitToDir: {
+        case CCUpdateAction::EmitAceCmdToDir: {
+          const AceCmdMsg* acemsg = static_cast<const AceCmdMsg*>(msg);
+          MessageQueue* mq = cc_->cc_noc__msg_q();
+
+          // Encapsulate AceCmd in the NOC transport message.
+          NocMessage* nocmsg = new NocMessage(acemsg);
+          nocmsg->set_origin(cc_);
+          const DirectoryMapper* dm = cc_->dm();
+          nocmsg->set_dest(dm->lookup(acemsg->addr()));
+          nocmsg->set_payload(msg);
+          cc_->issue(mq, kernel::Time{10, 0}, nocmsg);
           ar.pop();
         } break;
         default: {

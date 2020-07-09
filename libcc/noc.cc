@@ -25,8 +25,9 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "cc/noc.h"
+#include "noc.h"
 #include "primitives.h"
+#include "msg_enum.h"
 
 namespace cc {
 
@@ -116,6 +117,7 @@ class NocModel::MainProcess : public kernel::Process {
 
     if (t.has_requester()) {
       ctxt_ = Context();
+      ctxt_.t = t;
       set_state(State::ChooseQueue);
       next_delta();
     } else {
@@ -137,19 +139,51 @@ class NocModel::MainProcess : public kernel::Process {
   }
 
   void handle_issue_message() {
+    MsgRequesterIntf* intf = ctxt_.t.intf();
+    const Message* msg = intf->peek();
+    switch (msg->cls()) {
+      case MessageClass::Noc: {
+        // Forward message to destination message queue after some
+        // fixed delay.
+        const NocMessage* nocmsg = static_cast<const NocMessage*>(msg);
+
+        // Lookup destination port ingress queue.
+        NocPort* port = model_->get_agent_port(nocmsg->dest());
+        if (port == nullptr) {
+          LogMessage lmsg("Unable to resolve destination port.");
+          lmsg.level(Level::Fatal);
+          log(lmsg);
+        }
+
+        // Issue message to destination agent ingress queue.
+        const Message* payload = nocmsg->payload();
+        model_->issue(port->egress(), kernel::Time{10, 0}, payload);
+
+        // Message has now been issued to destination. Destroy
+        // transport message and update arbitration.
+        nocmsg->release();
+        intf->dequeue();
+
+        // Advance arbitration state.
+        ctxt_.t.advance();
+      } break;
+      default: {
+        using cc::to_string;
+        // The NOC can process only NOC-class commands as it is only a
+        // conduit through which messages are passed. If some other
+        // message arrives, this is a fatal error.
+        LogMessage lmsg("Invalid message class recieved: ");
+        lmsg.append(to_string(msg->cls()));
+        lmsg.level(Level::Fatal);
+        log(lmsg);
+      } break;
+    }
+    
+
     //kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
     //issue_message(intf->dequeue());
     set_state(State::AwaitingMessage);
     wait_for(kernel::Time{10, 0});
-  }
-
-  void issue_message(const Message* msg) {
-    const NocMessage* nocmsg = static_cast<const NocMessage*>(msg);
-    if (nocmsg->ep() == nullptr) {
-      LogMessage lmsg("Invalid end-point in transport header.", Level::Fatal);
-      log(lmsg);
-    }
-    //model_->issue(nocmsg->ep(), kernel::Time{1000, 0}, nocmsg->payload());
   }
 
   // Current context
@@ -160,29 +194,38 @@ class NocModel::MainProcess : public kernel::Process {
   NocModel* model_ = nullptr;
 };
 
+NocPort::NocPort(kernel::Kernel* k, const std::string& name) : Module(k, name) {
+  build();
+}
+
+NocPort::~NocPort() {
+  delete ingress_;
+}
+
+void NocPort::build() {
+  // Construct owned ingress queue; egress is owned by the agent itself.
+  ingress_ = new MessageQueue(k(), "ingress", 3);
+  add_child_module(ingress_);
+}
+
+
 NocModel::NocModel(kernel::Kernel* k, const NocModelConfig& config)
     : Agent(k, config.name), config_(config) {
   build();
 }
 
-kernel::EndPointIntf<const Message*>* NocModel::get_input(std::size_t n) {
-  return imqs_[n];
+NocPort* NocModel::get_agent_port(Agent* agent) {
+  NocPort* port = nullptr;
+  std::map<Agent*, NocPort*>::iterator it = ports_.find(agent);
+  if (it != ports_.end()) {
+    port = it->second;
+  }
+  return port;
 }
 
 void NocModel::build() {
-  // Construct input message queues.
-  for (std::size_t i = 0; i < config_.ingress_ports_n; i++) {
-    const std::string mqname = "mq" + std::to_string(imqs_.size());
-    MessageQueue* mq = new MessageQueue(k(), mqname, config_.ingress_q_n);
-    add_child_module(mq);
-    imqs_.push_back(mq);
-  }
-
   // Construct ingress selection aribter
   arb_ = new Arbiter<const Message*>(k(), "arb");
-  for (MessageQueue* mq : imqs_) {
-    arb_->add_requester(mq);
-  }
   add_child_module(arb_);
 
   // Construct main process
@@ -190,14 +233,22 @@ void NocModel::build() {
   add_child_process(main_);
 }
 
+void NocModel::register_agent(Agent* agent) {
+  const std::string port_name = "port" + std::to_string(ports_.size());
+  NocPort* port = new NocPort(k(), port_name);
+  add_child_module(port);
+  // Install in port table.
+  ports_.insert(std::make_pair(agent, port));
+}
+
 void NocModel::elab() {
+  for (std::pair<Agent*, NocPort*> pp : ports_) {
+    NocPort* port = pp.second;
+    arb_->add_requester(port->ingress());
+  }
 }
 
 void NocModel::drc() {
-  if (imqs_.empty()) {
-    LogMessage lmsg("No ingress interfaces are defined!.", Level::Fatal);
-    log(lmsg);
-  }
 }
 
 } // namespace cc

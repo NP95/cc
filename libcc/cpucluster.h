@@ -25,92 +25,55 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_DIR_H
-#define CC_INCLUDE_CC_DIR_H
+#ifndef CC_LIBCC_CPUCLUSTER_H
+#define CC_LIBCC_CPUCLUSTER_H
 
 #include "kernel.h"
 #include "cfgs.h"
-#include "types.h"
 #include "primitives.h"
 
 namespace cc {
 
-// Forwards
 class Message;
-class MessageQueue;
-template<typename T> class Arbiter;
+class CacheController;
+class L2CacheModel;
+class L1CacheModel;
+class Cpu;
 
-#define DIR_MESSAGE_QUEUES(__func)              \
-  __func(CmdQ)                                  \
-  __func(RspQ)
-
-enum class DirEp : kernel::end_point_id_t {
-#define __declare_enum(__name) __name,
-  DIR_MESSAGE_QUEUES(__declare_enum)
-#undef __declare_enum
-};
-
-const char* to_string(DirEp d);
-
-//
-//
-class DirectoryModel : public Agent {
-  class MainProcess;
+class CpuCluster : public Agent {
+  friend class SocTop;
  public:
-  DirectoryModel(kernel::Kernel* k, const DirectoryModelConfig& config);
+  CpuCluster(kernel::Kernel* k, const CpuClusterCfg& cfg);
 
-  const DirectoryModelConfig& config() const { return config_; }
+  //
+  const CpuClusterCfg& config() const { return config_; }
 
- protected:
-  // Build
+  // Get NOC -> CC message queue instance (CC owned)
+  MessageQueue* noc_cc__msg_q() const;
+
+ private:
+  // Construction
   void build();
   // Elaboration
-  void elab() override;
-  // Design Rule Check (DRC)
-  void drc() override;
-
-  // Accessor(s)
-
-  // Directory arbiter instance.
-  Arbiter<const Message*>* arb() const { return arb_; }
+  void elab();
+  // Set CC -> NOC message queue instance (NOC owned)
+  void set_cc_noc__msg_q(MessageQueue* mq);
+  // Set directory mapper
+  void set_dm(DirectoryMapper* dm);
   
- private:
-  // Queue selection arbiter
-  Arbiter<const Message*>* arb_ = nullptr;
-  // Command Queue
-  MessageQueue* cmdq_ = nullptr;
-  // Response Queue
-  MessageQueue* rspq_ = nullptr;
-  // Main thread
-  MainProcess* main_ = nullptr;
-  // Current directory configuration.
-  DirectoryModelConfig config_;
-};
-
-//
-//
-class DirectoryMapper {
- public:
-  DirectoryMapper() = default;
-  virtual ~DirectoryMapper() = default;
-
-  virtual DirectoryModel* lookup(addr_t addr) const = 0;
-};
-
-//
-//
-class SingleDirectoryMapper : public DirectoryMapper {
- public:
-  SingleDirectoryMapper(DirectoryModel* dm)
-      : dm_(dm) {}
-
-  DirectoryModel* lookup(addr_t addr) const override {
-    return dm_;
-  }
-
- private:
-  // Directory end-point definition.
-  DirectoryModel* dm_ = nullptr;
+  // Design Rule Check (DRC)
+  void drc();
+  
+  //
+  CacheController* cc_ = nullptr;
+  //
+  L2CacheModel* l2c_ = nullptr;
+  //
+  std::vector<L1CacheModel*> l1cs_;
+  //
+  std::vector<Cpu*> cpus_;
+  //
+  CpuClusterCfg config_;
 };
 
 } // namespace cc

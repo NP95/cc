@@ -31,7 +31,7 @@
 
 #include "l1cache.h"
 #include "utility.h"
-#include "cc/msg.h"
+#include "msg.h"
 #include "protocol.h"
 #include "cpu.h"
 #include "amba.h"
@@ -238,7 +238,7 @@ class MOESICacheControllerProtocol : public CacheControllerProtocol {
       } break;
       case AceCmdOpcode::ReadShared: {
         // TODO
-        r.push(CCUpdateAction::EmitToDir);
+        r.push(CCUpdateAction::EmitAceCmdToDir);
         r.push(CCUpdateAction::UpdateState);
         r.state(ut(CCState::I_S));
       } break;

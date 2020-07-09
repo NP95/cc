@@ -25,8 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_PRIMITIVES_H
-#define CC_INCLUDE_CC_PRIMITIVES_H
+#ifndef CC_LIBCC_PRIMITIVES_H
+#define CC_LIBCC_PRIMITIVES_H
 
 #include <vector>
 
@@ -358,7 +358,7 @@ class Table : public kernel::Module {
 //
 //
 class MessageQueue : public kernel::Module,
-                     public kernel::EndPointIntf<const Message*>,
+                     //                     public kernel::EndPointIntf<const Message*>,
                      public kernel::RequesterIntf<const Message*> {
  public:
   MessageQueue(kernel::Kernel* k, const std::string& name, std::size_t n);
@@ -367,7 +367,7 @@ class MessageQueue : public kernel::Module,
   std::size_t n() const { return q_->n(); }
 
   // Endpoint Interface:
-  void push(const Message* msg) override;
+  void push(const Message* msg);
 
   // Requester Interface:
   bool has_req() const override;

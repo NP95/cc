@@ -25,7 +25,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "cc/cpucluster.h"
+#include "cpucluster.h"
 #include "l2cache.h"
 #include "l1cache.h"
 #include "cpu.h"
@@ -112,6 +112,18 @@ void CpuCluster::drc() {
   if (cpus_.size() != l1cs_.size()) {
     // Fatal: Size mismatch on CPU to L1 Cache instances.
   }
+}
+
+MessageQueue* CpuCluster::noc_cc__msg_q() const {
+  return cc_->noc_cc__msg_q();
+}
+
+void CpuCluster::set_cc_noc__msg_q(MessageQueue* mq) {
+  cc_->set_cc_noc__msg_q(mq);
+}
+
+void CpuCluster::set_dm(DirectoryMapper* dm) {
+  cc_->set_dm(dm);
 }
 
 } // namespace cc

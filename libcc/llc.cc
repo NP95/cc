@@ -30,7 +30,7 @@
 #include "utility.h"
 
 namespace cc {
-
+/*
 const char* to_string(LLCEp d) {
   switch (d) {
     default: return "Invalid";
@@ -153,5 +153,5 @@ void LLCModel::elab() {
 
 void LLCModel::drc() {
 }
-
+*/
 } // namespace cc

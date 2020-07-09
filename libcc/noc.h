@@ -25,14 +25,15 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_NOC_H
-#define CC_INCLUDE_CC_NOC_H
+#ifndef CC_LIBCC_NOC_H
+#define CC_LIBCC_NOC_H
 
 #include "kernel.h"
-#include "cc/primitives.h"
+#include "primitives.h"
 #include "cc/cfgs.h"
-#include "cc/msg.h"
+#include "msg.h"
 #include <vector>
+#include <map>
 
 namespace cc {
 
@@ -44,46 +45,72 @@ template<typename> class Arbiter;
 //
 class NocMessage : public Message {
  public:
-  NocMessage(Transaction* t) : Message(t, MessageClass::Noc) {}
+  NocMessage(const Message* msg)
+      : Message(msg->t(), MessageClass::Noc), payload_(msg)
+  {}
 
-  //
+  // Accesors:
   const Message* payload() const { return payload_; }
+  Agent* origin() const { return origin_; }
+  Agent* dest() const { return dest_; }
+
+  // Setters:
   void set_payload(const Message* payload) { payload_ = payload; }
-
-  //
-  kernel::EndPointIntf<const Message*>* ep() const { return ep_; }
-  void set_ep(kernel::EndPointIntf<const Message*>* ep) { ep_ = ep; }
-
-  //
-  kernel::Agent<const Message*>* origin() const { return origin_; }
-  void set_origin(kernel::Agent<const Message*>* origin) { origin_ = origin; }
-
+  void set_origin(Agent* origin) { origin_ = origin; }
+  void set_dest(Agent* dest) { dest_ = dest;}
+  
  private:
   // Message Payload
   const Message* payload_ = nullptr;
-  // Destination end-point
-  kernel::EndPointIntf<const Message*>* ep_ = nullptr;
   // Originating agent.
-  kernel::Agent<const Message*>* origin_ = nullptr;
+  Agent* origin_ = nullptr;
+  // Destination agent.
+  Agent* dest_ = nullptr;
 };
 
+
+class NocPort : public kernel::Module {
+  friend class SocTop;
+ public:
+  NocPort(kernel::Kernel* k, const std::string& name);
+  ~NocPort();
+
+  // Owned by port
+  MessageQueue* ingress() const { return ingress_; }
+
+  // Owned by agent
+  MessageQueue* egress() const { return egress_; }
+ private:
+  // Build phase:
+  void build();
+
+  // Elaboration phase:
+  void set_egress(MessageQueue* egress) { egress_ = egress; }
+  
+  MessageQueue* ingress_ = nullptr;
+  MessageQueue* egress_ = nullptr;
+};
 
 //
 //
 class NocModel : public Agent {
   class MainProcess;
+
+  friend class SocTop;
  public:
+  
   NocModel(kernel::Kernel* k, const NocModelConfig& config);
 
   const NocModelConfig& config() const { return config_; }
 
-  //
-  kernel::EndPointIntf<const Message*>* get_input(std::size_t n);
+  NocPort* get_agent_port(Agent* agent);
 
  protected:
 
   // Build Phase
   void build();
+  // Construct new agent interface.
+  void register_agent(Agent* agent);
 
   // Elaboration Phase
   virtual void elab() override;
@@ -95,15 +122,12 @@ class NocModel : public Agent {
 
   // Arbiter
   Arbiter<const Message*>* arb() const { return arb_; }
-
-  // Ingress Message Queue(s)
-  const std::vector<MessageQueue*>& imqs() const { return imqs_; }
   
  private:
   // Queue selection arbiter
   Arbiter<const Message*>* arb_ = nullptr;
   // Set of ingress Message Queues
-  std::vector<MessageQueue*> imqs_;
+  std::map<Agent*, NocPort*> ports_;
   // Main thread of execution.
   MainProcess* main_ = nullptr;
   // NOC Configuration

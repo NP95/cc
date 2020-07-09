@@ -25,10 +25,11 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_MSG_H
-#define CC_INCLUDE_CC_MSG_H
+#ifndef CC_LIBCC_MSG_H
+#define CC_LIBCC_MSG_H
 
 #include "cc/types.h"
+#include "msg_enum.h"
 #include <string>
 
 namespace cc {
@@ -49,25 +50,6 @@ class Transaction {
 
   std::string to_string_short() const { return "Some transaction"; }
   std::string to_string() const { return "Some transaction."; };
-};
-
-// clang-format off
-#define MESSAGE_CLASSES(__func)			\
-  __func(Invalid)				\
-  __func(CpuL1__CmdMsg)                         \
-  __func(L1Cpu__RspMsg)                         \
-  __func(L1L2__CmdMsg)                          \
-  __func(L2CC__AceCmd)                          \
-  __func(CCL2__AceSnoop)                        \
-  __func(AceCmd)                                \
-  __func(AceSnoop)                              \
-  __func(Noc)
-// clang-format on
-
-enum class MessageClass {
-#define __declare_enum(__name) __name,
-  MESSAGE_CLASSES(__declare_enum)
-#undef __declare_enum
 };
 
 //

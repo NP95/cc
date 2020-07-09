@@ -25,49 +25,39 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "cc.h"
-#include <vector>
+#ifndef CC_INCLUDE_CC_SOC_H
+#define CC_INCLUDE_CC_SOC_H
 
+namespace cc {
 
-cc::SocCfg generate_cfg() {
-  cc::ProtocolBuilder* pbuilder = cc::construct_protocol_builder("moesi");
+namespace kernel {
+class Kernel;
+}
+class SocCfg;
+class SocTop;
 
-  cc::CpuClusterCfg cfg;
+class Soc {
+ public:
+  Soc(const SocCfg& soccfg);
+  ~Soc();
 
-  cfg.cc_config.pbuilder = pbuilder;
-  cfg.l2c_config.pbuilder = pbuilder;
-  for (int i = 0; i < 1; i++) {
-    cc::L1CacheModelConfig l1c;
-    l1c.pbuilder = pbuilder;
-    cfg.l1c_configs.push_back(l1c);
+  void initialize();
 
-    cc::CpuConfig cpu;
-    
-    cc::ProgrammaticStimulus* s = new cc::ProgrammaticStimulus;
-    s->push_back(cc::kernel::Time{100}, cc::Command{cc::Command::Load, 0});
-    s->push_back(cc::kernel::Time{100}, cc::Command{cc::Command::Load, 0});
-    cpu.stimulus = s;
-    
-    cfg.cpu_configs.push_back(cpu);
-  }
+  void run();
 
-  // Construct a directory
-  cc::DirectoryModelConfig dir;
+  void finalize();
   
-  cc::SocCfg soc;
-  soc.ccls.push_back(cfg);
-  soc.dcfgs.push_back(dir);
-  return soc;
-}
+ private:
+  void build(const SocCfg& config);
 
-int main(int argc, char** argv) {
-  // Simulation configuration.
+  // Simulation kernel instance
+  kernel::Kernel* kernel_;
+  // Top module instance.
+  SocTop* top_;
+};
 
-  cc::Soc* soc = cc::construct_soc(generate_cfg());
-  soc->initialize();
-  soc->run();
-  soc->finalize();
-  delete soc;
+Soc* construct_soc(const SocCfg& soccfg);
 
-  return 0;
-}
+} // namespace cc
+
+#endif

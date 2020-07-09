@@ -26,7 +26,7 @@
 //========================================================================== //
 
 #include "primitives.h"
-#include "cc/msg.h"
+#include "msg.h"
 
 namespace cc {
 

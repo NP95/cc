@@ -30,7 +30,7 @@
 
 #include "cc/kernel.h"
 #include "cc/cfgs.h"
-#include "cc/primitives.h"
+#include "primitives.h"
 
 namespace cc {
 
@@ -76,6 +76,8 @@ class CacheController : public Agent {
   void set_l2c(L2CacheModel* l2c) { l2c_ = l2c; }
   // Set directory mapper.
   void set_dm(DirectoryMapper* dm) { dm_ = dm; }
+  // Set CC -> NOC message queue
+  void set_cc_noc__msg_q(MessageQueue* mq) { cc_noc__msg_q_ = mq; }
   
   // Design Rule Check (DRC)
   void drc();

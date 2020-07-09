@@ -32,8 +32,8 @@
 
 #include "cfgs.h"
 #include "kernel.h"
-#include "cc/primitives.h"
-#include "cc/msg.h"
+#include "primitives.h"
+#include "msg.h"
 #include "l2cache_enum.h"
 
 namespace cc {
@@ -79,8 +79,6 @@ class L2CacheModel : public Agent {
   friend class CpuCluster;
 
  public:
-  enum EndPoints : kernel::end_point_id_t { L1CmdReq, L1CmdRsp };
-
   L2CacheModel(kernel::Kernel* k, const L2CacheModelConfig& config);
   virtual ~L2CacheModel();
 

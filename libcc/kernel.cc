@@ -81,6 +81,11 @@ bool RandomSource::random_bool(float true_probability) {
 
 void ObjectVisitor::iterate(Object* root) { root->accept(this); }
 
+void Object::set_top() {
+  parent_ = nullptr;
+  k_->set_top(this);
+}
+
 void Object::iterate_children(ObjectVisitor* visitor) {
   for (Object* o : children_) {
     o->accept(visitor);
@@ -103,7 +108,9 @@ void LogContext::info(const std::string& name, bool nl) {
   }
 }
 
-Kernel::Kernel(seed_type seed) : random_source_(seed) {}
+Kernel::Kernel(seed_type seed)
+    : random_source_(seed), Module(this, "kernel") {
+}
 
 void Kernel::run(RunMode r, Time t) {
   // Build phase is already complete by this stage and it is assume
@@ -361,7 +368,7 @@ void Module::add_child_module(Module* m) {
   ms_.push_back(m);
 }
 
-TopModule::TopModule(Kernel* k, const std::string& name) : Module(k, name) {
+TopModule::TopModule(kernel::Kernel* k, const std::string& name) : Module(k, name) {
   set_top();
 }
 

@@ -31,7 +31,7 @@
 #include "cpu.h"
 #include "protocol.h"
 #include "cc/sim.h"
-#include "cc/msg.h"
+#include "msg.h"
 #include "l2cache.h"
 #include "primitives.h"
 #include "utility.h"
