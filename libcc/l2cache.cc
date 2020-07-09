@@ -56,7 +56,8 @@ std::string L1L2__CmdMsg::to_string() const {
     
     KVListRenderer r(ss);
     r.add_field("opcode", to_string(opcode()));
-    r.add_field("addr", to_string(addr()));
+    const Hexer hexer;
+    r.add_field("addr", hexer.to_hex(addr()));
   }
   return ss.str();
 }
@@ -76,44 +77,14 @@ class L2CacheModel::MainProcess : public kernel::Process {
     CacheModel<L2LineState*>::LineIterator line_it;
   };
 
-  // clang-format off
-#define STATES(__func)				\
-  __func(AwaitingMessage)			\
-  __func(ProcessMessage)			\
-  __func(ExecuteActions)			\
-  __func(CommitContext)				\
-  __func(DiscardContext)
-  // clang-format on
-
-  enum class State {
-#define __declare_state(__name) __name,
-    STATES(__declare_state)
-#undef __declare_state
-  };
-
-  std::string to_string(State state) {
-    switch (state) {
-      default:
-        return "Unknown";
-#define __declare_to_string(__name)             \
-        case State::__name:                     \
-          return #__name;                       \
-          break;
-        STATES(__declare_to_string)
-#undef __declare_to_string
-    }
-    return "Invalid";
-  }
-#undef STATES
-
  public:
   MainProcess(kernel::Kernel* k, const std::string& name, L2CacheModel* model)
       : kernel::Process(k, name), model_(model) {}
 
-  State state() const { return state_; }
+  L2MainState state() const { return state_; }
  private:
 
-  void set_state(State state) {
+  void set_state(L2MainState state) {
 #ifdef VERBOSE_LOGGING
     if (state_ != state) {
       LogMessage msg("State transition: ");
@@ -129,7 +100,7 @@ class L2CacheModel::MainProcess : public kernel::Process {
   
   // Initialization:
   void init() override {
-    set_state(State::AwaitingMessage);
+    set_state(L2MainState::AwaitingMessage);
     Arbiter<const Message*>* arb = model_->arb();
     wait_on(arb->request_arrival_event());
   }
@@ -137,15 +108,15 @@ class L2CacheModel::MainProcess : public kernel::Process {
   // Evaluation:
   void eval() override {
     switch (state()) {
-      case State::AwaitingMessage: {
+      case L2MainState::AwaitingMessage: {
         handle_awaiting_message();
       } break;
 
-      case State::ProcessMessage: {
+      case L2MainState::ProcessMessage: {
         handle_process_message();
       } break;
 
-      case State::ExecuteActions: {
+      case L2MainState::ExecuteActions: {
         handle_execute_actions();
       } break;
 
@@ -180,7 +151,7 @@ class L2CacheModel::MainProcess : public kernel::Process {
       ctxt_ = Context();
       ctxt_.t = t;
       const L2CacheModelConfig& config = model_->config();
-      set_state(State::ProcessMessage);
+      set_state(L2MainState::ProcessMessage);
       next_delta();
     } else {
       // Otherwise, block awaiting the arrival of a message at on
@@ -226,7 +197,7 @@ class L2CacheModel::MainProcess : public kernel::Process {
               L2CacheModelApplyResult& apply_result = ctxt_.apply_result;
               protocol->apply(apply_result, l1line, cmdmsg);
               // Advance to execute state.
-              set_state(State::ExecuteActions);
+              set_state(L2MainState::ExecuteActions);
               next_delta();
             }
           } else {
@@ -243,6 +214,14 @@ class L2CacheModel::MainProcess : public kernel::Process {
   void handle_execute_actions() {
     // TODO: to prevent deadlock, the resources for the apply result
     // must be available (and reserved before it can complete.
+
+    kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
+    const Message* msg = intf->peek();
+
+    LogMessage lmsg("Execute message: ");
+    lmsg.append(msg->to_string());
+    lmsg.level(Level::Info);
+    log(lmsg);
     
     L2CacheModelApplyResult& ar = ctxt_.apply_result;
     while (!ar.empty()) {
@@ -258,14 +237,12 @@ class L2CacheModel::MainProcess : public kernel::Process {
         } break;
 
         case L2UpdateAction::Commit: {
-          kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
           intf->dequeue();
           ctxt_.t.advance();
           ar.pop();
         } break;
 
         case L2UpdateAction::Block: {
-          kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
           intf->set_blocked(true);
           ar.pop();
         } break;
@@ -288,11 +265,10 @@ class L2CacheModel::MainProcess : public kernel::Process {
         case L2UpdateAction::EmitEvict: {
           const bool can_issue = true;
           if (can_issue) {
-            const MsgRequesterIntf* intf = ctxt_.t.intf();
-            const Message* msg = intf->peek();
             // Issue message to cache controller.
             AceCmdMsg* acemsg = new AceCmdMsg(msg->t());
             acemsg->opcode(update_to_opcode(action));
+            acemsg->set_addr(0);
             // Issue message into cache controller.
             model_->issue(model_->l2_cc__cmd_q(), kernel::Time{2000, 0}, acemsg);
             // Action completeed; discard.
@@ -307,14 +283,14 @@ class L2CacheModel::MainProcess : public kernel::Process {
         } break;
       }
     }
-    set_state(State::AwaitingMessage);
+    set_state(L2MainState::AwaitingMessage);
     next_delta();
   }
 
   // Pointer to parent L2.
   L2CacheModel* model_ = nullptr;
 
-  State state_;
+  L2MainState state_;
 
   Context ctxt_;
 };

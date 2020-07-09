@@ -56,7 +56,8 @@ std::string CpuL1__CmdMsg::to_string() const {
     
     KVListRenderer r(ss);
     r.add_field("opcode", to_string(opcode()));
-    r.add_field("addr", to_string(addr()));
+    const Hexer hexer;
+    r.add_field("addr", hexer.to_hex(addr()));
   }
   return ss.str();
 }
@@ -78,48 +79,16 @@ class L1CacheModel::MainProcess : public kernel::Process {
     CacheModel<L1LineState*>::LineIterator line_it;
   };
 
-  // clang-format off
-#define STATES(__func)				\
-  __func(AwaitingMessage)			\
-  __func(ProcessMessage)			\
-  __func(ExecuteActions)			\
-  __func(EmitMessages)				\
-  __func(CommitContext)				\
-  __func(DiscardContext)
-  // clang-format on
-
-  enum class State {
-#define __declare_state(__name) __name,
-    STATES(__declare_state)
-#undef __declare_state
-  };
-
-  std::string to_string(State state) {
-    switch (state) {
-      default:
-        return "Unknown";
-#define __declare_to_string(__name)             \
-        case State::__name:                     \
-          return #__name;                       \
-          break;
-        STATES(__declare_to_string)
-#undef __declare_to_string
-    }
-    return "Invalid";
-  }
-
-#undef STATES
-
  public:
   MainProcess(kernel::Kernel* k, const std::string& name, L1CacheModel* model)
       : kernel::Process(k, name), model_(model) {}
 
   // Current process state
-  State state() const { return state_; }
-  void set_state(State state) {
+  L1MainState state() const { return state_; }
+  void set_state(L1MainState state) {
 #ifdef VERBOSE_LOGGING
     if (state_ != state) {
-      LogMessage msg("State transition: ");
+      LogMessage msg("L1MainState transition: ");
       msg.level(Level::Debug);
       msg.append(to_string(state_));
       msg.append(" -> ");
@@ -136,7 +105,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
     // Await the arrival of requesters
     Arbiter<const Message*>* arb = model_->arb();
     wait_on(arb->request_arrival_event());
-    set_state(State::AwaitingMessage);
+    set_state(L1MainState::AwaitingMessage);
   }
 
   // Finalization
@@ -145,15 +114,15 @@ class L1CacheModel::MainProcess : public kernel::Process {
   // Evaluation
   void eval() override {
     switch (state()) {
-      case State::AwaitingMessage: {
+      case L1MainState::AwaitingMessage: {
 	    handle_awaiting_message();
       } break;
 
-      case State::ProcessMessage: {
+      case L1MainState::ProcessMessage: {
         handle_nominated_message();
       } break;
 
-      case State::ExecuteActions: {
+      case L1MainState::ExecuteActions: {
         handle_execute_actions();
       } break;
 
@@ -185,7 +154,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
       ctxt_ = Context();
       ctxt_.t = t;
       const L1CacheModelConfig& config = model_->config();
-      set_state(State::ProcessMessage);
+      set_state(L1MainState::ProcessMessage);
       next_delta();
     } else {
       // Otherwise, block awaiting the arrival of a message at on
@@ -215,7 +184,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
           L1CacheModelApplyResult& apply_result = ctxt_.apply_result;
           const L1CacheModelProtocol* p = model_->protocol();
           p->apply(apply_result, line.t(), cpucmd);
-          set_state(State::ExecuteActions);
+          set_state(L1MainState::ExecuteActions);
           next_delta();
         } else {
           // Cache miss; either service current command by installing
@@ -244,7 +213,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
               L1CacheModelApplyResult& apply_result = ctxt_.apply_result;
               protocol->apply(apply_result, l1line, cpucmd);
               // Advance to execute state.
-              set_state(State::ExecuteActions);
+              set_state(L1MainState::ExecuteActions);
               next_delta();
             }
           } else {
@@ -253,7 +222,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
             MsgRequesterIntf* intf = ctxt_.t.intf();
             intf->set_blocked(true);
             //
-            set_state(State::DiscardContext);
+            set_state(L1MainState::AwaitingMessage);
             next_delta();
           }
         }
@@ -268,6 +237,14 @@ class L1CacheModel::MainProcess : public kernel::Process {
   }
 
   void handle_execute_actions() {
+    kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
+    const Message* msg = intf->peek();
+
+    LogMessage lmsg("Execute message: ");
+    lmsg.append(msg->to_string());
+    lmsg.level(Level::Info);
+    log(lmsg);
+
     L1CacheModelApplyResult& ar = ctxt_.apply_result;
     while (!ar.empty()) {
       const L1UpdateAction action = ar.next();
@@ -281,7 +258,6 @@ class L1CacheModel::MainProcess : public kernel::Process {
           ar.pop();
         } break;
         case L1UpdateAction::Commit: {
-          kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
           intf->dequeue();
           ctxt_.t.advance();
           ar.pop();
@@ -297,6 +273,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
         case L1UpdateAction::EmitGetS: {
           L1L2__CmdMsg* msg = new L1L2__CmdMsg(nullptr);
           msg->set_opcode(L2L1Opcode::GetS);
+          msg->set_addr(0);
           model_->issue(model_->l1_l2__cmd_q(), kernel::Time{1000, 0}, msg);
           ar.pop();
         } break;
@@ -305,12 +282,12 @@ class L1CacheModel::MainProcess : public kernel::Process {
         } break;
       }
     }
-    set_state(State::AwaitingMessage);
+    set_state(L1MainState::AwaitingMessage);
     next_delta();
   }
 
   // Current process state
-  State state_;
+  L1MainState state_;
   // Context of current operation.
   Context ctxt_;
   // Pointer to parent module.

@@ -46,10 +46,16 @@ class AceCmdMsg : public Message {
   std::string to_string_short() const override;
   std::string to_string() const override;
 
+  // Opcode:
   AceCmdOpcode opcode() const { return opcode_; }
   void opcode(AceCmdOpcode opcode) { opcode_ = opcode; }
+
+  // Address:
+  addr_t addr() const { return addr_; }
+  void set_addr(addr_t addr) { addr_ = addr; }
   
  private:
+  addr_t addr_;
   AceCmdOpcode opcode_;
 };
 

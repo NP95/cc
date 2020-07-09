@@ -26,6 +26,7 @@
 //========================================================================== //
 
 #include "ccntrl.h"
+#include "ccntrl_enum.h"
 #include "primitives.h"
 #include "cc/msg.h"
 #include "protocol.h"
@@ -44,40 +45,15 @@ class CacheController::MainProcess : public kernel::Process {
     Table<CacheControllerLineState*>::Iterator it;
   };
 
-#define STATES(__func)                          \
-  __func(AwaitingMessage)                       \
-  __func(ProcessMessage)                        \
-  __func(ExecuteActions)
-
-  enum class State {
-#define __declare_state(__name) __name,
-    STATES(__declare_state)
-#undef __declare_state
-  };
-  std::string to_string(State state) {
-    switch (state) {
-      default:
-        return "Unknown";
-#define __declare_to_string(__name)             \
-        case State::__name:                     \
-          return #__name;                       \
-          break;
-        STATES(__declare_to_string)
-#undef __declare_to_string
-    }
-    return "Invalid";
-  }
-#undef STATES
- 
  public:
   MainProcess(kernel::Kernel* k, const std::string& name, CacheController* cc)
       : Process(k, name), cc_(cc) {
   }
-  State state() const { return state_; }
+  CCMainState state() const { return state_; }
 
  private:
 
-  void set_state(State state) {
+  void set_state(CCMainState state) {
 #ifdef VERBOSE_LOGGING
     if (state_ != state) {
       LogMessage msg("State transition: ");
@@ -94,22 +70,22 @@ class CacheController::MainProcess : public kernel::Process {
   // Initialization
   void init() override {
     Arbiter<const Message*>* arb = cc_->arb();
-    set_state(State::AwaitingMessage);
+    set_state(CCMainState::AwaitingMessage);
     wait_on(arb->request_arrival_event());
   }    
 
   // Evaluation
   void eval() override {
     switch (state()) {
-      case State::AwaitingMessage: {
+      case CCMainState::AwaitingMessage: {
         handle_awaiting_message();
       } break;
 
-      case State::ProcessMessage: {
+      case CCMainState::ProcessMessage: {
         handle_process_message();
       } break;
         
-      case State::ExecuteActions: {
+      case CCMainState::ExecuteActions: {
         handle_execute_actions();
       } break;
 
@@ -146,7 +122,7 @@ class CacheController::MainProcess : public kernel::Process {
       // delta cycle.
       context_ = Context();
       context_.t = t;
-      set_state(State::ProcessMessage);
+      set_state(CCMainState::ProcessMessage);
       next_delta();
     } else {
       // Otherwise, block awaiting the arrival of a message at on
@@ -180,7 +156,7 @@ class CacheController::MainProcess : public kernel::Process {
           // Install line; (move to commit).
           table->install(context_.it, line);
           protocol->apply(context_.ar, line, acemsg);
-          set_state(State::ExecuteActions);
+          set_state(CCMainState::ExecuteActions);
           next_delta();
         } else {
           // Transaction cannot proceed because the table is either
@@ -230,7 +206,7 @@ class CacheController::MainProcess : public kernel::Process {
   // Current processing context.
   Context context_;
   // Current processing state
-  State state_;
+  CCMainState state_;
   // Cache controller instance.
   CacheController* cc_ = nullptr;
 };

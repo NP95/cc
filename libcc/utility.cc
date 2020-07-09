@@ -58,6 +58,50 @@ void KVListRenderer::add_field(
   kvs_.push_back(std::make_pair(key, value));
 }
 
+std::string Hexer::to_hex(std::uint64_t x, std::size_t bits) const {
+  return to_hex(reinterpret_cast<const char *>(std::addressof(x)), bits);
+}
 
+std::string Hexer::to_hex(const char * c, std::size_t bits) const {
+  if (bits == 0) return "";
+
+  // Predecrement character point to simply control logic in main
+  // loop.
+  --c;
+  std::string result;
+  while (bits > 0) {
+    char x = *++c;
+    // Lower nibble
+    std::size_t bits_mask = std::min(4ul, bits);
+    result.push_back(hex_char(x & mask<char>(bits_mask)));
+    bits -= bits_mask;
+    if (bits > 0) {
+      // Upper nibble
+      x >>= 4;
+      bits_mask = std::min(4ul, bits);
+      result.push_back(hex_char(x & mask<char>(bits_mask)));
+      bits -= bits_mask;
+    }    
+  }
+
+  if (truncate_) {
+    // Remove leading zeros such that: 0x00000000 becomes 0x0.
+    while ((result.size() > 1) && (result.back() == '0'))
+      result.pop_back();
+  }
+  
+  if (prefix_) {
+    // Append hex prefix if applicable.
+    result.push_back('x');
+    result.push_back('0');
+  }
+
+  std::reverse(result.begin(), result.end());
+  return result;
+}
+
+char Hexer::hex_char(char x) const {
+  return (x < 10) ? ('0' + x) : ((upper_case_ ? 'A' : 'a') + (x - 10));
+}
 
 } // namespace cc

@@ -27,7 +27,15 @@
 
 #emit:to_string
 
+// Opcode definition for messages passed from a CPU to its L1 cache.
 @enum_begin(L1CpuOpcode)
 Load
 Store
+@enum_end
+
+// Internal state definition for main process:
+@enum_begin(L1MainState)
+AwaitingMessage
+ProcessMessage
+ExecuteActions
 @enum_end

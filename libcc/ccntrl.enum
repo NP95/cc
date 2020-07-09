@@ -27,11 +27,7 @@
 
 #emit:to_string
 
-@enum_begin(L2L1Opcode)
-GetS
-@enum_end
-
-@enum_begin(L2MainState)
+@enum_begin(CCMainState)
 AwaitingMessage
 ProcessMessage
 ExecuteActions

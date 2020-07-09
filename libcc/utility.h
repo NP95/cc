@@ -83,6 +83,33 @@ class KVListRenderer {
   std::ostream& os_;
 };
 
+struct Hexer {
+  explicit Hexer() = default;
+
+  // Currently rendering uppercase.
+  bool upper_case() const { return upper_case_; }
+
+  // Currently rendering with prefix.
+  bool prefix() const { return prefix_; }
+
+  // Convert some multi-byte value to hex equivalent.
+  std::string to_hex(std::uint64_t x, std::size_t bits = 64) const;
+  std::string to_hex(const char * c, std::size_t bits) const;
+
+  // Convert integer in range [0, 16) to hex character.
+  char hex_char(char x) const;
+
+ private:
+  // Render test with uppercase hexadecimal characters.
+  bool upper_case_ = false;
+
+  // Render text with '0x' prefix
+  bool prefix_ = true;
+
+  // Render with stripping leading zeros
+  bool truncate_ = true;
+};
+
 }  // namespace cc
 
 #endif

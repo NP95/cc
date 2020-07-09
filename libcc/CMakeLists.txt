@@ -31,6 +31,7 @@ cc_generate_enum(amba.enum)
 cc_generate_enum(cpu.enum)
 cc_generate_enum(l1cache.enum)
 cc_generate_enum(l2cache.enum)
+cc_generate_enum(ccntrl.enum)
 
 add_library(cc SHARED
   kernel.cc
@@ -54,6 +55,7 @@ add_library(cc SHARED
   llc.cc
   cpucluster.cc
   ccntrl.cc
+  ccntrl_enum.cc
   utility.cc
   )
 
