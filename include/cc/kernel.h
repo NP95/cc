@@ -301,11 +301,14 @@ class Loggable : public Object {
     Level level() const { return level_; }
     std::string msg() const { return msg_; }
 
+    bool suppress_except() const { return suppress_except_; }
+    void suppress_except(bool s = true) { suppress_except_ = s; }
     void level(Level level) { level_ = level; }
     LogMessage& append(const std::string& str);
     void clear() { msg_.clear(); }
 
    private:
+    bool suppress_except_ = false;
     std::string msg_;
     Level level_;
   };

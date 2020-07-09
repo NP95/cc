@@ -26,39 +26,85 @@
 //========================================================================== //
 
 #include "amba.h"
+#include "utility.h"
+#include <sstream>
 
 namespace cc {
 
-
-const char* to_string(AceCmdOpcode opcode) {
-  switch (opcode) {
-#define __declare_to_string(__name)             \
-    case AceCmdOpcode::__name: return #__name;
-    ACE_COMMAND_OPCODES(__declare_to_string)
-#undef __declare_to_string
-    default: return "Invalid";
+std::string AceCmdMsg::to_string_short() const {
+  std::stringstream ss;
+  {
+    KVListRenderer r(ss);
   }
+  return ss.str();
+}
+
+std::string AceCmdMsg::to_string() const {
+  std::stringstream ss;
+  {
+    using cc::to_string;
+    using std::to_string;
+    
+    KVListRenderer r(ss);
+    r.add_field("opcode", to_string(opcode()));
+  }
+  return ss.str();
 }
 
 AceCmdOpcode update_to_opcode(L2UpdateAction action) {
   switch (action) {
-#define __declare_mapping(__opcode)             \
-    case L2UpdateAction::Emit##__opcode:        \
-      return AceCmdOpcode::__opcode; break;
-    ACE_COMMAND_OPCODES(__declare_mapping)
-    default: return AceCmdOpcode::Invalid;
+    case L2UpdateAction::EmitReadNoSnoop:
+      return AceCmdOpcode::ReadNoSnoop;
+      break;
+    case L2UpdateAction::EmitReadOnce:
+      return AceCmdOpcode::ReadOnce;
+      break;
+    case L2UpdateAction::EmitReadClean:
+      return AceCmdOpcode::ReadClean;
+      break;
+    case L2UpdateAction::EmitReadSharedNotDirty:
+      return AceCmdOpcode::ReadSharedNotDirty;
+      break;
+    case L2UpdateAction::EmitReadShared:
+      return AceCmdOpcode::ReadShared;
+      break;
+    case L2UpdateAction::EmitReadUnique:
+      return AceCmdOpcode::ReadUnique;
+      break;
+    case L2UpdateAction::EmitCleanUnique:
+      return AceCmdOpcode::CleanUnique;
+      break;
+    case L2UpdateAction::EmitCleanShared:
+      return AceCmdOpcode::CleanShared;
+      break;
+    case L2UpdateAction::EmitCleanInvalid:
+      return AceCmdOpcode::CleanInvalid;
+      break;
+    case L2UpdateAction::EmitMakeUnique:
+      return AceCmdOpcode::MakeUnique;
+      break;
+    case L2UpdateAction::EmitMakeInvalid:
+      return AceCmdOpcode::MakeInvalid;
+      break;
+    case L2UpdateAction::EmitWriteNoSnoop:
+      return AceCmdOpcode::WriteNoSnoop;
+      break;
+    case L2UpdateAction::EmitWriteLineUnique:
+      return AceCmdOpcode::WriteLineUnique;
+      break;
+    case L2UpdateAction::EmitWriteBack:
+      return AceCmdOpcode::WriteBack;
+      break;
+    case L2UpdateAction::EmitWriteClean:
+      return AceCmdOpcode::WriteClean;
+      break;
+    case L2UpdateAction::EmitEvict:
+      return AceCmdOpcode::Evict;
+      break;
+    default:
+      return AceCmdOpcode::Invalid;
+      break;
   }
-#undef DECLARE_MAPPING
-}
-
-const char* to_string(AceSnpOpcode cmd) {
-  switch (cmd) {
-#define __declare_to_string(__name)             \
-    case AceSnpOpcode::__name: return #__name;
-    ACE_SNOOP_OPCODES(__declare_to_string)
-#undef __declare_to_string
-  }
-  return "Invalid";
 }
 
 } // namespace cc

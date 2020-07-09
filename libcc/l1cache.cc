@@ -29,13 +29,37 @@
 
 #include "cache.h"
 #include "cpu.h"
-#include "cc/protocol.h"
+#include "protocol.h"
 #include "cc/sim.h"
 #include "cc/msg.h"
 #include "l2cache.h"
 #include "primitives.h"
+#include "utility.h"
+
+// #define VERBOSE_LOGGING
 
 namespace cc {
+
+std::string CpuL1__CmdMsg::to_string_short() const {
+  std::stringstream ss;
+  {
+    KVListRenderer r(ss);
+  }
+  return ss.str();
+}
+
+std::string CpuL1__CmdMsg::to_string() const {
+  std::stringstream ss;
+  {
+    using cc::to_string;
+    using std::to_string;
+    
+    KVListRenderer r(ss);
+    r.add_field("opcode", to_string(opcode()));
+    r.add_field("addr", to_string(addr()));
+  }
+  return ss.str();
+}
 
 class L1CacheModel::MainProcess : public kernel::Process {
 
@@ -93,6 +117,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
   // Current process state
   State state() const { return state_; }
   void set_state(State state) {
+#ifdef VERBOSE_LOGGING
     if (state_ != state) {
       LogMessage msg("State transition: ");
       msg.level(Level::Debug);
@@ -101,6 +126,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
       msg.append(to_string(state));
       log(msg);
     }
+#endif
     state_ = state;
   }
 
@@ -270,7 +296,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
         } break;
         case L1UpdateAction::EmitGetS: {
           L1L2__CmdMsg* msg = new L1L2__CmdMsg(nullptr);
-          msg->set_opcode(L2Opcode::GetS);
+          msg->set_opcode(L2L1Opcode::GetS);
           model_->issue(model_->l1_l2__cmd_q(), kernel::Time{1000, 0}, msg);
           ar.pop();
         } break;

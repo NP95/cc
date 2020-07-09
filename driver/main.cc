@@ -44,7 +44,7 @@ struct SimContext {
 
 
 cc::CpuClusterCfg generate_cfg() {
-  cc::ProtocolBuilder* pbuilder = cc::ProtocolBuilderRegistry::build("moesi");
+  cc::ProtocolBuilder* pbuilder = cc::construct_protocol_builder("moesi");
 
   cc::CpuClusterCfg cfg;
 

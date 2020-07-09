@@ -64,8 +64,12 @@ ENUM_PREFIX_RE=re.compile('^@enum_begin\((?P<name>.*)\)')
 # Enum terminal line
 ENUM_SUFFIX_RE=re.compile('^@enum_end')
 
+# Emit directive
+EMIT_DIRECTIVE_RE=re.compile('^#emit:(?P<command>.*)')
+
 class EnumWriter:
     def __init__(self, ofn):
+        self.directives = []
         self.ofn = os.path.basename(ofn)
         self.ofn_h = open(self.ofn + '_enum.h', 'w')
         self.ofn_cc = open(self.ofn + '_enum.cc', 'w')
@@ -83,16 +87,22 @@ class EnumWriter:
         self._emit_namespace_end(self.ofn_h)
         self._emit_header_guard_end(self.ofn_h)
         self._emit_namespace_end(self.ofn_cc)
+    def add_directive(self, dir):
+        self.directives.append(dir)
     def append(self, e):
         self._append_header(e)
         self._append_source(e)
     def _append_header(self, e):
         self._emit_definition(e)
-        self._emit_to_string_def(e)
-        self._emit_is_stable_def(e)
+        if 'to_string' in self.directives:
+            self._emit_to_string_def(e)
+        if 'is_stable' in self.directives:
+            self._emit_is_stable_def(e)
     def _append_source(self, e):
-        self._emit_to_string(e)
-        self._emit_is_stable(e)
+        if 'to_string' in self.directives:
+            self._emit_to_string(e)
+        if 'is_stable' in self.directives:
+            self._emit_is_stable(e)
     def _emit_copyright(self, of):
         of.write(COPYRIGHT_BANNER)
         self._emit_nl(of, 1)
@@ -103,8 +113,8 @@ class EnumWriter:
         of.write('} // namespace cc\n')
         self._emit_nl(of, 1)
     def _emit_header_guard_begin(self, of):
-        of.write('#ifndef CC_LIBCC_{}\n'.format(self.ofn.upper()))
-        of.write('#define CC_LIBCC_{}\n'.format(self.ofn.upper()))
+        of.write('#ifndef CC_LIBCC_{}_ENUM_H\n'.format(self.ofn.upper()))
+        of.write('#define CC_LIBCC_{}_ENUM_H\n'.format(self.ofn.upper()))
         self._emit_nl(of, 1)
         of.write('#include "cc/types.h"\n')
         self._emit_nl(of, 1)
@@ -164,33 +174,30 @@ class EnumDefinition:
         self.items.append(item)
 
 def process_file(fn):
-    enum_defs = []
-    line_no = 0
-    for l in open(fn, 'r').readlines():
-        line_no += 1
-        l = l.rstrip('\n')
-        if not l or l.startswith('//'): continue
-
-        m = ENUM_PREFIX_RE.match(l)
-        if m:
-            enum_defs.append(EnumDefinition(m.group('name'), fn, line_no))
-            continue
-
-        m = ENUM_SUFFIX_RE.match(l)
-        if m:
-            continue
-
-        enum_defs[-1].add_item(l)
-
-    ofn = fn.rstrip('.enum')
+    (ofn, ext) = os.path.splitext(os.path.basename(fn))
     with EnumWriter(ofn) as ew:
+        enum_defs = []
+        for (line_no, l) in enumerate(open(fn, 'r').readlines()):
+            l = l.rstrip('\n')
+            if not l or l.startswith('//'): continue
+            m = ENUM_PREFIX_RE.match(l)
+            if m:
+                enum_defs.append(EnumDefinition(m.group('name'), fn, line_no))
+                continue
+            m = ENUM_SUFFIX_RE.match(l)
+            if m:
+                continue
+            m = EMIT_DIRECTIVE_RE.match(l)
+            if m:
+                ew.add_directive(m.group('command'))
+                continue
+            enum_defs[-1].add_item(l)
         for e in enum_defs:
             ew.append(e)
 
 def main(args):
     for fn in args[1:]:
         process_file(fn)
-        
 
 if __name__ == '__main__':
     main(sys.argv)

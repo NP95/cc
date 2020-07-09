@@ -26,24 +26,35 @@
 ## ========================================================================= ##
 
 cc_generate_enum(moesi.enum)
+cc_generate_enum(protocol.enum)
+cc_generate_enum(amba.enum)
+cc_generate_enum(cpu.enum)
+cc_generate_enum(l1cache.enum)
+cc_generate_enum(l2cache.enum)
 
 add_library(cc SHARED
   kernel.cc
   primitives.cc
   cache.cc
   protocol.cc
+  protocol_enum.cc
   sim.cc
   l1cache.cc
+  l1cache_enum.cc
   l2cache.cc
+  l2cache_enum.cc
   cpu.cc
+  cpu_enum.cc
   moesi.cc
   moesi_enum.cc
   amba.cc
+  amba_enum.cc
   noc.cc
   dir.cc
   llc.cc
   cpucluster.cc
   ccntrl.cc
+  utility.cc
   )
 
 target_include_directories(cc PRIVATE ${CMAKE_SOURCE_DIR}/include/cc)

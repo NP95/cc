@@ -34,6 +34,7 @@
 #include "kernel.h"
 #include "cc/primitives.h"
 #include "cc/msg.h"
+#include "l2cache_enum.h"
 
 namespace cc {
 
@@ -58,15 +59,17 @@ class L1L2__CmdMsg : public Message {
  public:
   L1L2__CmdMsg(Transaction* t) : Message(t, MessageClass::L1L2__CmdMsg) {}
 
-  L2Opcode opcode() const { return opcode_; }
+  L2L1Opcode opcode() const { return opcode_; }
   addr_t addr() const { return addr_; }
+  std::string to_string_short() const override;
+  std::string to_string() const override;
 
   void set_addr(addr_t addr) { addr_ = addr; }
-  void set_opcode(L2Opcode opcode) { opcode_ = opcode; }
+  void set_opcode(L2L1Opcode opcode) { opcode_ = opcode; }
   
  private:
   addr_t addr_;
-  L2Opcode opcode_;
+  L2L1Opcode opcode_;
 };
 
 //

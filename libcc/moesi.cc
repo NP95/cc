@@ -32,7 +32,7 @@
 #include "l1cache.h"
 #include "utility.h"
 #include "cc/msg.h"
-#include "cc/protocol.h"
+#include "protocol.h"
 #include "cpu.h"
 #include "amba.h"
 #include "moesi_enum.h"
@@ -74,7 +74,7 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
              const CpuL1__CmdMsg* msg) const override {
     const MOESIL1LineState* mline = static_cast<const MOESIL1LineState*>(line);
     switch (msg->opcode()) {
-      case CpuL1__CmdMsg::Load: {
+      case L1CpuOpcode::Load: {
         switch (mline->state()) {
           case L1State::I: {
             r.push(L1UpdateAction::EmitGetS);
@@ -96,7 +96,7 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
           } break;
         }
       } break;
-      case CpuL1__CmdMsg::Store: {
+      case L1CpuOpcode::Store: {
         switch (mline->state()) {
           case L1State::I: {
             r.push(L1UpdateAction::UpdateState);
@@ -168,7 +168,7 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
              const L1L2__CmdMsg* msg) const override {
     const MOESIL2LineState* mline = static_cast<MOESIL2LineState*>(line);
     switch (msg->opcode()) {
-      case L2Opcode::GetS: {
+      case L2L1Opcode::GetS: {
         handle_gets(r, mline);
       } break;
     }
@@ -223,6 +223,62 @@ class MOESICacheControllerProtocol : public CacheControllerProtocol {
 
   void apply(CCModelApplyResult& r, CacheControllerLineState* line,
              const AceCmdMsg* msg) const override {
+    switch (msg->opcode()) {
+      case AceCmdOpcode::ReadNoSnoop: {
+        // TODO
+      } break;
+      case AceCmdOpcode::ReadOnce: {
+        // TODO
+      } break;
+      case AceCmdOpcode::ReadClean: {
+        // TODO
+      } break;
+      case AceCmdOpcode::ReadSharedNotDirty: {
+        // TODO
+      } break;
+      case AceCmdOpcode::ReadShared: {
+        // TODO
+        r.push(CCUpdateAction::EmitToDir);
+        r.push(CCUpdateAction::UpdateState);
+        r.state(ut(CCState::I_S));
+      } break;
+      case AceCmdOpcode::ReadUnique: {
+        // TODO
+      } break;
+      case AceCmdOpcode::CleanUnique: {
+        // TODO
+      } break;
+      case AceCmdOpcode::CleanShared: {
+        // TODO
+      } break;
+      case AceCmdOpcode::CleanInvalid: {
+        // TODO
+      } break;
+      case AceCmdOpcode::MakeUnique: {
+        // TODO
+      } break;
+      case AceCmdOpcode::MakeInvalid: {
+        // TODO
+      } break;
+      case AceCmdOpcode::WriteNoSnoop: {
+        // TODO
+      } break;
+      case AceCmdOpcode::WriteLineUnique: {
+        // TODO
+      } break;
+      case AceCmdOpcode::WriteBack: {
+        // TODO
+      } break;
+      case AceCmdOpcode::WriteClean: {
+        // TODO
+      } break;
+      case AceCmdOpcode::Evict: {
+        // TODO
+      } break;
+      default: {
+        // TODO
+      } break;
+    }
   }
 
   void update_line_state(

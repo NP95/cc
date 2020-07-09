@@ -29,6 +29,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <exception>
 
 namespace cc::kernel {
 
@@ -156,20 +157,35 @@ void Kernel::invoke_init() {
 
 void Kernel::invoke_run(RunMode r, Time t) {
   set_phase(Phase::Run);
-  while (!eq_.empty()) {
-    // IF a fatal error has occurred, terminate the simulation immediately.
-    if (fatal()) break;
+  //
+  Time current_time = time();
+  try {
+    while (!eq_.empty()) {
+      // IF a fatal error has occurred, terminate the simulation immediately.
+      if (fatal()) break;
 
-    const Event e = eq_.front();
-    // If simulation time has elapsed, terminate.
-    if (r == RunMode::ForTime && t < e.time) break;
+      const Event e = eq_.front();
+      // If simulation time has elapsed, terminate.
+      if (r == RunMode::ForTime && t < e.time) break;
 
-    std::pop_heap(eq_.begin(), eq_.end(), EventComparer{});
-    eq_.pop_back();
-    time_ = e.time;
-    if (e.action->eval()) {
-      e.action->release();
+      std::pop_heap(eq_.begin(), eq_.end(), EventComparer{});
+      eq_.pop_back();
+      if (e.time < current_time) {
+        // TODO: Kernel should eventually become the top-level module.
+        
+        // LogMessage msg("Attempt to schedule an action in the past", Level::Fatal);
+        // log(msg);
+        throw std::runtime_error("Fatal error occurred.");
+      }
+      time_ = e.time;
+      if (e.action->eval()) {
+        e.action->release();
+      }
     }
+  } catch (...) {
+    // LogMessage msg("Simulation terminated unexpectedly.", Level::Fatal);
+    // msg.suppress_except(true);
+    // log(msg);
   }
 }
 
@@ -234,6 +250,9 @@ void Loggable::log(const LogMessage& m) const {
   }
   if (m.level() == Level::Fatal) {
     k()->raise_fatal();
+    if (!m.suppress_except()) {
+      throw std::runtime_error("Fatal error occurred.");
+    }
   }
 }
 

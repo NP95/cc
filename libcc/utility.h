@@ -31,6 +31,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <type_traits>
+#include <string>
+#include <ostream>
+#include <utility>
+#include <vector>
 
 namespace cc {
 
@@ -58,6 +62,26 @@ template <typename T>
 typename std::underlying_type<T>::type ut(T e) {
   return static_cast<typename std::underlying_type<T>::type>(e);
 }
+
+class KVListRenderer {
+  using kv_type = std::pair<std::string, std::string>;
+ public:
+  KVListRenderer(std::ostream& os);
+  ~KVListRenderer();
+
+  //
+  void add_field(const std::string& key, const std::string& value);
+  
+ private:
+  void initialize();
+  void finalize();
+  void render(const kv_type& kv);
+
+  // Key/Value pairs
+  std::vector<kv_type> kvs_;
+  // Output stream
+  std::ostream& os_;
+};
 
 }  // namespace cc
 

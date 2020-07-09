@@ -82,8 +82,8 @@ class Message {
   MessageClass cls() const { return cls_; }
   kernel::Agent<const Message*>* agent() const { return origin_; }
 
-  std::string to_string_short() const { return "Some message"; }
-  std::string to_string() const { return "Some message"; }
+  virtual std::string to_string_short() const { return "Some message"; } // TO abstract
+  virtual std::string to_string() const { return "Some message"; } // TO abstract
 
   void set_origin(kernel::Agent<const Message*>* origin) { origin_ = origin; }
   void set_t(Transaction* t) { t_ = t; }

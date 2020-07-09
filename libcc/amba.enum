@@ -25,15 +25,36 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_H
-#define CC_INCLUDE_CC_H
+#emit:to_string
 
-#include "cc/types.h"
-#include "cc/kernel.h"
-#include "cc/sim.h"
-#include "cc/noc.h"
-#include "cc/dir.h"
-#include "cc/primitives.h"
-#include "cc/cpucluster.h"
+@enum_begin(AceCmdOpcode)
+ReadNoSnoop
+ReadOnce
+ReadClean
+ReadSharedNotDirty
+ReadShared
+ReadUnique
+CleanUnique
+CleanShared
+CleanInvalid
+MakeUnique
+MakeInvalid
+WriteNoSnoop
+WriteLineUnique
+WriteBack
+WriteClean
+Evict
+Invalid
+@enum_end
 
-#endif
+@enum_begin(AceSnpOpcode)
+ReadOnce
+ReadClean
+ReadNotSharedDirty
+ReadShared
+ReadUnique
+CleanInvalid
+MakeInvalid
+CleanShared
+Invalid
+@enum_end

@@ -25,6 +25,9 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
+#emit:to_string
+#emit:is_stable
+
 @enum_begin(L1State)
 // Invalid
 I;s
@@ -52,6 +55,7 @@ S;s
 @enum_begin(CCState)
 // Invalid
 I;s
+I_S
 @enum_end
 
 @enum_begin(DirState)

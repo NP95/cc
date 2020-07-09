@@ -101,6 +101,10 @@ class ProgrammaticStimulus : public Stimulus {
   std::deque<Frontier> cs_;
 };
 
+class ProtocolBuilder;
+
+ProtocolBuilder* construct_protocol_builder(const std::string& name);
+
 }  // namespace cc
 
 #endif

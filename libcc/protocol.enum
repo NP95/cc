@@ -25,15 +25,40 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_H
-#define CC_INCLUDE_CC_H
+@enum_begin(L1UpdateAction)
+UpdateState
+Commit
+Block
+EmitCpuRsp
+EmitGetS
+EmitGetE
+@enum_end
 
-#include "cc/types.h"
-#include "cc/kernel.h"
-#include "cc/sim.h"
-#include "cc/noc.h"
-#include "cc/dir.h"
-#include "cc/primitives.h"
-#include "cc/cpucluster.h"
+@enum_begin(L2UpdateAction)
+UpdateState
+Commit
+Block
+EmitReadNoSnoop
+EmitReadOnce
+EmitReadClean
+EmitReadSharedNotDirty
+EmitReadShared
+EmitReadUnique
+EmitCleanUnique
+EmitCleanShared
+EmitCleanInvalid
+EmitMakeUnique
+EmitMakeInvalid
+EmitWriteNoSnoop
+EmitWriteLineUnique
+EmitWriteBack
+EmitWriteClean
+EmitEvict
+@enum_end
 
-#endif
+@enum_begin(CCUpdateAction)
+UpdateState
+Commit
+Block
+EmitToDir
+@enum_end

@@ -35,6 +35,7 @@
 #include "cc/cfgs.h"
 #include "cc/msg.h"
 #include "cc/primitives.h"
+#include "cpu_enum.h"
 
 namespace cc {
 
@@ -42,25 +43,6 @@ namespace cc {
 class Message;
 class L1CacheModel;
 class MessageQueue;
-
-//
-//
-class CpuL1__CmdMsg : public Message {
- public:
-  enum Opcode { Load, Store };
-
-  CpuL1__CmdMsg(Transaction* t) : Message(t, MessageClass::CpuL1__CmdMsg) {}
-
-  Opcode opcode() const { return opcode_; }
-  addr_t addr() const { return addr_; }
-
-  void set_addr(addr_t addr) { addr_ = addr; }
-  void set_opcode(Opcode opcode) { opcode_ = opcode; }
-
- private:
-  addr_t addr_;
-  Opcode opcode_;
-};
 
 //
 //

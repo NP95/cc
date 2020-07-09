@@ -26,6 +26,7 @@
 //========================================================================== //
 
 #include "primitives.h"
+#include "cc/msg.h"
 
 namespace cc {
 
@@ -121,7 +122,16 @@ void Agent::issue(MessageQueue* mq, const kernel::Time& time, const Message* msg
     MessageQueue* mq_ = nullptr;
     const Message* msg_;
   };
-  k()->add_action(time, new EnqueueAction(k(), mq, msg));
+  // Log message issue:
+  LogMessage lmsg("Issue Message (dst: ");
+  lmsg.append(mq->path());
+  lmsg.append("): ");
+  lmsg.append(msg->to_string());
+  lmsg.level(Level::Info);
+  log(lmsg);
+  // Issue action:
+  const kernel::Time execute_time = k()->time() + time;
+  k()->add_action(execute_time, new EnqueueAction(k(), mq, msg));
 }
 
 }  // namespace cc

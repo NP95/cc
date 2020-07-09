@@ -40,6 +40,27 @@
 
 namespace cc {
 
+std::string L1L2__CmdMsg::to_string_short() const {
+  std::stringstream ss;
+  {
+    KVListRenderer r(ss);
+  }
+  return ss.str();
+}
+
+std::string L1L2__CmdMsg::to_string() const {
+  std::stringstream ss;
+  {
+    using cc::to_string;
+    using std::to_string;
+    
+    KVListRenderer r(ss);
+    r.add_field("opcode", to_string(opcode()));
+    r.add_field("addr", to_string(addr()));
+  }
+  return ss.str();
+}
+
 class L2CacheModel::MainProcess : public kernel::Process {
 
   struct Context {
@@ -93,6 +114,7 @@ class L2CacheModel::MainProcess : public kernel::Process {
  private:
 
   void set_state(State state) {
+#ifdef VERBOSE_LOGGING
     if (state_ != state) {
       LogMessage msg("State transition: ");
       msg.level(Level::Debug);
@@ -101,6 +123,7 @@ class L2CacheModel::MainProcess : public kernel::Process {
       msg.append(to_string(state));
       log(msg);
     }
+#endif
     state_ = state;
   }
   
@@ -270,7 +293,7 @@ class L2CacheModel::MainProcess : public kernel::Process {
             // Issue message to cache controller.
             AceCmdMsg* acemsg = new AceCmdMsg(msg->t());
             acemsg->opcode(update_to_opcode(action));
-            // Issue message into interconnect
+            // Issue message into cache controller.
             model_->issue(model_->l2_cc__cmd_q(), kernel::Time{2000, 0}, acemsg);
             // Action completeed; discard.
             ar.pop();
@@ -307,8 +330,7 @@ void L2CacheModel::add_l1c(L1CacheModel* l1c) {
   // Called during build phase.
   
   // Construct associated message queues
-  const std::string cmdq_name = l1c->name() + "_l1_l2__cmdq";
-  MessageQueue* l1c_cmdq = new MessageQueue(k(), cmdq_name, 3);
+  MessageQueue* l1c_cmdq = new MessageQueue(k(), "l1_l2__cmd_q", 3);
   l1_l2__cmd_qs_.push_back(l1c_cmdq);
   add_child_module(l1c_cmdq);
   // Add L1 cache

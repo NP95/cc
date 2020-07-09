@@ -26,7 +26,12 @@
 //========================================================================== //
 
 #include "cc/sim.h"
+#include "protocol.h"
 
-#include "primitives.h"
+namespace cc {
 
-namespace cc {}  // namespace cc
+ProtocolBuilder* construct_protocol_builder(const std::string& name) {
+  return cc::ProtocolBuilderRegistry::build(name);
+}
+
+}  // namespace cc

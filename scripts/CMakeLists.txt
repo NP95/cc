@@ -37,8 +37,10 @@ macro (cc_generate_enum enum_file)
 
   add_custom_command(
     OUTPUT ${header_file} ${source_file}
-    COMMAND ${Python_EXECUTABLE} ${script_py}
+    COMMAND python3 ${script_py}
       ${CMAKE_CURRENT_SOURCE_DIR}/${enum_file}
+#    COMMAND ${Python_EXECUTABLE} ${script_py}
+#      ${CMAKE_CURRENT_SOURCE_DIR}/${enum_file}
     DEPENDS ${enum_file} ${script_py}
     COMMENT "Generating ${enum_prefix}.enum..."
     )

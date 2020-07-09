@@ -25,14 +25,15 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_PROTOCOL_H
-#define CC_INCLUDE_CC_PROTOCOL_H
+#ifndef CC_LIBCC_PROTOCOL_H
+#define CC_LIBCC_PROTOCOL_H
 
 #include <map>
 #include <string>
 #include <vector>
 #include <deque>
 #include "types.h"
+#include "protocol_enum.h"
 
 namespace cc {
 
@@ -70,16 +71,6 @@ class L1LineState {
 
 //
 enum class L1UpdateStatus { CanCommit, IsBlocked };
-
-//
-enum class L1UpdateAction {
-  UpdateState,
-  Commit,
-  Block,
-  EmitCpuRsp,
-  EmitGetS,
-  EmitGetE
-};
 
 //
 //
@@ -132,37 +123,6 @@ class L2LineState {
   // transient state).
   virtual bool is_evictable() const { return is_stable(); }
 };
-
-// clang-format off
-#define L2_UPDATE_ACTIONS(__func)                   \
-  __func(UpdateState)                               \
-  __func(Commit)                                    \
-  __func(Block)                                     \
-  __func(EmitReadNoSnoop)                           \
-  __func(EmitReadOnce)                              \
-  __func(EmitReadClean)                             \
-  __func(EmitReadSharedNotDirty)                    \
-  __func(EmitReadShared)                            \
-  __func(EmitReadUnique)                            \
-  __func(EmitCleanUnique)                           \
-  __func(EmitCleanShared)                           \
-  __func(EmitCleanInvalid)                          \
-  __func(EmitMakeUnique)                            \
-  __func(EmitMakeInvalid)                           \
-  __func(EmitWriteNoSnoop)                          \
-  __func(EmitWriteLineUnique)                       \
-  __func(EmitWriteBack)                             \
-  __func(EmitWriteClean)                            \
-  __func(EmitEvict)
-// clang-format on
-
-enum class L2UpdateAction {
-#define __declare_enum(__name) __name,
-L2_UPDATE_ACTIONS(__declare_enum)
-#undef __declare_enum
-};
-
-const char* to_string(L2UpdateAction opcode);
 
 
 //
@@ -228,26 +188,6 @@ class DirectoryProtocol {
   DirectoryProtocol() = default;
   virtual ~DirectoryProtocol() = default;
 };
-
-
-//
-//
-
-// clang-format off
-#define CC_UPDATE_ACTIONS(__func)                   \
-  __func(UpdateState)                               \
-  __func(Commit)                                    \
-  __func(Block)                                     \
-  __func(EmitToDir)
-// clang-format on
-
-enum class CCUpdateAction {
-#define __declare_enum(__name) __name,
-  CC_UPDATE_ACTIONS(__declare_enum)
-#undef __declare_enum
-};
-
-const char* to_string(CCUpdateAction opcode);
 
 //
 //

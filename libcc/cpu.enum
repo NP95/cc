@@ -25,15 +25,9 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_H
-#define CC_INCLUDE_CC_H
+#emit:to_string
 
-#include "cc/types.h"
-#include "cc/kernel.h"
-#include "cc/sim.h"
-#include "cc/noc.h"
-#include "cc/dir.h"
-#include "cc/primitives.h"
-#include "cc/cpucluster.h"
-
-#endif
+@enum_begin(CpuL1Opcode)
+Load
+Store
+@enum_end

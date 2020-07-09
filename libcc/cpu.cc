@@ -26,8 +26,10 @@
 //========================================================================== //
 
 #include "cpu.h"
-
+#include "utility.h"
 #include "cc/msg.h"
+#include "l1cache.h"
+#include <sstream>
 
 namespace cc {
 
@@ -48,7 +50,7 @@ class Cpu::ProducerProcess : public kernel::Process {
   // Elaboration
   virtual void eval() override {
     CpuL1__CmdMsg* msg = new CpuL1__CmdMsg(nullptr);
-    msg->set_opcode(CpuL1__CmdMsg::Load);
+    msg->set_opcode(L1CpuOpcode::Load);
     msg->set_addr(0);
     parent_->issue(parent_->cpu_l1__cmd_q(), kernel::Time{10, 0}, msg);
   }

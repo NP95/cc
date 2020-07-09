@@ -28,45 +28,10 @@
 #include "ccntrl.h"
 #include "primitives.h"
 #include "cc/msg.h"
-#include "cc/protocol.h"
+#include "protocol.h"
 #include "amba.h"
 
 namespace cc {
-
-// Utility class to perform a verify of operation on a transaction
-// table.
-struct TableHelper {
-  using Iterator  = typename Table<CacheControllerLineState*>::Iterator;
-  
-  TableHelper(Iterator begin, Iterator end)
-      : begin_(begin), end_(end)
-  {}
-
-  Iterator begin() const { return begin_; }
-  Iterator end() const { return end_; }
-
-  Iterator first_invalid() const {
-    Iterator it = begin_;
-    while (it != end_) {
-      if (!it->is_valid) break;
-      ++it;
-    }
-    return it;
-  }
-
-  Iterator find_transaction(addr_t addr) {
-    // TODO
-    return end_;
-  }
-  
-  bool is_full() const {
-    return first_invalid() == end();
-  }
-
- private:
-  Iterator begin_, end_;
-};
-
 
 class CacheController::MainProcess : public kernel::Process {
 
@@ -113,6 +78,7 @@ class CacheController::MainProcess : public kernel::Process {
  private:
 
   void set_state(State state) {
+#ifdef VERBOSE_LOGGING
     if (state_ != state) {
       LogMessage msg("State transition: ");
       msg.level(Level::Debug);
@@ -121,6 +87,7 @@ class CacheController::MainProcess : public kernel::Process {
       msg.append(to_string(state));
       log(msg);
     }
+#endif
     state_ = state;
   }
 
@@ -196,7 +163,8 @@ class CacheController::MainProcess : public kernel::Process {
         // L2 -> CC bus tranasaction.
         const AceCmdMsg* acemsg = static_cast<const AceCmdMsg*>(msg);
         Table<CacheControllerLineState*>* table = cc_->table();
-        const TableHelper th(table->begin(), table->end());
+        const Table<CacheControllerLineState*>::Manager th(
+            table->begin(), table->end());
         context_.it = th.first_invalid();
 
         //const bool has_invalid_entry = (it != table->end());

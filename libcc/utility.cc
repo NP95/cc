@@ -25,15 +25,39 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_H
-#define CC_INCLUDE_CC_H
+#include "utility.h"
 
-#include "cc/types.h"
-#include "cc/kernel.h"
-#include "cc/sim.h"
-#include "cc/noc.h"
-#include "cc/dir.h"
-#include "cc/primitives.h"
-#include "cc/cpucluster.h"
+namespace cc {
 
-#endif
+KVListRenderer::KVListRenderer(std::ostream& os) : os_(os) {}
+
+KVListRenderer::~KVListRenderer() {
+  initialize();
+  for (std::size_t i = 0; i < kvs_.size(); i++) {
+    const kv_type& kv = kvs_[i];
+    if (i != 0) os_ << ", ";
+    render(kv);
+  }
+  finalize();
+}
+
+void KVListRenderer::initialize() {
+  os_ << "'{";
+}
+
+void KVListRenderer::finalize() {
+  os_ << "}";
+}
+
+void KVListRenderer::render(const kv_type& kv) {
+  os_ << kv.first << ":" << kv.second;
+}
+
+void KVListRenderer::add_field(
+    const std::string& key, const std::string& value){
+  kvs_.push_back(std::make_pair(key, value));
+}
+
+
+
+} // namespace cc

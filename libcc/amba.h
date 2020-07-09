@@ -29,38 +29,11 @@
 #define CC_LIBCC_AMBA_H
 
 #include "cc/msg.h"
-#include "cc/protocol.h"
+#include "protocol.h"
+#include "amba_enum.h"
 
 namespace cc {
 
-// clang-format off
-#define ACE_COMMAND_OPCODES(__func)             \
-  __func(ReadNoSnoop)                           \
-  __func(ReadOnce)                              \
-  __func(ReadClean)                             \
-  __func(ReadSharedNotDirty)                    \
-  __func(ReadShared)                            \
-  __func(ReadUnique)                            \
-  __func(CleanUnique)                           \
-  __func(CleanShared)                           \
-  __func(CleanInvalid)                          \
-  __func(MakeUnique)                            \
-  __func(MakeInvalid)                           \
-  __func(WriteNoSnoop)                          \
-  __func(WriteLineUnique)                       \
-  __func(WriteBack)                             \
-  __func(WriteClean)                            \
-  __func(Evict)
-// clang-format on
-
-enum class AceCmdOpcode {
-#define __declare_enum(__name) __name,
-ACE_COMMAND_OPCODES(__declare_enum)
-#undef __declare_enum
-  Invalid
-};
-
-const char* to_string(AceCmdOpcode opcode);
 AceCmdOpcode update_to_opcode(L2UpdateAction action);
 
 //
@@ -68,6 +41,10 @@ AceCmdOpcode update_to_opcode(L2UpdateAction action);
 class AceCmdMsg : public Message {
  public:
   AceCmdMsg(Transaction* t) : Message(t, MessageClass::AceCmd) {}
+
+  // Tracing methods:
+  std::string to_string_short() const override;
+  std::string to_string() const override;
 
   AceCmdOpcode opcode() const { return opcode_; }
   void opcode(AceCmdOpcode opcode) { opcode_ = opcode; }
@@ -92,24 +69,6 @@ class AceCmdRspMsg : public Message {
   // Is Shared flag
   bool is_shared_ = false;
 };
-
-#define ACE_SNOOP_OPCODES(__func)               \
-  __func(ReadOnce)                              \
-  __func(ReadClean)                             \
-  __func(ReadNotSharedDirty)                    \
-  __func(ReadShared)                            \
-  __func(ReadUnique)                            \
-  __func(CleanInvalid)                          \
-  __func(MakeInvalid)                           \
-  __func(CleanShared)
-
-enum class AceSnpOpcode {
-#define __declare_enum(__name) __name,
-  ACE_SNOOP_OPCODES(__declare_enum)
-#undef __declare_enum
-};
-
-const char* to_string(AceSnpOpcode cmd);
 
 //
 //

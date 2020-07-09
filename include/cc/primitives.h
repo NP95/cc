@@ -31,6 +31,7 @@
 #include <vector>
 
 #include "cc/kernel.h"
+#include "cc/types.h"
 
 namespace cc {
 
@@ -290,6 +291,38 @@ class Table : public kernel::Module {
     raw_iterator it_;
   };
 
+
+  // Utility class to perform a verify of operation on a transaction
+  // table.
+  struct Manager {
+    Manager(Iterator begin, Iterator end)
+        : begin_(begin), end_(end)
+    {}
+
+    Iterator begin() const { return begin_; }
+    Iterator end() const { return end_; }
+
+    Iterator first_invalid() const {
+      Iterator it = begin_;
+      while (it != end_) {
+        if (!it->is_valid) break;
+        ++it;
+      }
+      return it;
+    }
+
+    Iterator find_transaction(addr_t addr) {
+      // TODO
+      return end_;
+    }
+  
+    bool is_full() const {
+      return first_invalid() == end();
+    }
+
+   private:
+    Iterator begin_, end_;
+  };
   
   Table(kernel::Kernel* k, const std::string& name, std::size_t n)
       : Module(k, name), n_(n) {
