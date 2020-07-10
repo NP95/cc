@@ -27,46 +27,23 @@
 
 ## Utility macro to generate an header and object file from an
 ## enumerate definition file.
-macro (cc_generate_enum enum_file)
-  get_filename_component(enum_prefix ${enum_file} NAME_WE)
+macro (cc_generate gen_file)
+  get_filename_component(gen_prefix ${gen_file} NAME_WE)
 
-  set(header_file "${enum_prefix}_enum.h")
-  set(source_file "${enum_prefix}_enum.cc")
+  set(header_file "${gen_prefix}_gen.h")
+  set(source_file "${gen_prefix}_gen.cc")
 
-  set(script_py ${CMAKE_SOURCE_DIR}/scripts/generate_enum.py)
-
-  add_custom_command(
-    OUTPUT ${header_file} ${source_file}
-    COMMAND python3 ${script_py}
-      ${CMAKE_CURRENT_SOURCE_DIR}/${enum_file}
-#    COMMAND ${Python_EXECUTABLE} ${script_py}
-#      ${CMAKE_CURRENT_SOURCE_DIR}/${enum_file}
-    DEPENDS ${enum_file} ${script_py}
-    COMMENT "Generating ${enum_prefix}.enum..."
-    )
-  add_custom_target(
-    gen_enum_${enum_prefix} DEPENDS ${header_file} ${source_file})
-endmacro ()
-
-## Utility macro to generate an header and object file from an
-## enumerate definition file.
-macro (cc_generate_msg msg_file)
-  get_filename_component(msg_prefix ${msg_file} NAME_WE)
-
-  set(header_file "${msg_prefix}_msg.h")
-  set(source_file "${msg_prefix}_msg.cc")
-
-  set(script_py ${CMAKE_SOURCE_DIR}/scripts/generate_msg.py)
+  set(script_py ${CMAKE_SOURCE_DIR}/scripts/generate_deps.py)
 
   add_custom_command(
     OUTPUT ${header_file} ${source_file}
     COMMAND python3 ${script_py}
-      ${CMAKE_CURRENT_SOURCE_DIR}/${msg_file}
+      ${CMAKE_CURRENT_SOURCE_DIR}/${gen_file}
 #    COMMAND ${Python_EXECUTABLE} ${script_py}
-#      ${CMAKE_CURRENT_SOURCE_DIR}/${msg_file}
-    DEPENDS ${msg_file} ${script_py}
-    COMMENT "Generating ${msg_prefix}.msg..."
+#      ${CMAKE_CURRENT_SOURCE_DIR}/${gen_file}
+    DEPENDS ${gen_file} ${script_py}
+    COMMENT "Generating ${gen_prefix}.gen..."
     )
   add_custom_target(
-    gen_msg_${msg_prefix} DEPENDS ${header_file} ${source_file})
+    run_gen_${gen_prefix} DEPENDS ${header_file} ${source_file})
 endmacro ()

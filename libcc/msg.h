@@ -29,7 +29,7 @@
 #define CC_LIBCC_MSG_H
 
 #include "cc/types.h"
-#include "msg_enum.h"
+#include "msg_gen.h"
 #include <string>
 
 namespace cc {

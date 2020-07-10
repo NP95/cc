@@ -34,8 +34,7 @@
 #include "msg.h"
 
 // Generated headers
-#include "llc_enum.h"
-#include "llc_msg.h"
+#include "llc_gen.h"
 
 namespace cc {
 

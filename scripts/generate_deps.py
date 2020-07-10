@@ -96,6 +96,8 @@ class GenWriter:
         self._emit_namespace_end(self.ofn_h)
         self._emit_header_guard_end(self.ofn_h)
         self._emit_namespace_end(self.ofn_cc)
+    def append_directive(self, directive):
+        self.directives.append(directive)
     def append_msg(self, msg):
         self._emit_msg_header(msg)
         self._emit_msg_source(msg)
@@ -113,12 +115,16 @@ class GenWriter:
             self.includes.append(oprand)
         elif opcode == "#emit":
             self.directive.append(oprand)
-    def emit_preamble(self):
-        self._emit_includes(self.ofn_h)
+    def emit_preamble(self, msgs):
+        self._emit_includes(self.ofn_h, msgs)
         self._emit_namespace_begin(self.ofn_h)
-    def _emit_includes(self, of):
+    def _emit_includes(self, of, msgs):
         self._emit_nl(of, 1)
-        of.write('#include "gen.h"\n')
+        of.write('#include "cc/types.h"\n')
+        if msgs:
+            # Suppress generation of msg.h whenever control file has
+            # no message definitions (i.e in the msg.h case)
+            of.write('#include "msg.h"\n')
         for include in self.includes:
             of.write('#include "{}"\n'.format(include))
         self._emit_nl(of, 1)
@@ -203,8 +209,8 @@ class GenWriter:
         of.write('} // namespace cc\n')
         self._emit_nl(of, 1)
     def _emit_header_guard_begin(self, of):
-        of.write('#ifndef CC_LIBCC_{}_MSG_H\n'.format(self.ofn.upper()))
-        of.write('#define CC_LIBCC_{}_MSG_H\n'.format(self.ofn.upper()))
+        of.write('#ifndef CC_LIBCC_{}_GEN_H\n'.format(self.ofn.upper()))
+        of.write('#define CC_LIBCC_{}_GEN_H\n'.format(self.ofn.upper()))
     def _emit_header_guard_end(self, of):
         of.write('#endif\n')
     def _emit_header_include(self, of):
@@ -290,6 +296,7 @@ def process_file(fn):
             ##
             m = CMD_DIRECTIVE_RE.match(l)
             if m:
+                genw.append_directive(m.group('command'))
                 continue
 
             if in_msg:
@@ -297,7 +304,7 @@ def process_file(fn):
             if in_enum:
                 enum_defs[-1].add_item(l)
 
-        genw.emit_preamble()
+        genw.emit_preamble(msg_defs)
         for enum in enum_defs:
             genw.append_enum(enum)
         for msg in msg_defs:

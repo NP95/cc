@@ -25,51 +25,48 @@
 ## POSSIBILITY OF SUCH DAMAGE.
 ## ========================================================================= ##
 
-#cc_generate_enum(moesi.enum)
-#cc_generate_enum(protocol.enum)
-#cc_generate_enum(amba.enum)
-#cc_generate_enum(cpu.enum)
-#cc_generate_enum(l1cache.enum)
-#cc_generate_enum(l2cache.enum)
-#cc_generate_enum(ccntrl.enum)
-#cc_generate_enum(msg.enum)
-#cc_generate_enum(dir.enum)
-#cc_generate_enum(llc.enum)
-#cc_generate_enum(mem.enum)
-
-cc_generate_msg(llc.msg)
+cc_generate(moesi.gen)
+cc_generate(protocol.gen)
+cc_generate(amba.gen)
+cc_generate(cpu.gen)
+cc_generate(l1cache.gen)
+cc_generate(l2cache.gen)
+cc_generate(ccntrl.gen)
+cc_generate(msg.gen)
+cc_generate(dir.gen)
+cc_generate(llc.gen)
+cc_generate(mem.gen)
 
 add_library(cc SHARED
   kernel.cc
   primitives.cc
   cache.cc
   protocol.cc
-  protocol_enum.cc
+  protocol_gen.cc
   sim.cc
   l1cache.cc
-  l1cache_enum.cc
+  l1cache_gen.cc
   l2cache.cc
-  l2cache_enum.cc
+  l2cache_gen.cc
   cpu.cc
-  cpu_enum.cc
+  cpu_gen.cc
   moesi.cc
-  moesi_enum.cc
+  moesi_gen.cc
   amba.cc
-  amba_enum.cc
+  amba_gen.cc
   noc.cc
   dir.cc
-  dir_enum.cc
+  dir_gen.cc
   llc.cc
-  llc_enum.cc
-  llc_msg.cc
+  llc_gen.cc
   mem.cc
-  mem_enum.cc
+  mem_gen.cc
   cpucluster.cc
   ccntrl.cc
-  ccntrl_enum.cc
+  ccntrl_gen.cc
   utility.cc
   soc.cc
-  msg_enum.cc
+  msg_gen.cc
   builder.cc
   )
 

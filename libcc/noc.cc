@@ -27,7 +27,7 @@
 
 #include "noc.h"
 #include "primitives.h"
-#include "msg_enum.h"
+#include "msg_gen.h"
 
 namespace cc {
 

@@ -26,9 +26,10 @@
 //========================================================================== //
 
 #include "dir.h"
-#include "dir_enum.h"
+#include "dir_gen.h"
 #include "noc.h"
 #include "llc.h"
+#include "llc_gen.h"
 #include "amba.h"
 #include "primitives.h"
 #include "utility.h"

@@ -25,21 +25,39 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#cmd:emit_to_string
+#cmd:emit_is_stable
 
-@enum_begin(LLCCmdOpcode)
-// Install a new line in the cache by fetching the line from the caches
-// partner memory controller.
-Fill
-// Evict line from the cache to the partner memory controller.
-Evict
-// Fetch a line from the cache and forward the line to requested agent.
-PutLine
+@enum_begin(MOESIL1State)
+// Invalid
+I;s
+I_S
+// Shared
+S;s
+I_E
+S_E
+// Exclusive
+E;s
+E_M
+// Modified
+M;s
+M_I
 @enum_end
 
+@enum_begin(MOESIL2State)
+// Invalid
+I;s
+I_S
+// Shared
+S;s
+@enum_end
 
-@enum_begin(LlcState)
-AwaitingMessage
-ProcessMessage
-ExecuteActions
+@enum_begin(MOESICCState)
+// Invalid
+I;s
+I_S
+@enum_end
+
+@enum_begin(MOESIDirState)
+// Invalid
+I;s
 @enum_end

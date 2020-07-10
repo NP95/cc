@@ -26,7 +26,7 @@
 //========================================================================== //
 
 #include "llc.h"
-#include "llc_enum.h"
+#include "llc_gen.h"
 #include "msg.h"
 #include "noc.h"
 #include "mem.h"
