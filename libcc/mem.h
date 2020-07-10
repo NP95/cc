@@ -28,50 +28,11 @@
 #ifndef CC_LIBC_DIR_H
 #define CC_LIBC_DIR_H
 
-#include "mem_enum.h"
 #include "msg.h"
 #include "sim.h"
 #include <map>
 
 namespace cc {
-
-// Memory Command Message:
-//
-class MemCmdMessage : public Message {
- public:
-  MemCmdMessage() : Message(MessageClass::MemCmd) {}
-
-  // Command opcode
-  MemCmdOpcode opcode() const { return opcode_; }
-  // The agent to which the response is to be sent.
-  Agent* dest() const { return dest_; }
-
-  void set_opcode(MemCmdOpcode opcode) { opcode_ = opcode; }
-  void set_dest(Agent* dest) { dest_ = dest; }
-
- private:
-  // Memory command opcode;
-  MemCmdOpcode opcode_;
-  //
-  Agent* dest_ = nullptr;
-};
-
-
-// Memory Response Message:
-//
-class MemRspMessage : public Message {
- public:
-  MemRspMessage() : Message(MessageClass::MemRsp) {}
-
-  // Command opcode
-  MemRspOpcode opcode() const { return opcode_; }
-
-  void set_opcode(MemRspOpcode opcode) { opcode_ = opcode; }
-
- private:
-  // Memory command opcode;
-  MemRspOpcode opcode_;
-};
 
 
 // Memory Controller Model

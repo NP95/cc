@@ -192,6 +192,7 @@ class GenWriter:
         of.write('  std::stringstream ss;\n')
         of.write('  {\n')
         of.write('    KVListRenderer r(ss);\n')
+        of.write('    r.add_field("cls", to_string(cls()));\n')
         for item in msg.items:
             (n, t) = item.split(';')
             of.write('    r.add_field("{0}", to_string({0}()));\n'.format(n))

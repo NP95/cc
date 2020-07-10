@@ -33,7 +33,7 @@
 #include "cfgs.h"
 #include "kernel.h"
 #include "msg.h"
-#include "l2cache_enum.h"
+#include "l2cache_gen.h"
 #include "sim.h"
 
 namespace cc {
@@ -48,29 +48,6 @@ class L2LineState;
 template <typename>
 class CacheModel;
 class CacheController;
-
-enum class L2Opcode {
-  GetS
-};
-
-//
-//
-class L1L2__CmdMsg : public Message {
- public:
-  L1L2__CmdMsg(Transaction* t) : Message(t, MessageClass::L1L2__CmdMsg) {}
-
-  L2L1Opcode opcode() const { return opcode_; }
-  addr_t addr() const { return addr_; }
-  std::string to_string_short() const override;
-  std::string to_string() const override;
-
-  void set_addr(addr_t addr) { addr_ = addr; }
-  void set_opcode(L2L1Opcode opcode) { opcode_ = opcode; }
-  
- private:
-  addr_t addr_;
-  L2L1Opcode opcode_;
-};
 
 //
 //

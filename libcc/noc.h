@@ -28,6 +28,7 @@
 #ifndef CC_LIBCC_NOC_H
 #define CC_LIBCC_NOC_H
 
+#include "noc_gen.h"
 #include "kernel.h"
 #include "sim.h"
 #include "cc/cfgs.h"
@@ -40,34 +41,6 @@ namespace cc {
 class Message;
 class MessageQueue;
 template<typename> class Arbiter;
-
-//
-//
-class NocMessage : public Message {
- public:
-  NocMessage() : Message(MessageClass::Noc) {}
-  NocMessage(const Message* msg)
-      : Message(msg->t(), MessageClass::Noc), payload_(msg)
-  {}
-
-  // Accesors:
-  const Message* payload() const { return payload_; }
-  Agent* origin() const { return origin_; }
-  Agent* dest() const { return dest_; }
-
-  // Setters:
-  void set_payload(const Message* payload) { payload_ = payload; }
-  void set_origin(Agent* origin) { origin_ = origin; }
-  void set_dest(Agent* dest) { dest_ = dest;}
-  
- private:
-  // Message Payload
-  const Message* payload_ = nullptr;
-  // Originating agent.
-  Agent* origin_ = nullptr;
-  // Destination agent.
-  Agent* dest_ = nullptr;
-};
 
 
 class NocPort : public kernel::Module {

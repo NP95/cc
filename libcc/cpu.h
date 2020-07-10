@@ -35,7 +35,7 @@
 #include "cc/cfgs.h"
 #include "msg.h"
 #include "primitives.h"
-#include "cpu_enum.h"
+#include "cpu_gen.h"
 
 namespace cc {
 
@@ -43,13 +43,6 @@ namespace cc {
 class Message;
 class L1CacheModel;
 class MessageQueue;
-
-//
-//
-class L1Cpu__RspMsg : public Message {
- public:
-  L1Cpu__RspMsg(Transaction* t) : Message(t, MessageClass::L1Cpu__RspMsg) {}
-};
 
 //
 //

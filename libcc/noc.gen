@@ -26,23 +26,15 @@
 //========================================================================== //
 
 #include:sim.h
-#emit:to_string
 
-@enum_begin(MemCmdOpcode)
-Read
-Write
+@enum_begin(NocState)
+AwaitingMessage
+ChooseQueue
+IssueMessage
 @enum_end
 
-@enum_begin(MemRspOpcode)
-ReadOkay
-WriteOkay
-@enum_end
-
-@msg_begin(MemCmdMessage;MemCmd)
-opcode;MemCmdOpcode
+@msg_begin(NocMessage;Noc)
+payload;const Message*
+origin;Agent*
 dest;Agent*
-@msg_end
-
-@msg_begin(MemRspMessage;MemRsp)
-opcode;MemRspOpcode
 @msg_end

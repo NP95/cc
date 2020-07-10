@@ -47,6 +47,16 @@ Evict
 Invalid
 @enum_end
 
+@msg_begin(AceCmdMsg;AceCmd)
+opcode;AceCmdOpcode
+addr;addr_t
+@msg_end
+
+@msg_begin(AceCmdRspMsg;AceCmd)
+pass_dirty;bool
+is_shared;bool
+@msg_end
+
 @enum_begin(AceSnpOpcode)
 ReadOnce
 ReadClean
@@ -58,3 +68,15 @@ MakeInvalid
 CleanShared
 Invalid
 @enum_end
+
+@msg_begin(AceSnpMsg;AceSnoop)
+opcode;AceSnpOpcode
+@msg_end
+
+@msg_begin(AceSnpRspMsg;AceSnoop)
+data_transfer;bool
+error;bool
+pass_dirty;bool
+is_shared;bool
+was_unique;bool
+@msg_end

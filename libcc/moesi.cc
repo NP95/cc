@@ -35,7 +35,7 @@
 #include "protocol.h"
 #include "cpu.h"
 #include "amba.h"
-#include "moesi_enum.h"
+#include "moesi_gen.h"
 
 namespace cc {
 

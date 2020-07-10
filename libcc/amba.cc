@@ -31,26 +31,6 @@
 
 namespace cc {
 
-std::string AceCmdMsg::to_string_short() const {
-  std::stringstream ss;
-  {
-    KVListRenderer r(ss);
-  }
-  return ss.str();
-}
-
-std::string AceCmdMsg::to_string() const {
-  std::stringstream ss;
-  {
-    using cc::to_string;
-    using std::to_string;
-    
-    KVListRenderer r(ss);
-    r.add_field("opcode", to_string(opcode()));
-  }
-  return ss.str();
-}
-
 AceCmdOpcode update_to_opcode(L2UpdateAction action) {
   switch (action) {
     case L2UpdateAction::EmitReadNoSnoop:

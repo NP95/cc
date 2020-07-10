@@ -31,3 +31,6 @@
 Load
 Store
 @enum_end
+
+@msg_begin(L1Cpu__RspMsg;L1Cpu__RspMsg)
+@msg_end

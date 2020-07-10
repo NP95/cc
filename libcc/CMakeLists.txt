@@ -36,6 +36,7 @@ cc_generate(msg.gen)
 cc_generate(dir.gen)
 cc_generate(llc.gen)
 cc_generate(mem.gen)
+cc_generate(noc.gen)
 
 add_library(cc SHARED
   kernel.cc
@@ -55,6 +56,7 @@ add_library(cc SHARED
   amba.cc
   amba_gen.cc
   noc.cc
+  noc_gen.cc
   dir.cc
   dir_gen.cc
   llc.cc
@@ -66,6 +68,7 @@ add_library(cc SHARED
   ccntrl_gen.cc
   utility.cc
   soc.cc
+  msg.cc
   msg_gen.cc
   builder.cc
   )

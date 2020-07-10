@@ -39,28 +39,6 @@
 
 namespace cc {
 
-std::string CpuL1__CmdMsg::to_string_short() const {
-  std::stringstream ss;
-  {
-    KVListRenderer r(ss);
-  }
-  return ss.str();
-}
-
-std::string CpuL1__CmdMsg::to_string() const {
-  std::stringstream ss;
-  {
-    using cc::to_string;
-    using std::to_string;
-    
-    KVListRenderer r(ss);
-    r.add_field("opcode", to_string(opcode()));
-    const Hexer hexer;
-    r.add_field("addr", hexer.to_hex(addr()));
-  }
-  return ss.str();
-}
-
 class L1CacheModel::MainProcess : public kernel::Process {
 
   enum class L1CacheMessageType { CpuRsp, GetS, GetE };
@@ -270,7 +248,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
           ar.pop();
         } break;
         case L1UpdateAction::EmitGetS: {
-          L1L2__CmdMsg* msg = new L1L2__CmdMsg(nullptr);
+          L1L2__CmdMsg* msg = new L1L2__CmdMsg;
           msg->set_opcode(L2L1Opcode::GetS);
           msg->set_addr(0);
           model_->issue(model_->l1_l2__cmd_q(), kernel::Time{1000, 0}, msg);

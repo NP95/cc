@@ -26,7 +26,7 @@
 //========================================================================== //
 
 #include "mem.h"
-//#include "mem_enum.h"
+#include "mem_gen.h"
 #include "noc.h"
 
 namespace cc {

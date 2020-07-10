@@ -26,7 +26,7 @@
 //========================================================================== //
 
 #include "ccntrl.h"
-#include "ccntrl_enum.h"
+#include "ccntrl_gen.h"
 #include "primitives.h"
 #include "msg.h"
 #include "protocol.h"
@@ -203,7 +203,7 @@ class CacheController::MainProcess : public kernel::Process {
           MessageQueue* mq = cc_->cc_noc__msg_q();
 
           // Encapsulate AceCmd in the NOC transport message.
-          NocMessage* nocmsg = new NocMessage(acemsg);
+          NocMessage* nocmsg = new NocMessage;
           nocmsg->set_origin(cc_);
           const DirectoryMapper* dm = cc_->dm();
           nocmsg->set_dest(dm->lookup(acemsg->addr()));

@@ -33,7 +33,7 @@
 #include "cc/cfgs.h"
 #include "primitives.h"
 #include "l2cache.h"
-#include "l1cache_enum.h"
+#include "l1cache_gen.h"
 
 namespace cc {
 
@@ -47,26 +47,6 @@ class Cpu;
 class L2CacheModel;
 template <typename> class CacheModel;
 class L1LineState;
-
-
-//
-//
-class CpuL1__CmdMsg : public Message {
- public:
-  CpuL1__CmdMsg(Transaction* t) : Message(t, MessageClass::CpuL1__CmdMsg) {}
-
-  L1CpuOpcode opcode() const { return opcode_; }
-  addr_t addr() const { return addr_; }
-  std::string to_string_short() const override;
-  std::string to_string() const override;
-
-  void set_addr(addr_t addr) { addr_ = addr; }
-  void set_opcode(L1CpuOpcode opcode) { opcode_ = opcode; }
-
- private:
-  addr_t addr_;
-  L1CpuOpcode opcode_;
-};
 
 //
 //

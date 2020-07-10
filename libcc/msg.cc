@@ -25,24 +25,12 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include:sim.h
-#emit:to_string
+#include "msg.h"
 
-@enum_begin(MemCmdOpcode)
-Read
-Write
-@enum_end
+namespace cc {
 
-@enum_begin(MemRspOpcode)
-ReadOkay
-WriteOkay
-@enum_end
+std::string to_string(const Message* msg) {
+  return msg->to_string();
+}
 
-@msg_begin(MemCmdMessage;MemCmd)
-opcode;MemCmdOpcode
-dest;Agent*
-@msg_end
-
-@msg_begin(MemRspMessage;MemRsp)
-opcode;MemRspOpcode
-@msg_end
+} // namespace cc

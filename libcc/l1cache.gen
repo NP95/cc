@@ -39,3 +39,8 @@ AwaitingMessage
 ProcessMessage
 ExecuteActions
 @enum_end
+
+@msg_begin(CpuL1__CmdMsg;CpuL1__CmdMsg)
+opcode;L1CpuOpcode
+addr;addr_t
+@msg_end

@@ -139,7 +139,7 @@ class DirectoryModel::MainProcess : public kernel::Process {
         cmdmsg->set_opcode(LLCCmdOpcode::Fill);
         cmdmsg->set_home(model_);
 
-        NocMessage* nocmsg = new NocMessage(msg);
+        NocMessage* nocmsg = new NocMessage;
         nocmsg->set_origin(model_);
         nocmsg->set_dest(model_->llc());
         nocmsg->set_payload(cmdmsg);

@@ -85,6 +85,8 @@ class Message {
   kernel::Agent<const Message*>* origin_;
 };
 
+std::string to_string(const Message* msg);
+
 
 using MsgRequesterIntf = kernel::RequesterIntf<const Message*>;
 

@@ -30,6 +30,7 @@
 #include "msg.h"
 #include "noc.h"
 #include "mem.h"
+#include "mem_gen.h"
 #include "utility.h"
 
 namespace cc {

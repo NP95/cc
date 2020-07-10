@@ -40,28 +40,6 @@
 
 namespace cc {
 
-std::string L1L2__CmdMsg::to_string_short() const {
-  std::stringstream ss;
-  {
-    KVListRenderer r(ss);
-  }
-  return ss.str();
-}
-
-std::string L1L2__CmdMsg::to_string() const {
-  std::stringstream ss;
-  {
-    using cc::to_string;
-    using std::to_string;
-    
-    KVListRenderer r(ss);
-    r.add_field("opcode", to_string(opcode()));
-    const Hexer hexer;
-    r.add_field("addr", hexer.to_hex(addr()));
-  }
-  return ss.str();
-}
-
 class L2CacheModel::MainProcess : public kernel::Process {
 
   struct Context {
@@ -266,8 +244,8 @@ class L2CacheModel::MainProcess : public kernel::Process {
           const bool can_issue = true;
           if (can_issue) {
             // Issue message to cache controller.
-            AceCmdMsg* acemsg = new AceCmdMsg(msg->t());
-            acemsg->opcode(update_to_opcode(action));
+            AceCmdMsg* acemsg = new AceCmdMsg;
+            acemsg->set_opcode(update_to_opcode(action));
             acemsg->set_addr(0);
             // Issue message into cache controller.
             model_->issue(model_->l2_cc__cmd_q(), kernel::Time{2000, 0}, acemsg);

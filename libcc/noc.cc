@@ -33,34 +33,6 @@ namespace cc {
 
 class NocModel::MainProcess : public kernel::Process {
 
-  // clang-format off
-#define STATES(__func)				\
-  __func(AwaitingMessage)			\
-  __func(ChooseQueue)                           \
-  __func(IssueMessage)
-  // clang-format on
-
-  enum class State {
-#define __declare_state(__name) __name,
-    STATES(__declare_state)
-#undef __declare_state
-  };
-
-  std::string to_string(State state) {
-    switch (state) {
-      default:
-        return "Unknown";
-#define __declare_to_string(__name)             \
-        case State::__name:                     \
-          return #__name;                       \
-          break;
-        STATES(__declare_to_string)
-#undef __declare_to_string
-    }
-    return "Invalid";
-  }
-#undef STATES
-
   struct Context {
     Arbiter<const Message*>::Tournament t;
   };
@@ -70,27 +42,27 @@ class NocModel::MainProcess : public kernel::Process {
       : kernel::Process(k, name), model_(model)
   {}
 
-  State state() const { return state_; }
-  void set_state(State state) { state_ = state; }
+  NocState state() const { return state_; }
+  void set_state(NocState state) { state_ = state; }
 
  private:
 
   void init() override {
     // Await the arrival of requesters
     Arbiter<const Message*>* arb = model_->arb();
-    set_state(State::AwaitingMessage);
+    set_state(NocState::AwaitingMessage);
     wait_on(arb->request_arrival_event());
   }
 
   void eval() override {
     switch (state()) {
-      case State::AwaitingMessage: {
+      case NocState::AwaitingMessage: {
         handle_awaiting_message();
       } break;
-      case State::ChooseQueue: {
+      case NocState::ChooseQueue: {
         handle_choose_queue();
       } break;
-      case State::IssueMessage: {
+      case NocState::IssueMessage: {
         handle_issue_message();
       } break;
       default: {
@@ -118,7 +90,7 @@ class NocModel::MainProcess : public kernel::Process {
     if (t.has_requester()) {
       ctxt_ = Context();
       ctxt_.t = t;
-      set_state(State::ChooseQueue);
+      set_state(NocState::ChooseQueue);
       next_delta();
     } else {
       // Otherwise, block awaiting the arrival of a message at on
@@ -133,7 +105,7 @@ class NocModel::MainProcess : public kernel::Process {
 
     ctxt_.t = arb->tournament();
     if (ctxt_.t.has_requester()) {
-      set_state(State::IssueMessage);
+      set_state(NocState::IssueMessage);
       next_delta();
     }
   }
@@ -182,14 +154,14 @@ class NocModel::MainProcess : public kernel::Process {
 
     //kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
     //issue_message(intf->dequeue());
-    set_state(State::AwaitingMessage);
+    set_state(NocState::AwaitingMessage);
     wait_for(kernel::Time{10, 0});
   }
 
   // Current context
   Context ctxt_;
   // Current state
-  State state_;
+  NocState state_;
   // Pointer to parent NocModel instance.
   NocModel* model_ = nullptr;
 };
