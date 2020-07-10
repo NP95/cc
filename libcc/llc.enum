@@ -25,7 +25,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#emit:to_string
+#cmd:emit_to_string
 
 @enum_begin(LLCCmdOpcode)
 // Install a new line in the cache by fetching the line from the caches

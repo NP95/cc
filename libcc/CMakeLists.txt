@@ -25,17 +25,17 @@
 ## POSSIBILITY OF SUCH DAMAGE.
 ## ========================================================================= ##
 
-cc_generate_enum(moesi.enum)
-cc_generate_enum(protocol.enum)
-cc_generate_enum(amba.enum)
-cc_generate_enum(cpu.enum)
-cc_generate_enum(l1cache.enum)
-cc_generate_enum(l2cache.enum)
-cc_generate_enum(ccntrl.enum)
-cc_generate_enum(msg.enum)
-cc_generate_enum(dir.enum)
-cc_generate_enum(llc.enum)
-cc_generate_enum(mem.enum)
+#cc_generate_enum(moesi.enum)
+#cc_generate_enum(protocol.enum)
+#cc_generate_enum(amba.enum)
+#cc_generate_enum(cpu.enum)
+#cc_generate_enum(l1cache.enum)
+#cc_generate_enum(l2cache.enum)
+#cc_generate_enum(ccntrl.enum)
+#cc_generate_enum(msg.enum)
+#cc_generate_enum(dir.enum)
+#cc_generate_enum(llc.enum)
+#cc_generate_enum(mem.enum)
 
 cc_generate_msg(llc.msg)
 

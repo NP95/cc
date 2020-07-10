@@ -59,20 +59,30 @@ COPYRIGHT_BANNER='''\
 '''
 
 # Enum initial line
+ENUM_PREFIX_RE=re.compile('^@enum_begin\((?P<name>.*)\)')
+
+# Enum terminal line
+ENUM_SUFFIX_RE=re.compile('^@enum_end')
+
+# Emit directive
+CMD_DIRECTIVE_RE=re.compile('^#cmd:(?P<command>.*)')
+
+# Enum initial line
 MSG_PREFIX_RE=re.compile('^@msg_begin\((?P<header>.*)\)')
 
 # Enum terminal line
 MSG_SUFFIX_RE=re.compile('^@msg_end')
 
 # Emit directive
-EMIT_DIRECTIVE_RE=re.compile('^#include:(?P<command>.*)')
+INCLUDE_DIRECTIVE_RE=re.compile('^#include:(?P<command>.*)')
 
-class MsgWriter:
+class GenWriter:
     def __init__(self, ofn):
+        self.directives = []
         self.includes = []
         self.ofn = os.path.basename(ofn)
-        self.ofn_h = open(self.ofn + '_msg.h', 'w')
-        self.ofn_cc = open(self.ofn + '_msg.cc', 'w')
+        self.ofn_h = open(self.ofn + '_gen.h', 'w')
+        self.ofn_cc = open(self.ofn + '_gen.cc', 'w')
     def __enter__(self):
         # Header
         self._emit_copyright(self.ofn_h)
@@ -86,46 +96,89 @@ class MsgWriter:
         self._emit_namespace_end(self.ofn_h)
         self._emit_header_guard_end(self.ofn_h)
         self._emit_namespace_end(self.ofn_cc)
-    def append(self, e):
-        self._append_header(e)
-        self._append_source(e)
+    def append_msg(self, msg):
+        self._emit_msg_header(msg)
+        self._emit_msg_source(msg)
+    def append_enum(self, e):
+        self._emit_enum_header(e)
+        self._emit_to_string_def(e)
+        if 'emit_is_stable' in self.directives:
+            self._emit_is_stable_def(e)
+        self._emit_to_string(e)
+        if 'emit_is_stable' in self.directives:
+            self._emit_is_stable(e)
     def add_directive(self, dir):
         (opcode, oprand) = dir.split(":")
         if opcode == "#include":
             self.includes.append(oprand)
+        elif opcode == "#emit":
+            self.directive.append(oprand)
     def emit_preamble(self):
         self._emit_includes(self.ofn_h)
         self._emit_namespace_begin(self.ofn_h)
-    def _append_header(self, msg):
-        self._emit_header(msg, self.ofn_h)
-    def _append_source(self, msg):
-        self._emit_source(msg, self.ofn_cc)
     def _emit_includes(self, of):
         self._emit_nl(of, 1)
-        of.write('#include "msg.h"\n')
+        of.write('#include "gen.h"\n')
         for include in self.includes:
             of.write('#include "{}"\n'.format(include))
         self._emit_nl(of, 1)
-    def _emit_header(self, msg, of):
+    def _emit_enum_header(self, e):
+        self.ofn_h.write('// {}:{}\n'.format(e.fn, e.l))
+        self.ofn_h.write('enum class {0} : cc::state_t {{\n  '.format(e.name))
+        self.ofn_h.write(',\n  '.join([state.split(';')[0] for state in e.items]))
+        self.ofn_h.write('\n};\n')
+        self._emit_nl(self.ofn_h, 1)
+    def _emit_to_string_def(self, e):
+        self.ofn_h.write('const char* to_string({} s);\n'.format(e.name))
+        self._emit_nl(self.ofn_h, 1)
+    def _emit_to_string(self, e):
+        self.ofn_cc.write('// {}:{}\n'.format(e.fn, e.l))
+        self.ofn_cc.write('const char* to_string({} s) {{\n'.format(e.name))
+        self.ofn_cc.write('  switch(s) {\n')
+        for item in e.items:
+            state_split = item.split(';')
+            self.ofn_cc.write(
+                '    case {0}::{1}: return "{1}";\n'.format(e.name, state_split[0]))
+        self.ofn_cc.write('    default: return "Invalid";\n')
+        self.ofn_cc.write('  }\n')
+        self.ofn_cc.write('}\n')
+        self._emit_nl(self.ofn_cc, 1)
+    def _emit_is_stable_def(self, e):
+        self.ofn_h.write('bool is_stable({} s);\n'.format(e.name))
+        self._emit_nl(self.ofn_h, 1)
+    def _emit_is_stable(self, e):
+        self.ofn_cc.write('// {}:{}\n'.format(e.fn, e.l))
+        self.ofn_cc.write('bool is_stable({} s) {{\n'.format(e.name))
+        self.ofn_cc.write('  switch(s) {\n')
+        for item in e.items:
+            state_split = item.split(';')
+            if len(state_split) > 1:
+                self.ofn_cc.write('    case {0}::{1}: return true;\n'.format(e.name, state_split[0]))
+        self.ofn_cc.write('    default: return false;\n')
+        self.ofn_cc.write('  }\n')
+        self.ofn_cc.write('}\n')
+        self._emit_nl(self.ofn_cc, 1)
+    def _emit_msg_header(self, msg):
         (classname, cls) = msg.header.split(';')
-        of.write('class {} : public Message {{\n'.format(classname))
-        of.write('public:\n')
-        of.write('  {}() : Message(MessageClass::{}) {{}}\n'.format(classname, cls))
-        self._emit_nl(of, 1)
-        of.write('  std::string to_string() const;\n')
-        self._emit_nl(of, 1)
+        self.ofn_h.write('class {} : public Message {{\n'.format(classname))
+        self.ofn_h.write('public:\n')
+        self.ofn_h.write('  {}() : Message(MessageClass::{}) {{}}\n'.format(classname, cls))
+        self._emit_nl(self.ofn_h, 1)
+        self.ofn_h.write('  std::string to_string() const;\n')
+        self._emit_nl(self.ofn_h, 1)
         for item in msg.items:
             (n, t) = item.split(';')
-            of.write("  {0} {1}() const {{ return {1}_; }}\n".format(t, n))
-            of.write("  void set_{0}({1} {0}) {{ {0}_ = {0}; }}\n".format(n, t))
-            self._emit_nl(of, 1)
-        of.write('private:\n')
+            self.ofn_h.write("  {0} {1}() const {{ return {1}_; }}\n".format(t, n))
+            self.ofn_h.write("  void set_{0}({1} {0}) {{ {0}_ = {0}; }}\n".format(n, t))
+            self._emit_nl(self.ofn_h, 1)
+        self.ofn_h.write('private:\n')
         for item in msg.items:
             (n, t) = item.split(';')
-            of.write("  {} {}_;\n".format(t, n))
-        of.write('};\n')
-        self._emit_nl(of, 1)
-    def _emit_source(self, msg, of):
+            self.ofn_h.write("  {} {}_;\n".format(t, n))
+        self.ofn_h.write('};\n')
+        self._emit_nl(self.ofn_h, 1)
+    def _emit_msg_source(self, msg):
+        of = self.ofn_cc
         (classname, cls) = msg.header.split(';')
         of.write('std::string {}::to_string() const {{\n'.format(classname))
         of.write('  using cc::to_string;\n')
@@ -155,13 +208,22 @@ class MsgWriter:
     def _emit_header_guard_end(self, of):
         of.write('#endif\n')
     def _emit_header_include(self, of):
-        of.write('#include "{}_msg.h"\n'.format(self.ofn))
+        of.write('#include "{}_gen.h"\n'.format(self.ofn))
         of.write('#include "utility.h"\n')
         of.write('#include <sstream>\n')
         self._emit_nl(of, 2)
     def _emit_nl(self, of, n):
         for i in range(n):
             of.write('\n')
+
+class EnumDefinition:
+    def __init__(self, name, fn, l):
+        self.name = name
+        self.fn = fn
+        self.l = l
+        self.items = []
+    def add_item(self, item):
+        self.items.append(item)
 
 class MsgDefinition:
     def __init__(self, header, fn, l):
@@ -174,36 +236,72 @@ class MsgDefinition:
 
 def process_file(fn):
     (ofn, ext) = os.path.splitext(os.path.basename(fn))
-    with MsgWriter(ofn) as msgw:
+    with GenWriter(ofn) as genw:
         msg_defs = []
-        lines = open(fn, 'r').readlines()
+        enum_defs = []
 
+        in_msg = False
+        in_enum = False
+
+        lines = open(fn, 'r').readlines()
         # First pass to obtain directives
         for (line_no, l) in enumerate(lines):
             l = l.rstrip('\n')
             if not l or l.startswith('//'): continue
-            m = EMIT_DIRECTIVE_RE.match(l)
+            m = CMD_DIRECTIVE_RE.match(l)
             if m:
-                msgw.add_directive(l)
+                genw.add_directive(l)
+                continue
+            m = INCLUDE_DIRECTIVE_RE.match(l)
+            if m:
+                genw.add_directive(l)
+                continue
 
         for (line_no, l) in enumerate(lines):
             l = l.rstrip('\n')
             if not l or l.startswith('//'): continue
+
+            ## @msg_begin:
             m = MSG_PREFIX_RE.match(l)
             if m:
+                in_msg = True
                 msg_defs.append(MsgDefinition(m.group('header'), fn, line_no))
                 continue
+
+            ## @msg_end:
             m = MSG_SUFFIX_RE.match(l)
             if m:
+                in_msg = False
                 continue
-            m = EMIT_DIRECTIVE_RE.match(l)
+
+            ## @emit_begin:
+            m = ENUM_PREFIX_RE.match(l)
+            if m:
+                in_enum = True
+                enum_defs.append(EnumDefinition(m.group('name'), fn, line_no))
+                continue
+
+            ## @emit_end:
+            m = ENUM_SUFFIX_RE.match(l)
+            if m:
+                in_enum = False
+                continue
+
+            ##
+            m = CMD_DIRECTIVE_RE.match(l)
             if m:
                 continue
-            msg_defs[-1].add_item(l)
 
-        msgw.emit_preamble()
+            if in_msg:
+                msg_defs[-1].add_item(l)
+            if in_enum:
+                enum_defs[-1].add_item(l)
+
+        genw.emit_preamble()
+        for enum in enum_defs:
+            genw.append_enum(enum)
         for msg in msg_defs:
-            msgw.append(msg)
+            genw.append_msg(msg)
 
 def main(args):
     for fn in args[1:]:
