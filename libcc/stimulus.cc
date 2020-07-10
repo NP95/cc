@@ -25,49 +25,16 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "cc.h"
-#include <vector>
+#include "cc/stimulus.h"
 
+namespace cc {
 
-cc::SocCfg generate_cfg() {
-  cc::ProtocolBuilder* pbuilder = cc::construct_protocol_builder("moesi");
-
-  cc::CpuClusterCfg cfg;
-
-  cfg.cc_config.pbuilder = pbuilder;
-  cfg.l2c_config.pbuilder = pbuilder;
-  for (int i = 0; i < 1; i++) {
-    cc::L1CacheModelConfig l1c;
-    l1c.pbuilder = pbuilder;
-    cfg.l1c_configs.push_back(l1c);
-
-    cc::CpuConfig cpu;
-    
-    cc::ProgrammaticStimulus* s = new cc::ProgrammaticStimulus;
-    s->push_back(cc::kernel::Time{100}, cc::Command{cc::CpuOpcode::Load, 0});
-    s->push_back(cc::kernel::Time{100}, cc::Command{cc::CpuOpcode::Load, 0});
-    cpu.stimulus = s;
-    
-    cfg.cpu_configs.push_back(cpu);
+std::string to_string(CpuOpcode opcode) {
+  switch (opcode){
+    case CpuOpcode::Load: return "Load";
+    case CpuOpcode::Store: return "Store";
+    default: return "Invalid";
   }
-
-  // Construct a directory
-  cc::DirectoryModelConfig dir;
-  
-  cc::SocCfg soc;
-  soc.ccls.push_back(cfg);
-  soc.dcfgs.push_back(dir);
-  return soc;
 }
 
-int main(int argc, char** argv) {
-  // Simulation configuration.
-
-  cc::Soc* soc = cc::construct_soc(generate_cfg());
-  soc->initialize();
-  soc->run();
-  soc->finalize();
-  delete soc;
-
-  return 0;
-}
+} // namespace cc

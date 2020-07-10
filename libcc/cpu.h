@@ -35,7 +35,6 @@
 #include "cc/cfgs.h"
 #include "msg.h"
 #include "primitives.h"
-#include "cpu_gen.h"
 
 namespace cc {
 
@@ -53,6 +52,7 @@ class Cpu : public Agent {
   friend class CpuCluster;
  public:
   Cpu(kernel::Kernel* k, const CpuConfig& config);
+  ~Cpu();
 
   // Cache configuration
   const CpuConfig& config() const { return config_; }
@@ -61,8 +61,12 @@ class Cpu : public Agent {
 
   // Accessors;
   MessageQueue* cpu_l1__cmd_q() const { return cpu_l1__cmd_q_; }
+  MessageQueue* l1_cpu__rsp_q() const { return l1_cpu__rsp_q_; }
+  // Current stimulus instance.
+  Stimulus* stimulus() const { return stimulus_; }
+  // Transaction table
+  std::set<Transaction*>* ts() { return &ts_; }
   
-
   // Construction:
   void build();
 
@@ -76,17 +80,25 @@ class Cpu : public Agent {
   // Design Rule Check (DRC):
   void drc() override;
 
+  // Registry:
+  Transaction* start_transaction();
+  void end_transaction(Transaction* t);
+
  private:
   // 
   Stimulus* stimulus_ = nullptr;
   // CPU -> L1 message queue.
   MessageQueue* cpu_l1__cmd_q_ = nullptr;
+  // L1 -> CPU message queue
+  MessageQueue* l1_cpu__rsp_q_ = nullptr;
   // Producer thread of execution.
   ProducerProcess* pp_ = nullptr;
   // Consumer thread of execution.
   ConsumerProcess* cp_ = nullptr;
   // L1Cache instance.
   L1CacheModel* l1c_ = nullptr;
+  // Transaction table.
+  std::set<Transaction*> ts_;
   // CPU Configuration.
   CpuConfig config_;
 };

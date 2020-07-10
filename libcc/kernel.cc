@@ -68,6 +68,10 @@ std::string Time::to_string() const {
   return std::string{std::to_string(time) + "." + std::to_string(delta)};
 }
 
+std::string to_string(const Time& t) {
+  return t.to_string();
+}
+
 std::ostream& operator<<(std::ostream& os, const Time& t) {
   return os << t.to_string();
 }

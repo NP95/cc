@@ -71,6 +71,7 @@ add_library(cc SHARED
   msg.cc
   msg_gen.cc
   builder.cc
+  stimulus.cc
   )
 
 target_include_directories(cc PRIVATE ${CMAKE_SOURCE_DIR}/include/cc)

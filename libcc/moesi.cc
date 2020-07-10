@@ -74,7 +74,7 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
              const CpuL1__CmdMsg* msg) const override {
     const MOESIL1LineState* mline = static_cast<const MOESIL1LineState*>(line);
     switch (msg->opcode()) {
-      case L1CpuOpcode::Load: {
+      case CpuOpcode::Load: {
         switch (mline->state()) {
           case MOESIL1State::I: {
             r.push(L1UpdateAction::EmitGetS);
@@ -96,7 +96,7 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
           } break;
         }
       } break;
-      case L1CpuOpcode::Store: {
+      case CpuOpcode::Store: {
         switch (mline->state()) {
           case MOESIL1State::I: {
             r.push(L1UpdateAction::UpdateState);

@@ -63,7 +63,7 @@ class L1CacheModel : public Agent {
  protected:
   // Accessors:
   // Pointer to current arbiter child instance.
-  Arbiter<const Message*>* arb() const { return arb_; }
+  MessageQueueArbiter* arb() const { return arb_; }
   // Pointer to current CPU child instance.
   Cpu* cpu() const { return cpu_; }
   // Pointer to owning L2Cache
@@ -97,14 +97,16 @@ class L1CacheModel : public Agent {
   // emitting instructions into the cache as part of a programs
   // execution).
   Cpu* cpu_ = nullptr;
-  // CPU -> L1 Command Queue
+  // CPU -> L1 Command Queue (L1 owned)
   MessageQueue* cpu_l1__cmd_q_ = nullptr;
-  // L1 -> L2 Command Queue
+  // L1 -> L2 Command Queue (L2 owned)
   MessageQueue* l1_l2__cmd_q_ = nullptr;
-  // L2 -> L1 Response Queue
+  // L2 -> L1 Response Queue (L1 owned)
   MessageQueue* l2_l1__rsp_q_ = nullptr;
+  // L2 -> L1 Command Queue (L1 owned)
+  MessageQueue* l2_l1__cmd_q_ = nullptr;
   // Message servicing arbiter.
-  Arbiter<const Message*>* arb_ = nullptr;
+  MessageQueueArbiter* arb_ = nullptr;
   // Main process of execution.
   MainProcess* main_ = nullptr;
   // Cache Instance

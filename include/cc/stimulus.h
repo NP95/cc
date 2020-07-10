@@ -39,20 +39,24 @@
 
 namespace cc {
 
+enum class CpuOpcode {
+  Load, Store
+};
+
+std::string to_string(CpuOpcode opcode);
+
 // Basic (load/store) command class.
 //
 class Command {
  public:
-  enum Opcode { Load, Store };
-
-  Command(Opcode opcode, addr_t addr) : opcode_(opcode), addr_(addr) {}
+  Command(CpuOpcode opcode, addr_t addr) : opcode_(opcode), addr_(addr) {}
 
   addr_t addr() const { return addr_; }
-  Opcode opcode() const { return opcode_; }
+  CpuOpcode opcode() const { return opcode_; }
 
  private:
   addr_t addr_;
-  Opcode opcode_;
+  CpuOpcode opcode_;
 };
 
 // Abstract base class encapsulating the concept of a transaction

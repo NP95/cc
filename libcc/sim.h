@@ -45,6 +45,10 @@ class MessageQueue : public kernel::Module,
   bool empty() const { return q_->empty(); }
   bool full() const { return q_->full(); }
 
+
+  bool issue(const Message* msg, kernel::Time t = kernel::Time{});
+
+  
   // Endpoint Interface:
   void push(const Message* msg);
 
@@ -52,7 +56,10 @@ class MessageQueue : public kernel::Module,
   bool has_req() const override;
   const Message* peek() const override;
   const Message* dequeue() override;
+
   kernel::Event& request_arrival_event() override;
+  kernel::Event& non_empty_event() { return q_->non_empty_event(); }
+  kernel::Event& non_full_event() { return q_->non_full_event(); }
 
  private:
   // Construct module

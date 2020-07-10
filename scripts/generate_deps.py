@@ -274,32 +274,27 @@ def process_file(fn):
                 in_msg = True
                 msg_defs.append(MsgDefinition(m.group('header'), fn, line_no))
                 continue
-
             ## @msg_end:
             m = MSG_SUFFIX_RE.match(l)
             if m:
                 in_msg = False
                 continue
-
             ## @emit_begin:
             m = ENUM_PREFIX_RE.match(l)
             if m:
                 in_enum = True
                 enum_defs.append(EnumDefinition(m.group('name'), fn, line_no))
                 continue
-
             ## @emit_end:
             m = ENUM_SUFFIX_RE.match(l)
             if m:
                 in_enum = False
                 continue
-
             ##
             m = CMD_DIRECTIVE_RE.match(l)
             if m:
                 genw.append_directive(m.group('command'))
                 continue
-
             if in_msg:
                 msg_defs[-1].add_item(l)
             if in_enum:

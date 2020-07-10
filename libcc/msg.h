@@ -28,6 +28,7 @@
 #ifndef CC_LIBCC_MSG_H
 #define CC_LIBCC_MSG_H
 
+#include "cc/kernel.h"
 #include "cc/types.h"
 #include "msg_gen.h"
 #include <string>
@@ -39,7 +40,6 @@ namespace kernel {
 
 template<typename> class Agent;
 template<typename> class RequesterIntf;
-template<typename> class EndPointIntf;
 }
   
 //
@@ -47,9 +47,23 @@ template<typename> class EndPointIntf;
 class Transaction {
  public:
   Transaction() {}
+  virtual ~Transaction() {}
 
   std::string to_string_short() const { return "Some transaction"; }
   std::string to_string() const { return "Some transaction."; };
+
+
+  // Accessors:
+  kernel::Time start_time() const { return start_time_; }
+  
+
+  // Setters:
+  void set_start_time(kernel::Time time) { start_time_ = time; }
+
+  virtual void release() const { delete this; }
+
+ private:
+  kernel::Time start_time_;
 };
 
 //
@@ -89,10 +103,6 @@ std::string to_string(const Message* msg);
 
 
 using MsgRequesterIntf = kernel::RequesterIntf<const Message*>;
-
-using MsgEpIntf = kernel::EndPointIntf<const Message*>;
-
-
 
 } // namespace cc
 

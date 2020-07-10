@@ -37,6 +37,38 @@ MessageQueue::MessageQueue(kernel::Kernel* k, const std::string& name,
   build(n);
 }
 
+
+bool MessageQueue::issue(const Message* msg, kernel::Time t) {
+  struct EnqueueAction : kernel::Action {
+    EnqueueAction(kernel::Kernel* k, MessageQueue* mq, const Message* msg)
+        : Action(k, "enqueue_action"), mq_(mq), msg_(msg) {}
+    bool eval() override {
+      mq_->push(msg_);
+      return true;
+    }
+
+   private:
+    MessageQueue* mq_ = nullptr;
+    const Message* msg_;
+  };
+
+  if (full()) return false;
+  
+  // Log message issue:
+  LogMessage lmsg("Issue Message (dst: ");
+  lmsg.append(path());
+  lmsg.append("): ");
+  lmsg.append(msg->to_string());
+  lmsg.level(Level::Info);
+  log(lmsg);
+  // Issue action:
+  const kernel::Time execute_time = k()->time() + t;
+  k()->add_action(execute_time, new EnqueueAction(k(), this, msg));
+
+  return true;
+}
+
+
 void MessageQueue::push(const Message* msg) {
   if (!q_->enqueue(msg)) {
     LogMessage lmsg("Attempt to push new message to full queue.", Level::Error);
@@ -44,7 +76,9 @@ void MessageQueue::push(const Message* msg) {
   }
 }
 
+
 bool MessageQueue::has_req() const { return !q_->empty(); }
+
 
 const Message* MessageQueue::peek() const {
   const Message* msg = nullptr;
@@ -54,6 +88,7 @@ const Message* MessageQueue::peek() const {
   }
   return msg;
 }
+
 
 const Message* MessageQueue::dequeue() {
   const Message* msg = nullptr;
@@ -65,17 +100,21 @@ const Message* MessageQueue::dequeue() {
   return msg;
 }
 
+
 kernel::Event& MessageQueue::request_arrival_event() {
   return q_->non_empty_event();
 }
 
+
 void MessageQueue::build(std::size_t n) {
   q_ = new Queue<const Message*>(k(), "queue", n);
-  add_child(q_);
+  add_child_module(q_);
 }
+
 
 Agent::Agent(kernel::Kernel* k, const std::string& name) : Module(k, name) {
 }
+
 
 void Agent::issue(MessageQueue* mq, const kernel::Time& time, const Message* msg) {
   struct EnqueueAction : kernel::Action {
@@ -101,6 +140,7 @@ void Agent::issue(MessageQueue* mq, const kernel::Time& time, const Message* msg
   const kernel::Time execute_time = k()->time() + time;
   k()->add_action(execute_time, new EnqueueAction(k(), mq, msg));
 }
+
 
 std::string to_string(const Agent* agent) { return agent->path(); }
 

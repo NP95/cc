@@ -25,13 +25,10 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#emit:to_string
+#include:kernel.h
+#include:cc/stimulus.h
 
-// Opcode definition for messages passed from a CPU to its L1 cache.
-@enum_begin(L1CpuOpcode)
-Load
-Store
-@enum_end
+#emit:to_string
 
 // Internal state definition for main process:
 @enum_begin(L1MainState)
@@ -41,6 +38,10 @@ ExecuteActions
 @enum_end
 
 @msg_begin(CpuL1__CmdMsg;CpuL1__CmdMsg)
-opcode;L1CpuOpcode
+opcode;CpuOpcode
 addr;addr_t
+issue_time;kernel::Time
+@msg_end
+
+@msg_begin(CpuRspMsg;CpuRsp)
 @msg_end

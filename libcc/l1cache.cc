@@ -80,7 +80,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
   // Initialization
   void init() override {
     // Await the arrival of requesters
-    Arbiter<const Message*>* arb = model_->arb();
+    MessageQueueArbiter* arb = model_->arb();
     wait_on(arb->request_arrival_event());
     set_state(L1MainState::AwaitingMessage);
   }
@@ -92,7 +92,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
   void eval() override {
     switch (state()) {
       case L1MainState::AwaitingMessage: {
-	    handle_awaiting_message();
+        handle_awaiting_message();
       } break;
 
       case L1MainState::ProcessMessage: {
@@ -111,8 +111,8 @@ class L1CacheModel::MainProcess : public kernel::Process {
 
   void handle_awaiting_message() {
     // Idle state, awaiting more work.
-    Arbiter<const Message*>* arb = model_->arb();
-    Arbiter<const Message*>::Tournament t = arb->tournament();
+    MessageQueueArbiter* arb = model_->arb();
+    MessageQueueArbiter::Tournament t = arb->tournament();
 
     // Detect deadlock at L1Cache front-end. This occurs only in the
     // presence of a protocol violation and is therefore by definition
@@ -288,7 +288,7 @@ void L1CacheModel::build() {
   add_child_module(l2_l1__rsp_q_);
 
   // Arbiter
-  arb_ = new Arbiter<const Message*>(k(), "arb");
+  arb_ = new MessageQueueArbiter(k(), "arb");
   add_child_module(arb_);
 
   // Main thread of execution

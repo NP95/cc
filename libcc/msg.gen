@@ -29,6 +29,11 @@
 
 @enum_begin(MessageClass)
 Invalid
+
+CpuCmd
+CpuRsp
+
+
 CpuL1__CmdMsg
 L1Cpu__RspMsg
 L1L2__CmdMsg

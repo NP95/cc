@@ -89,6 +89,8 @@ struct Time {
   delta_type delta = 0;
 };
 
+std::string to_string(const Time& t);
+
 Time operator+(const Time& lhs, const Time& rhs);
 bool operator<(const Time& lhs, const Time& rhs);
 bool operator==(const Time& lhs, const Time& rhs);
