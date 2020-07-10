@@ -26,39 +26,9 @@
 //========================================================================== //
 
 #emit:to_string
-#emit:is_stable
 
-@enum_begin(MOESIL1State)
-// Invalid
-I;s
-I_S
-// Shared
-S;s
-I_E
-S_E
-// Exclusive
-E;s
-E_M
-// Modified
-M;s
-M_I
-@enum_end
-
-@enum_begin(MOESIL2State)
-// Invalid
-I;s
-I_S
-// Shared
-S;s
-@enum_end
-
-@enum_begin(MOESICCState)
-// Invalid
-I;s
-I_S
-@enum_end
-
-@enum_begin(MOESIDirState)
-// Invalid
-I;s
+@enum_begin(DirState)
+AwaitingMessage
+ProcessMessage
+ExecuteActions
 @enum_end

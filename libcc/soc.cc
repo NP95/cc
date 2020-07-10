@@ -31,6 +31,8 @@
 #include "noc.h"
 #include "cpucluster.h"
 #include "dir.h"
+#include "llc.h"
+#include "mem.h"
 
 namespace cc {
 
@@ -60,6 +62,12 @@ class SocTop : public kernel::TopModule {
     // Construct interconnect:
     noc_ = new NocModel(k(), config_.noccfg);
     add_child_module(noc_);
+
+    // Construct memory controller (s)
+    MemModel* mm = new MemModel(k());
+    noc_->register_agent(mm);
+    add_child_module(mm);
+    mms_.push_back(mm);
     
     // Construct child CPU clusters
     for (const CpuClusterCfg& cccfg : config_.ccls) {
@@ -75,6 +83,22 @@ class SocTop : public kernel::TopModule {
       noc_->register_agent(dm);
       add_child_module(dm);
       dms_.push_back(dm);
+
+      if (!dcfg.is_null_filter) {
+        // Construct corresponding LLC
+        LLCModel* llc = new LLCModel(k(), dcfg.llcconfig);
+        mm->register_agent(llc);
+        noc_->register_agent(llc);
+        add_child_module(llc);
+        llcs_.push_back(llc);
+        // Bind DIR instance to associated LLC.
+        dm->set_llc(llc);
+      } else {
+        // Directory is Null filter, it must therefore interact
+        // directly with the memory controller to initiate
+        // lookups/writebacks to main memory.
+        // TODO
+      }
     }
   }
 
@@ -93,8 +117,27 @@ class SocTop : public kernel::TopModule {
       port->set_egress(dm->noc_dir__msg_q());
       // DIR -> NOC message queue
       dm->set_dir_noc__msg_q(port->ingress());
-    }
 
+      const DirectoryModelConfig& cfg = dm->config();
+      if (!cfg.is_null_filter) {
+        LLCModel* llc = dm->llc();
+        // Bind memory controller
+        llc->set_mc(mms_.front());
+        // Bind associated LLC to NOC
+        NocPort* port = noc_->get_agent_port(llc);
+        // NOC -> LLC
+        port->set_egress(llc->noc_llc__msg_q());
+        // LLC -> NOC
+        llc->set_llc_noc__msg_q(port->ingress());
+      }
+    }
+    for (MemModel* mm : mms_) {
+      NocPort* port = noc_->get_agent_port(mm);
+      // NOC -> MEM
+      port->set_egress(mm->noc_mem__msg_q());
+      // MEM -> NOC
+      mm->set_mem_noc__msg_q(port->ingress());
+    }
     // Construct directory mapper
     dm_ = new SingleDirectoryMapper(*dms_.begin());
     for (CpuCluster* cc : ccs_) {
@@ -120,8 +163,12 @@ class SocTop : public kernel::TopModule {
   NocModel* noc_ = nullptr;
   // Directory model instance
   std::vector<DirectoryModel*> dms_;
+  // LLC Models 1-to-1 relationship with non-Null Filter directories.
+  std::vector<LLCModel*> llcs_;
   // CPU Cluster instances
   std::vector<CpuCluster*> ccs_;
+  // Memory Controller instances.
+  std::vector<MemModel*> mms_;
   // Soc configuration
   SocCfg config_;
 };

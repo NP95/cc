@@ -25,60 +25,32 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "llc.h"
-#include "llc_enum.h"
-#include "msg.h"
-#include "noc.h"
 #include "mem.h"
-#include "utility.h"
+//#include "mem_enum.h"
 
 namespace cc {
 
-class LLCModel::MainProcess : public kernel::Process {
+class MemModel::MainProcess : public kernel::Process {
 
   struct Context {
   };
  public:
-  MainProcess(kernel::Kernel* k, const std::string& name, LLCModel* model)
+  MainProcess(kernel::Kernel* k, const std::string& name, MemModel* model)
       : kernel::Process(k, name), model_(model) {
   }
-
-  LlcState state() const { return state_; }
-  void set_state(LlcState state) {
-    if (state_ != state) {
-      LogMessage msg("State transition: ");
-      msg.level(Level::Debug);
-      msg.append(to_string(state_));
-      msg.append(" -> ");
-      msg.append(to_string(state));
-      log(msg);
-    }
-    state_ = state;
-  }
-
  private:
 
   // Initialization
   void init() override {
-    set_state(LlcState::AwaitingMessage);
-
     Arbiter<const Message*>* arb = model_->arb();
     wait_on(arb->request_arrival_event());
   }
 
   // Elaboration
   void eval() override {
+    LogMessage lmsg("Got message");
+    log(lmsg);
 
-    // TODO: simply forward to memory
-
-    // Message to LLC
-    Message* msg = new Message(nullptr, MessageClass::MemCmd);
-    NocMessage* nocmsg = new NocMessage(msg);
-    nocmsg->set_origin(model_);
-    nocmsg->set_dest(model_->mc());
-    nocmsg->set_payload(msg);
-    model_->issue(model_->llc_noc__msg_q(), kernel::Time{10, 0}, nocmsg);
-    
     Arbiter<const Message*>* arb = model_->arb();
     wait_on(arb->request_arrival_event());
   }
@@ -90,26 +62,26 @@ class LLCModel::MainProcess : public kernel::Process {
   // Current execution context
   Context ctxt_;
   // Current machine state
-  LlcState state_ = LlcState::AwaitingMessage;
-  // Pointer to owning LLC instance.
-  LLCModel* model_ = nullptr;
+  //LlcState state_ = LlcState::AwaitingMessage;
+  // Pointer to owning Mem instance.
+  MemModel* model_ = nullptr;
 };
 
-LLCModel::LLCModel(kernel::Kernel* k, const LLCModelConfig& config)
-    : Agent(k, config.name), config_(config) {
+MemModel::MemModel(kernel::Kernel* k)
+    : Agent(k, "mem") {
   build();
 }
 
-LLCModel::~LLCModel() {
-  delete noc_llc__msg_q_;
+MemModel::~MemModel() {
+  delete noc_mem__msg_q_;
   delete arb_;
   delete main_;
 }
 
-void LLCModel::build() {
-  // NOC -> LLC message queue:
-  noc_llc__msg_q_ = new MessageQueue(k(), "noc_llc__msg_q", 3);
-  add_child_module(noc_llc__msg_q_);
+void MemModel::build() {
+  // NOC -> Mem message queue:
+  noc_mem__msg_q_ = new MessageQueue(k(), "noc_mem__msg_q", 3);
+  add_child_module(noc_mem__msg_q_);
   // Construct arbiter
   arb_ = new Arbiter<const Message*>(k(), "arb");
   add_child_module(arb_);
@@ -118,16 +90,16 @@ void LLCModel::build() {
   add_child_process(main_);
 }
 
-void LLCModel::elab() {
-  arb_->add_requester(noc_llc__msg_q_);
+void MemModel::register_agent(Agent* agent) {
+  clients_.push_back(agent);
 }
 
-void LLCModel::drc() {
-  if (llc_noc__msg_q_ == nullptr) {
-    LogMessage msg("LLC to NOC egress queue has not been bound.");
-    msg.level(Level::Fatal);
-    log(msg);
-  }
+void MemModel::elab() {
+  arb_->add_requester(noc_mem__msg_q_);
+}
+
+void MemModel::drc() {
 }
 
 } // namespace cc
+

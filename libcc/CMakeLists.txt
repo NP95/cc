@@ -33,6 +33,8 @@ cc_generate_enum(l1cache.enum)
 cc_generate_enum(l2cache.enum)
 cc_generate_enum(ccntrl.enum)
 cc_generate_enum(msg.enum)
+cc_generate_enum(dir.enum)
+cc_generate_enum(llc.enum)
 
 add_library(cc SHARED
   kernel.cc
@@ -53,7 +55,10 @@ add_library(cc SHARED
   amba_enum.cc
   noc.cc
   dir.cc
+  dir_enum.cc
   llc.cc
+  llc_enum.cc
+  mem.cc
   cpucluster.cc
   ccntrl.cc
   ccntrl_enum.cc

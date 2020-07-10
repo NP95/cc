@@ -46,8 +46,8 @@ class MOESIL1LineState : public L1LineState {
   MOESIL1LineState() {}
 
   // Current line state.
-  L1State state() const { return state_; }
-  void set_state(L1State state) { state_ = state; }
+  MOESIL1State state() const { return state_; }
+  void set_state(MOESIL1State state) { state_ = state; }
 
   // Stable state status.
   bool is_stable() const {
@@ -56,7 +56,7 @@ class MOESIL1LineState : public L1LineState {
   }
 
  private:
-  L1State state_ = L1State::I;
+  MOESIL1State state_ = MOESIL1State::I;
 };
 
 //
@@ -76,15 +76,15 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
     switch (msg->opcode()) {
       case L1CpuOpcode::Load: {
         switch (mline->state()) {
-          case L1State::I: {
+          case MOESIL1State::I: {
             r.push(L1UpdateAction::EmitGetS);
             r.push(L1UpdateAction::UpdateState);
-            r.state(ut(L1State::I_S));
+            r.state(ut(MOESIL1State::I_S));
             r.push(L1UpdateAction::Block);
           } break;
-          case L1State::E:
-          case L1State::M:
-          case L1State::S: {
+          case MOESIL1State::E:
+          case MOESIL1State::M:
+          case MOESIL1State::S: {
             // Load instruction hits in the cache, therefore commit
             // and emit response back to the cache.
             r.push(L1UpdateAction::EmitCpuRsp);
@@ -98,20 +98,20 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
       } break;
       case L1CpuOpcode::Store: {
         switch (mline->state()) {
-          case L1State::I: {
+          case MOESIL1State::I: {
             r.push(L1UpdateAction::UpdateState);
-            r.state(ut(L1State::I_E));
+            r.state(ut(MOESIL1State::I_E));
             r.push(L1UpdateAction::Block);
           } break;
-          case L1State::E: {
-            r.state(ut(L1State::M));
+          case MOESIL1State::E: {
+            r.state(ut(MOESIL1State::M));
             r.push(L1UpdateAction::Commit);
           } break;
-          case L1State::M: {
+          case MOESIL1State::M: {
             r.push(L1UpdateAction::Commit);
           } break;
-          case L1State::S: {
-            r.state(ut(L1State::S_E));
+          case MOESIL1State::S: {
+            r.state(ut(MOESIL1State::S_E));
             r.push(L1UpdateAction::Block);
           } break;
           default: {
@@ -126,7 +126,7 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
 
   void update_line_state(L1LineState* line, state_t state) const override {
     MOESIL1LineState* mline = static_cast<MOESIL1LineState*>(line);
-    mline->set_state(static_cast<L1State>(state));
+    mline->set_state(static_cast<MOESIL1State>(state));
   }
 };
 
@@ -138,8 +138,8 @@ class MOESIL2LineState : public L2LineState {
   MOESIL2LineState() {}
 
   // Current line state.
-  L2State state() const { return state_; }
-  void set_state(L2State state) { state_ = state; }
+  MOESIL2State state() const { return state_; }
+  void set_state(MOESIL2State state) { state_ = state; }
 
   // Stable state status.
   bool is_stable() const {
@@ -148,7 +148,7 @@ class MOESIL2LineState : public L2LineState {
   }
 
  private:
-  L2State state_ = L2State::I;
+  MOESIL2State state_ = MOESIL2State::I;
 };
 
 class MOESIL2CacheProtocol : public L2CacheModelProtocol {
@@ -159,7 +159,7 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
   //
   L2LineState* construct_line() const override {
     MOESIL2LineState* l = new MOESIL2LineState;
-    l->set_state(L2State::I);
+    l->set_state(MOESIL2State::I);
     return l;
   }
 
@@ -182,16 +182,16 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
   //
   void update_line_state(L2LineState* line, state_t state) const override {
     MOESIL2LineState* mline = static_cast<MOESIL2LineState*>(line);
-    mline->set_state(static_cast<L2State>(state));
+    mline->set_state(static_cast<MOESIL2State>(state));
   }
 
  private:
 
   void handle_gets(L2CacheModelApplyResult& r, const MOESIL2LineState* line) const {
     switch (line->state()){
-      case L2State::I: {
+      case MOESIL2State::I: {
         r.push(L2UpdateAction::UpdateState);
-        r.state(ut(L2State::I_S));
+        r.state(ut(MOESIL2State::I_S));
         r.push(L2UpdateAction::EmitReadShared);
         r.push(L2UpdateAction::Block);
       } break;
@@ -240,7 +240,7 @@ class MOESICacheControllerProtocol : public CacheControllerProtocol {
         // TODO
         r.push(CCUpdateAction::EmitAceCmdToDir);
         r.push(CCUpdateAction::UpdateState);
-        r.state(ut(CCState::I_S));
+        r.state(ut(MOESICCState::I_S));
       } break;
       case AceCmdOpcode::ReadUnique: {
         // TODO
@@ -285,7 +285,7 @@ class MOESICacheControllerProtocol : public CacheControllerProtocol {
       CacheControllerLineState* line, state_t state) const override {
     //MOESICacheControllerLineState* mline =
     //static_cast<MOESICacheControllerLineState*>(line);
-    //mline->set_state(static_cast<L1State>(state));
+    //mline->set_state(static_cast<MOESIL1State>(state));
   }
 };
 

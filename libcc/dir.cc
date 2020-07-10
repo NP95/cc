@@ -26,6 +26,9 @@
 //========================================================================== //
 
 #include "dir.h"
+#include "dir_enum.h"
+#include "noc.h"
+#include "llc.h"
 #include "amba.h"
 #include "primitives.h"
 #include "utility.h"
@@ -39,41 +42,13 @@ class DirectoryModel::MainProcess : public kernel::Process {
     Arbiter<const Message*>::Tournament t;
   };
 
-  // clang-format off
-#define STATES(__func)				\
-  __func(AwaitingMessage)			\
-  __func(ProcessMessage)			\
-  __func(ExecuteActions)
-  // clang-format on
-
-  enum class State {
-#define __declare_state(__name) __name,
-    STATES(__declare_state)
-#undef __declare_state
-  };
-
-  std::string to_string(State state) {
-    switch (state) {
-      default:
-        return "Unknown";
-#define __declare_to_string(__name)             \
-        case State::__name:                     \
-          return #__name;                       \
-          break;
-        STATES(__declare_to_string)
-#undef __declare_to_string
-            }
-    return "Invalid";
-  }
-#undef STATES
-
  public:
   MainProcess(kernel::Kernel* k, const std::string& name, DirectoryModel* model)
       : kernel::Process(k, name), model_(model) {
   }
 
-  State state() const { return state_; }
-  void set_state(State state) {
+  DirState state() const { return state_; }
+  void set_state(DirState state) {
     if (state_ != state) {
       LogMessage msg("State transition: ");
       msg.level(Level::Debug);
@@ -89,7 +64,7 @@ class DirectoryModel::MainProcess : public kernel::Process {
 
   // Initialization
   void init() {
-    set_state(State::AwaitingMessage);
+    set_state(DirState::AwaitingMessage);
     Arbiter<const Message*>* arb = model_->arb();
     // Await the arrival of a new message at the ingress message
     // queues.
@@ -99,13 +74,13 @@ class DirectoryModel::MainProcess : public kernel::Process {
   // Evaluation
   void eval() {
     switch (state()) {
-      case State::AwaitingMessage: {
+      case DirState::AwaitingMessage: {
         handle_awaiting_message();
       } break;
-      case State::ProcessMessage: {
+      case DirState::ProcessMessage: {
         handle_process_message();
       } break;
-      case State::ExecuteActions: {
+      case DirState::ExecuteActions: {
         handle_execute_actions();
       } break;
       default: {
@@ -142,7 +117,7 @@ class DirectoryModel::MainProcess : public kernel::Process {
       // delta cycle.
       ctxt_ = Context();
       ctxt_.t = t;
-      set_state(State::ProcessMessage);
+      set_state(DirState::ProcessMessage);
       next_delta();
     } else {
       // Otherwise, block awaiting the arrival of a message at on
@@ -157,7 +132,15 @@ class DirectoryModel::MainProcess : public kernel::Process {
 
     switch (msg->cls()) {
       case MessageClass::AceCmd: {
-        log(LogMessage("Got message"));
+
+        // Message to LLC
+        Message* msg = new Message(nullptr, MessageClass::MemCmd);
+        NocMessage* nocmsg = new NocMessage(msg);
+        nocmsg->set_origin(model_);
+        nocmsg->set_dest(model_->llc());
+        nocmsg->set_payload(msg);
+        model_->issue(model_->dir_noc__msg_q(), kernel::Time{10, 0}, nocmsg);
+        
       } break;
       default: {
       } break;
@@ -171,7 +154,7 @@ class DirectoryModel::MainProcess : public kernel::Process {
   // Current execution context
   Context ctxt_;
   // Current machine state
-  State state_ = State::AwaitingMessage;
+  DirState state_ = DirState::AwaitingMessage;
   // Pointer to parent directory instance.
   DirectoryModel* model_ = nullptr;
 };
@@ -187,14 +170,12 @@ DirectoryModel::~DirectoryModel() {
 }
 
 void DirectoryModel::build() {
-  // Construct command queue
+  // NOC -> DIR message queue
   noc_dir__msg_q_ = new MessageQueue(k(), "noc_dir__msg_q", 3);
   add_child_module(noc_dir__msg_q_);
-
   // Construct arbiter
   arb_ = new Arbiter<const Message*>(k(), "arb");
   add_child_module(arb_);
-
   // Construct main thread
   main_ = new MainProcess(k(), "main", this);
   add_child_process(main_);

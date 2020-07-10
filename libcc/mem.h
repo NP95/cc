@@ -25,71 +25,59 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_LLC_H
-#define CC_INCLUDE_CC_LLC_H
+#ifndef CC_LIBC_DIR_H
+#define CC_LIBC_DIR_H
 
-#include "kernel.h"
-#include "cfgs.h"
-//#include "primitives.h"
+#include "primitives.h"
+#include <vector>
 
 namespace cc {
-/*
-// Forwards:
-class Message;
-class MessageQueue;
-template<typename T> class Arbiter;
 
-#define LLC_MESSAGE_QUEUES(__func)              \
-  __func(CmdQ)                                  \
-  __func(RspQ)
-
-enum class LLCEp : kernel::end_point_id_t {
-#define __declare_enum(__name) __name,
-  LLC_MESSAGE_QUEUES(__declare_enum)
-#undef __declare_enum
-};
-
-const char* to_string(LLCEp d);
-
-//
-//
-class LLCModel : public Agent {
+class MemModel : public Agent {
   class MainProcess;
+
+  friend class SocTop;
  public:
-  LLCModel(kernel::Kernel* k, const LLCModelConfig& config);
-
-  // Return model configuration.
-  const LLCModelConfig& config() const { return config_; }
-
- protected:
-  // Construction/Build
-  void build();
-
-  // Elaboration
-  void elab() override;
-
-  // Design Rule Check
-  void drc() override;
+  MemModel(kernel::Kernel* k);
+  ~MemModel();
 
   // Accessors:
 
-  // Queue arbiter:
+  // NOC -> MEM
+  MessageQueue* noc_mem__msg_q() const { return noc_mem__msg_q_; }
+
+ protected:
+  // Build
+  void build();
+  // Add a memory controller client to the current instance;
+  // constructs the necessary ingress queues beyond the NOC interface
+  // front-end.
+  void register_agent(Agent* agent);
+
+  // Elaboration
+  void elab() override;
+  //
+  void set_mem_noc__msg_q(MessageQueue* mq) { mem_noc__msg_q_ = mq; }
+
+  // Design Rule Check (DRC)
+  void drc() override;
+
+  // Accessors(s)
   Arbiter<const Message*>* arb() const { return arb_; }
-  
+
  private:
-  // Command message queue
-  MessageQueue* cmdq_ = nullptr;
-  // Response message queue
-  MessageQueue* rspq_ = nullptr;
+  // NOC -> MEM message queue (owned by directory)
+  MessageQueue* noc_mem__msg_q_ = nullptr;
+  // MEM -> NOC message queue (owned by noc)
+  MessageQueue* mem_noc__msg_q_ = nullptr;
   // Queue selector arbiter
   Arbiter<const Message*>* arb_ = nullptr;
-  // Main thread 
+  // Main trhead
   MainProcess* main_ = nullptr;
-  // LLC Cache configuration
-  LLCModelConfig config_;
+  // Client agents (agents that interact with the memory controller).
+  std::vector<Agent*> clients_;
 };
 
-*/
 } // namespace cc
 
 #endif

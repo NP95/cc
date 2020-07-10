@@ -35,4 +35,5 @@ L1L2__CmdMsg
 AceCmd
 AceSnoop
 Noc
+MemCmd
 @enum_end

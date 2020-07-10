@@ -129,6 +129,19 @@ struct NocModelConfig {
 
 //
 //
+struct LLCModelConfig {
+  // LLC name
+  std::string name = "llc";
+
+  // Command Queue size
+  std::size_t cmd_queue_n = 4;
+
+  // Response Queue size
+  std::size_t rsp_queue_n = 4;
+};
+
+//
+//
 struct DirectoryModelConfig {
   // Directory name
   std::string name = "dir";
@@ -139,27 +152,16 @@ struct DirectoryModelConfig {
   // Response Queue size
   std::size_t rsp_queue_n = 4;
 
+  // Flag indicatig whether the directory is a null filter (does not
+  // have and associated LLC).
+  bool is_null_filter = false;
+
   // Cache configuratioh (non-Null Filter case).
   CacheModelConfig cconfig;
 
-  // Protocol builder instance.
-  ProtocolBuilder* pbuilder = nullptr;
-};
-
-//
-//
-struct LLCModelConfig {
-  // LLC name
-  std::string name = "llc";
-
-  // Cache configuration
-  CacheModelConfig cconfig;
-
-  // Command Queue size
-  std::size_t cmd_queue_n = 4;
-
-  // Response Queue size
-  std::size_t rsp_queue_n = 4;
+  // In the non-Null filter case, the directory maintains the LLC. The
+  // LLC cache configuration matches the directory one-to-one.
+  LLCModelConfig llcconfig;
 
   // Protocol builder instance.
   ProtocolBuilder* pbuilder = nullptr;

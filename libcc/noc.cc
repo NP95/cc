@@ -249,6 +249,16 @@ void NocModel::elab() {
 }
 
 void NocModel::drc() {
+  for (std::pair<Agent*, NocPort*> pp : ports_) {
+    NocPort* port = pp.second;
+    if (port->egress() == nullptr) {
+      Agent* agent = pp.first;
+      LogMessage msg("Egress port has not been bound for agent: ");
+      msg.append(agent->path());
+      msg.level(Level::Fatal);
+      log(msg);
+    }
+  }
 }
 
 } // namespace cc
