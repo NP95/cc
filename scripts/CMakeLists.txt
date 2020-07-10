@@ -47,3 +47,26 @@ macro (cc_generate_enum enum_file)
   add_custom_target(
     gen_enum_${enum_prefix} DEPENDS ${header_file} ${source_file})
 endmacro ()
+
+## Utility macro to generate an header and object file from an
+## enumerate definition file.
+macro (cc_generate_msg msg_file)
+  get_filename_component(msg_prefix ${msg_file} NAME_WE)
+
+  set(header_file "${msg_prefix}_msg.h")
+  set(source_file "${msg_prefix}_msg.cc")
+
+  set(script_py ${CMAKE_SOURCE_DIR}/scripts/generate_msg.py)
+
+  add_custom_command(
+    OUTPUT ${header_file} ${source_file}
+    COMMAND python3 ${script_py}
+      ${CMAKE_CURRENT_SOURCE_DIR}/${msg_file}
+#    COMMAND ${Python_EXECUTABLE} ${script_py}
+#      ${CMAKE_CURRENT_SOURCE_DIR}/${msg_file}
+    DEPENDS ${msg_file} ${script_py}
+    COMMENT "Generating ${msg_prefix}.msg..."
+    )
+  add_custom_target(
+    gen_msg_${msg_prefix} DEPENDS ${header_file} ${source_file})
+endmacro ()

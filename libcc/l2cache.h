@@ -32,9 +32,9 @@
 
 #include "cfgs.h"
 #include "kernel.h"
-#include "primitives.h"
 #include "msg.h"
 #include "l2cache_enum.h"
+#include "sim.h"
 
 namespace cc {
 

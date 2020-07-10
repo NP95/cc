@@ -156,12 +156,12 @@ class NocModel::MainProcess : public kernel::Process {
         }
 
         // Issue message to destination agent ingress queue.
-        const Message* payload = nocmsg->payload();
-        model_->issue(port->egress(), kernel::Time{10, 0}, payload);
+        // const Message* payload = nocmsg->payload();
+        model_->issue(port->egress(), kernel::Time{10, 0}, nocmsg);
 
         // Message has now been issued to destination. Destroy
         // transport message and update arbitration.
-        nocmsg->release();
+        // nocmsg->release();
         intf->dequeue();
 
         // Advance arbitration state.

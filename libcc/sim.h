@@ -25,42 +25,64 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
+#ifndef CC_LIBCC_SIM_H
+#define CC_LIBCC_SIM_H
+
 #include "primitives.h"
-#include "msg.h"
 
 namespace cc {
 
-Clock::Clock(kernel::Kernel* k, const std::string& name, int ticks, int period)
-    : Module(k, name),
-      ticks_(ticks),
-      period_(period),
-      rising_edge_event_(k, "rising_edge_event") {
-  struct ClockProcess : kernel::Process {
-    ClockProcess(kernel::Kernel* k, Clock* clk)
-        : Process(k, "ClockProcess"), clk_(clk) {
-      ticks_ = clk->ticks();
-    }
-    void init() override {
-      if (ticks_ == 0) return;
-      kernel::Time time = k()->time();
-      time.time += clk_->period();
-      wait_until(time);
-    }
-    void eval() override {
-      // Notify
-      clk_->rising_edge_event().notify();
-      if (--ticks_ != 0) {
-        // Schedule next
-        kernel::Time time = k()->time();
-        time.time += clk_->period();
-        wait_until(time);
-      }
-    }
-    Clock* clk_;
-    int ticks_;
-  };
-  p_ = new ClockProcess(k, this);
-  add_child_process(p_);
-}
+//
+//
+class MessageQueue : public kernel::Module,
+                     public kernel::RequesterIntf<const Message*> {
+ public:
+  MessageQueue(kernel::Kernel* k, const std::string& name, std::size_t n);
 
-}  // namespace cc
+  // Queue depth.
+  std::size_t n() const { return q_->n(); }
+
+  bool empty() const { return q_->empty(); }
+  bool full() const { return q_->full(); }
+
+  // Endpoint Interface:
+  void push(const Message* msg);
+
+  // Requester Interface:
+  bool has_req() const override;
+  const Message* peek() const override;
+  const Message* dequeue() override;
+  kernel::Event& request_arrival_event() override;
+
+ private:
+  // Construct module
+  void build(std::size_t n);
+  // Queue primitive.
+  Queue<const Message*>* q_ = nullptr;
+};
+
+//
+//
+class MessageQueueArbiter : public Arbiter<const Message*> {
+ public:
+  MessageQueueArbiter(kernel::Kernel* k, const std::string& name)
+      : Arbiter(k, name)
+  {}
+};
+
+//
+//
+class Agent : public kernel::Module {
+ public:
+  Agent(kernel::Kernel* k, const std::string& name);
+
+ protected:
+  // (Run-Phase only)
+  void issue(MessageQueue* mq, const kernel::Time& time, const Message* msg);
+};
+
+std::string to_string(const Agent* agent);
+
+} // namespace cc
+
+#endif

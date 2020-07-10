@@ -27,78 +27,206 @@
 
 #include "mem.h"
 //#include "mem_enum.h"
+#include "noc.h"
 
 namespace cc {
 
-class MemModel::MainProcess : public kernel::Process {
-
-  struct Context {
-  };
+//
+//
+class MemCntrlModel::NocIngressProcess : public kernel::Process {
  public:
-  MainProcess(kernel::Kernel* k, const std::string& name, MemModel* model)
+  NocIngressProcess(kernel::Kernel* k, const std::string& name, MemCntrlModel* model)
       : kernel::Process(k, name), model_(model) {
   }
  private:
 
   // Initialization
   void init() override {
-    Arbiter<const Message*>* arb = model_->arb();
-    wait_on(arb->request_arrival_event());
+    MessageQueue* mq = model_->noc_mem__msg_q();
+    wait_on(mq->request_arrival_event());
   }
 
   // Elaboration
   void eval() override {
-    LogMessage lmsg("Got message");
-    log(lmsg);
+    // Upon reception of a NOC message, remove transport layer
+    // encapsulation and issue to the appropriate ingress queue.
+    MessageQueue* noc_mq = model_->noc_mem__msg_q();
+    const NocMessage* msg = static_cast<const NocMessage*>(noc_mq->dequeue());
 
-    Arbiter<const Message*>* arb = model_->arb();
-    wait_on(arb->request_arrival_event());
+    // Validate message
+    if (msg->cls() != MessageClass::Noc) {
+      LogMessage lmsg("Received invalid message class: ");
+      lmsg.append(to_string(msg->cls()));
+      lmsg.level(Level::Fatal);
+      log(lmsg);
+    }
+
+    MessageQueue* iss_mq = model_->lookup_rdis_mq(msg->origin());
+    if (iss_mq == nullptr) {
+      LogMessage lmsg("Message queue not found for agent: ");
+      lmsg.append(msg->dest()->path());
+      lmsg.level(Level::Fatal);
+      log(lmsg);
+    }
+
+    // Forward message message to destination queue and discard
+    // encapsulation/transport message.
+    iss_mq->push(msg->payload());
+    msg->release();
+
+    // Set conditions for subsequent re-evaluations.
+    if (!noc_mq->empty()) {
+      // TODO:Cleanup
+      // Wait some delay
+      wait_for(kernel::Time{10, 0});
+    } else {
+      // Not further work; await until noc ingress queue becomes non-full.
+      wait_on(noc_mq->request_arrival_event());
+    }
   }
 
   // Finalization
   void fini() override {
   }
 
-  // Current execution context
-  Context ctxt_;
-  // Current machine state
-  //LlcState state_ = LlcState::AwaitingMessage;
   // Pointer to owning Mem instance.
-  MemModel* model_ = nullptr;
+  MemCntrlModel* model_ = nullptr;
 };
 
-MemModel::MemModel(kernel::Kernel* k)
+//
+//
+class MemCntrlModel::RequestDispatcherProcess : public kernel::Process {
+ public:
+  RequestDispatcherProcess(kernel::Kernel* k, const std::string& name, MemCntrlModel* model)
+      : Process(k, name), model_(model) {
+  }
+
+ private:
+
+  // Initialization
+  void init() override {
+    MessageQueueArbiter* rdis_arb = model_->rdis_arb();
+    wait_on(rdis_arb->request_arrival_event());
+  }
+
+  // Evaluation
+  void eval() override {
+    using Tournament = MessageQueueArbiter::Tournament;
+    using Interface = MessageQueueArbiter::Interface;
+    
+    MessageQueueArbiter* rdis_arb = model_->rdis_arb();
+    Tournament t = rdis_arb->tournament();
+    if (t.has_requester()) {
+      Interface* intf = t.intf();
+
+      const MemCmdMessage* cmdmsg =
+          static_cast<const MemCmdMessage*>(intf->dequeue());
+      switch (cmdmsg->opcode()) {
+        case MemCmdOpcode::Write:
+        case MemCmdOpcode::Read: {
+          const bool is_read = (cmdmsg->opcode() == MemCmdOpcode::Read);
+          MemRspMessage* rspmsg = new MemRspMessage;
+          rspmsg->set_opcode(
+              is_read ? MemRspOpcode::ReadOkay : MemRspOpcode::WriteOkay);
+          rspmsg->set_t(cmdmsg->t());
+          
+          // Memory read command
+          NocMessage* nocmsg = new NocMessage();
+          nocmsg->set_payload(rspmsg);
+          nocmsg->set_origin(model_);
+          nocmsg->set_dest(cmdmsg->dest());
+          nocmsg->set_t(cmdmsg->t());
+          // Issue to NOC
+          model_->issue(model_->mem_noc__msg_q(), kernel::Time{10, 0}, nocmsg);
+
+          cmdmsg->release();
+        } break;
+        default: {
+          LogMessage lmsg("Invalid message opcode received: ");
+          lmsg.append(to_string(cmdmsg->opcode()));
+          lmsg.level(Level::Fatal);
+          log(lmsg);
+        } break;
+      }
+      
+    } else {
+      wait_on(rdis_arb->request_arrival_event());
+    }
+  }
+
+  // Finalization
+  void fini() override {
+  }
+
+  //
+  MemCntrlModel* model_ = nullptr;
+};
+
+MemCntrlModel::MemCntrlModel(kernel::Kernel* k)
     : Agent(k, "mem") {
   build();
 }
 
-MemModel::~MemModel() {
+MemCntrlModel::~MemCntrlModel() {
+  // Delete queues.
   delete noc_mem__msg_q_;
-  delete arb_;
-  delete main_;
+  // Cleanup NOC ingress thread.
+  delete noci_proc_;
+  // Cleanup request dispatcher thread.
+  delete rdis_proc_;
+  delete rdis_arb_;
+  for (const std::pair<Agent*, MessageQueue*>& pp : rdis_mq_) {
+    MessageQueue* mq = pp.second;
+    delete mq;
+  }
 }
 
-void MemModel::build() {
+void MemCntrlModel::build() {
   // NOC -> Mem message queue:
   noc_mem__msg_q_ = new MessageQueue(k(), "noc_mem__msg_q", 3);
   add_child_module(noc_mem__msg_q_);
+
+  // NOC ingress process:
+  noci_proc_ = new NocIngressProcess(k(), "noci", this);
+  add_child_process(noci_proc_);
+  
+  // Request dispatcher process:
+  rdis_proc_ = new RequestDispatcherProcess(k(), "rdis", this);
+  add_child_process(rdis_proc_);
   // Construct arbiter
-  arb_ = new Arbiter<const Message*>(k(), "arb");
-  add_child_module(arb_);
-  // Construct main thread
-  main_ = new MainProcess(k(), "main", this);
-  add_child_process(main_);
+  rdis_arb_ = new MessageQueueArbiter(k(), "arb");
+  add_child_module(rdis_arb_);
 }
 
-void MemModel::register_agent(Agent* agent) {
-  clients_.push_back(agent);
+void MemCntrlModel::register_agent(Agent* agent) {
+  const std::string mq_name = agent->name() + "_mq";
+  MessageQueue* mq = new MessageQueue(k(), mq_name, 3);
+  add_child_module(mq);
+  rdis_mq_.insert(std::make_pair(agent, mq));
 }
 
-void MemModel::elab() {
-  arb_->add_requester(noc_mem__msg_q_);
+void MemCntrlModel::elab() {
+  for (const std::pair<Agent*, MessageQueue*>& pp : rdis_mq_) {
+    MessageQueue* mq = pp.second;
+    rdis_arb_->add_requester(mq);
+  }
 }
 
-void MemModel::drc() {
+void MemCntrlModel::drc() {
+  if (mem_noc__msg_q_ == nullptr) {
+    LogMessage msg("NOC egress message queue has not been bound");
+    msg.level(Level::Fatal);
+    log(msg);
+  }
+}
+
+MessageQueue* MemCntrlModel::lookup_rdis_mq(Agent* agent) {
+  MessageQueue* mq = nullptr;
+  std::map<Agent*, MessageQueue*>::iterator it = rdis_mq_.find(agent);
+  if (it != rdis_mq_.end()) {
+    mq = it->second;
+  }
+  return mq;
 }
 
 } // namespace cc

@@ -35,6 +35,9 @@ cc_generate_enum(ccntrl.enum)
 cc_generate_enum(msg.enum)
 cc_generate_enum(dir.enum)
 cc_generate_enum(llc.enum)
+cc_generate_enum(mem.enum)
+
+cc_generate_msg(llc.msg)
 
 add_library(cc SHARED
   kernel.cc
@@ -58,14 +61,18 @@ add_library(cc SHARED
   dir_enum.cc
   llc.cc
   llc_enum.cc
+  llc_msg.cc
   mem.cc
+  mem_enum.cc
   cpucluster.cc
   ccntrl.cc
   ccntrl_enum.cc
   utility.cc
   soc.cc
   msg_enum.cc
+  builder.cc
   )
 
 target_include_directories(cc PRIVATE ${CMAKE_SOURCE_DIR}/include/cc)
+target_include_directories(cc PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(cc PRIVATE ${CMAKE_CURRENT_BINARY_DIR})

@@ -157,6 +157,8 @@ class Queue : public kernel::Module {
 template <typename T>
 class Arbiter : public kernel::Module {
  public:
+  using Interface = kernel::RequesterIntf<T>;
+  
   // Helper class which encapsulates the concept of a single
   // arbitration round.
   class Tournament {
@@ -353,44 +355,6 @@ class Table : public kernel::Module {
   std::vector<Entry> t_;
   // Table size
   std::size_t n_;
-};
-
-//
-//
-class MessageQueue : public kernel::Module,
-                     //                     public kernel::EndPointIntf<const Message*>,
-                     public kernel::RequesterIntf<const Message*> {
- public:
-  MessageQueue(kernel::Kernel* k, const std::string& name, std::size_t n);
-
-  // Queue depth.
-  std::size_t n() const { return q_->n(); }
-
-  // Endpoint Interface:
-  void push(const Message* msg);
-
-  // Requester Interface:
-  bool has_req() const override;
-  const Message* peek() const override;
-  const Message* dequeue() override;
-  kernel::Event& request_arrival_event() override;
-
- private:
-  // Construct module
-  void build(std::size_t n);
-  // Queue primitive.
-  Queue<const Message*>* q_ = nullptr;
-};
-
-//
-//
-class Agent : public kernel::Module {
- public:
-  Agent(kernel::Kernel* k, const std::string& name);
-
- protected:
-  // (Run-Phase only)
-  void issue(MessageQueue* mq, const kernel::Time& time, const Message* msg);
 };
 
 }  // namespace cc

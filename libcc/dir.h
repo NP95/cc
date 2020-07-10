@@ -31,7 +31,7 @@
 #include "kernel.h"
 #include "cfgs.h"
 #include "types.h"
-#include "primitives.h"
+#include "sim.h"
 
 namespace cc {
 

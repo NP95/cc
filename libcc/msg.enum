@@ -35,5 +35,24 @@ L1L2__CmdMsg
 AceCmd
 AceSnoop
 Noc
+
+
+// Last-Level Cache Message Classes:
+//
+
+LLCCmd
+LLCRsp
+
+// Memory Controller Message Classes:
+//
+
+// Memory Command; agent -> memory (read/write)
 MemCmd
+// Memory Response; memory -> agent (read data/write acknowledgement)
+MemRsp
+
+// Payload Message Classes:
+
+// Message representing the transfer of a single cache line.
+DataLine
 @enum_end

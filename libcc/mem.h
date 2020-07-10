@@ -28,23 +28,69 @@
 #ifndef CC_LIBC_DIR_H
 #define CC_LIBC_DIR_H
 
-#include "primitives.h"
-#include <vector>
+#include "mem_enum.h"
+#include "msg.h"
+#include "sim.h"
+#include <map>
 
 namespace cc {
 
-class MemModel : public Agent {
-  class MainProcess;
+// Memory Command Message:
+//
+class MemCmdMessage : public Message {
+ public:
+  MemCmdMessage() : Message(MessageClass::MemCmd) {}
 
+  // Command opcode
+  MemCmdOpcode opcode() const { return opcode_; }
+  // The agent to which the response is to be sent.
+  Agent* dest() const { return dest_; }
+
+  void set_opcode(MemCmdOpcode opcode) { opcode_ = opcode; }
+  void set_dest(Agent* dest) { dest_ = dest; }
+
+ private:
+  // Memory command opcode;
+  MemCmdOpcode opcode_;
+  //
+  Agent* dest_ = nullptr;
+};
+
+
+// Memory Response Message:
+//
+class MemRspMessage : public Message {
+ public:
+  MemRspMessage() : Message(MessageClass::MemRsp) {}
+
+  // Command opcode
+  MemRspOpcode opcode() const { return opcode_; }
+
+  void set_opcode(MemRspOpcode opcode) { opcode_ = opcode; }
+
+ private:
+  // Memory command opcode;
+  MemRspOpcode opcode_;
+};
+
+
+// Memory Controller Model
+//
+class MemCntrlModel : public Agent {
+  class NocIngressProcess;
+  class RequestDispatcherProcess;
+  
   friend class SocTop;
  public:
-  MemModel(kernel::Kernel* k);
-  ~MemModel();
+  MemCntrlModel(kernel::Kernel* k);
+  ~MemCntrlModel();
 
   // Accessors:
 
   // NOC -> MEM
   MessageQueue* noc_mem__msg_q() const { return noc_mem__msg_q_; }
+  // MEM -> NOC
+  MessageQueue* mem_noc__msg_q() const { return mem_noc__msg_q_; }
 
  protected:
   // Build
@@ -63,19 +109,27 @@ class MemModel : public Agent {
   void drc() override;
 
   // Accessors(s)
-  Arbiter<const Message*>* arb() const { return arb_; }
+
+  // RDIS aribter
+  MessageQueueArbiter* rdis_arb() const { return rdis_arb_; }
+
+  MessageQueue* lookup_rdis_mq(Agent* agent);
 
  private:
   // NOC -> MEM message queue (owned by directory)
   MessageQueue* noc_mem__msg_q_ = nullptr;
   // MEM -> NOC message queue (owned by noc)
   MessageQueue* mem_noc__msg_q_ = nullptr;
-  // Queue selector arbiter
-  Arbiter<const Message*>* arb_ = nullptr;
-  // Main trhead
-  MainProcess* main_ = nullptr;
-  // Client agents (agents that interact with the memory controller).
-  std::vector<Agent*> clients_;
+  
+  // NOC Ingress Queue thread
+  NocIngressProcess* noci_proc_ = nullptr;
+  
+  // Request Dispatcher process
+  RequestDispatcherProcess* rdis_proc_ = nullptr;
+  // Request Dispatcher arbitrator
+  MessageQueueArbiter* rdis_arb_ = nullptr;
+  // Request Dispatcher memory queues
+  std::map<Agent*, MessageQueue*> rdis_mq_;
 };
 
 } // namespace cc

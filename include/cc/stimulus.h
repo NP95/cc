@@ -25,8 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_SIM_H
-#define CC_INCLUDE_CC_SIM_H
+#ifndef CC_INCLUDE_CC_STIMULUS_H
+#define CC_INCLUDE_CC_STIMULUS_H
 
 #include <deque>
 #include <set>
@@ -103,14 +103,6 @@ class ProgrammaticStimulus : public Stimulus {
 };
 
 
-class CpuCluster;
-
-CpuCluster* construct_cpu_cluster(kernel::Kernel* k, const CpuClusterCfg&);
-
-
-class ProtocolBuilder;
-
-ProtocolBuilder* construct_protocol_builder(const std::string& name);
 
 }  // namespace cc
 

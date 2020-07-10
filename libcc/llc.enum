@@ -27,6 +27,17 @@
 
 #emit:to_string
 
+@enum_begin(LLCCmdOpcode)
+// Install a new line in the cache by fetching the line from the caches
+// partner memory controller.
+Fill
+// Evict line from the cache to the partner memory controller.
+Evict
+// Fetch a line from the cache and forward the line to requested agent.
+PutLine
+@enum_end
+
+
 @enum_begin(LlcState)
 AwaitingMessage
 ProcessMessage

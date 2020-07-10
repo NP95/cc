@@ -27,7 +27,7 @@
 
 #include "l2cache.h"
 
-#include "cc/sim.h"
+#include "sim.h"
 #include "l1cache.h"
 #include "primitives.h"
 #include "protocol.h"

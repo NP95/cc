@@ -29,13 +29,18 @@
 #define CC_LIBCC_LLC_H
 
 #include "kernel.h"
-#include "primitives.h"
+#include "sim.h"
 #include "cfgs.h"
+#include "msg.h"
+
+// Generated headers
+#include "llc_enum.h"
+#include "llc_msg.h"
 
 namespace cc {
 
 // Forwards:
-class MemModel;
+class MemCntrlModel;
 class Message;
 class MessageQueue;
 template<typename T> class Arbiter;
@@ -59,7 +64,7 @@ class LLCModel : public Agent {
   // LLC -> NOC message queue
   MessageQueue* llc_noc__msg_q() const { return llc_noc__msg_q_; }
   // Home memory controller
-  MemModel* mc() const { return mc_; }
+  MemCntrlModel* mc() const { return mc_; }
   
  protected:
   // Construction/Build
@@ -70,7 +75,7 @@ class LLCModel : public Agent {
   // NOC -> LLC message queue
   void set_llc_noc__msg_q(MessageQueue* mq) { llc_noc__msg_q_ = mq; }
   // Set memory controller.
-  void set_mc(MemModel* mc) { mc_ = mc; }
+  void set_mc(MemCntrlModel* mc) { mc_ = mc; }
 
   // Design Rule Check
   void drc() override;
@@ -88,7 +93,7 @@ class LLCModel : public Agent {
   // Queue selector arbiter
   Arbiter<const Message*>* arb_ = nullptr;
   // Home memory controller
-  MemModel* mc_ = nullptr;
+  MemCntrlModel* mc_ = nullptr;
   // Main thread 
   MainProcess* main_ = nullptr;
   // LLC Cache configuration

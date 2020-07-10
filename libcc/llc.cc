@@ -72,11 +72,14 @@ class LLCModel::MainProcess : public kernel::Process {
     // TODO: simply forward to memory
 
     // Message to LLC
-    Message* msg = new Message(nullptr, MessageClass::MemCmd);
-    NocMessage* nocmsg = new NocMessage(msg);
+    MemCmdMessage* memcmd = new MemCmdMessage;
+    memcmd->set_opcode(MemCmdOpcode::Read);
+    memcmd->set_dest(model_);
+    
+    NocMessage* nocmsg = new NocMessage;
     nocmsg->set_origin(model_);
     nocmsg->set_dest(model_->mc());
-    nocmsg->set_payload(msg);
+    nocmsg->set_payload(memcmd);
     model_->issue(model_->llc_noc__msg_q(), kernel::Time{10, 0}, nocmsg);
     
     Arbiter<const Message*>* arb = model_->arb();

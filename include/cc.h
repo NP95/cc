@@ -30,7 +30,8 @@
 
 #include "cc/types.h"
 #include "cc/kernel.h"
-#include "cc/sim.h"
+#include "cc/stimulus.h"
+#include "cc/builder.h"
 #include "cc/soc.h"
 
 #endif

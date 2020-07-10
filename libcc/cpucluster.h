@@ -30,7 +30,7 @@
 
 #include "kernel.h"
 #include "cfgs.h"
-#include "primitives.h"
+#include "sim.h"
 
 namespace cc {
 

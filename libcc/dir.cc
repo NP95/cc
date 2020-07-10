@@ -131,16 +131,20 @@ class DirectoryModel::MainProcess : public kernel::Process {
     const Message* msg = intf->peek();
 
     switch (msg->cls()) {
+      case MessageClass::Noc:
       case MessageClass::AceCmd: {
 
-        // Message to LLC
-        Message* msg = new Message(nullptr, MessageClass::MemCmd);
+        LLCCmdMessage* cmdmsg = new LLCCmdMessage;
+        cmdmsg->set_opcode(LLCCmdOpcode::Fill);
+        cmdmsg->set_home(model_);
+
         NocMessage* nocmsg = new NocMessage(msg);
         nocmsg->set_origin(model_);
         nocmsg->set_dest(model_->llc());
-        nocmsg->set_payload(msg);
+        nocmsg->set_payload(cmdmsg);
         model_->issue(model_->dir_noc__msg_q(), kernel::Time{10, 0}, nocmsg);
-        
+
+        msg->release();
       } break;
       default: {
       } break;

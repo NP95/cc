@@ -29,7 +29,7 @@
 #define CC_LIBCC_NOC_H
 
 #include "kernel.h"
-#include "primitives.h"
+#include "sim.h"
 #include "cc/cfgs.h"
 #include "msg.h"
 #include <vector>
@@ -45,6 +45,7 @@ template<typename> class Arbiter;
 //
 class NocMessage : public Message {
  public:
+  NocMessage() : Message(MessageClass::Noc) {}
   NocMessage(const Message* msg)
       : Message(msg->t(), MessageClass::Noc), payload_(msg)
   {}

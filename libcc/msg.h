@@ -57,6 +57,7 @@ class Transaction {
 class Message {
  public:
 
+  Message(MessageClass cls) : cls_(cls) {}
   Message(Transaction* t, MessageClass cls) : t_(t), cls_(cls) {}
   virtual ~Message() = default;
 
@@ -77,9 +78,9 @@ class Message {
 
  private:
   // Parent transaction;
-  Transaction* t_;
+  Transaction* t_ = nullptr;
   // Message type
-  MessageClass cls_;
+  MessageClass cls_ = MessageClass::Invalid;
   // Originating agent.
   kernel::Agent<const Message*>* origin_;
 };

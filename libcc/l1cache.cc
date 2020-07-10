@@ -30,7 +30,6 @@
 #include "cache.h"
 #include "cpu.h"
 #include "protocol.h"
-#include "cc/sim.h"
 #include "msg.h"
 #include "l2cache.h"
 #include "primitives.h"

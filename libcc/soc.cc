@@ -64,7 +64,7 @@ class SocTop : public kernel::TopModule {
     add_child_module(noc_);
 
     // Construct memory controller (s)
-    MemModel* mm = new MemModel(k());
+    MemCntrlModel* mm = new MemCntrlModel(k());
     noc_->register_agent(mm);
     add_child_module(mm);
     mms_.push_back(mm);
@@ -131,7 +131,7 @@ class SocTop : public kernel::TopModule {
         llc->set_llc_noc__msg_q(port->ingress());
       }
     }
-    for (MemModel* mm : mms_) {
+    for (MemCntrlModel* mm : mms_) {
       NocPort* port = noc_->get_agent_port(mm);
       // NOC -> MEM
       port->set_egress(mm->noc_mem__msg_q());
@@ -168,7 +168,7 @@ class SocTop : public kernel::TopModule {
   // CPU Cluster instances
   std::vector<CpuCluster*> ccs_;
   // Memory Controller instances.
-  std::vector<MemModel*> mms_;
+  std::vector<MemCntrlModel*> mms_;
   // Soc configuration
   SocCfg config_;
 };
