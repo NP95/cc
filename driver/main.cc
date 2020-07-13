@@ -45,7 +45,7 @@ cc::SocCfg generate_cfg() {
     
     cc::ProgrammaticStimulus* s = new cc::ProgrammaticStimulus;
     s->push_back(cc::kernel::Time{100}, cc::Command{cc::CpuOpcode::Load, 0});
-    s->push_back(cc::kernel::Time{100}, cc::Command{cc::CpuOpcode::Load, 0});
+    // s->push_back(cc::kernel::Time{100}, cc::Command{cc::CpuOpcode::Load, 0});
     cpu.stimulus = s;
     
     cfg.cpu_configs.push_back(cpu);
@@ -53,6 +53,7 @@ cc::SocCfg generate_cfg() {
 
   // Construct a directory
   cc::DirectoryModelConfig dir;
+  dir.pbuilder = pbuilder;
   
   cc::SocCfg soc;
   soc.ccls.push_back(cfg);

@@ -43,6 +43,7 @@ class Message;
 class L1CacheModel;
 class MessageQueue;
 
+
 //
 //
 class Cpu : public Agent {
@@ -60,7 +61,10 @@ class Cpu : public Agent {
  protected:
 
   // Accessors;
+
+  // CPU -> L1 command queue (L1 owned)
   MessageQueue* cpu_l1__cmd_q() const { return cpu_l1__cmd_q_; }
+  // L1 -> CPU response queue (CPU owned)
   MessageQueue* l1_cpu__rsp_q() const { return l1_cpu__rsp_q_; }
   // Current stimulus instance.
   Stimulus* stimulus() const { return stimulus_; }

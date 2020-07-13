@@ -38,20 +38,11 @@
 namespace cc {
 
 // Message Forwards:
-class CpuL1__CmdMsg;
-class L1L2__CmdMsg;
-class AceCmdMsg;
-
-namespace kernel {
-
-// Forwards
-template <typename T>
-class Agent;
-template <typename T>
-class RequesterIntf;
-template <typename T>
-class EndPointIntf;
-}  // namespace kernel
+class Message;
+class L1CacheModel;
+class L2CacheModel;
+class CacheController;
+class DirectoryModel;
 
 //
 //
@@ -74,20 +65,32 @@ enum class L1UpdateStatus { CanCommit, IsBlocked };
 
 //
 //
-class L1CacheModelApplyResult {
+class CoherenceAction {
  public:
-  L1CacheModelApplyResult() = default;
+  virtual ~CoherenceAction() = default;
 
-  bool empty() const { return actions_.empty(); }
-  state_t state() const { return state_; }
-  void state(state_t state) { state_ = state; }
-  L1UpdateAction next() const { return actions_.front(); }
-  void push(L1UpdateAction action) { actions_.push_back(action); }
-  void pop() { actions_.pop_front(); }
+  virtual bool execute() = 0;
+  virtual void release() { delete this; }
+};
+
+using L1CoherenceActionList = std::vector<CoherenceAction*>;
+
+
+//
+//
+class L1CoherenceContext {
+ public:
+  L1CoherenceContext() = default;
+
+  L1LineState* line() const { return line_; }
+  const Message* msg() const { return msg_; }
+
+  void set_line(L1LineState* line) { line_ = line; }
+  void set_msg(const Message* msg) { msg_ = msg; }
 
  private:
-  state_t state_;
-  std::deque<L1UpdateAction> actions_;
+  L1LineState* line_ = nullptr;
+  const Message* msg_ = nullptr;
 };
 
 //
@@ -98,14 +101,22 @@ class L1CacheModelProtocol {
   virtual ~L1CacheModelProtocol() = default;
 
   //
+  L1CacheModel* l1cache() const { return l1cache_; }
+
+  //
+  void set_l1cache(L1CacheModel* l1cache) { l1cache_ = l1cache; }
+
+  //
+  //
   virtual L1LineState* construct_line() const = 0;
 
   //
-  virtual void apply(L1CacheModelApplyResult& r, L1LineState* line,
-                     const CpuL1__CmdMsg* msg) const = 0;
-
   //
-  virtual void update_line_state(L1LineState* line, state_t state) const = 0;
+  virtual std::pair<bool, L1CoherenceActionList> apply(
+      const L1CoherenceContext& context) const = 0;
+
+ private:
+  L1CacheModel* l1cache_ = nullptr;
 };
 
 //
@@ -124,23 +135,26 @@ class L2LineState {
   virtual bool is_evictable() const { return is_stable(); }
 };
 
+//
+//
+using L2CoherenceActionList = std::vector<CoherenceAction*>;
+
 
 //
 //
-class L2CacheModelApplyResult {
+class L2CoherenceContext {
  public:
-  L2CacheModelApplyResult() = default;
+  L2CoherenceContext() = default;
 
-  bool empty() const { return actions_.empty(); }
-  state_t state() const { return state_; }
-  void state(state_t state) { state_ = state; }
-  L2UpdateAction next() const { return actions_.front(); }
-  void push(L2UpdateAction action) { actions_.push_back(action); }
-  void pop() { actions_.pop_front(); }
+  L2LineState* line() const { return line_; }
+  const Message* msg() const { return msg_; }
+
+  void set_line(L2LineState* line) { line_ = line; }
+  void set_msg(const Message* msg) { msg_ = msg; }
 
  private:
-  state_t state_;
-  std::deque<L2UpdateAction> actions_;
+  L2LineState* line_ = nullptr;
+  const Message* msg_ = nullptr;
 };
 
 //
@@ -151,26 +165,30 @@ class L2CacheModelProtocol {
   virtual ~L2CacheModelProtocol() = default;
 
   //
+  L2CacheModel* l2cache() const { return l2cache_; }
+
+  //
+  void set_l2cache(L2CacheModel* l2cache) { l2cache_ = l2cache; }
+
+  //
+  //
   virtual L2LineState* construct_line() const = 0;
 
   //
-  virtual void apply(L2CacheModelApplyResult& r, L2LineState* line,
-                     const L1L2__CmdMsg* msg) const = 0;
-
   //
-  virtual void commit(const L2CacheModelApplyResult& r,
-                      L2LineState* state) const = 0;
+  virtual std::pair<bool, L2CoherenceActionList> apply(
+      const L2CoherenceContext& context) const = 0;
 
-  //
-  virtual void update_line_state(L2LineState* line, state_t state) const = 0;
+ private:
+  L2CacheModel* l2cache_ = nullptr;
 };
 
 //
 //
-class DirectoryLineState {
+class DirLineState {
  public:
-  DirectoryLineState() {}
-  virtual ~DirectoryLineState() = default;
+  DirLineState() {}
+  virtual ~DirLineState() = default;
 
   // Flag indiciating if the line is currently residing in a stable
   // state.
@@ -181,30 +199,49 @@ class DirectoryLineState {
   virtual bool is_evictable() const { return is_stable(); }
 };
 
+using DirectoryActionList = std::vector<CoherenceAction*>;
+
+//
+//
+class DirCoherenceContext {
+ public:
+  DirCoherenceContext() = default;
+
+  DirLineState* line() const { return line_; }
+  const Message* msg() const { return msg_; }
+
+  void set_line(DirLineState* line) { line_ = line; }
+  void set_msg(const Message* msg) { msg_ = msg; }
+
+ private:
+  DirLineState* line_ = nullptr;
+  const Message* msg_ = nullptr;
+};
+
 //
 //
 class DirectoryProtocol {
  public:
   DirectoryProtocol() = default;
   virtual ~DirectoryProtocol() = default;
-};
 
-//
-//
-class CCModelApplyResult {
- public:
-  CCModelApplyResult() = default;
+  //
+  DirectoryModel* dir() const { return dir_; }
 
-  bool empty() const { return actions_.empty(); }
-  state_t state() const { return state_; }
-  void state(state_t state) { state_ = state; }
-  CCUpdateAction next() const { return actions_.front(); }
-  void push(CCUpdateAction action) { actions_.push_back(action); }
-  void pop() { actions_.pop_front(); }
+  //
+  void set_dir(DirectoryModel* dir) { dir_ = dir; }
+
+  //
+  //
+  virtual DirLineState* construct_line() const = 0;
+
+  //
+  //
+  virtual std::pair<bool, DirectoryActionList> apply(
+      const DirCoherenceContext& context) const = 0;
 
  private:
-  state_t state_;
-  std::deque<CCUpdateAction> actions_;
+  DirectoryModel* dir_ = nullptr;
 };
 
 //
@@ -215,20 +252,48 @@ class CacheControllerLineState {
   virtual ~CacheControllerLineState() = default;
 };
 
+using CacheControllerActionList = std::vector<CoherenceAction*>;
+
+//
+//
+class CacheControllerContext {
+ public:
+  CacheControllerContext() = default;
+
+  const Message* msg() const { return msg_; }
+  CacheControllerLineState* line() const { return line_; }
+
+  void set_msg(const Message* msg) { msg_ = msg; }
+  void set_line(CacheControllerLineState* line) { line_ = line; }
+
+ private:
+  const Message* msg_ = nullptr;
+  CacheControllerLineState* line_ = nullptr;
+};
+
+//
+//
 class CacheControllerProtocol {
  public:
   CacheControllerProtocol() = default;
   virtual ~CacheControllerProtocol() = default;
 
+  //
+  CacheController* cc() const { return cc_; }
+
+  //
+  void set_cc(CacheController* cc) { cc_ = cc; }
+
+  //
   virtual CacheControllerLineState* construct_line() const = 0;
 
   //
-  virtual void apply(CCModelApplyResult& r, CacheControllerLineState* line,
-                     const AceCmdMsg* msg) const = 0;
-
   //
-  virtual void update_line_state(
-      CacheControllerLineState* line, state_t state) const = 0;
+  virtual std::pair<bool, CacheControllerActionList> apply(
+      const CacheControllerContext& context) const = 0;
+
+ private:
+  CacheController* cc_ = nullptr;
 };
 
 //

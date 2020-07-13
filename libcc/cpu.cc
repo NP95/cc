@@ -26,14 +26,22 @@
 //========================================================================== //
 
 #include "cpu.h"
-#include "cpu_gen.h"
 #include "utility.h"
 #include "msg.h"
 #include "stimulus.h"
 #include "l1cache.h"
 #include <sstream>
+#include <exception>
 
 namespace cc {
+
+L1CacheOpcode to_l1cache_opcode(CpuOpcode opcode) {
+  switch (opcode) {
+    case CpuOpcode::Load: return L1CacheOpcode::CpuLoad;
+    case CpuOpcode::Store: return L1CacheOpcode::CpuStore;
+    default: std::invalid_argument("Unknown CpuOpcode");
+  }
+}
 
 //
 //
@@ -66,12 +74,11 @@ class Cpu::ProducerProcess : public kernel::Process {
       // A new transaction starts.
       Transaction* t = cpu_->start_transaction();
       // Free space in the issue queue, form a message and issue.
-      CpuL1__CmdMsg* msg = new CpuL1__CmdMsg;
+      L1CmdMsg* msg = new L1CmdMsg;
       const Command& cmd = stimulus->front().cmd;
-      msg->set_opcode(cmd.opcode());
+      msg->set_opcode(to_l1cache_opcode(cmd.opcode()));
       msg->set_addr(cmd.addr());
       msg->set_t(t);
-      msg->set_issue_time(k()->time());
       // Issue message
       mq->issue(msg);
       // Consume stimulus.
@@ -109,22 +116,22 @@ class Cpu::ConsumerProcess : public kernel::Process {
     if (!mq->empty()) {
       const Message* msg = mq->dequeue();
       switch (msg->cls()) {
-        case MessageClass::CpuRsp: {
-          msg = static_cast<const CpuRspMsg*>(msg);
+        case MessageClass::L1Rsp: {
+          const L1RspMsg* l1rspmsg = static_cast<const L1RspMsg*>(msg);
 
-          Transaction* t = msg->t();
+          Transaction* t = l1rspmsg->t();
           // Transaction is complete.
           cpu_->end_transaction(t);
-
-          msg->release();
+          l1rspmsg->release();
         } break;
         default: {
-          
         } break;
       }
-    } else {
-      // No respones, wait until soething arrives.
+    }
+    if (mq->empty()) { 
       wait_on(mq->non_empty_event());
+    } else {
+      next_delta();
     }
   }
 
@@ -144,6 +151,10 @@ Cpu::Cpu(kernel::Kernel* k, const CpuConfig& config)
 }
 
 Cpu::~Cpu() {
+  if (stimulus_ != nullptr) {
+    delete pp_;
+    delete cp_;
+  }
   delete l1_cpu__rsp_q_;
 }
 

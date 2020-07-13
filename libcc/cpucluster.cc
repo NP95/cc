@@ -75,6 +75,7 @@ void CpuCluster::elab() {
   
   // (L2 -> CC) Bind L2 cache to parent Cache Controller
   l2c_->set_cc(cc_);
+  l2c_->set_l1cache_n(cpus_.size());
   l2c_->set_l2_cc__cmd_q(cc_->l2_cc__cmd_q());
   // (CC -> L2) Bind Cache Controller to L2 instance.
   cc_->set_l2c(l2c_);
@@ -82,9 +83,12 @@ void CpuCluster::elab() {
   // Bind L1 caches to parent L2.
   for (std::size_t i = 0; i < l1cs_.size(); i++) {
     L1CacheModel* l1c = l1cs_[i];
-    // (L1C -> L2C)
+    // L1 -> L2
     l1c->set_l2c(l2c_);
+    // L1 -> L2 command queue
     l1c->set_l1_l2__cmd_q(l2c_->l1_l2__cmd_q(i));
+    // L2 -> L1 response queue
+    l2c_->set_l2_l1__rsp_q(i, l1c->l2_l1__rsp_q());
   }
 
   // Bind CPU to parent L1.
@@ -96,6 +100,8 @@ void CpuCluster::elab() {
     cpu->set_cpu_l1__cmd_q(l1c->cpu_l1__cmd_q());
     // (L1 -> CPU)
     l1c->set_cpu(cpu);
+    // L1 -> CPU response queue
+    l1c->set_l1_cpu__rsp_q(cpu->l1_cpu__rsp_q());
   }
 }
 

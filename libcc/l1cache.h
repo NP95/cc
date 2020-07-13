@@ -33,7 +33,6 @@
 #include "cc/cfgs.h"
 #include "primitives.h"
 #include "l2cache.h"
-#include "l1cache_gen.h"
 
 namespace cc {
 
@@ -48,6 +47,41 @@ class L2CacheModel;
 template <typename> class CacheModel;
 class L1LineState;
 
+
+enum class L1CacheOpcode {
+  CpuLoad,
+  CpuStore
+};
+
+//
+//
+class L1CmdMsg : public Message {
+ public:
+  L1CmdMsg();
+
+  //
+  std::string to_string() const override;
+
+  //
+  L1CacheOpcode opcode() const { return opcode_; }
+  addr_t addr() const { return addr_; }
+
+  //
+  void set_opcode(L1CacheOpcode opcode) { opcode_ = opcode; }
+  void set_addr(addr_t addr) { addr_ = addr; }
+
+ private:
+  L1CacheOpcode opcode_;
+  addr_t addr_;
+};
+
+//
+//
+class L1RspMsg : public Message {
+ public:
+  L1RspMsg();
+};
+
 //
 //
 class L1CacheModel : public Agent {
@@ -59,6 +93,14 @@ class L1CacheModel : public Agent {
 
   // Return current L1 configuration.
   const L1CacheModelConfig& config() const { return config_; }
+  // CPU -> l1 command queue
+  MessageQueue* cpu_l1__cmd_q() const { return cpu_l1__cmd_q_; }
+  // L1 -> CPU response queue
+  MessageQueue* l1_cpu__rsp_q() const { return l1_cpu__rsp_q_; }
+  // L1 -> L2 command queue
+  MessageQueue* l1_l2__cmd_q() const { return l1_l2__cmd_q_; }
+  // L2 -> L1 response queeu
+  MessageQueue* l2_l1__rsp_q() const { return l2_l1__rsp_q_; }
 
  protected:
   // Accessors:
@@ -70,10 +112,6 @@ class L1CacheModel : public Agent {
   L2CacheModel* l2c() const { return l2c_; }
   // Accessors:
   CacheModel<L1LineState*>* cache() const { return cache_; }
-  // CPU -> l1 command queue
-  MessageQueue* cpu_l1__cmd_q() const { return cpu_l1__cmd_q_; }
-  // L1 -> L2 command queue
-  MessageQueue* l1_l2__cmd_q() const { return l1_l2__cmd_q_; }
   // Protocol
   L1CacheModelProtocol* protocol() const { return protocol_; }
   
@@ -88,6 +126,8 @@ class L1CacheModel : public Agent {
   void set_cpu(Cpu* cpu) { cpu_ = cpu; }
   // Set L1 -> L2 Command Queue
   void set_l1_l2__cmd_q(MessageQueue* mq) { l1_l2__cmd_q_ = mq; }
+  // Set L1 -> CPU Response Queue
+  void set_l1_cpu__rsp_q(MessageQueue* mq) { l1_cpu__rsp_q_ = mq; }
   
   // Design Rule Check (DRC) Phase
   virtual void drc() override;
@@ -105,6 +145,8 @@ class L1CacheModel : public Agent {
   MessageQueue* l2_l1__rsp_q_ = nullptr;
   // L2 -> L1 Command Queue (L1 owned)
   MessageQueue* l2_l1__cmd_q_ = nullptr;
+  // L1 -> CPU Response Queue (CPU owned)
+  MessageQueue* l1_cpu__rsp_q_ = nullptr;
   // Message servicing arbiter.
   MessageQueueArbiter* arb_ = nullptr;
   // Main process of execution.

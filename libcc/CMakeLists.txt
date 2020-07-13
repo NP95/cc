@@ -29,8 +29,6 @@ cc_generate(moesi.gen)
 cc_generate(protocol.gen)
 cc_generate(amba.gen)
 cc_generate(cpu.gen)
-cc_generate(l1cache.gen)
-cc_generate(l2cache.gen)
 cc_generate(ccntrl.gen)
 cc_generate(msg.gen)
 cc_generate(dir.gen)
@@ -46,11 +44,8 @@ add_library(cc SHARED
   protocol_gen.cc
   sim.cc
   l1cache.cc
-  l1cache_gen.cc
   l2cache.cc
-  l2cache_gen.cc
   cpu.cc
-  cpu_gen.cc
   moesi.cc
   moesi_gen.cc
   amba.cc

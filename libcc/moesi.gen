@@ -49,15 +49,26 @@ I;s
 I_S
 // Shared
 S;s
+//
+E
+//
+M
+//
+O
 @enum_end
 
 @enum_begin(MOESICCState)
 // Invalid
 I;s
 I_S
+S;s
 @enum_end
 
 @enum_begin(MOESIDirState)
 // Invalid
 I;s
+I_S
+S
+E
+M
 @enum_end

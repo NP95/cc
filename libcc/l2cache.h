@@ -33,7 +33,6 @@
 #include "cfgs.h"
 #include "kernel.h"
 #include "msg.h"
-#include "l2cache_gen.h"
 #include "sim.h"
 
 namespace cc {
@@ -51,6 +50,60 @@ class CacheController;
 
 //
 //
+enum class L2CmdOpcode {
+  L1GetS, L1GetE
+};
+
+const char* to_string(L2CmdOpcode opcode);
+
+//
+//
+class L2CmdMsg : public Message {
+ public:
+  L2CmdMsg();
+
+  //
+  std::string to_string() const override;
+  
+  //
+  L2CmdOpcode opcode() const { return opcode_; }
+  addr_t addr() const { return addr_; }
+  L1CacheModel* l1cache() const { return l1cache_; }
+
+  void set_opcode(L2CmdOpcode opcode) { opcode_ = opcode; }
+  void set_addr(addr_t addr) { addr_ = addr; }
+  void set_l1cache(L1CacheModel* l1cache) { l1cache_ = l1cache; }
+  
+ private:
+  // Originator L1 cache instance (for response message).
+  L1CacheModel* l1cache_ = nullptr;
+  L2CmdOpcode opcode_;
+  addr_t addr_;
+};
+
+//
+//
+enum class L2RspOpcode {
+  L1PutS, L1PutE
+};
+
+//
+//
+class L2RspMsg : public Message {
+ public:
+  L2RspMsg();
+
+  L2RspOpcode opcode() const { return opcode_; }
+
+  void set_opcode(L2RspOpcode opcode) { opcode_ = opcode; }
+
+ private:
+  L2RspOpcode opcode_;
+};
+
+
+//
+//
 class L2CacheModel : public Agent {
   class MainProcess;
   friend class CpuCluster;
@@ -63,20 +116,22 @@ class L2CacheModel : public Agent {
 
   // L1 Cache Command Queue (n)
   MessageQueue* l1_l2__cmd_q(std::size_t n) const { return l1_l2__cmd_qs_[n]; }
+  // L2 -> L1 response queue
+  MessageQueue* l2_l1__rsp_q(std::size_t n) const { return l2_l1__rsp_qs_[n]; }
+  // L2 -> CC command queue
+  MessageQueue* l2_cc__cmd_q() const { return l2_cc__cmd_q_; }
+  // CC -> L2 response queue
+  MessageQueue* cc_l2__rsp_q() const { return cc_l2__rsp_q_; }
 
  protected:
 
   // Accessors:
   // Pointer to module arbiter instance.
-  Arbiter<const Message*>* arb() const { return arb_; }
+  MessageQueueArbiter* arb() const { return arb_; }
   // Point to module cache instance.
   CacheModel<L2LineState*>* cache() const { return cache_; }
   // Protocol instance
   L2CacheModelProtocol* protocol() const { return protocol_; }
-  // L2 -> CC command queue
-  MessageQueue* l2_cc__cmd_q() const { return l2_cc__cmd_q_; }
-  // CC -> L2 response queue
-  MessageQueue* cc_l2__rsp_q() const { return cc_l2__rsp_q_; }
 
   // Construction:
   void build();
@@ -85,10 +140,16 @@ class L2CacheModel : public Agent {
 
   // Elaboration:
   virtual void elab() override;
+  //
+  void set_l1cache_n(std::size_t n);
   // Set parent cache controlle
   void set_cc(CacheController* cc) { cc_ = cc; }
   // Set L2 -> CC command queue.
   void set_l2_cc__cmd_q(MessageQueue* mq) { l2_cc__cmd_q_ = mq; }
+  // L2 -> L1 response queue.
+  void set_l2_l1__rsp_q(std::size_t n, MessageQueue* mq) {
+    l2_l1__rsp_qs_[n] = mq;
+  }
   
   // Design Rule Check (DRC) callback
   virtual void drc() override;
@@ -101,12 +162,14 @@ class L2CacheModel : public Agent {
   std::vector<L1CacheModel*> l1cs_;
   // L1 -> L2 Command Request
   std::vector<MessageQueue*> l1_l2__cmd_qs_;
+  // L2 -> L1 Response queue
+  std::vector<MessageQueue*> l2_l1__rsp_qs_;
   // L2 -> CC Command Queue
   MessageQueue* l2_cc__cmd_q_ = nullptr;
   // CC -> L2 Response Queue
   MessageQueue* cc_l2__rsp_q_ = nullptr;
   // Queue selection arbiter
-  Arbiter<const Message*>* arb_ = nullptr;
+  MessageQueueArbiter* arb_ = nullptr;
   // Cache Instance
   CacheModel<L2LineState*>* cache_ = nullptr;
   // Cache Controller instance

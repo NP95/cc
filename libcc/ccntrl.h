@@ -45,27 +45,28 @@ class CacheController : public Agent {
   class MainProcess;
  public:
   CacheController(kernel::Kernel* k, const CacheControllerCfg& config);
+  ~CacheController();
 
   // Obtain cache controller configuration.
   const CacheControllerCfg& config() const { return config_; }
-
- protected:
-
-  // Accessors:
-  // Pointer to module arbiter instance:
-  Arbiter<const Message*>* arb() const { return arb_; }
-  // Directory Mapper instance.
-  DirectoryMapper* dm() const { return dm_; }
-  // Protocol instance
-  CacheControllerProtocol* protocol() const { return protocol_; }
-  // Transaction table.
-  Table<CacheControllerLineState*>* table() const { return table_; }
   // L2 -> Controller (Transaction) Command Queue (owning)
   MessageQueue* l2_cc__cmd_q() const { return l2_cc__cmd_q_; }
   // NOC -> CC Ingress Queue
   MessageQueue* noc_cc__msg_q() const { return noc_cc__msg_q_; }
   // CC -> NOC Egress Queue
   MessageQueue* cc_noc__msg_q() const { return cc_noc__msg_q_; }
+  // Directory Mapper instance.
+  DirectoryMapper* dm() const { return dm_; }
+
+ protected:
+
+  // Accessors:
+  // Pointer to module arbiter instance:
+  MessageQueueArbiter* arb() const { return arb_; }
+  // Protocol instance
+  CacheControllerProtocol* protocol() const { return protocol_; }
+  // Transaction table.
+  Table<CacheControllerLineState*>* table() const { return table_; }
   
   // Construction
   void build();
@@ -93,7 +94,7 @@ class CacheController : public Agent {
   // CC -> NOC Egress Queue
   MessageQueue* cc_noc__msg_q_ = nullptr;
   // Queue selection arbiter
-  Arbiter<const Message*>* arb_ = nullptr;
+  MessageQueueArbiter* arb_ = nullptr;
   // Directory Mapper instance
   DirectoryMapper* dm_ = nullptr;
   // Main process instance

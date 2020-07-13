@@ -34,13 +34,20 @@ CpuCmd
 CpuRsp
 
 
-CpuL1__CmdMsg
-L1Cpu__RspMsg
-L1L2__CmdMsg
+L1Cmd
+L1Rsp
+
+
+L2Cmd
+L2Rsp
+
 AceCmd
 AceSnoop
+
 Noc
 
+DirCmd
+DirRsp
 
 // Last-Level Cache Message Classes:
 //

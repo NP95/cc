@@ -32,19 +32,40 @@
 #include "cfgs.h"
 #include "types.h"
 #include "sim.h"
+#include "msg.h"
+#include "amba_gen.h"
+#include "cache.h"
 
 namespace cc {
 
 // Forwards
 class LLCModel;
-class Message;
+class DirLineState;
 class MessageQueue;
-template<typename T> class Arbiter;
+
+
+class DirCmdMsg : public Message {
+ public:
+  DirCmdMsg();
+
+  //
+  AceCmdOpcode opcode() const { return opcode_; }
+  addr_t addr() const { return addr_; }
+
+  //
+  void set_opcode(AceCmdOpcode opcode) { opcode_ = opcode; }
+  void set_addr(addr_t addr) { addr_ = addr; }
+
+ private:
+  AceCmdOpcode opcode_;
+  addr_t addr_;
+};
 
 //
 //
 class DirectoryModel : public Agent {
-  class MainProcess;
+  class RdisProcess;
+  class NocIngressProcess;
 
   friend class SocTop;
  public:
@@ -53,42 +74,59 @@ class DirectoryModel : public Agent {
 
   const DirectoryModelConfig& config() const { return config_; }
 
-  // Accessors:
+  // accessors:
+  // LLC owned by current directory
   LLCModel* llc() const { return llc_; }
-  // NOC -> DIR message queue
+  // noc -> dir message queue
   MessageQueue* noc_dir__msg_q() const { return noc_dir__msg_q_; }
-  // DIR -> NOC message queue
+  // dir -> noc message queue
   MessageQueue* dir_noc__msg_q() const { return dir_noc__msg_q_; }
+  // coherence protocol
+  DirectoryProtocol* protocol() const { return protocol_; }
 
  protected:
-  // Build
+  // build
   void build();
   //
   void set_llc(LLCModel* llc) { llc_ = llc; }
-  // Elaboration
+  // elaboration
   void elab() override;
   //
   void set_dir_noc__msg_q(MessageQueue* mq) { dir_noc__msg_q_ = mq; }
   
-  // Design Rule Check (DRC)
+  // design rule check (drc)
   void drc() override;
 
-  // Accessor(s)
+  // accessor(s)
 
-  // Directory arbiter instance.
-  Arbiter<const Message*>* arb() const { return arb_; }
+  // directory arbiter instance.
+  MessageQueueArbiter* arb() const { return arb_; }
+  // point to module cache instance.
+  CacheModel<DirLineState*>* cache() const { return cache_; }
+
+
+  // lookup rdis process message queue for traffic class.
+  MessageQueue* lookup_rdis_mq(MessageClass cls) const;
   
  private:
-  // Queue selection arbiter
-  Arbiter<const Message*>* arb_ = nullptr;
-  // NOC -> DIR message queue (owned by directory)
+  // queue selection arbiter
+  MessageQueueArbiter* arb_ = nullptr;
+  // noc -> dir message queue (owned by directory)
   MessageQueue* noc_dir__msg_q_ = nullptr;
-  // DIR -> NOC message queue (owned by noc)
+  // dir -> noc message queue (owned by noc)
   MessageQueue* dir_noc__msg_q_ = nullptr;
-  // Main thread
-  MainProcess* main_ = nullptr;
+  // noc -> dir command queue (owned by dir)
+  MessageQueue* noc_dir__cmd_q_ = nullptr;
+  // noc ingress process
+  NocIngressProcess* noci_proc_ = nullptr;
+  // request dispatcher process
+  RdisProcess* rdis_proc_ = nullptr;
   // Last Level Cache instance (where applicable).
   LLCModel* llc_ = nullptr;
+  // Cache Instance
+  CacheModel<DirLineState*>* cache_ = nullptr;
+  // Coherence protocol
+  DirectoryProtocol* protocol_ = nullptr;
   // Current directory configuration.
   DirectoryModelConfig config_;
 };
