@@ -134,7 +134,11 @@ void Kernel::run(RunMode r, Time t) {
 
 void Kernel::add_action(Time t, Action* a) {
   eq_.push_back(Event{t, a});
-  std::push_heap(eq_.begin(), eq_.end(), EventComparer{});
+  if (eq_.size() > 1) {
+    // EventComparer has undefined behavior unless event-queue has at
+    // least two entries.
+    std::push_heap(eq_.begin(), eq_.end(), EventComparer{});
+  }
 }
 
 void Kernel::set_seed(seed_type seed) { random_source_ = RandomSource(seed); }
@@ -179,7 +183,11 @@ void Kernel::invoke_run(RunMode r, Time t) {
       // If simulation time has elapsed, terminate.
       if (r == RunMode::ForTime && t < e.time) break;
 
-      std::pop_heap(eq_.begin(), eq_.end(), EventComparer{});
+      if (eq_.size() > 1) {
+	// EventComparer has undefined behavior unless greater than or
+	// equal to two entries.
+	std::pop_heap(eq_.begin(), eq_.end(), EventComparer{});
+      }
       eq_.pop_back();
       if (e.time < current_time) {
         // TODO: Kernel should eventually become the top-level module.

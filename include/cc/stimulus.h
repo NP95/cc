@@ -40,7 +40,7 @@
 namespace cc {
 
 enum class CpuOpcode {
-  Load, Store
+  Invalid, Load, Store
 };
 
 std::string to_string(CpuOpcode opcode);

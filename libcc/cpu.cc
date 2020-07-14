@@ -39,7 +39,7 @@ L1CacheOpcode to_l1cache_opcode(CpuOpcode opcode) {
   switch (opcode) {
     case CpuOpcode::Load: return L1CacheOpcode::CpuLoad;
     case CpuOpcode::Store: return L1CacheOpcode::CpuStore;
-    default: std::invalid_argument("Unknown CpuOpcode");
+    default: throw std::invalid_argument("Unknown CpuOpcode");
   }
 }
 
@@ -70,27 +70,31 @@ class Cpu::ProducerProcess : public kernel::Process {
     if (stimulus->done()) return;
     
     MessageQueue* mq = cpu_->cpu_l1__cmd_q();
-    if (!mq->full()) {
-      // A new transaction starts.
-      Transaction* t = cpu_->start_transaction();
-      // Free space in the issue queue, form a message and issue.
-      L1CmdMsg* msg = new L1CmdMsg;
-      const Command& cmd = stimulus->front().cmd;
-      msg->set_opcode(to_l1cache_opcode(cmd.opcode()));
-      msg->set_addr(cmd.addr());
-      msg->set_t(t);
-      // Issue message
-      mq->issue(msg);
-      // Consume stimulus.
-      stimulus->consume();
-      // Await next command
-      const Frontier& f = stimulus->front();
-      wait_for(f.time);
-    } else {
+    if (mq->full()) {
       // Cpu issue queue has backpressured, therefore await notification
       // that the queue has become non-full.
       wait_on(mq->non_full_event());
+      return;
     }
+      
+    // A new transaction starts.
+    Transaction* t = cpu_->start_transaction();
+    // Free space in the issue queue, form a message and issue.
+    L1CmdMsg* msg = new L1CmdMsg;
+    const Command& cmd = stimulus->front().cmd;
+    msg->set_opcode(to_l1cache_opcode(cmd.opcode()));
+    msg->set_addr(cmd.addr());
+    msg->set_t(t);
+    // Issue message
+    mq->issue(msg);
+    // Consume stimulus.
+    stimulus->consume();
+    // Terminate here if stimulus has been exhausted.
+    if (stimulus->done()) return;
+
+    // Await next command
+    const Frontier& f = stimulus->front();
+    wait_for(f.time);
   }
 
   // Point to process owner module.
@@ -204,20 +208,20 @@ Transaction* Cpu::start_transaction() {
 void Cpu::end_transaction(Transaction* t) {
   std::set<Transaction*>::iterator it = ts_.find(t);
   if (it == ts_.end()) {
+    // TODO:
+    LogMessage msg("Transaction ends: ");
+    msg.append(t->to_string());
+    msg.level(Level::Info);
+    log(msg);
+
+    (*it)->release();
+    ts_.erase(it);
+  } else {
     LogMessage lmsg("Unknown transaction consumed: ");
     lmsg.append(t->to_string());
     lmsg.level(Level::Fatal);
     log(lmsg);
   }
-  // TODO:
-
-  LogMessage msg("Transaction ends: ");
-  msg.append(t->to_string());
-  msg.level(Level::Info);
-  log(msg);
-
-  ts_.erase(it);
-  (*it)->release();
 }
 
 }  // namespace cc

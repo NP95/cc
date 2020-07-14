@@ -80,8 +80,6 @@ struct Time {
   using time_type = std::uint32_t;
   using delta_type = std::uint32_t;
 
-  Time() = default;
-
   std::string to_string() const;
 
   // TODO: consider changing to a tuple type.
@@ -433,7 +431,7 @@ class Kernel : public Module {
   void invoke_elab();
   void invoke_drc();
   void invoke_init();
-  void invoke_run(RunMode r, Time t);
+  void invoke_run(RunMode r, Time t = Time{});
   void invoke_fini();
 
   // Simulation event queue.

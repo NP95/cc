@@ -45,7 +45,6 @@ cc::SocCfg generate_cfg() {
     
     cc::ProgrammaticStimulus* s = new cc::ProgrammaticStimulus;
     s->push_back(cc::kernel::Time{100}, cc::Command{cc::CpuOpcode::Load, 0});
-    // s->push_back(cc::kernel::Time{100}, cc::Command{cc::CpuOpcode::Load, 0});
     cpu.stimulus = s;
     
     cfg.cpu_configs.push_back(cpu);
@@ -64,7 +63,8 @@ cc::SocCfg generate_cfg() {
 int main(int argc, char** argv) {
   // Simulation configuration.
 
-  cc::Soc* soc = cc::construct_soc(generate_cfg());
+  const cc::SocCfg cfg = generate_cfg();
+  cc::Soc* soc = cc::construct_soc(cfg);
   soc->initialize();
   soc->run();
   soc->finalize();

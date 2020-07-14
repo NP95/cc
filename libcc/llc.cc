@@ -175,7 +175,6 @@ class LLCModel::RdisProcess : public kernel::Process {
  public:
   RdisProcess(kernel::Kernel* k, const std::string& name, LLCModel* model)
       : kernel::Process(k, name), model_(model) {
-    set_state(State::Idle);
   }
 
   State state() const { return state_; }
@@ -302,7 +301,7 @@ class LLCModel::RdisProcess : public kernel::Process {
   }
 
   // Current machine state
-  State state_;
+  State state_ = State::Idle;
   // Pointer to owning LLC instance.
   LLCModel* model_ = nullptr;
 };
