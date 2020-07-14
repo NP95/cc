@@ -30,11 +30,136 @@
 
 #include "msg.h"
 #include "protocol.h"
-#include "amba_gen.h"
 
 namespace cc {
 
-AceCmdOpcode update_to_opcode(L2UpdateAction action);
+//
+//
+enum class AceCmdOpcode {
+  ReadNoSnoop,
+  ReadOnce,
+  ReadClean,
+  ReadSharedNotDirty,
+  ReadShared,
+  ReadUnique,
+  CleanUnique,
+  CleanShared,
+  CleanInvalid,
+  MakeUnique,
+  MakeInvalid,
+  WriteNoSnoop,
+  WriteLineUnique,
+  WriteBack,
+  WriteClean,
+  Evict,
+  Invalid
+};
+
+//
+//
+const char* to_string(AceCmdOpcode opcode);
+
+//
+//
+class AceCmdMsg : public Message {
+ public:
+  AceCmdMsg();
+
+  //
+  //
+  AceCmdOpcode opcode() const { return opcode_; }
+  addr_t addr() const { return addr_; }
+
+  //
+  //
+  void set_opcode(AceCmdOpcode opcode) { opcode_ = opcode; }
+  void set_addr(addr_t addr) { addr_ = addr; }
+
+ private:
+  AceCmdOpcode opcode_;
+  addr_t addr_;
+};
+
+//
+//
+class AceCmdRspMsg : public Message {
+ public:
+  AceCmdRspMsg();
+
+  //
+  //
+  bool pass_dirty() const { return pass_dirty_; }
+  bool is_shared() const { return is_shared_; }
+
+  //
+  //
+  void set_pass_dirty(bool pass_dirty) { pass_dirty_ = pass_dirty; }
+  void set_is_shared(bool is_shared) { is_shared_ = is_shared; }
+
+ private:
+  bool pass_dirty_ = false;
+  bool is_shared_ = false;
+};
+
+//
+//
+enum class AceSnpOpcode {
+  ReadOnce,
+  ReadClean,
+  ReadNotSharedDirty,
+  ReadShared,
+  ReadUnique,
+  CleanInvalid,
+  MakeInvalid,
+  CleanShared,
+  Invalid,
+};
+
+//
+//
+const char* to_string(AceSnpOpcode opcode);
+
+//
+//
+class AceSnpMsg : public Message {
+ public:
+  AceSnpMsg();
+
+  AceSnpOpcode opcode() const { return opcode_; }
+
+  void set_opcode(AceSnpOpcode opcode) { opcode_ = opcode; }
+  
+ private:
+  AceSnpOpcode opcode_;
+};
+
+//
+//
+class AceSnpRspMsg : public Message {
+ public:
+  AceSnpRspMsg();
+
+  //
+  bool data_transfer() const { return data_transfer_; }
+  bool error() const { return error_; }
+  bool pass_dirty() const { return pass_dirty_; }
+  bool is_shared() const { return is_shared_; }
+  bool was_unique() const { return was_unique_; }
+
+  //
+  void set_data_transfer(bool data_transfer) { data_transfer_ = data_transfer; }
+  void set_error(bool error) { error_ = error; }
+  void set_pass_dirty(bool pass_dirty) { pass_dirty_ = pass_dirty; }
+  void set_is_shared(bool is_shared) { is_shared_ = is_shared; }
+  void set_was_unique(bool was_unique) { was_unique_ = was_unique; }
+
+ private:
+  bool data_transfer_ = false;
+  bool error_ = false;
+  bool pass_dirty_ = false;
+  bool is_shared_ = false;
+  bool was_unique_ = false;
+};
 
 } // namespace cc
 

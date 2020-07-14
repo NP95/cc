@@ -26,26 +26,46 @@
 //========================================================================== //
 
 #include "llc.h"
-#include "llc_gen.h"
 #include "msg.h"
 #include "noc.h"
 #include "mem.h"
-#include "mem_gen.h"
 #include "utility.h"
 
 namespace cc {
 
+//
+//
+LLCCmdMsg::LLCCmdMsg() : Message(MessageClass::LLCCmd) {}
+
+//
+//
+LLCRspMsg::LLCRspMsg() : Message(MessageClass::LLCRsp) {}
+
+//
+//
 class LLCModel::MainProcess : public kernel::Process {
 
-  struct Context {
+  enum class State {
+    Idle, ProcessMessage, ExecuteActions
   };
+
+  static const char* to_string(State s) {
+    switch (s) {
+      case State::Idle: return "Idle";
+      case State::ProcessMessage: return "ProcessMessage";
+      case State::ExecuteActions: return "ExecuteActions";
+      default: return "Invalid";
+    }
+  }
+
  public:
   MainProcess(kernel::Kernel* k, const std::string& name, LLCModel* model)
       : kernel::Process(k, name), model_(model) {
+    set_state(State::Idle);
   }
 
-  LlcState state() const { return state_; }
-  void set_state(LlcState state) {
+  State state() const { return state_; }
+  void set_state(State state) {
     if (state_ != state) {
       LogMessage msg("State transition: ");
       msg.level(Level::Debug);
@@ -61,7 +81,7 @@ class LLCModel::MainProcess : public kernel::Process {
 
   // Initialization
   void init() override {
-    set_state(LlcState::AwaitingMessage);
+    set_state(State::Idle);
 
     Arbiter<const Message*>* arb = model_->arb();
     wait_on(arb->request_arrival_event());
@@ -73,11 +93,11 @@ class LLCModel::MainProcess : public kernel::Process {
     // TODO: simply forward to memory
 
     // Message to LLC
-    MemCmdMessage* memcmd = new MemCmdMessage;
+    MemCmdMsg* memcmd = new MemCmdMsg;
     memcmd->set_opcode(MemCmdOpcode::Read);
     memcmd->set_dest(model_);
     
-    NocMessage* nocmsg = new NocMessage;
+    NocMsg* nocmsg = new NocMsg;
     nocmsg->set_origin(model_);
     nocmsg->set_dest(model_->mc());
     nocmsg->set_payload(memcmd);
@@ -91,10 +111,8 @@ class LLCModel::MainProcess : public kernel::Process {
   void fini() override {
   }
 
-  // Current execution context
-  Context ctxt_;
   // Current machine state
-  LlcState state_ = LlcState::AwaitingMessage;
+  State state_;
   // Pointer to owning LLC instance.
   LLCModel* model_ = nullptr;
 };

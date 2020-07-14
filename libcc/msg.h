@@ -30,7 +30,6 @@
 
 #include "cc/kernel.h"
 #include "cc/types.h"
-#include "msg_gen.h"
 #include <string>
 
 namespace cc {
@@ -68,6 +67,67 @@ class Transaction {
 
 //
 //
+enum class MessageClass {
+  //
+  //
+  Invalid,
+
+  //
+  //
+  CpuCmd,
+  CpuRsp,
+
+  //
+  //
+  L1Cmd,
+  L1Rsp,
+
+  //
+  //
+  L2Cmd,
+  L2Rsp,
+
+  //
+  //
+  AceCmd,
+  AceCmdRsp,
+  
+  AceSnoop,
+  AceSnoopRsp,
+
+  //
+  //
+  Noc,
+
+  //
+  //
+  DirCmd,
+  DirRsp,
+
+  // Last-Level Cache Message Classes:
+  //
+  LLCCmd,
+  LLCRsp,
+
+  // Memory Controller Message Classes:
+  //
+
+  // Memory Command; agent -> memory (read/write)
+  MemCmd,
+  // Memory Response; memory -> agent (read data/write acknowledgement)
+  MemRsp,
+
+  // Payload Message Classes:
+
+  // Message representing the transfer of a single cache line.
+  //
+  DataLine
+};
+
+const char* to_string(MessageClass cls);
+
+//
+//
 class Message {
  public:
 
@@ -98,9 +158,6 @@ class Message {
   // Originating agent.
   kernel::Agent<const Message*>* origin_;
 };
-
-std::string to_string(const Message* msg);
-
 
 using MsgRequesterIntf = kernel::RequesterIntf<const Message*>;
 

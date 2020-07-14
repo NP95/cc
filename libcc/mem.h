@@ -34,6 +34,52 @@
 
 namespace cc {
 
+//
+//
+enum class MemCmdOpcode {
+  Read, Write
+};
+
+const char* to_string(MemCmdOpcode opcode);
+
+//
+//
+class MemCmdMsg : public Message {
+ public:
+  MemCmdMsg();
+
+  MemCmdOpcode opcode() const { return opcode_; }
+  Agent* dest() const { return dest_; }
+
+  void set_opcode(MemCmdOpcode opcode) { opcode_ = opcode; }
+  void set_dest(Agent* dest) { dest_ = dest; }
+
+ private:
+  MemCmdOpcode opcode_;
+  Agent* dest_ = nullptr;
+};
+
+//
+//
+enum class MemRspOpcode {
+  ReadOkay, WriteOkay
+};
+
+const char* to_string(MemRspOpcode opcode);
+
+//
+//
+class MemRspMsg : public Message {
+ public:
+  MemRspMsg();
+
+  MemRspOpcode opcode() const { return opcode_; }
+
+  void set_opcode(MemRspOpcode opcode) { opcode_ = opcode; }
+
+ private:
+  MemRspOpcode opcode_;
+};
 
 // Memory Controller Model
 //

@@ -35,7 +35,6 @@
 #include "protocol.h"
 #include "cpu.h"
 #include "amba.h"
-#include "moesi_gen.h"
 #include "ccntrl.h"
 #include "noc.h"
 #include "dir.h"
@@ -43,6 +42,157 @@
 
 namespace cc {
 
+enum class MOESIL1State {
+  // Invalid
+  I,
+  I_S,
+  // Shared
+  S,
+  I_E,
+  S_E,
+  // Exclusive
+  E,
+  E_M,
+  // Modified
+  M,
+  M_I
+};
+
+//
+//
+const char* to_string(MOESIL1State state) {
+  switch (state) {
+    case MOESIL1State::I: return "I";
+    case MOESIL1State::I_S: return "I_S";
+    case MOESIL1State::S: return "S";
+    case MOESIL1State::I_E: return "I_E";
+    case MOESIL1State::E: return "E";
+    case MOESIL1State::E_M: return "E_M";
+    case MOESIL1State::M: return "M";
+    case MOESIL1State::M_I: return "M_I";
+    default: return "Invalid";
+  }
+};
+
+//
+//
+bool is_stable(MOESIL1State state) {
+  switch (state) {
+    case MOESIL1State::I:
+    case MOESIL1State::S:
+    case MOESIL1State::E:
+    case MOESIL1State::M:
+      return true;
+    default:
+      return false;
+  }
+}
+
+
+//
+//
+enum class MOESIL2State {
+  I,
+  I_S,
+  S,
+  E,
+  M,
+  O
+};
+
+//
+//
+const char* to_string(MOESIL2State state) {
+  switch (state) {
+    case MOESIL2State::I: return "I";
+    case MOESIL2State::I_S: return "I_S";
+    case MOESIL2State::S: return "S";
+    case MOESIL2State::E: return "E";
+    case MOESIL2State::M: return "M";
+    case MOESIL2State::O: return "O";
+    default: return "Invalid";
+  }
+}
+
+//
+//
+bool is_stable(MOESIL2State state) {
+  switch (state) {
+    case MOESIL2State::I:
+    case MOESIL2State::S:
+    case MOESIL2State::E:
+    case MOESIL2State::M:
+    case MOESIL2State::O:
+      return true;
+    default:
+      return false;
+  }
+}
+
+//
+//
+enum class MOESICCState {
+  I, I_S, S
+};
+
+//
+//
+const char* to_string(MOESICCState state) {
+  switch (state) {
+    case MOESICCState::I: return "I";
+    case MOESICCState::I_S: return "I_S";
+    case MOESICCState::S: return "S";
+    default: return "Invalid";
+  }
+}
+
+//
+//
+bool is_stable(MOESICCState state) {
+  switch (state) {
+    case MOESICCState::I:
+    case MOESICCState::S:
+      return true;
+    default:
+      return false;
+  }
+}
+
+//
+//
+enum class MOESIDirState {
+  I, I_S, S, E, M
+};
+
+//
+//
+const char* to_string(MOESIDirState state) {
+  switch (state) {
+    case MOESIDirState::I: return "I";
+    case MOESIDirState::I_S: return "I_S";
+    case MOESIDirState::S: return "S";
+    case MOESIDirState::E: return "E";
+    case MOESIDirState::M: return "M";
+    default: return "Invalid";
+  }
+}
+
+//
+//
+bool is_stable(MOESIDirState state) {
+  switch (state) {
+    case MOESIDirState::I:
+    case MOESIDirState::S:
+    case MOESIDirState::E:
+    case MOESIDirState::M:
+      return true;
+    default:
+      return false;
+  }
+}
+
+//
+//
 struct ProtocolViolation : public CoherenceAction {
   ProtocolViolation(const std::string& desc)
       : desc_(desc)
@@ -452,12 +602,13 @@ class MOESIDirectoryProtocol : public DirectoryProtocol {
     switch (line->state()) {
       case MOESIDirState::I: {
         // Line is not present in the directory
-        LLCCmdMessage* llcmsg = new LLCCmdMessage;
+        LLCCmdMsg* llcmsg = new LLCCmdMsg;
         llcmsg->set_t(msg->t());
         llcmsg->set_opcode(LLCCmdOpcode::Fill);
+        llcmsg->set_addr(msg->addr());
 
         DirectoryModel* d = dir();
-        NocMessage* nocmsg = new NocMessage;
+        NocMsg* nocmsg = new NocMsg;
         nocmsg->set_payload(llcmsg);
         nocmsg->set_origin(d);
         nocmsg->set_dest(d->llc());
@@ -550,7 +701,7 @@ class MOESICacheControllerProtocol : public CacheControllerProtocol {
         DirCmdMsg* dirmsg = new DirCmdMsg;
         dirmsg->set_t(msg->t());
         
-        NocMessage* nocmsg = new NocMessage;
+        NocMsg* nocmsg = new NocMsg;
         nocmsg->set_t(msg->t());
         nocmsg->set_payload(dirmsg);
         nocmsg->set_origin(cc());

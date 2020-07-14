@@ -26,10 +26,37 @@
 //========================================================================== //
 
 #include "mem.h"
-#include "mem_gen.h"
 #include "noc.h"
 
 namespace cc {
+
+//
+//
+const char* to_string(MemCmdOpcode opcode) {
+  switch (opcode) {
+    case MemCmdOpcode::Read: return "Read";
+    case MemCmdOpcode::Write: return "Write";
+    default: return "Invalid";
+  }
+}
+
+//
+//
+const char* to_string(MemRspOpcode opcode) {
+  switch (opcode) {
+    case MemRspOpcode::ReadOkay: return "ReadOkay";
+    case MemRspOpcode::WriteOkay: return "WriteOkay";
+    default: return "Invalid";
+  }
+}
+
+//
+//
+MemCmdMsg::MemCmdMsg() : Message(MessageClass::MemCmd) {}
+
+//
+//
+MemRspMsg::MemRspMsg() : Message(MessageClass::MemRsp) {}
 
 //
 //
@@ -51,7 +78,7 @@ class MemCntrlModel::NocIngressProcess : public kernel::Process {
     // Upon reception of a NOC message, remove transport layer
     // encapsulation and issue to the appropriate ingress queue.
     MessageQueue* noc_mq = model_->noc_mem__msg_q();
-    const NocMessage* msg = static_cast<const NocMessage*>(noc_mq->dequeue());
+    const NocMsg* msg = static_cast<const NocMsg*>(noc_mq->dequeue());
 
     // Validate message
     if (msg->cls() != MessageClass::Noc) {
@@ -119,19 +146,19 @@ class MemCntrlModel::RequestDispatcherProcess : public kernel::Process {
     if (t.has_requester()) {
       Interface* intf = t.intf();
 
-      const MemCmdMessage* cmdmsg =
-          static_cast<const MemCmdMessage*>(intf->dequeue());
+      const MemCmdMsg* cmdmsg =
+          static_cast<const MemCmdMsg*>(intf->dequeue());
       switch (cmdmsg->opcode()) {
         case MemCmdOpcode::Write:
         case MemCmdOpcode::Read: {
           const bool is_read = (cmdmsg->opcode() == MemCmdOpcode::Read);
-          MemRspMessage* rspmsg = new MemRspMessage;
+          MemRspMsg* rspmsg = new MemRspMsg;
           rspmsg->set_opcode(
               is_read ? MemRspOpcode::ReadOkay : MemRspOpcode::WriteOkay);
           rspmsg->set_t(cmdmsg->t());
           
           // Memory read command
-          NocMessage* nocmsg = new NocMessage();
+          NocMsg* nocmsg = new NocMsg();
           nocmsg->set_payload(rspmsg);
           nocmsg->set_origin(model_);
           nocmsg->set_dest(cmdmsg->dest());

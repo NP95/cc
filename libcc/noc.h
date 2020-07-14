@@ -28,7 +28,6 @@
 #ifndef CC_LIBCC_NOC_H
 #define CC_LIBCC_NOC_H
 
-#include "noc_gen.h"
 #include "kernel.h"
 #include "sim.h"
 #include "cc/cfgs.h"
@@ -38,10 +37,28 @@
 
 namespace cc {
 
-class Message;
+
 class MessageQueue;
 template<typename> class Arbiter;
 
+
+class NocMsg : public Message {
+ public:
+  NocMsg();
+
+  const Message* payload() const { return payload_; }
+  Agent* origin() const { return origin_; }
+  Agent* dest() const { return dest_; }
+
+  void set_payload(const Message* payload) { payload_ = payload; }
+  void set_origin(Agent* origin) { origin_ = origin; }
+  void set_dest(Agent* dest) { dest_ = dest; }
+  
+ private:
+  const Message* payload_ = nullptr;
+  Agent* origin_ = nullptr;
+  Agent* dest_ = nullptr;
+};
 
 class NocPort : public kernel::Module {
   friend class SocTop;

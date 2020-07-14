@@ -33,8 +33,8 @@
 #include "types.h"
 #include "sim.h"
 #include "msg.h"
-#include "amba_gen.h"
 #include "cache.h"
+#include "amba.h"
 
 namespace cc {
 

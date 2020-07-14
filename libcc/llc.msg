@@ -28,15 +28,15 @@
 #include:sim.h
 #emit:to_string
 
-@enum_begin(LLCCmdOpcode)
+//@enum_begin(LLCCmdOpcode)
 // Install a new line in the cache by fetching the line from the caches
 // partner memory controller.
-Fill
+//Fill
 // Evict line from the cache to the partner memory controller.
-Evict
+//Evict
 // Fetch a line from the cache and forward the line to requested agent.
-PutLine
-@enum_end
+//PutLine
+//@enum_end
 
 @enum_begin(LlcState)
 AwaitingMessage
@@ -44,10 +44,10 @@ ProcessMessage
 ExecuteActions
 @enum_end
 
-@msg_begin(LLCCmdMessage;LLCCmd)
-opcode;LLCCmdOpcode
-home;Agent*
-@msg_end
+//@msg_begin(LLCCmdMessage;LLCCmd)
+//opcode;LLCCmdOpcode
+//home;Agent*
+//@msg_end
 
 @msg_begin(LLCRspMessage;LLCRsp)
 @msg_end

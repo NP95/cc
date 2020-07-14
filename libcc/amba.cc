@@ -31,60 +31,62 @@
 
 namespace cc {
 
-AceCmdOpcode update_to_opcode(L2UpdateAction action) {
-  switch (action) {
-    case L2UpdateAction::EmitReadNoSnoop:
-      return AceCmdOpcode::ReadNoSnoop;
-      break;
-    case L2UpdateAction::EmitReadOnce:
-      return AceCmdOpcode::ReadOnce;
-      break;
-    case L2UpdateAction::EmitReadClean:
-      return AceCmdOpcode::ReadClean;
-      break;
-    case L2UpdateAction::EmitReadSharedNotDirty:
-      return AceCmdOpcode::ReadSharedNotDirty;
-      break;
-    case L2UpdateAction::EmitReadShared:
-      return AceCmdOpcode::ReadShared;
-      break;
-    case L2UpdateAction::EmitReadUnique:
-      return AceCmdOpcode::ReadUnique;
-      break;
-    case L2UpdateAction::EmitCleanUnique:
-      return AceCmdOpcode::CleanUnique;
-      break;
-    case L2UpdateAction::EmitCleanShared:
-      return AceCmdOpcode::CleanShared;
-      break;
-    case L2UpdateAction::EmitCleanInvalid:
-      return AceCmdOpcode::CleanInvalid;
-      break;
-    case L2UpdateAction::EmitMakeUnique:
-      return AceCmdOpcode::MakeUnique;
-      break;
-    case L2UpdateAction::EmitMakeInvalid:
-      return AceCmdOpcode::MakeInvalid;
-      break;
-    case L2UpdateAction::EmitWriteNoSnoop:
-      return AceCmdOpcode::WriteNoSnoop;
-      break;
-    case L2UpdateAction::EmitWriteLineUnique:
-      return AceCmdOpcode::WriteLineUnique;
-      break;
-    case L2UpdateAction::EmitWriteBack:
-      return AceCmdOpcode::WriteBack;
-      break;
-    case L2UpdateAction::EmitWriteClean:
-      return AceCmdOpcode::WriteClean;
-      break;
-    case L2UpdateAction::EmitEvict:
-      return AceCmdOpcode::Evict;
-      break;
-    default:
-      return AceCmdOpcode::Invalid;
-      break;
+const char* to_string(AceCmdOpcode opcode) {
+  switch (opcode) {
+    case AceCmdOpcode::ReadNoSnoop: return "ReadNoSnoop";
+    case AceCmdOpcode::ReadOnce: return "ReadOnce";
+    case AceCmdOpcode::ReadClean: return "ReadClean";
+    case AceCmdOpcode::ReadSharedNotDirty: return "ReadSharedNotDirty";
+    case AceCmdOpcode::ReadShared: return "ReadShared";
+    case AceCmdOpcode::ReadUnique: return "ReadUnique";
+    case AceCmdOpcode::CleanUnique: return "CleanUnique";
+    case AceCmdOpcode::CleanShared: return "CleanShared";
+    case AceCmdOpcode::CleanInvalid: return "CleanInvalid";
+    case AceCmdOpcode::MakeUnique: return "MakeUnique";
+    case AceCmdOpcode::MakeInvalid: return "MakeInvalid";
+    case AceCmdOpcode::WriteNoSnoop: return "WriteNoSnoop";
+    case AceCmdOpcode::WriteLineUnique: return "WriteLineUnique";
+    case AceCmdOpcode::WriteBack: return "WriteBack";
+    case AceCmdOpcode::WriteClean: return "WriteClean";
+    case AceCmdOpcode::Evict: return "Evict";
+    case AceCmdOpcode::Invalid: return "Invalid";
+    default: return "Invalid";
   }
 }
+
+//
+//
+AceCmdMsg::AceCmdMsg() : Message(MessageClass::AceCmd) {}
+
+//
+//
+AceCmdRspMsg::AceCmdRspMsg() : Message(MessageClass::AceCmdRsp) {}
+
+
+//
+//
+const char* to_string(AceSnpOpcode opcode) {
+  switch (opcode) {
+    case AceSnpOpcode::ReadOnce: return "ReadOnce";
+    case AceSnpOpcode::ReadClean: return "ReadClean";
+    case AceSnpOpcode::ReadNotSharedDirty: return "ReadNotSharedDirty";
+    case AceSnpOpcode::ReadShared: return "ReadShared";
+    case AceSnpOpcode::ReadUnique: return "ReadUnique";
+    case AceSnpOpcode::CleanInvalid: return "CleanInvalid";
+    case AceSnpOpcode::MakeInvalid: return "MakeInvalid";
+    case AceSnpOpcode::CleanShared: return "CleanShared";
+    case AceSnpOpcode::Invalid: return "Invalid";
+    default: return "Invalid";
+  }
+}
+
+
+//
+//
+AceSnpMsg::AceSnpMsg() : Message(MessageClass::AceSnoop) {}
+
+//
+//
+AceSnpRspMsg::AceSnpRspMsg() : Message(MessageClass::AceSnoopRsp) {}
 
 } // namespace cc

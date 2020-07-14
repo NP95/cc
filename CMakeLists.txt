@@ -31,15 +31,7 @@ project(cc)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-#find_package(Python)
-#if(NOT Python_FOUND)
-  # Python used for generic scripting throughout the codebase, therefore
-  # bail if not found within the current environment.
-#  message(FATAL "Python executable not found.")
-#endif()
-
 add_subdirectory(third_party)
-add_subdirectory(scripts)
 include_directories(include)
 add_subdirectory(libcc)
 add_subdirectory(driver)

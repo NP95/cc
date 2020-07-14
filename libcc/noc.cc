@@ -27,11 +27,25 @@
 
 #include "noc.h"
 #include "primitives.h"
-#include "msg_gen.h"
 
 namespace cc {
 
+NocMsg::NocMsg() : Message(MessageClass::Noc) {}
+
 class NocModel::MainProcess : public kernel::Process {
+
+  enum class State {
+    Idle, ChooseQueue, IssueMessage
+  };
+
+  static const char* to_string(State state) {
+    switch (state) {
+      case State::Idle: return "Idle";
+      case State::ChooseQueue: return "ChooseQueue";
+      case State::IssueMessage: return "IssueMessage";
+      default: return "Invalid";
+    }
+  }
 
   struct Context {
     Arbiter<const Message*>::Tournament t;
@@ -42,27 +56,27 @@ class NocModel::MainProcess : public kernel::Process {
       : kernel::Process(k, name), model_(model)
   {}
 
-  NocState state() const { return state_; }
-  void set_state(NocState state) { state_ = state; }
+  State state() const { return state_; }
+  void set_state(State state) { state_ = state; }
 
  private:
 
   void init() override {
     // Await the arrival of requesters
     Arbiter<const Message*>* arb = model_->arb();
-    set_state(NocState::AwaitingMessage);
+    set_state(State::Idle);
     wait_on(arb->request_arrival_event());
   }
 
   void eval() override {
     switch (state()) {
-      case NocState::AwaitingMessage: {
+      case State::Idle: {
         handle_awaiting_message();
       } break;
-      case NocState::ChooseQueue: {
+      case State::ChooseQueue: {
         handle_choose_queue();
       } break;
-      case NocState::IssueMessage: {
+      case State::IssueMessage: {
         handle_issue_message();
       } break;
       default: {
@@ -90,7 +104,7 @@ class NocModel::MainProcess : public kernel::Process {
     if (t.has_requester()) {
       ctxt_ = Context();
       ctxt_.t = t;
-      set_state(NocState::ChooseQueue);
+      set_state(State::ChooseQueue);
       next_delta();
     } else {
       // Otherwise, block awaiting the arrival of a message at on
@@ -105,7 +119,7 @@ class NocModel::MainProcess : public kernel::Process {
 
     ctxt_.t = arb->tournament();
     if (ctxt_.t.has_requester()) {
-      set_state(NocState::IssueMessage);
+      set_state(State::IssueMessage);
       next_delta();
     }
   }
@@ -117,7 +131,7 @@ class NocModel::MainProcess : public kernel::Process {
       case MessageClass::Noc: {
         // Forward message to destination message queue after some
         // fixed delay.
-        const NocMessage* nocmsg = static_cast<const NocMessage*>(msg);
+        const NocMsg* nocmsg = static_cast<const NocMsg*>(msg);
 
         // Lookup destination port ingress queue.
         NocPort* port = model_->get_agent_port(nocmsg->dest());
@@ -154,14 +168,14 @@ class NocModel::MainProcess : public kernel::Process {
 
     //kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
     //issue_message(intf->dequeue());
-    set_state(NocState::AwaitingMessage);
+    set_state(State::Idle);
     wait_for(kernel::Time{10, 0});
   }
 
   // Current context
   Context ctxt_;
   // Current state
-  NocState state_;
+  State state_;
   // Pointer to parent NocModel instance.
   NocModel* model_ = nullptr;
 };

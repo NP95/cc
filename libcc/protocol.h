@@ -33,7 +33,6 @@
 #include <vector>
 #include <deque>
 #include "types.h"
-#include "protocol_gen.h"
 
 namespace cc {
 

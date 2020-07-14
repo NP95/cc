@@ -33,9 +33,6 @@
 #include "cfgs.h"
 #include "msg.h"
 
-// Generated headers
-#include "llc_gen.h"
-
 namespace cc {
 
 // Forwards:
@@ -43,6 +40,42 @@ class MemCntrlModel;
 class Message;
 class MessageQueue;
 template<typename T> class Arbiter;
+
+//
+//
+enum class LLCCmdOpcode {
+  // Fill: transfer a line from main memory to the cache.
+  Fill,
+  // Evict: remove the contents of line (and conditionally fill).
+  Evict,
+  // Put: transfer line present in cache to some agent.
+  PutLine
+};
+
+//
+//
+class LLCCmdMsg : public Message {
+ public:
+  LLCCmdMsg();
+
+  LLCCmdOpcode opcode() const { return opcode_; }
+  addr_t addr() const { return addr_; }
+
+  void set_opcode(LLCCmdOpcode opcode) { opcode_ = opcode; }
+  void set_addr(addr_t addr) { addr_ = addr; }
+
+ private:
+  addr_t addr_;
+  LLCCmdOpcode opcode_;
+};
+
+//
+//
+class LLCRspMsg : public Message {
+ public:
+  LLCRspMsg();
+};
+
 
 //
 //

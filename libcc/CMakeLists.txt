@@ -25,46 +25,26 @@
 ## POSSIBILITY OF SUCH DAMAGE.
 ## ========================================================================= ##
 
-cc_generate(moesi.gen)
-cc_generate(protocol.gen)
-cc_generate(amba.gen)
-cc_generate(cpu.gen)
-cc_generate(ccntrl.gen)
-cc_generate(msg.gen)
-cc_generate(dir.gen)
-cc_generate(llc.gen)
-cc_generate(mem.gen)
-cc_generate(noc.gen)
-
 add_library(cc SHARED
   kernel.cc
   primitives.cc
   cache.cc
   protocol.cc
-  protocol_gen.cc
   sim.cc
   l1cache.cc
   l2cache.cc
   cpu.cc
   moesi.cc
-  moesi_gen.cc
   amba.cc
-  amba_gen.cc
   noc.cc
-  noc_gen.cc
   dir.cc
-  dir_gen.cc
   llc.cc
-  llc_gen.cc
   mem.cc
-  mem_gen.cc
   cpucluster.cc
   ccntrl.cc
-  ccntrl_gen.cc
   utility.cc
   soc.cc
   msg.cc
-  msg_gen.cc
   builder.cc
   stimulus.cc
   )

@@ -29,8 +29,28 @@
 
 namespace cc {
 
-std::string to_string(const Message* msg) {
-  return msg->to_string();
+const char* to_string(MessageClass cls) {
+  switch (cls) {
+    case MessageClass::Invalid: return "Invalid";
+    case MessageClass::CpuCmd: return "CpuCmd";
+    case MessageClass::CpuRsp: return "CpuRsp";
+    case MessageClass::L1Cmd: return "L1Cmd";
+    case MessageClass::L1Rsp: return "L1Rsp";
+    case MessageClass::AceCmd: return "AceCmd";
+    case MessageClass::AceCmdRsp: return "AceCmdRsp";
+    case MessageClass::AceSnoop: return "AceSnoop";
+    case MessageClass::AceSnoopRsp: return "AceSnoopRsp";
+    case MessageClass::Noc: return "Noc";
+    case MessageClass::DirCmd: return "DirCmd";
+    case MessageClass::DirRsp: return "DirRsp";
+    case MessageClass::LLCCmd: return "LLCCmd";
+    case MessageClass::LLCRsp: return "LLCRsp";
+    case MessageClass::MemCmd: return "MemCmd";
+    case MessageClass::MemRsp: return "MemRsp";
+    case MessageClass::DataLine: return "DataLine";
+    default: return "Invalid";
+  }
 }
+
 
 } // namespace cc

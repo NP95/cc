@@ -26,10 +26,8 @@
 //========================================================================== //
 
 #include "dir.h"
-#include "dir_gen.h"
 #include "noc.h"
 #include "llc.h"
-#include "llc_gen.h"
 #include "amba.h"
 #include "primitives.h"
 #include "cache.h"
@@ -60,7 +58,7 @@ class DirectoryModel::NocIngressProcess : public kernel::Process {
     // Upon reception of a NOC message, remove transport layer
     // encapsulation and issue to the appropriate ingress queue.
     MessageQueue* noc_mq = model_->noc_dir__msg_q();
-    const NocMessage* nocmsg = static_cast<const NocMessage*>(noc_mq->dequeue());
+    const NocMsg* nocmsg = static_cast<const NocMsg*>(noc_mq->dequeue());
 
     // Validate message
     if (nocmsg->cls() != MessageClass::Noc) {
