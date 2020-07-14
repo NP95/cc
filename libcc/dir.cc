@@ -60,6 +60,16 @@ std::string DirCmdMsg::to_string() const {
 //
 DirCmdRspMsg::DirCmdRspMsg() : Message(MessageClass::DirRsp) {}
 
+std::string DirCmdRspMsg::to_string() const {
+  std::stringstream ss;
+  {
+    KVListRenderer r(ss);
+    render_msg_fields(r);
+  }
+  return ss.str();
+}
+
+
 //
 //
 class DirectoryModel::NocIngressProcess : public kernel::Process {
@@ -226,6 +236,7 @@ class DirectoryModel::RdisProcess : public kernel::Process {
   void handle_process_message() {
     const MsgRequesterIntf* intf = t_.intf();
     const Message* msg = intf->peek();
+    bool commits = true;
 
     switch (msg->cls()) {
       case MessageClass::DirCmd: {
@@ -262,11 +273,7 @@ class DirectoryModel::RdisProcess : public kernel::Process {
               context_ = DirCoherenceContext();
               context_.set_line(dirline);
               context_.set_msg(msg);
-              bool commits = false;
               std::tie(commits, action_list_) = protocol->apply(context_);
-              // Advance to execute state.
-              set_state(State::ExecuteActions);
-              next_delta();
             }
           } else {
             // TODO:
@@ -287,11 +294,7 @@ class DirectoryModel::RdisProcess : public kernel::Process {
           context_ = DirCoherenceContext();
           context_.set_line(it->t());
           context_.set_msg(llcrsp);
-          bool commits = false;
           std::tie(commits, action_list_) = protocol->apply(context_);
-          // Advance to execute state.
-          set_state(State::ExecuteActions);
-          next_delta();
         } else {
           // A LLC response to a non-existent line indicates that
           // something has gone wrong. Either the LLC has delivered a
@@ -314,6 +317,17 @@ class DirectoryModel::RdisProcess : public kernel::Process {
       } break;
     }
 
+    if (commits) {
+      // Current message commits and is applied to the machine state.
+      LogMessage lm("Execute message: ");
+      lm.append(msg->to_string());
+      lm.level(Level::Info);
+      log(lm);
+
+      // Advance to execute state.
+      set_state(State::ExecuteActions);
+      next_delta();
+    }
   }
 
   void handle_execute_actions() {

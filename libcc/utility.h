@@ -110,6 +110,8 @@ struct Hexer {
   bool truncate_ = true;
 };
 
+const char* to_string(bool b);
+
 }  // namespace cc
 
 #endif

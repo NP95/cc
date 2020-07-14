@@ -66,6 +66,9 @@ class AceCmdMsg : public Message {
   AceCmdMsg();
 
   //
+  std::string to_string() const override;
+
+  //
   //
   AceCmdOpcode opcode() const { return opcode_; }
   addr_t addr() const { return addr_; }
@@ -88,6 +91,9 @@ class AceCmdRspRMsg : public Message {
   AceCmdRspRMsg();
 
   //
+  std::string to_string() const override;
+
+  //
   //
   bool pass_dirty() const { return pass_dirty_; }
   bool is_shared() const { return is_shared_; }
@@ -107,6 +113,9 @@ class AceCmdRspRMsg : public Message {
 class AceCmdRspBMsg : public Message {
  public:
   AceCmdRspBMsg();
+
+  //
+  std::string to_string() const override;
 
  private:
 };
@@ -148,6 +157,9 @@ class AceSnpMsg : public Message {
 class AceSnpRspMsg : public Message {
  public:
   AceSnpRspMsg();
+
+  //
+  std::string to_string() const override;
 
   //
   bool data_transfer() const { return data_transfer_; }

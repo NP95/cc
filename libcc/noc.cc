@@ -67,7 +67,7 @@ class NocModel::MainProcess : public kernel::Process {
   }
 
   struct Context {
-    Arbiter<const Message*>::Tournament t;
+    MessageQueueArbiter::Tournament t;
   };
   
  public:
@@ -82,7 +82,7 @@ class NocModel::MainProcess : public kernel::Process {
 
   void init() override {
     // Await the arrival of requesters
-    Arbiter<const Message*>* arb = model_->arb();
+    MessageQueueArbiter* arb = model_->arb();
     set_state(State::Idle);
     wait_on(arb->request_arrival_event());
   }
@@ -108,8 +108,8 @@ class NocModel::MainProcess : public kernel::Process {
 
   void handle_awaiting_message() {
     // Idle state, awaiting more work.
-    Arbiter<const Message*>* arb = model_->arb();
-    Arbiter<const Message*>::Tournament t = arb->tournament();
+    MessageQueueArbiter* arb = model_->arb();
+    MessageQueueArbiter::Tournament t = arb->tournament();
 
     // Detect deadlock at L1Cache front-end. This occurs only in the
     // presence of a protocol violation and is therefore by definition
@@ -134,7 +134,7 @@ class NocModel::MainProcess : public kernel::Process {
 
   void handle_choose_queue() {
     // Idle state, awaiting more work.
-    Arbiter<const Message*>* arb = model_->arb();
+    MessageQueueArbiter* arb = model_->arb();
 
     ctxt_.t = arb->tournament();
     if (ctxt_.t.has_requester()) {
@@ -162,7 +162,8 @@ class NocModel::MainProcess : public kernel::Process {
 
         // Issue message to destination agent ingress queue.
         // const Message* payload = nocmsg->payload();
-        model_->issue(port->egress(), kernel::Time{10, 0}, nocmsg);
+        MessageQueue* egress = port->egress();
+        egress->issue(nocmsg);
 
         // Message has now been issued to destination. Destroy
         // transport message and update arbitration.
@@ -183,7 +184,6 @@ class NocModel::MainProcess : public kernel::Process {
         log(lmsg);
       } break;
     }
-    
 
     //kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
     //issue_message(intf->dequeue());
@@ -230,7 +230,7 @@ NocPort* NocModel::get_agent_port(Agent* agent) {
 
 void NocModel::build() {
   // Construct ingress selection aribter
-  arb_ = new Arbiter<const Message*>(k(), "arb");
+  arb_ = new MessageQueueArbiter(k(), "arb");
   add_child_module(arb_);
 
   // Construct main process
@@ -239,7 +239,7 @@ void NocModel::build() {
 }
 
 void NocModel::register_agent(Agent* agent) {
-  const std::string port_name = "port" + std::to_string(ports_.size());
+  const std::string port_name = agent->name();
   NocPort* port = new NocPort(k(), port_name);
   add_child_module(port);
   // Install in port table.

@@ -59,7 +59,7 @@ bool MessageQueue::issue(const Message* msg, kernel::Time t) {
   lmsg.append(path());
   lmsg.append("): ");
   lmsg.append(msg->to_string());
-  lmsg.level(Level::Info);
+  lmsg.level(Level::Debug);
   log(lmsg);
   // Issue action:
   const kernel::Time execute_time = k()->time() + t;
@@ -114,33 +114,6 @@ void MessageQueue::build(std::size_t n) {
 
 Agent::Agent(kernel::Kernel* k, const std::string& name) : Module(k, name) {
 }
-
-
-void Agent::issue(MessageQueue* mq, const kernel::Time& time, const Message* msg) {
-  struct EnqueueAction : kernel::Action {
-    EnqueueAction(kernel::Kernel* k, MessageQueue* mq, const Message* msg)
-        : Action(k, "enqueue_action"), mq_(mq), msg_(msg) {}
-    bool eval() override {
-      mq_->push(msg_);
-      return true;
-    }
-
-   private:
-    MessageQueue* mq_ = nullptr;
-    const Message* msg_;
-  };
-  // Log message issue:
-  LogMessage lmsg("Issue Message (dst: ");
-  lmsg.append(mq->path());
-  lmsg.append("): ");
-  lmsg.append(msg->to_string());
-  lmsg.level(Level::Info);
-  log(lmsg);
-  // Issue action:
-  const kernel::Time execute_time = k()->time() + time;
-  k()->add_action(execute_time, new EnqueueAction(k(), mq, msg));
-}
-
 
 std::string to_string(const Agent* agent) { return agent->path(); }
 

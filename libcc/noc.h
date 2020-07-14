@@ -39,7 +39,7 @@ namespace cc {
 
 
 class MessageQueue;
-template<typename> class Arbiter;
+class MessageQueueArbiter;
 
 
 class NocMsg : public Message {
@@ -116,11 +116,11 @@ class NocModel : public Agent {
   // Accessors;
 
   // Arbiter
-  Arbiter<const Message*>* arb() const { return arb_; }
+  MessageQueueArbiter* arb() const { return arb_; }
   
  private:
   // Queue selection arbiter
-  Arbiter<const Message*>* arb_ = nullptr;
+  MessageQueueArbiter* arb_ = nullptr;
   // Set of ingress Message Queues
   std::map<Agent*, NocPort*> ports_;
   // Main thread of execution.

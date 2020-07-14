@@ -294,7 +294,7 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
 
   bool apply(L1CoherenceActionList& al, const L1CoherenceContext& context,
              const L1CmdMsg* msg) const {
-    bool commits = false;
+    bool commits = true;
     MOESIL1LineState* line = static_cast<MOESIL1LineState*>(context.line());
     switch (line->state()) {
       case MOESIL1State::I: {
@@ -368,7 +368,7 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
 
   bool apply(L1CoherenceActionList& al, const L1CoherenceContext& context,
              const L2CmdRspMsg* msg) const {
-    bool commits = false;
+    bool commits = true;
     MOESIL1LineState* line = static_cast<MOESIL1LineState*>(context.line());
     switch (line->state()) {
       case MOESIL1State::I_S: {
@@ -457,7 +457,7 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
 
   std::pair<bool, L2CoherenceActionList> apply(
       const L2CoherenceContext& context) const override {
-    bool commits = false;
+    bool commits = true;
     L2CoherenceActionList al;
     const Message* msg = context.msg();
     switch(msg->cls()) {
@@ -483,7 +483,7 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
 
   bool apply(L2CoherenceActionList& al, const L2CoherenceContext& context,
              const L2CmdMsg* msg) const {
-    bool commits = false;
+    bool commits = true;
     MOESIL2LineState* line = static_cast<MOESIL2LineState*>(context.line());
     switch (line->state()) {
       case MOESIL2State::I: {
@@ -539,7 +539,7 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
 
   bool apply(L2CoherenceActionList& al, const L2CoherenceContext& context,
              const AceCmdRspRMsg* msg) const {
-    bool commits = false;
+    bool commits = true;
     MOESIL2LineState* line = static_cast<MOESIL2LineState*>(context.line());
 
     // Emit response to L1
@@ -563,7 +563,7 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
 
   bool apply(L2CoherenceActionList& al, const L2CoherenceContext& context,
              const AceCmdRspBMsg* msg) const {
-    bool commits = false;
+    bool commits = true;
     return commits;
   }
 
@@ -648,7 +648,7 @@ class MOESIDirectoryProtocol : public DirectoryProtocol {
   //
   std::pair<bool, DirectoryActionList> apply(
       const DirCoherenceContext& context) const override{
-    bool commits = false;
+    bool commits = true;
     DirectoryActionList al;
     const Message* msg = context.msg();
     switch (msg->cls()) {
@@ -669,7 +669,7 @@ class MOESIDirectoryProtocol : public DirectoryProtocol {
 
   bool apply(DirectoryActionList& al, const DirCoherenceContext& context,
              const DirCmdMsg* msg) const {
-    bool commits = false;
+    bool commits = true;
     MOESIDirLineState* line = static_cast<MOESIDirLineState*>(context.line());
     switch (line->state()) {
       case MOESIDirState::I: {
@@ -778,7 +778,7 @@ class MOESICacheControllerProtocol : public CacheControllerProtocol {
 
   std::pair<bool, CacheControllerActionList> apply(
       const CacheControllerContext& context) const override {
-    bool commits = false;
+    bool commits = true;
     CacheControllerActionList al;
     const Message *msg = context.msg();
     switch (msg->cls()) {
@@ -799,7 +799,7 @@ class MOESICacheControllerProtocol : public CacheControllerProtocol {
 
   bool apply(CacheControllerActionList& al, const CacheControllerContext& context,
              const AceCmdMsg* msg) const {
-    bool commits = false;
+    bool commits = true;
     MOESICacheControllerLineState* line =
         static_cast<MOESICacheControllerLineState*>(context.line());
     switch (msg->opcode()) {
@@ -833,7 +833,7 @@ class MOESICacheControllerProtocol : public CacheControllerProtocol {
 
   bool apply(CacheControllerActionList& al, const CacheControllerContext& context,
              const DirCmdRspMsg* msg) const {
-    bool commits = false;
+    bool commits = true;
     MOESICacheControllerLineState* line =
         static_cast<MOESICacheControllerLineState*>(context.line());
 

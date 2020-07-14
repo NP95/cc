@@ -27,6 +27,7 @@
 
 #include "msg.h"
 #include "utility.h"
+#include <sstream>
 
 namespace cc {
 
@@ -56,9 +57,39 @@ const char* to_string(MessageClass cls) {
   }
 }
 
+Transaction::Transaction() {
+  static trans_id_t tid_counter = 0;
+  tid_ = tid_counter++;
+}
+
+std::string Transaction::to_string() const {
+  using std::to_string;
+  
+  std::stringstream ss;
+  {
+    KVListRenderer r(ss);
+    r.add_field("tid", to_string(tid()));
+  }
+  return ss.str();
+}
+
+Message::Message(MessageClass cls) : cls_(cls) {
+  static msg_id_t mid_counter = 0;
+  mid_ = mid_counter++;
+}
+
+
 void Message::render_msg_fields(KVListRenderer& r) const {
+  using std::to_string;
+  
   Hexer h;
-  r.add_field("t", h.to_hex((std::uint64_t)t()));
+  r.add_field("mid", to_string(mid()));
+  r.add_field("cls", to_string(cls()));
+  if (t() == nullptr) {
+    r.add_field("tid", "Invalid");
+  } else {
+    r.add_field("tid", to_string(t()->tid()));
+  }
 }
 
 

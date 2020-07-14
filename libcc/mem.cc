@@ -196,7 +196,8 @@ class MemCntrlModel::RequestDispatcherProcess : public kernel::Process {
           nocmsg->set_dest(cmdmsg->dest());
           nocmsg->set_t(cmdmsg->t());
           // Issue to NOC
-          model_->issue(model_->mem_noc__msg_q(), kernel::Time{10, 0}, nocmsg);
+          MessageQueue* mem_noc__msg_q = model_->mem_noc__msg_q();
+          mem_noc__msg_q->issue(nocmsg);
 
           cmdmsg->release();
         } break;

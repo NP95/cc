@@ -73,6 +73,9 @@ class DirCmdMsg : public Message {
 class DirCmdRspMsg : public Message {
  public:
   DirCmdRspMsg();
+
+  //
+  std::string to_string() const override;
 };
 
 //

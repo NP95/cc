@@ -105,4 +105,8 @@ char Hexer::hex_char(char x) const {
   return (x < 10) ? ('0' + x) : ((upper_case_ ? 'A' : 'a') + (x - 10));
 }
 
+const char* to_string(bool b) {
+  return b ? "true" : "false";
+}
+
 } // namespace cc

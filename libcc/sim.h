@@ -82,10 +82,6 @@ class MessageQueueArbiter : public Arbiter<const Message*> {
 class Agent : public kernel::Module {
  public:
   Agent(kernel::Kernel* k, const std::string& name);
-
- protected:
-  // (Run-Phase only)
-  void issue(MessageQueue* mq, const kernel::Time& time, const Message* msg);
 };
 
 std::string to_string(const Agent* agent);

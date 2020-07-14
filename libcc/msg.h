@@ -45,17 +45,24 @@ template<typename> class RequesterIntf;
   
 //
 //
+using trans_id_t = std::size_t;
+
+
+//
+//
 class Transaction {
  public:
-  Transaction() {}
-  virtual ~Transaction() {}
+  Transaction();
+  virtual ~Transaction() = default;
 
-  std::string to_string_short() const { return "Some transaction"; }
-  std::string to_string() const { return "Some transaction."; };
+  //
+  virtual std::string to_string() const;
 
 
   // Accessors:
   kernel::Time start_time() const { return start_time_; }
+
+  trans_id_t tid() const { return tid_; }
   
 
   // Setters:
@@ -65,6 +72,7 @@ class Transaction {
 
  private:
   kernel::Time start_time_;
+  trans_id_t tid_;
 };
 
 //
@@ -129,18 +137,22 @@ enum class MessageClass {
 
 const char* to_string(MessageClass cls);
 
+
+// Message unimque ID type
+using msg_id_t = std::size_t;
+
 //
 //
 class Message {
  public:
 
-  Message(MessageClass cls) : cls_(cls) {}
-  Message(Transaction* t, MessageClass cls) : t_(t), cls_(cls) {}
+  Message(MessageClass cls);
   virtual ~Message() = default;
 
   Transaction* t() const { return t_; }
   MessageClass cls() const { return cls_; }
   kernel::Agent<const Message*>* agent() const { return origin_; }
+  msg_id_t mid() const { return mid_; }
 
   virtual std::string to_string_short() const { return "Some message"; } // TO abstract
   virtual std::string to_string() const { return "Some message"; } // TO abstract
@@ -157,6 +169,8 @@ class Message {
   void render_msg_fields(KVListRenderer& r) const;
 
  private:
+  // Message ID (globally unique)
+  msg_id_t mid_;
   // Parent transaction;
   Transaction* t_ = nullptr;
   // Message type

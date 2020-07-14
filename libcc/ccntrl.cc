@@ -198,6 +198,9 @@ class CacheController::RdisProcess : public kernel::Process {
   void handle_process_message() {
     const MsgRequesterIntf* intf = t_.intf();
     const Message* msg = intf->peek();
+    bool commits = false;
+
+    // Dispatch on message class:
     switch (msg->cls()) {
       case MessageClass::AceCmd: {
         // L2 -> CC bus tranasaction.
@@ -226,7 +229,6 @@ class CacheController::RdisProcess : public kernel::Process {
           context_ = CacheControllerContext();
           context_.set_line(line);
           context_.set_msg(msg);
-          bool commits = true;
           std::tie(commits, action_list_) = protocol->apply(context_);
           set_state(State::ExecuteActions);
           next_delta();
@@ -248,7 +250,6 @@ class CacheController::RdisProcess : public kernel::Process {
           CacheControllerLineState* line = *it_;
           context_.set_line(line);
           context_.set_msg(msg);
-          bool commits = true;
           const CacheControllerProtocol* protocol = cc_->protocol();
           std::tie(commits, action_list_) = protocol->apply(context_);
           set_state(State::ExecuteActions);
@@ -268,6 +269,17 @@ class CacheController::RdisProcess : public kernel::Process {
         lmsg.level(Level::Fatal);
         log(lmsg);
       } break;
+    }
+
+    if (commits) {
+      // Current message commits and is applied to the machine state.
+      LogMessage lm("Execute message: ");
+      lm.append(msg->to_string());
+      lm.level(Level::Info);
+      log(lm);
+
+      set_state(State::ExecuteActions);
+      next_delta();
     }
   }
 
