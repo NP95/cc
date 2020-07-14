@@ -35,7 +35,69 @@
 
 namespace cc {
 
-class CacheController::MainProcess : public kernel::Process {
+//
+//
+class CacheController::NocIngressProcess : public kernel::Process {
+ public:
+  NocIngressProcess(kernel::Kernel* k, const std::string& name, CacheController* cc)
+      :  Process(k, name), cc_(cc) {
+  }
+
+  // Initialization
+  void init() override {
+    MessageQueue* mq = cc_->noc_cc__msg_q();
+    wait_on(mq->request_arrival_event());
+  }
+
+  // Evaluation
+  void eval() override {
+    using cc::to_string;
+    
+    // Upon reception of a NOC message, remove transport layer
+    // encapsulation and issue to the appropriate ingress queue.
+    MessageQueue* noc_mq = cc_->noc_cc__msg_q();
+    const NocMsg* nocmsg = static_cast<const NocMsg*>(noc_mq->dequeue());
+
+    // Validate message
+    if (nocmsg->cls() != MessageClass::Noc) {
+      LogMessage lmsg("Received invalid message class: ");
+      lmsg.append(to_string(nocmsg->cls()));
+      lmsg.level(Level::Fatal);
+      log(lmsg);
+    }
+
+    const Message* msg = nocmsg->payload();
+    MessageQueue* iss_mq = cc_->lookup_rdis_mq(msg->cls());
+    if (iss_mq == nullptr) {
+      LogMessage lmsg("Message queue not found for class: ");
+      lmsg.append(to_string(msg->cls()));
+      lmsg.level(Level::Fatal);
+      log(lmsg);
+    }
+
+    // Forward message message to destination queue and discard
+    // encapsulation/transport message.
+    iss_mq->push(msg);
+    nocmsg->release();
+
+    // Set conditions for subsequent re-evaluations.
+    if (!noc_mq->empty()) {
+      // TODO:Cleanup
+      // Wait some delay
+      wait_for(kernel::Time{10, 0});
+    } else {
+      // Not further work; await until noc ingress queue becomes non-full.
+      wait_on(noc_mq->request_arrival_event());
+    }
+  }
+
+ private:
+  CacheController* cc_ = nullptr;
+};
+
+//
+//
+class CacheController::RdisProcess : public kernel::Process {
   using Tournament = MessageQueueArbiter::Tournament;
   using TableIt = Table<CacheControllerLineState*>::Iterator;
 
@@ -53,7 +115,7 @@ class CacheController::MainProcess : public kernel::Process {
   }
 
  public:
-  MainProcess(kernel::Kernel* k, const std::string& name, CacheController* cc)
+  RdisProcess(kernel::Kernel* k, const std::string& name, CacheController* cc)
       : Process(k, name), cc_(cc) {
   }
   State state() const { return state_; }
@@ -158,6 +220,8 @@ class CacheController::MainProcess : public kernel::Process {
 
           // Install line; (move to commit).
           table->install(it, line);
+          // TODO!
+          it_ = it;
 
           context_ = CacheControllerContext();
           context_.set_line(line);
@@ -175,6 +239,25 @@ class CacheController::MainProcess : public kernel::Process {
           } else if (has_active_entry) {
             // LOG
           }
+        }
+      } break;
+      case MessageClass::DirRsp: {
+        Table<CacheControllerLineState*>* table = cc_->table();
+        if (it_ != table->end()) {
+          context_ = CacheControllerContext();
+          CacheControllerLineState* line = *it_;
+          context_.set_line(line);
+          context_.set_msg(msg);
+          bool commits = true;
+          const CacheControllerProtocol* protocol = cc_->protocol();
+          std::tie(commits, action_list_) = protocol->apply(context_);
+          set_state(State::ExecuteActions);
+          next_delta();
+        } else {
+          LogMessage lm("Cannot find table context for message: ");
+          lm.append(msg->to_string());
+          lm.level(Level::Fatal);
+          log(lm);
         }
       } break;
       default: {
@@ -210,6 +293,9 @@ class CacheController::MainProcess : public kernel::Process {
       next_delta();
     }
   }
+
+  // TODO: save table entry for reuse.
+  TableIt it_;
   
   // Current arbitration tournament.
   Tournament t_;
@@ -232,8 +318,10 @@ CacheController::CacheController(
 CacheController::~CacheController() {
    delete l2_cc__cmd_q_;
    delete noc_cc__msg_q_;
+   delete dir_cc__rsp_q_;
    delete arb_;
-   delete main_;
+   delete rdis_proc_;
+   delete noci_proc_;
    delete table_;
    delete protocol_;
  }
@@ -243,14 +331,20 @@ void CacheController::build() {
   l2_cc__cmd_q_ = new MessageQueue(k(), "l2_cc__cmd_q", 3);
   add_child_module(l2_cc__cmd_q_);
   // NOC -> CC msg queue.
-  noc_cc__msg_q_ = new MessageQueue(k(), "noc_cc__msg_q_", 3);
+  noc_cc__msg_q_ = new MessageQueue(k(), "noc_cc__msg_q", 3);
   add_child_module(noc_cc__msg_q_);
+  // DIR -> CC response queue
+  dir_cc__rsp_q_ = new MessageQueue(k(), "dir_cc__rsp_q", 3);
+  add_child_module(dir_cc__rsp_q_);
   // Arbiteer
   arb_ = new MessageQueueArbiter(k(), "arb");
   add_child_module(arb_);
-  // Main thread
-  main_ = new MainProcess(k(), "main", this);
-  add_child_process(main_);
+  // Dispatcher process
+  rdis_proc_ = new RdisProcess(k(), "rdis_proc", this);
+  add_child_process(rdis_proc_);
+  //
+  noci_proc_ = new NocIngressProcess(k(), "noci_proc", this);
+  add_child_process(noci_proc_);
   // Transaction table
   table_ = new Table<CacheControllerLineState*>(k(), "ttable", 16);
   add_child_module(table_);
@@ -261,7 +355,7 @@ void CacheController::build() {
 void CacheController::elab() {
   // Add ingress queues to arbitrator.
   arb_->add_requester(l2_cc__cmd_q_);
-  arb_->add_requester(noc_cc__msg_q_);
+  arb_->add_requester(dir_cc__rsp_q_);
   protocol_->set_cc(this);
 }
 
@@ -278,5 +372,12 @@ void CacheController::drc() {
   }
 }
 
+MessageQueue* CacheController::lookup_rdis_mq(MessageClass cls) const {
+  switch (cls) {
+    case MessageClass::L2Cmd: return l2_cc__cmd_q_;
+    case MessageClass::DirRsp: return dir_cc__rsp_q_;
+    default: return nullptr;
+  }
+}
 
 } // namespace cc

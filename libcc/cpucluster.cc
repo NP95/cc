@@ -79,6 +79,7 @@ void CpuCluster::elab() {
   l2c_->set_l2_cc__cmd_q(cc_->l2_cc__cmd_q());
   // (CC -> L2) Bind Cache Controller to L2 instance.
   cc_->set_l2c(l2c_);
+  cc_->set_cc_l2__rsp_q(l2c_->cc_l2__rsp_q());
   
   // Bind L1 caches to parent L2.
   for (std::size_t i = 0; i < l1cs_.size(); i++) {

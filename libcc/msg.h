@@ -34,6 +34,8 @@
 
 namespace cc {
 
+class KVListRenderer;
+
 // Forwards:
 namespace kernel {
 
@@ -90,7 +92,8 @@ enum class MessageClass {
   //
   //
   AceCmd,
-  AceCmdRsp,
+  AceCmdRspR,
+  AceCmdRspB,
   
   AceSnoop,
   AceSnoopRsp,
@@ -107,7 +110,7 @@ enum class MessageClass {
   // Last-Level Cache Message Classes:
   //
   LLCCmd,
-  LLCRsp,
+  LLCCmdRsp,
 
   // Memory Controller Message Classes:
   //
@@ -149,6 +152,9 @@ class Message {
   // Release message; return to owning message pool or destruct where
   // applicable.
   virtual void release() const { delete this; }
+
+ protected:
+  void render_msg_fields(KVListRenderer& r) const;
 
  private:
   // Parent transaction;

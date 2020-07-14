@@ -60,7 +60,11 @@ AceCmdMsg::AceCmdMsg() : Message(MessageClass::AceCmd) {}
 
 //
 //
-AceCmdRspMsg::AceCmdRspMsg() : Message(MessageClass::AceCmdRsp) {}
+AceCmdRspRMsg::AceCmdRspRMsg() : Message(MessageClass::AceCmdRspR) {}
+
+//
+//
+AceCmdRspBMsg::AceCmdRspBMsg() : Message(MessageClass::AceCmdRspB) {}
 
 
 //

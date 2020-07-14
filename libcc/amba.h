@@ -80,11 +80,12 @@ class AceCmdMsg : public Message {
   addr_t addr_;
 };
 
+
 //
 //
-class AceCmdRspMsg : public Message {
+class AceCmdRspRMsg : public Message {
  public:
-  AceCmdRspMsg();
+  AceCmdRspRMsg();
 
   //
   //
@@ -99,6 +100,15 @@ class AceCmdRspMsg : public Message {
  private:
   bool pass_dirty_ = false;
   bool is_shared_ = false;
+};
+
+//
+//
+class AceCmdRspBMsg : public Message {
+ public:
+  AceCmdRspBMsg();
+
+ private:
 };
 
 //

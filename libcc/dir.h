@@ -43,31 +43,45 @@ class LLCModel;
 class DirLineState;
 class MessageQueue;
 
-
+//
+//
 class DirCmdMsg : public Message {
  public:
   DirCmdMsg();
 
   //
+  std::string to_string() const override;
+
+  //
   AceCmdOpcode opcode() const { return opcode_; }
   addr_t addr() const { return addr_; }
+  Agent* origin() const { return origin_; }
 
   //
   void set_opcode(AceCmdOpcode opcode) { opcode_ = opcode; }
   void set_addr(addr_t addr) { addr_ = addr; }
+  void set_origin(Agent* origin) { origin_ = origin; }
 
  private:
   AceCmdOpcode opcode_;
   addr_t addr_;
+  Agent* origin_;
+};
+
+//
+//
+class DirCmdRspMsg : public Message {
+ public:
+  DirCmdRspMsg();
 };
 
 //
 //
 class DirectoryModel : public Agent {
+  friend class SocTop;
+
   class RdisProcess;
   class NocIngressProcess;
-
-  friend class SocTop;
  public:
   DirectoryModel(kernel::Kernel* k, const DirectoryModelConfig& config);
   ~DirectoryModel();
@@ -111,13 +125,15 @@ class DirectoryModel : public Agent {
  private:
   // queue selection arbiter
   MessageQueueArbiter* arb_ = nullptr;
-  // noc -> dir message queue (owned by directory)
+  // NOC -> DIR message queue (owned by directory)
   MessageQueue* noc_dir__msg_q_ = nullptr;
-  // dir -> noc message queue (owned by noc)
+  // DIR -> NOC message queue (owned by NOC)
   MessageQueue* dir_noc__msg_q_ = nullptr;
-  // noc -> dir command queue (owned by dir)
-  MessageQueue* noc_dir__cmd_q_ = nullptr;
-  // noc ingress process
+  // CPU -> DIR command queue (owned by DIR)
+  MessageQueue* cpu_dir__cmd_q_ = nullptr;
+  // LLC -> DIR response queue (owned by DIR)
+  MessageQueue* llc_dir__rsp_q_ = nullptr;
+  // NOC ingress process
   NocIngressProcess* noci_proc_ = nullptr;
   // request dispatcher process
   RdisProcess* rdis_proc_ = nullptr;

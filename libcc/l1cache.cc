@@ -56,6 +56,7 @@ std::string L1CmdMsg::to_string() const {
   std::stringstream ss;
   {
     KVListRenderer r(ss);
+    render_msg_fields(r);
     r.add_field("opcode", to_string(opcode()));
     Hexer h;
     r.add_field("addr", h.to_hex(addr()));
@@ -63,7 +64,22 @@ std::string L1CmdMsg::to_string() const {
   return ss.str();
 }
 
-L1RspMsg::L1RspMsg() : Message(MessageClass::L1Rsp) {}
+//
+//
+L1CmdRspMsg::L1CmdRspMsg() : Message(MessageClass::L1Rsp) {}
+
+//
+//
+std::string L1CmdRspMsg::to_string() const {
+  using cc::to_string;
+  
+  std::stringstream ss;
+  {
+    KVListRenderer r(ss);
+    r.add_field("cls", to_string(cls()));
+  }
+  return ss.str();
+}
 
 
 class L1CacheModel::MainProcess : public kernel::Process {
@@ -236,7 +252,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
       case MessageClass::L2Rsp: {
         CacheModel<L1LineState*>* cache = model_->cache();
         const CacheAddressHelper ah = cache->ah();
-        const L2RspMsg* l2rsp = static_cast<const L2RspMsg*>(msg);
+        const L2CmdRspMsg* l2rsp = static_cast<const L2CmdRspMsg*>(msg);
         // Check cache occupancy status:
         // add_t addr = l2rsp->addr();
         // TODO: need to recover state information from a table.

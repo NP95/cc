@@ -117,7 +117,7 @@ class Cpu::ConsumerProcess : public kernel::Process {
       const Message* msg = mq->dequeue();
       switch (msg->cls()) {
         case MessageClass::L1Rsp: {
-          const L1RspMsg* l1rspmsg = static_cast<const L1RspMsg*>(msg);
+          const L1CmdRspMsg* l1rspmsg = static_cast<const L1CmdRspMsg*>(msg);
 
           Transaction* t = l1rspmsg->t();
           // Transaction is complete.

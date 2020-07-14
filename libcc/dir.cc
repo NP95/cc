@@ -32,12 +32,36 @@
 #include "primitives.h"
 #include "cache.h"
 #include "utility.h"
+#include <sstream>
 
 namespace cc {
 
+//
+//
 DirCmdMsg::DirCmdMsg() : Message(MessageClass::DirCmd) {}
 
+std::string DirCmdMsg::to_string() const {
+  using cc::to_string;
+  
+  std::stringstream ss;
+  {
+    Hexer h;
+    KVListRenderer r(ss);
+    render_msg_fields(r);
+    r.add_field("cls", to_string(cls()));
+    r.add_field("opcode", to_string(opcode()));
+    r.add_field("addr", h.to_hex(addr()));
+    r.add_field("origin", origin()->path());
+  }
+  return ss.str();
+}
 
+//
+//
+DirCmdRspMsg::DirCmdRspMsg() : Message(MessageClass::DirRsp) {}
+
+//
+//
 class DirectoryModel::NocIngressProcess : public kernel::Process {
  public:
   NocIngressProcess(kernel::Kernel* k, const std::string& name,
@@ -91,10 +115,6 @@ class DirectoryModel::NocIngressProcess : public kernel::Process {
       // Not further work; await until noc ingress queue becomes non-full.
       wait_on(noc_mq->request_arrival_event());
     }
-  }
-
-  // Finalization
-  void fini() override {
   }
 
  private:
@@ -253,7 +273,44 @@ class DirectoryModel::RdisProcess : public kernel::Process {
           }
         }
       } break;
+      case MessageClass::LLCCmdRsp: {
+        const LLCCmdRspMsg* llcrsp = static_cast<const LLCCmdRspMsg*>(msg);
+        CacheModel<DirLineState*>* cache = model_->cache();
+        const CacheAddressHelper ah = cache->ah();
+        // Check cache occupancy status:
+        // const addr_t addr = llcrsp->addr();
+        const addr_t addr  = 0;
+        CacheModel<DirLineState*>::Set set = cache->set(ah.set(addr));
+        CacheLineIt it = set.find(ah.tag(addr));
+        if (it != set.end()) {
+          const DirectoryProtocol* protocol = model_->protocol();
+          context_ = DirCoherenceContext();
+          context_.set_line(it->t());
+          context_.set_msg(llcrsp);
+          bool commits = false;
+          std::tie(commits, action_list_) = protocol->apply(context_);
+          // Advance to execute state.
+          set_state(State::ExecuteActions);
+          next_delta();
+        } else {
+          // A LLC response to a non-existent line indicates that
+          // something has gone wrong. Either the LLC has delivered a
+          // message to the directory erroneously or the line of interest
+          // has been evicted during the interval between when the original
+          // LLC command was issued, and when the response had arrived.
+          LogMessage lm("LLC response received but line is not present "
+                        "in cache.");
+          lm.level(Level::Error);
+          log(lm);
+        }        
+      } break;
       default: {
+        using cc::to_string;
+
+        LogMessage lm("Invalid message class: ");
+        lm.append(to_string(msg->cls()));
+        lm.level(Level::Fatal);
+        log(lm);
       } break;
     }
 
@@ -286,7 +343,7 @@ class DirectoryModel::RdisProcess : public kernel::Process {
   Tournament t_;
   // Current machine state
   State state_;
-  //
+  // Coherence context
   DirCoherenceContext context_;
   // Coherence action list.
   DirectoryActionList action_list_;
@@ -302,7 +359,8 @@ DirectoryModel::DirectoryModel(
 
 DirectoryModel::~DirectoryModel() {
   delete noc_dir__msg_q_;
-  delete noc_dir__cmd_q_;
+  delete cpu_dir__cmd_q_;
+  delete llc_dir__rsp_q_;
   delete arb_;
   delete noci_proc_;
   delete rdis_proc_;
@@ -314,8 +372,11 @@ void DirectoryModel::build() {
   noc_dir__msg_q_ = new MessageQueue(k(), "noc_dir__msg_q", 3);
   add_child_module(noc_dir__msg_q_);
   // NOC -> DIR command queue
-  noc_dir__cmd_q_ = new MessageQueue(k(), "noc_dir__cmd_q", 3);
-  add_child_module(noc_dir__cmd_q_);
+  cpu_dir__cmd_q_ = new MessageQueue(k(), "cpu_dir__cmd_q", 3);
+  add_child_module(cpu_dir__cmd_q_);
+  // LLC -> DIR command queue
+  llc_dir__rsp_q_ = new MessageQueue(k(), "llc_dir__rsp_q", 3);
+  add_child_module(llc_dir__rsp_q_);
   // Construct arbiter
   arb_ = new MessageQueueArbiter(k(), "arb");
   add_child_module(arb_);
@@ -334,7 +395,8 @@ void DirectoryModel::build() {
 
 void DirectoryModel::elab() {
   // Register message queue end-points
-  arb_->add_requester(noc_dir__cmd_q_);
+  arb_->add_requester(cpu_dir__cmd_q_);
+  arb_->add_requester(llc_dir__rsp_q_);
   protocol_->set_dir(this);
 }
 
@@ -346,16 +408,11 @@ void DirectoryModel::drc() {
 }
 
 MessageQueue* DirectoryModel::lookup_rdis_mq(MessageClass cls) const {
-  MessageQueue* mq = nullptr;
   switch (cls) {
-    case MessageClass::DirCmd: {
-      mq = noc_dir__cmd_q_;
-    } break;
-    default: {
-      mq = nullptr;
-    } break;
+    case MessageClass::DirCmd: return cpu_dir__cmd_q_;
+    case MessageClass::LLCCmdRsp: return llc_dir__rsp_q_;
+    default: return nullptr;
   }
-  return mq;
 }
 
 } // namespace cc

@@ -26,6 +26,7 @@
 //========================================================================== //
 
 #include "msg.h"
+#include "utility.h"
 
 namespace cc {
 
@@ -36,20 +37,28 @@ const char* to_string(MessageClass cls) {
     case MessageClass::CpuRsp: return "CpuRsp";
     case MessageClass::L1Cmd: return "L1Cmd";
     case MessageClass::L1Rsp: return "L1Rsp";
+    case MessageClass::L2Cmd: return "L2Cmd";
+    case MessageClass::L2Rsp: return "L2Rsp";
     case MessageClass::AceCmd: return "AceCmd";
-    case MessageClass::AceCmdRsp: return "AceCmdRsp";
+    case MessageClass::AceCmdRspR: return "AceCmdRspR";
+    case MessageClass::AceCmdRspB: return "AceCmdRspB";
     case MessageClass::AceSnoop: return "AceSnoop";
     case MessageClass::AceSnoopRsp: return "AceSnoopRsp";
     case MessageClass::Noc: return "Noc";
     case MessageClass::DirCmd: return "DirCmd";
     case MessageClass::DirRsp: return "DirRsp";
     case MessageClass::LLCCmd: return "LLCCmd";
-    case MessageClass::LLCRsp: return "LLCRsp";
+    case MessageClass::LLCCmdRsp: return "LLCCmdRsp";
     case MessageClass::MemCmd: return "MemCmd";
     case MessageClass::MemRsp: return "MemRsp";
     case MessageClass::DataLine: return "DataLine";
     default: return "Invalid";
   }
+}
+
+void Message::render_msg_fields(KVListRenderer& r) const {
+  Hexer h;
+  r.add_field("t", h.to_hex((std::uint64_t)t()));
 }
 
 

@@ -27,6 +27,7 @@
 
 #include "mem.h"
 #include "noc.h"
+#include "utility.h"
 
 namespace cc {
 
@@ -56,7 +57,38 @@ MemCmdMsg::MemCmdMsg() : Message(MessageClass::MemCmd) {}
 
 //
 //
+std::string MemCmdMsg::to_string() const {
+  using cc::to_string;
+  
+  std::stringstream ss;
+  {
+    KVListRenderer r(ss);
+    render_msg_fields(r);
+    r.add_field("cls", to_string(cls()));
+    r.add_field("opcode", to_string(opcode()));
+    r.add_field("dest", dest()->path());
+  }
+  return ss.str();
+}
+
+//
+//
 MemRspMsg::MemRspMsg() : Message(MessageClass::MemRsp) {}
+
+//
+//
+std::string MemRspMsg::to_string() const {
+  using cc::to_string;
+  
+  std::stringstream ss;
+  {
+    KVListRenderer r(ss);
+    render_msg_fields(r);
+    r.add_field("cls", to_string(cls()));
+    r.add_field("opcode", to_string(opcode()));
+  }
+  return ss.str();
+}
 
 //
 //

@@ -33,6 +33,7 @@
 #include "dir.h"
 #include "llc.h"
 #include "mem.h"
+#include "ccntrl.h"
 
 namespace cc {
 
@@ -71,10 +72,12 @@ class SocTop : public kernel::TopModule {
     
     // Construct child CPU clusters
     for (const CpuClusterCfg& cccfg : config_.ccls) {
-      CpuCluster* cc = new CpuCluster(k(), cccfg);
-      noc_->register_agent(cc);
-      add_child_module(cc);
-      ccs_.push_back(cc);
+      CpuCluster* cpuc = new CpuCluster(k(), cccfg);
+      // NOC end point is the coherence controller within the CPU
+      // cluster; not the CPU cluster itself.
+      noc_->register_agent(cpuc->cc());
+      add_child_module(cpuc);
+      ccs_.push_back(cpuc);
     }
 
     // Construct child directories
@@ -104,12 +107,20 @@ class SocTop : public kernel::TopModule {
 
   void elab() override {
     // Bind interconnect:
-    for (CpuCluster* cc : ccs_) {
-      NocPort* port = noc_->get_agent_port(cc);
+    for (CpuCluster* cpuc : ccs_) {
+      NocPort* port = noc_->get_agent_port(cpuc->cc());
+      if (port == nullptr) {
+        // Cannot find port for agent; must call register_agent on the
+        // NOC instance before attempting to bind to the port.
+        LogMessage msg("Cannot bind to port on: ");
+        msg.append(cpuc->cc()->path());
+        msg.level(Level::Fatal);
+        log(msg);
+      }
       // NOC -> CC message queue
-      port->set_egress(cc->noc_cc__msg_q());
+      port->set_egress(cpuc->noc_cc__msg_q());
       // CC -> NOC message queue
-      cc->set_cc_noc__msg_q(port->ingress());
+      cpuc->set_cc_noc__msg_q(port->ingress());
     }
     for (DirectoryModel* dm : dms_) {
       NocPort* port = noc_->get_agent_port(dm);
@@ -123,6 +134,8 @@ class SocTop : public kernel::TopModule {
         LLCModel* llc = dm->llc();
         // Bind memory controller
         llc->set_mc(mms_.front());
+        // Bind directory
+        llc->set_dir(dm);
         // Bind associated LLC to NOC
         NocPort* port = noc_->get_agent_port(llc);
         // NOC -> LLC

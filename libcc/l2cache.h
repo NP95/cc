@@ -84,17 +84,24 @@ class L2CmdMsg : public Message {
 //
 //
 enum class L2RspOpcode {
-  L1PutS, L1PutE
+  L1InstallS, L1InstallE
 };
 
-//
-//
-class L2RspMsg : public Message {
- public:
-  L2RspMsg();
+const char* to_string(L2RspOpcode opcode);
 
+//
+//
+class L2CmdRspMsg : public Message {
+ public:
+  L2CmdRspMsg();
+
+  //
+  std::string to_string() const override;
+
+  //
   L2RspOpcode opcode() const { return opcode_; }
 
+  //
   void set_opcode(L2RspOpcode opcode) { opcode_ = opcode; }
 
  private:

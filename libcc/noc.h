@@ -46,10 +46,14 @@ class NocMsg : public Message {
  public:
   NocMsg();
 
+  std::string to_string() const override;
+
+  //
   const Message* payload() const { return payload_; }
   Agent* origin() const { return origin_; }
   Agent* dest() const { return dest_; }
 
+  //
   void set_payload(const Message* payload) { payload_ = payload; }
   void set_origin(Agent* origin) { origin_ = origin; }
   void set_dest(Agent* dest) { dest_ = dest; }

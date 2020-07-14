@@ -27,11 +27,30 @@
 
 #include "noc.h"
 #include "primitives.h"
+#include "utility.h"
+#include <sstream>
 
 namespace cc {
 
+//
+//
 NocMsg::NocMsg() : Message(MessageClass::Noc) {}
 
+
+std::string NocMsg::to_string() const {
+  using cc::to_string;
+
+  std::stringstream ss;
+  {
+    KVListRenderer r(ss);
+    r.add_field("cls", to_string(cls()));
+    r.add_field("payload", payload()->to_string());
+  }
+  return ss.str();
+}
+
+//
+//
 class NocModel::MainProcess : public kernel::Process {
 
   enum class State {

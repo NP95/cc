@@ -48,9 +48,14 @@ class MemCmdMsg : public Message {
  public:
   MemCmdMsg();
 
+  //
+  std::string to_string() const override;
+
+  //
   MemCmdOpcode opcode() const { return opcode_; }
   Agent* dest() const { return dest_; }
 
+  //
   void set_opcode(MemCmdOpcode opcode) { opcode_ = opcode; }
   void set_dest(Agent* dest) { dest_ = dest; }
 
@@ -73,8 +78,13 @@ class MemRspMsg : public Message {
  public:
   MemRspMsg();
 
+  //
+  std::string to_string() const override;
+
+  //
   MemRspOpcode opcode() const { return opcode_; }
 
+  //
   void set_opcode(MemRspOpcode opcode) { opcode_ = opcode; }
 
  private:

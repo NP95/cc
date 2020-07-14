@@ -48,6 +48,8 @@ class CpuCluster : public Agent {
   //
   const CpuClusterCfg& config() const { return config_; }
 
+  // Child cache controller instance.
+  CacheController* cc() const { return cc_; }
   // Get NOC -> CC message queue instance (CC owned)
   MessageQueue* noc_cc__msg_q() const;
 

@@ -37,9 +37,9 @@ namespace cc {
 
 // Forwards:
 class MemCntrlModel;
+class DirectoryModel;
 class Message;
 class MessageQueue;
-template<typename T> class Arbiter;
 
 //
 //
@@ -52,15 +52,22 @@ enum class LLCCmdOpcode {
   PutLine
 };
 
+const char* to_string(LLCCmdOpcode opcode);
+
 //
 //
 class LLCCmdMsg : public Message {
  public:
   LLCCmdMsg();
 
+  //
+  std::string to_string() const override;
+
+  //
   LLCCmdOpcode opcode() const { return opcode_; }
   addr_t addr() const { return addr_; }
 
+  //
   void set_opcode(LLCCmdOpcode opcode) { opcode_ = opcode; }
   void set_addr(addr_t addr) { addr_ = addr; }
 
@@ -69,18 +76,40 @@ class LLCCmdMsg : public Message {
   LLCCmdOpcode opcode_;
 };
 
+
 //
 //
-class LLCRspMsg : public Message {
+enum class LLCRspOpcode {
+  Okay
+};
+
+const char* to_string(LLCRspOpcode opcode);
+
+//
+//
+class LLCCmdRspMsg : public Message {
  public:
-  LLCRspMsg();
+  LLCCmdRspMsg();
+
+  //
+  std::string to_string() const override;
+
+  //
+  LLCRspOpcode opcode() const { return opcode_; }
+
+  //
+  void set_opcode(LLCRspOpcode opcode) { opcode_ = opcode; }
+
+ private:
+  LLCRspOpcode opcode_;
 };
 
 
 //
 //
 class LLCModel : public Agent {
-  class MainProcess;
+  class RdisProcess;
+  class NocIngressProcess;
 
   friend class SocTop;
  public:
@@ -97,6 +126,8 @@ class LLCModel : public Agent {
   MessageQueue* llc_noc__msg_q() const { return llc_noc__msg_q_; }
   // Home memory controller
   MemCntrlModel* mc() const { return mc_; }
+  // Directory model instance.
+  DirectoryModel* dir() const { return dir_; }
   
  protected:
   // Construction/Build
@@ -108,26 +139,37 @@ class LLCModel : public Agent {
   void set_llc_noc__msg_q(MessageQueue* mq) { llc_noc__msg_q_ = mq; }
   // Set memory controller.
   void set_mc(MemCntrlModel* mc) { mc_ = mc; }
-
+  // Set owner directory.
+  void set_dir(DirectoryModel* dir) { dir_ = dir; }
   // Design Rule Check
   void drc() override;
 
   // Accessors:
 
   // Queue arbiter:
-  Arbiter<const Message*>* arb() const { return arb_; }
+  MessageQueueArbiter* arb() const { return arb_; }
+  // lookup rdis process message queue for traffic class.
+  MessageQueue* lookup_rdis_mq(MessageClass cls) const;
   
  private:
   // LLC -> NOC command queue (NOC owned)
   MessageQueue* llc_noc__msg_q_ = nullptr;
   // NOC -> LLC response queue (LLC owned)
   MessageQueue* noc_llc__msg_q_ = nullptr;
+  // DIR -> LLC command queue (LLC owned)
+  MessageQueue* dir_llc__cmd_q_ = nullptr;
+  // MEM -> LLC response queue (LLC owned)
+  MessageQueue* mem_llc__rsp_q_ = nullptr;
   // Queue selector arbiter
-  Arbiter<const Message*>* arb_ = nullptr;
+  MessageQueueArbiter* arb_ = nullptr;
   // Home memory controller
   MemCntrlModel* mc_ = nullptr;
-  // Main thread 
-  MainProcess* main_ = nullptr;
+  // Home directory.
+  DirectoryModel* dir_ = nullptr;
+  // Request distruction process.
+  RdisProcess* rdis_proc_ = nullptr;
+  // NOC Ingress process
+  NocIngressProcess* noci_proc_ = nullptr;
   // LLC Cache configuration
   LLCModelConfig config_;
 };

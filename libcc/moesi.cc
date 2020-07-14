@@ -161,7 +161,13 @@ bool is_stable(MOESICCState state) {
 //
 //
 enum class MOESIDirState {
-  I, I_S, S, E, M
+  I,
+  I_S,
+  S,
+  I_E,
+  M,
+  E,
+  O
 };
 
 //
@@ -171,8 +177,10 @@ const char* to_string(MOESIDirState state) {
     case MOESIDirState::I: return "I";
     case MOESIDirState::I_S: return "I_S";
     case MOESIDirState::S: return "S";
+    case MOESIDirState::I_E: return "I_E";
     case MOESIDirState::E: return "E";
     case MOESIDirState::M: return "M";
+    case MOESIDirState::O: return "O";
     default: return "Invalid";
   }
 }
@@ -273,7 +281,7 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
         commits = apply(al, context, l1cmdmsg);
       } break;
       case MessageClass::L2Rsp: {
-        const L2RspMsg* l2rspmsg = static_cast<const L2RspMsg*>(msg);
+        const L2CmdRspMsg* l2rspmsg = static_cast<const L2CmdRspMsg*>(msg);
         commits = apply(al, context, l2rspmsg);
       } break;
       default: {
@@ -333,7 +341,7 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
           case L1CacheOpcode::CpuLoad: {
             commits = true;
 
-            L1RspMsg* l1rspmsg = new L1RspMsg();
+            L1CmdRspMsg* l1rspmsg = new L1CmdRspMsg();
             l1rspmsg->set_t(msg->t());
             al.push_back(new EmitMessageAction(l1cache()->l1_cpu__rsp_q(), l1rspmsg));
           } break;
@@ -359,20 +367,20 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
   }
 
   bool apply(L1CoherenceActionList& al, const L1CoherenceContext& context,
-             const L2RspMsg* msg) const {
+             const L2CmdRspMsg* msg) const {
     bool commits = false;
     MOESIL1LineState* line = static_cast<MOESIL1LineState*>(context.line());
     switch (line->state()) {
       case MOESIL1State::I_S: {
-        L1RspMsg* l1rsp = new L1RspMsg();
+        L1CmdRspMsg* l1rsp = new L1CmdRspMsg();
         l1rsp->set_t(msg->t());
         al.push_back(new EmitMessageAction(l1cache()->l1_cpu__rsp_q(), l1rsp));
 
         switch (msg->opcode()) {
-          case L2RspOpcode::L1PutS: {
+          case L2RspOpcode::L1InstallS: {
             al.push_back(new UpdateStateAction(line, MOESIL1State::S));
           } break;
-          case L2RspOpcode::L1PutE: {
+          case L2RspOpcode::L1InstallE: {
             // Requested a line in the Shared state; line arrives in
             // the exclusive state.
             al.push_back(new UpdateStateAction(line, MOESIL1State::E));
@@ -457,6 +465,14 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
         const L2CmdMsg* l2cmdmsg = static_cast<const L2CmdMsg*>(msg);
         commits = apply(al, context, l2cmdmsg);
       } break;
+      case MessageClass::AceCmdRspR: {
+        const AceCmdRspRMsg* acersp = static_cast<const AceCmdRspRMsg*>(msg);
+        commits = apply(al, context, acersp);
+      } break;
+      case MessageClass::AceCmdRspB: {
+        const AceCmdRspBMsg* acersp = static_cast<const AceCmdRspBMsg*>(msg);
+        commits = apply(al, context, acersp);
+      } break;
       default: {
         al.push_back(new ProtocolViolation("Invalid message class"));
       } break;
@@ -481,7 +497,9 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
           } break;
         }
         acecmd->set_addr(msg->addr());
+        acecmd->set_t(msg->t());
         al.push_back(new EmitMessageAction(l2cache()->l2_cc__cmd_q(), acecmd));
+
         // Update state
         al.push_back(new UpdateStateAction(line, MOESIL2State::I_S));
       } break;
@@ -489,9 +507,9 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
         switch (msg->opcode()) {
           case L2CmdOpcode::L1GetS: {
             commits = true;
-            L2RspMsg* l2rsp = new L2RspMsg();
+            L2CmdRspMsg* l2rsp = new L2CmdRspMsg();
             l2rsp->set_t(msg->t());
-            l2rsp->set_opcode(L2RspOpcode::L1PutS);
+            l2rsp->set_opcode(L2RspOpcode::L1InstallS);
             MessageQueue* l2_l1__rsp_q = msg->l1cache()->l2_l1__rsp_q();
             al.push_back(new EmitMessageAction(l2_l1__rsp_q, l2rsp));
           } break;
@@ -518,6 +536,37 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
     }
     return commits;
   }
+
+  bool apply(L2CoherenceActionList& al, const L2CoherenceContext& context,
+             const AceCmdRspRMsg* msg) const {
+    bool commits = false;
+    MOESIL2LineState* line = static_cast<MOESIL2LineState*>(context.line());
+
+    // Emit response to L1
+    L2CmdRspMsg* rsp = new L2CmdRspMsg;
+    rsp->set_t(msg->t());
+    const L2RspOpcode opcode =
+        msg->is_shared() ? L2RspOpcode::L1InstallS : L2RspOpcode::L1InstallE;
+    rsp->set_opcode(opcode);
+
+    MessageQueue* l2_l1__rsp_q = l2cache()->l2_l1__rsp_q(0);
+    al.push_back(new EmitMessageAction(l2_l1__rsp_q, rsp));
+
+    // Compute final line state based upon state in the R-channel.
+    const MOESIL2State state =
+        (msg->pass_dirty() ? MOESIL2State::O : (
+            msg->is_shared() ? MOESIL2State::S : MOESIL2State::E));
+    al.push_back(new UpdateStateAction(line, state));
+    
+    return commits;
+  }
+
+  bool apply(L2CoherenceActionList& al, const L2CoherenceContext& context,
+             const AceCmdRspBMsg* msg) const {
+    bool commits = false;
+    return commits;
+  }
+
 };
 
 //
@@ -527,12 +576,16 @@ class MOESIDirLineState : public DirLineState {
   MOESIDirLineState() {}
 
   MOESIDirState state() const { return state_; }
+  Agent* owner() const { return owner_; }
   bool is_stable() const { return true; }
 
+  //
   void set_state(MOESIDirState state) { state_ = state; }
+  void set_owner(Agent* owner) { owner_ = owner; }
   
  private:
   MOESIDirState state_;
+  Agent* owner_;
 };
 
 //
@@ -565,6 +618,21 @@ class MOESIDirectoryProtocol : public DirectoryProtocol {
     MessageQueue* mq_ = nullptr;
     const Message* msg_ = nullptr;
   };
+
+  //
+  struct SetOwnerAction : public CoherenceAction {
+    SetOwnerAction(MOESIDirLineState* line, Agent* owner)
+        : line_(line), owner_(owner)
+    {}
+    bool execute() override {
+      line_->set_owner(owner_);
+      return true;
+    }
+   private:
+    MOESIDirLineState* line_ = nullptr;
+    Agent* owner_ = nullptr;
+  };
+  
  public:
   MOESIDirectoryProtocol() {}
 
@@ -587,6 +655,10 @@ class MOESIDirectoryProtocol : public DirectoryProtocol {
       case MessageClass::DirCmd: {
         const DirCmdMsg* dircmd = static_cast<const DirCmdMsg*>(msg);
         commits = apply(al, context, dircmd);
+      } break;
+      case MessageClass::LLCCmdRsp: {
+        const LLCCmdRspMsg* llcrsp = static_cast<const LLCCmdRspMsg*>(msg);
+        commits = apply(al, context, llcrsp);
       } break;
       default: {
         al.push_back(new ProtocolViolation("Invalid line state"));
@@ -615,8 +687,39 @@ class MOESIDirectoryProtocol : public DirectoryProtocol {
 
         MessageQueue* dir_noc__msg_q = d->dir_noc__msg_q();
         al.push_back(new EmitMessageAction(dir_noc__msg_q, nocmsg));
+
+        // Set owner to requester:
+        al.push_back(new SetOwnerAction(line, msg->origin()));
         
-        al.push_back(new UpdateStateAction(line, MOESIDirState::I_S));
+        // Update State:
+        al.push_back(new UpdateStateAction(line, MOESIDirState::I_E));
+      } break;
+      default: {
+      } break;
+    }
+    return commits;
+  }
+
+  bool apply(DirectoryActionList& al, const DirCoherenceContext& context,
+             const LLCCmdRspMsg* msg) const {
+    bool commits = true;
+    MOESIDirLineState* line = static_cast<MOESIDirLineState*>(context.line());
+    switch (line->state()) {
+      case MOESIDirState::I_E: {
+        DirCmdRspMsg* dirrsp = new DirCmdRspMsg;
+        dirrsp->set_t(msg->t());
+
+        DirectoryModel* d = dir();
+        NocMsg* nocmsg = new NocMsg;
+        nocmsg->set_payload(dirrsp);
+        nocmsg->set_origin(d);
+        nocmsg->set_dest(line->owner());
+
+        MessageQueue* dir_noc__msg_q = d->dir_noc__msg_q();
+        al.push_back(new EmitMessageAction(dir_noc__msg_q, nocmsg));
+
+        // Update state:
+        al.push_back(new UpdateStateAction(line, MOESIDirState::E));
       } break;
       default: {
       } break;
@@ -683,6 +786,10 @@ class MOESICacheControllerProtocol : public CacheControllerProtocol {
         const AceCmdMsg* acecmd = static_cast<const AceCmdMsg*>(msg);
         commits = apply(al, context, acecmd);
       } break;
+      case MessageClass::DirRsp: {
+        const DirCmdRspMsg* dirrsp = static_cast<const DirCmdRspMsg*>(msg);
+        commits = apply(al, context, dirrsp);
+      } break;
       default: {
         al.push_back(new ProtocolViolation("Invalid message class"));
       } break;
@@ -699,7 +806,10 @@ class MOESICacheControllerProtocol : public CacheControllerProtocol {
       case AceCmdOpcode::ReadShared: {
         // Pass command to associated directory.
         DirCmdMsg* dirmsg = new DirCmdMsg;
+        dirmsg->set_opcode(msg->opcode());
+        dirmsg->set_addr(msg->addr());
         dirmsg->set_t(msg->t());
+        dirmsg->set_origin(cc());
         
         NocMsg* nocmsg = new NocMsg;
         nocmsg->set_t(msg->t());
@@ -720,6 +830,24 @@ class MOESICacheControllerProtocol : public CacheControllerProtocol {
     }
     return commits;
   }
+
+  bool apply(CacheControllerActionList& al, const CacheControllerContext& context,
+             const DirCmdRspMsg* msg) const {
+    bool commits = false;
+    MOESICacheControllerLineState* line =
+        static_cast<MOESICacheControllerLineState*>(context.line());
+
+    AceCmdRspRMsg* acersp = new AceCmdRspRMsg;
+    acersp->set_t(msg->t());
+    acersp->set_pass_dirty(false);
+    acersp->set_is_shared(false);
+
+    // Emit message to L2
+    MessageQueue* cc_l2__rsp_q = cc()->cc_l2__rsp_q();
+    al.push_back(new EmitMessageAction(cc_l2__rsp_q, acersp));
+    
+    return commits;
+  }  
 };
 
 class MOESIProtocolBuilder : public ProtocolBuilder {

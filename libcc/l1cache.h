@@ -77,9 +77,12 @@ class L1CmdMsg : public Message {
 
 //
 //
-class L1RspMsg : public Message {
+class L1CmdRspMsg : public Message {
  public:
-  L1RspMsg();
+  L1CmdRspMsg();
+
+  //
+  std::string to_string() const override;
 };
 
 //

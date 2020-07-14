@@ -53,10 +53,11 @@ L2CmdMsg::L2CmdMsg() : Message(MessageClass::L2Cmd) {}
 
 std::string L2CmdMsg::to_string() const {
   using cc::to_string;
-  
+
   std::stringstream ss;
   {
     KVListRenderer r(ss);
+    r.add_field("cls", to_string(cls()));
     r.add_field("opcode", to_string(opcode()));
     Hexer h;
     r.add_field("addr", h.to_hex(addr()));
@@ -64,7 +65,34 @@ std::string L2CmdMsg::to_string() const {
   return ss.str();
 }
 
-L2RspMsg::L2RspMsg() : Message(MessageClass::L2Rsp) {}
+//
+//
+L2CmdRspMsg::L2CmdRspMsg() : Message(MessageClass::L2Rsp) {}
+
+//
+//
+const char* to_string(L2RspOpcode opcode) {
+  switch (opcode) {
+    case L2RspOpcode::L1InstallS: return "L1InstallS";
+    case L2RspOpcode::L1InstallE: return "L1InstallE";
+    default: return "Invalid";
+  }
+}
+
+//
+//
+std::string L2CmdRspMsg::to_string() const {
+  using cc::to_string;
+
+  std::stringstream ss;
+  {
+    KVListRenderer r(ss);
+    r.add_field("cls", to_string(cls()));
+    r.add_field("opcode", to_string(opcode()));
+  }
+  return ss.str();
+}
+
 
 class L2CacheModel::MainProcess : public kernel::Process {
   using Tournament = MessageQueueArbiter::Tournament;
@@ -197,6 +225,7 @@ class L2CacheModel::MainProcess : public kernel::Process {
               L2LineState* l2line = protocol->construct_line();
               // Install newly constructed line in the cache set.
               set.install(it, ah.tag(cmdmsg->addr()), l2line);
+              it_ = it;
               // Apply state update to the line.
               context_ = L2CoherenceContext();
               context_.set_line(l2line);
@@ -212,10 +241,34 @@ class L2CacheModel::MainProcess : public kernel::Process {
           }
         }
       } break;
+      case MessageClass::AceCmdRspB:
+      case MessageClass::AceCmdRspR: {
+        if (true) {
+          context_ = L2CoherenceContext();
+          context_.set_line(it_->t());
+          context_.set_msg(msg);
+          const L2CacheModelProtocol* protocol = model_->protocol();
+          bool commits = false;
+          std::tie(commits, action_list_) = protocol->apply(context_);
+          // Advance to execute state.
+          set_state(State::ExecuteActions);
+          next_delta();
+        } else {
+          // Cache line not installed for current line.
+        }
+      } break;
       default: {
+        using cc::to_string;
+
+        LogMessage lmsg("Invalid message class received: ");
+        lmsg.append(to_string(msg->cls()));
+        lmsg.level(Level::Fatal);
+        log(lmsg);
       } break;
     }
   }
+
+  CacheLineIt it_;
 
   void handle_execute_actions() {
     while (!action_list_.empty()) {
