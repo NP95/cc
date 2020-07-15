@@ -114,14 +114,25 @@ void CpuCluster::elab() {
 void CpuCluster::drc() {
   if (l1cs_.empty()) {
     // Warning: no L1 instance.
+    const LogMessage msg("No L1(s) configured", Level::Fatal);
+    log(msg);
   }
 
   if (cpus_.empty()) {
     // Warning: no CPU, therefore no stimulus.
+    const LogMessage msg("No CPU(s) configured", Level::Fatal);
+    log(msg);
   }
   
   if (cpus_.size() != l1cs_.size()) {
     // Fatal: Size mismatch on CPU to L1 Cache instances.
+    LogMessage msg("Count mismatch on L1 (");
+    msg.append(std::to_string(l1cs_.size()));
+    msg.append(") and CPU (");
+    msg.append(std::to_string(cpus_.size()));
+    msg.append(")");
+    msg.level(Level::Fatal);
+    log(msg);
   }
 }
 
