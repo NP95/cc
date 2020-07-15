@@ -107,9 +107,7 @@ void TraceStimulus::drc() {
 void TraceStimulus::parse_tracefile() {
   using time_type = kernel::Time::time_type;
 
-  // Resolve index to context* mapping.
-  const std::vector<TraceStimulusContext*> ctxt_table = compute_index_table();
-
+  // Scanner states
   enum class State {
     Scanning,
     InLineComment,
@@ -126,16 +124,16 @@ void TraceStimulus::parse_tracefile() {
   std::string ctxt;
   // Current scanner time cursor.
   time_type current_time = 0;
-
+  // Command context
   struct {
-    //
     std::size_t cpu_index;
-    //
     CpuOpcode opcode;
-    //
     addr_t addr;
   } cmd_ctxt;
 
+  // Resolve index to context* mapping.
+  const std::vector<TraceStimulusContext*> ctxt_table = compute_index_table();
+  // Start scanning file.
   while (!is_->eof()) {
     // Advance column
     col++;
@@ -268,12 +266,24 @@ void TraceStimulus::parse_tracefile() {
       }
     }
   }
+  if (state != State::Scanning) {
+    // Expect to be back in the idle state upon EOF; if not the file
+    // appears to have been truncated.
+    LogMessage msg("Tracefile has been truncated at (");
+    msg.append(std::to_string(line));
+    msg.append(", ");
+    msg.append(std::to_string(col));
+    msg.append(")");
+    msg.level(Level::Fatal);
+    log(msg);
+  }
 }
 
 std::vector<TraceStimulusContext*> TraceStimulus::compute_index_table() {
   std::vector<TraceStimulusContext*> t;
   const StimulusCfg& cfg = config();
   for (const std::string& path : cfg.cpath) {
+    // Utility class to find CPU in the instance set.
     struct CpuFinder {
       CpuFinder(const std::string& path) : path_(path) {}
       bool operator()(const std::pair<Cpu*, TraceStimulusContext*> p) const {
@@ -282,11 +292,12 @@ std::vector<TraceStimulusContext*> TraceStimulus::compute_index_table() {
      private:
       std::string path_;
     };
-
+    // Search for CPU corresponding to path in set of registered
+    // instance; if not found, bail.
     std::map<Cpu*, TraceStimulusContext*>::iterator it =
         std::find_if(cpumap_.begin(), cpumap_.end(), CpuFinder{path});
-
     if (it == cpumap_.end()) {
+      // CPU with path was not found.
       LogMessage msg("Cannot find cpu path: ");
       msg.append(path);
       msg.level(Level::Fatal);
@@ -297,7 +308,6 @@ std::vector<TraceStimulusContext*> TraceStimulus::compute_index_table() {
   }
   return t;
 }
-
 
 StimulusContext* TraceStimulus::register_cpu(Cpu* cpu) {
   TraceStimulusContext* ctxt =
