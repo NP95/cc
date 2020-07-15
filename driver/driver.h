@@ -25,34 +25,14 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_DRIVER_BUILDER_H
-#define CC_DRIVER_BUILDER_H
-
-#include "cc/soc.h"
-#include "cc/cfgs.h"
-#include <exception>
-#include <istream>
+#ifndef CC_DRIVER_DRIVER_H
+#define CC_DRIVER_DRIVER_H
 
 namespace cc {
 
-class BuilderException : public std::invalid_argument {
- public:
-  BuilderException(const std::string& what)
-      : invalid_argument(what)
-  {}
-  //
-  std::size_t line() const { return line_; }
-  const char* file() const { return file_; }
+#define MACRO_BEGIN do {
 
-  //
-  void set_line(std::size_t line) { line_ = line; }
-  void set_file(const char* file) { file_ = file; }
- private:
-  const char* file_ = nullptr;
-  std::size_t line_;
-};
-
-SocConfig build_soc_config(std::istream& is);
+#define MACRO_END } while (false)
 
 } // namespace cc
 

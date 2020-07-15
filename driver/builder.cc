@@ -25,6 +25,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
+#include "driver.h"
 #include "builder.h"
 #include "cc/stimulus.h"
 
@@ -35,14 +36,28 @@ namespace cc {
 
 class SocConfigBuilderJson {
 #define CHECK(__name)                                                   \
-  if (!j.contains(#__name))                                             \
-    throw BuilderException("Required argument not found: " #__name)
+  MACRO_BEGIN                                                           \
+  if (!j.contains(#__name)) {                                           \
+    BuilderException ex("Required argument not found: " #__name);       \
+    ex.set_line(__LINE__);                                              \
+    ex.set_file(__FILE__);                                              \
+    throw ex;                                                           \
+  }                                                                     \
+  MACRO_END
+  
   
 #define CHECK_AND_SET(__name)                                           \
-  if (j.contains(#__name))                                              \
+  MACRO_BEGIN                                                           \
+  if (j.contains(#__name)) {                                            \
     c.__name = j[#__name];                                              \
-  else                                                                  \
-    throw BuilderException("Required argument not found: " #__name)
+  } else  {                                                             \
+    BuilderException ex("Required argument not found: " #__name);       \
+    ex.set_line(__LINE__);                                              \
+    ex.set_file(__FILE__);                                              \
+    throw ex;                                                           \
+  }                                                                     \
+  MACRO_END
+  
 
 #define CHECK_AND_SET_OPTIONAL(__name)                  \
   if (j.contains(#__name)) c.__name = j[#__name]

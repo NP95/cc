@@ -38,7 +38,10 @@ int main(int argc, const char** argv) {
     cfg = cc::build_soc_config(is);
   } catch (const cc::BuilderException& ex) {
     std::cerr << "Failed to parse configuration file: "
-              << ex.what() << "\n";
+              << ex.what()
+              << " at: "
+              << ex.file() << ":" << ex.line()
+              << "\n";
     return 1;
   }
 
