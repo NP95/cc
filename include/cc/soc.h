@@ -34,13 +34,13 @@ namespace cc {
 
 namespace kernel { class Kernel; }
 
-class SocCfg;
+class SocConfig;
 class SocTop;
 class ProtocolBuilder;
 
 class Soc {
  public:
-  Soc(const SocCfg& soccfg);
+  Soc(const SocConfig& soccfg);
   ~Soc();
 
   void initialize();
@@ -50,7 +50,7 @@ class Soc {
   void finalize();
   
  private:
-  void build(const SocCfg& config);
+  void build(const SocConfig& config);
 
   // Simulation kernel instance
   kernel::Kernel* kernel_;
@@ -60,7 +60,7 @@ class Soc {
 
 //
 //
-Soc* construct_soc(const SocCfg& soccfg);
+Soc* construct_soc(const SocConfig& soccfg);
 
 //
 //

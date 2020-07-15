@@ -32,7 +32,7 @@
 
 int main(int argc, const char** argv) {
 
-  cc::SocCfg cfg;
+  cc::SocConfig cfg;
   try {
     std::ifstream is(argv[1]);
     cfg = cc::build_soc_config(is);

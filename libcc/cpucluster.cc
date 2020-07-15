@@ -34,7 +34,7 @@
 
 namespace cc {
 
-CpuCluster::CpuCluster(kernel::Kernel* k, const CpuClusterCfg& config,
+CpuCluster::CpuCluster(kernel::Kernel* k, const CpuClusterConfig& config,
                        Stimulus* stimulus)
     : Agent(k, config.name), config_(config), stimulus_(stimulus) {
   build();

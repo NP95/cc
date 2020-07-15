@@ -40,7 +40,7 @@ std::string to_string(CpuOpcode opcode) {
   }
 }
 
-Stimulus::Stimulus(kernel::Kernel* k, const StimulusCfg& config)
+Stimulus::Stimulus(kernel::Kernel* k, const StimulusConfig& config)
     : Module(k, config.name), config_(config) {
 }
 
@@ -82,7 +82,7 @@ class TraceStimulusContext : public StimulusContext {
 
 
 
-TraceStimulus::TraceStimulus(kernel::Kernel* k, const StimulusCfg& config)
+TraceStimulus::TraceStimulus(kernel::Kernel* k, const StimulusConfig& config)
     : Stimulus(k, config) {
   build();
 }
@@ -92,7 +92,7 @@ TraceStimulus::~TraceStimulus() {
 }
 
 void TraceStimulus::build() {
-  const StimulusCfg& c = config();
+  const StimulusConfig& c = config();
   std::cout << c.filename << "\n";
   is_ = new std::ifstream(c.filename);
 }
@@ -143,6 +143,7 @@ void TraceStimulus::parse_tracefile() {
     // Skip whitespace
     if (c == ' ') continue;
 
+    // Check for comment
     if (c == '/' && is_->peek() == '/') {
       is_->get();
       state = State::InLineComment;
@@ -281,8 +282,8 @@ void TraceStimulus::parse_tracefile() {
 
 std::vector<TraceStimulusContext*> TraceStimulus::compute_index_table() {
   std::vector<TraceStimulusContext*> t;
-  const StimulusCfg& cfg = config();
-  for (const std::string& path : cfg.cpath) {
+  const StimulusConfig& cfg = config();
+  for (const std::string& path : cfg.cpaths) {
     // Utility class to find CPU in the instance set.
     struct CpuFinder {
       CpuFinder(const std::string& path) : path_(path) {}
@@ -316,7 +317,7 @@ StimulusContext* TraceStimulus::register_cpu(Cpu* cpu) {
   return ctxt;
 }
 
-Stimulus* stimulus_builder(kernel::Kernel* k, const StimulusCfg& cfg) {
+Stimulus* stimulus_builder(kernel::Kernel* k, const StimulusConfig& cfg) {
   return new TraceStimulus(k, cfg);
 }
 

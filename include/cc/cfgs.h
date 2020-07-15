@@ -66,8 +66,6 @@ struct CacheModelConfig {
 struct CpuConfig {
   // Instance name
   std::string name = "cpu";
-  // CPU stimulus driver
-  Stimulus* stimulus = nullptr;
 };
 
 //
@@ -75,11 +73,6 @@ struct CpuConfig {
 struct L1CacheModelConfig {
   // L1 Cache Model name
   std::string name = "l1cache";
-
-  // Pointer to the transaction source instance for the current l1
-  // cache instance (models the notion of a microprocessor
-  // periodically emitting load/store instructions to memory).
-  Stimulus* stim = nullptr;
 
   // Number of slots in the command queue.
   std::size_t l1_cmdq_slots_n = 3;
@@ -103,9 +96,6 @@ struct L2CacheModelConfig {
   // L2 Cache Model name
   std::string name = "l2cache";
 
-  // Child L1 client configurations.
-  std::vector<L1CacheModelConfig> l1configs;
-
   // Cache configuration.
   CacheModelConfig cconfig;
 
@@ -119,10 +109,6 @@ struct L2CacheModelConfig {
 struct NocModelConfig {
   // NOC model name
   std::string name = "noc";
-
-  // The number of ingress ports;
-  std::size_t ingress_ports_n = 1;
-
   // Ingress Message Queue capacity in messages.
   std::size_t ingress_q_n = 16;
 };
@@ -169,7 +155,7 @@ struct DirectoryModelConfig {
 
 //
 //
-struct CacheControllerCfg {
+struct CacheControllerConfig {
   // Controller name
   std::string name = "ccntrl";
 
@@ -179,12 +165,12 @@ struct CacheControllerCfg {
 
 //
 //
-struct CpuClusterCfg {
+struct CpuClusterConfig {
   // Cluster name;
   std::string name = "cluster";
 
   // Cache Controller config;
-  CacheControllerCfg cc_config;
+  CacheControllerConfig cc_config;
 
   // L2 cache configuration.
   L2CacheModelConfig l2c_config;
@@ -198,26 +184,30 @@ struct CpuClusterCfg {
 
 //
 //
-struct StimulusCfg {
+struct StimulusConfig {
   // Module name
   std::string name = "stimulus";
+  // Type
+  std::string type = "trace";
   // Trace file.
   std::string filename;
   // Index to cpu instance mapping.
-  std::vector<std::string> cpath;
+  std::vector<std::string> cpaths;
 };
 
 //
 //
-struct SocCfg {
+struct SocConfig {
   // Toplevel name
   std::string name = "top";
+  // Coherence protocol
+  std::string protocol = "moesi";
   // Cpu Cluster configuration.
-  std::vector<CpuClusterCfg> ccls;
+  std::vector<CpuClusterConfig> ccls;
   // Directory configuration.
   std::vector<DirectoryModelConfig> dcfgs;
   // Stimulus configuration.
-  StimulusCfg scfg;
+  StimulusConfig scfg;
   // NOC/Interconnect configuration.
   NocModelConfig noccfg;
 };

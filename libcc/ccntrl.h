@@ -46,11 +46,11 @@ class CacheController : public Agent {
   class RdisProcess;
   class NocIngressProcess;
  public:
-  CacheController(kernel::Kernel* k, const CacheControllerCfg& config);
+  CacheController(kernel::Kernel* k, const CacheControllerConfig& config);
   ~CacheController();
 
   // Obtain cache controller configuration.
-  const CacheControllerCfg& config() const { return config_; }
+  const CacheControllerConfig& config() const { return config_; }
   // L2 -> Controller (Transaction) Command Queue (owning)
   MessageQueue* l2_cc__cmd_q() const { return l2_cc__cmd_q_; }
   // CC -> L2 Queue
@@ -119,7 +119,7 @@ class CacheController : public Agent {
   // Cache controller protocol instance.
   CacheControllerProtocol* protocol_ = nullptr;
   // Cache controller configuration.
-  CacheControllerCfg config_;
+  CacheControllerConfig config_;
 };
 
 } // namespace cc

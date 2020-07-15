@@ -42,7 +42,7 @@ class BuilderException : public std::invalid_argument {
   {}
 };
 
-SocCfg build_soc_config(std::istream& is);
+SocConfig build_soc_config(std::istream& is);
 
 } // namespace cc
 

@@ -40,7 +40,7 @@ namespace cc {
 
 class SocTop : public kernel::TopModule {
  public:
-  SocTop(kernel::Kernel* k, const SocCfg& cfg)
+  SocTop(kernel::Kernel* k, const SocConfig& cfg)
       : TopModule(k, cfg.name), config_(cfg) {
     build();
   }
@@ -58,7 +58,7 @@ class SocTop : public kernel::TopModule {
     delete stimulus_;
   }
 
-  const SocCfg& config() const { return config_; }
+  const SocConfig& config() const { return config_; }
 
  private:
   void build() {
@@ -77,7 +77,7 @@ class SocTop : public kernel::TopModule {
     mms_.push_back(mm);
     
     // Construct child CPU clusters
-    for (const CpuClusterCfg& cccfg : config_.ccls) {
+    for (const CpuClusterConfig& cccfg : config_.ccls) {
       CpuCluster* cpuc = new CpuCluster(k(), cccfg, stimulus_);
       // NOC end point is the coherence controller within the CPU
       // cluster; not the CPU cluster itself.
@@ -191,10 +191,10 @@ class SocTop : public kernel::TopModule {
   // Stimulus "module" instance.
   Stimulus* stimulus_;
   // Soc configuration
-  SocCfg config_;
+  SocConfig config_;
 };
 
-Soc::Soc(const SocCfg& cfg) {
+Soc::Soc(const SocConfig& cfg) {
   build(cfg);
 }
 
@@ -218,14 +218,14 @@ void Soc::finalize() {
   kernel_->invoke_fini();
 }
 
-void Soc::build(const SocCfg& cfg) {
+void Soc::build(const SocConfig& cfg) {
   // Construct simulation kernel
   kernel_ = new kernel::Kernel(1);
   // Construct top-level instance.
   top_ = new SocTop(kernel_, cfg);
 }
 
-Soc* construct_soc(const SocCfg& soccfg) {
+Soc* construct_soc(const SocConfig& soccfg) {
   return new Soc(soccfg);
 }
 

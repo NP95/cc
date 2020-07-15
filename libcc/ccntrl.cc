@@ -322,7 +322,7 @@ class CacheController::RdisProcess : public kernel::Process {
 };
 
 CacheController::CacheController(
-    kernel::Kernel* k, const CacheControllerCfg& config)
+    kernel::Kernel* k, const CacheControllerConfig& config)
     : Agent(k, config.name), config_(config) {
   build();
 }

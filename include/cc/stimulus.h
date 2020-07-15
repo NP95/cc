@@ -95,18 +95,18 @@ class StimulusContext : public kernel::Module {
 //
 class Stimulus : public kernel::Module {
  public:
-  Stimulus(kernel::Kernel* k, const StimulusCfg& config);
+  Stimulus(kernel::Kernel* k, const StimulusConfig& config);
   virtual ~Stimulus() = default;
 
   // Accessors:
-  const StimulusCfg& config() const { return config_; }
+  const StimulusConfig& config() const { return config_; }
 
   // Register a new CPU instance.
   virtual StimulusContext* register_cpu(Cpu* cpu) { return nullptr; }
 
  private:
   // Configuration
-  StimulusCfg config_;
+  StimulusConfig config_;
 };
 
 // Trace file specification:
@@ -135,7 +135,7 @@ class Stimulus : public kernel::Module {
 //
 class TraceStimulus : public Stimulus {
  public:
-  TraceStimulus(kernel::Kernel* k, const StimulusCfg& config);
+  TraceStimulus(kernel::Kernel* k, const StimulusConfig& config);
   ~TraceStimulus();
  private:
 
@@ -159,7 +159,7 @@ class TraceStimulus : public Stimulus {
 
 //
 //
-Stimulus* stimulus_builder(kernel::Kernel* k, const StimulusCfg& cfg);
+Stimulus* stimulus_builder(kernel::Kernel* k, const StimulusConfig& cfg);
 
 }  // namespace cc
 

@@ -43,10 +43,10 @@ class Cpu;
 class CpuCluster : public Agent {
   friend class SocTop;
  public:
-  CpuCluster(kernel::Kernel* k, const CpuClusterCfg& cfg, Stimulus* stimulus);
+  CpuCluster(kernel::Kernel* k, const CpuClusterConfig& cfg, Stimulus* stimulus);
 
   //
-  const CpuClusterCfg& config() const { return config_; }
+  const CpuClusterConfig& config() const { return config_; }
 
   // Child cache controller instance.
   CacheController* cc() const { return cc_; }
@@ -77,7 +77,7 @@ class CpuCluster : public Agent {
   // Global stimulus instance
   Stimulus* stimulus_ = nullptr;
   // Cluster configuration.
-  CpuClusterCfg config_;
+  CpuClusterConfig config_;
 };
 
 } // namespace cc

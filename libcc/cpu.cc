@@ -94,7 +94,7 @@ class Cpu::ProducerProcess : public kernel::Process {
 
     // Await next command
     if (stimulus->front(f)) {
-      wait_for(f.time);
+      wait_until(f.time);
     }
   }
 

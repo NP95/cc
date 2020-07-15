@@ -1,13 +1,50 @@
 {
+    "name" : "top",
     "protocol" : "moesi",
-    "filename" : "/Users/stephenry/h/github/cc/cfgs/base.trace",
-    "stimulus" : {
-        "type" : "trace",
-        "options" : {
-            "filename" : "base.trace",
-            "map" : [
-                "top.cluster.cpu"
+    "ccls" : [
+        {
+            "name" : "cluster",
+            "cc_config" : {
+                "name" : "cc"
+            },
+            "l2c_config" : {
+                "name" : "l2cache",
+                "cconfig" : {
+                }
+            },
+            "l1c_config" : [
+                {
+                    "name" : "l1cache",
+                    "cconfig" : {
+                    }
+                }
+            ],
+            "cpu_configs" : [
+                {
+                    "name" : "cpu"
+                }
             ]
         }
+    ],
+    "dcfgs" : [
+        {
+            "name" : "dir",
+            "llcconfig" : {
+                "name" : "llc"
+            },
+            "cconfig" : {
+            }
+        }
+    ],
+    "scfg" : {
+        "name" : "stimulus",
+        "type" : "trace",
+        "filename" : "/Users/stephenry/h/github/cc/cfgs/base.trace",
+        "cpath" : [
+            "top.cluster.cpu"
+        ]
+    },
+    "noccfg" : {
+        "name" : "noc"
     }
 }

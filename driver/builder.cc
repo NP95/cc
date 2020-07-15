@@ -33,71 +33,237 @@ using json = nlohmann::json;
 
 namespace cc {
 
-class SocCfgBuilderJson {
+class SocConfigBuilderJson {
+#define CHECK(__name)                                                   \
+  if (!j.contains(#__name))                                             \
+    throw BuilderException("Required argument not found: " #__name)
+  
+#define CHECK_AND_SET(__name)                                           \
+  if (j.contains(#__name))                                              \
+    c.__name = j[#__name];                                              \
+  else                                                                  \
+    throw BuilderException("Required argument not found: " #__name)
+
+#define CHECK_AND_SET_OPTIONAL(__name)                  \
+  if (j.contains(#__name)) c.__name = j[#__name]
+
  public:
-  SocCfgBuilderJson(std::istream& is) : is_(is) {
+  SocConfigBuilderJson(std::istream& is) : is_(is) {
     is >> jtop_;
   }
 
-  SocCfg build() {
-    SocCfg soc;
-    build_top(soc, jtop_);
-    
-    CpuClusterCfg cfg;
-    cfg.cc_config.pbuilder = pb_;
-    cfg.l2c_config.pbuilder = pb_;
-    for (int i = 0; i < 1; i++) {
-      L1CacheModelConfig l1c;
-      l1c.pbuilder = pb_;
-      cfg.l1c_configs.push_back(l1c);
-
-      CpuConfig cpu;
-    
-      //  ProgrammaticStimulus* s = new ProgrammaticStimulus;
-      //s->push_back(kernel::Time{100}, Command{CpuOpcode::Load, 0});
-      //cpu.stimulus = s;
-    
-      cfg.cpu_configs.push_back(cpu);
-    }
-
-    // Construct a directory
-    DirectoryModelConfig dir;
-    dir.pbuilder = pb_;
-
-    soc.ccls.push_back(cfg);
-    soc.dcfgs.push_back(dir);
-
-    soc.scfg.filename = jtop_["filename"];
-    soc.scfg.cpath.push_back("top.cluster.cpu");
-    
+  SocConfig build() {
+    SocConfig soc;
+    build(soc, jtop_);
+    post(soc);
     return soc;
   }
 
  private:
-  void build_top(SocCfg& cfg, json j) {
-    if (j.contains("protocol")) {
-      // Construct protocol definition.
-      const std::string protocol = jtop_["protocol"];
-      pb_ = construct_protocol_builder(protocol);
-      if (pb_ == nullptr) {
-        const std::string msg = "Invalid protocol: " + protocol;
-        throw BuilderException(msg);
-      }
-    } else {
-      throw BuilderException("Protocol is not specified.");
+  void build(CacheModelConfig& c, json j) {
+    // Set .sets_n
+    CHECK_AND_SET_OPTIONAL(sets_n);
+    // Set .ways_n
+    CHECK_AND_SET_OPTIONAL(ways_n);
+    // Set .line_bytes_n
+    CHECK_AND_SET_OPTIONAL(line_bytes_n);
+  }
+
+  void build(CpuConfig& c, json j) {
+    // Set .name
+    CHECK_AND_SET(name);
+  }
+
+  void build(L1CacheModelConfig& c, json j) {
+    // Set .name
+    CHECK_AND_SET(name);
+    // Set .l1_cmdq_slots_n
+    CHECK_AND_SET_OPTIONAL(l1_cmdq_slots_n);
+    // Set .l2_cmdq_credits_n
+    CHECK_AND_SET_OPTIONAL(l2_cmdq_credits_n);
+    // Set .ldst_flush_penalty_n
+    CHECK_AND_SET_OPTIONAL(ldst_flush_penalty_n);
+    // Set .cconfig
+    CHECK(cconfig);
+    build(c.cconfig, j["cconfig"]);
+    
+  }
+
+  void build(L2CacheModelConfig& c, json j) {
+    // Set .name
+    CHECK_AND_SET(name);
+    // Set .cconfig
+    CHECK(cconfig);
+    build(c.cconfig, j["cconfig"]);
+  }
+
+  void build(NocModelConfig& c, json j) {
+    // Set .name
+    CHECK_AND_SET(name);
+    // Set .ingress_q_n
+    CHECK_AND_SET_OPTIONAL(ingress_q_n);
+  }
+
+  void build(LLCModelConfig& c, json j) {
+    // Set .name
+    CHECK_AND_SET(name);
+    // Set .cmd_queue_n
+    CHECK_AND_SET_OPTIONAL(cmd_queue_n);
+    // Set .rsp_queue_n
+    CHECK_AND_SET_OPTIONAL(rsp_queue_n);
+  }
+
+  void build(DirectoryModelConfig& c, json j) {
+    // Set .name
+    CHECK_AND_SET(name);
+    // Set .cmd_queue_n
+    CHECK_AND_SET_OPTIONAL(cmd_queue_n);
+    // Set .rsp_queue_n
+    CHECK_AND_SET_OPTIONAL(rsp_queue_n);
+    // Set .is_null_filter
+    CHECK_AND_SET_OPTIONAL(is_null_filter);
+    // Set .cconfig
+    CHECK(cconfig);
+    build(c.cconfig, j["cconfig"]);
+    // Set .llcconfig
+    CHECK(llcconfig);
+    build(c.llcconfig, j["llcconfig"]);
+  }
+
+  void build(CacheControllerConfig& c, json j) {
+    // Set .name
+    CHECK_AND_SET(name);
+  }
+
+  void build(CpuClusterConfig& c, json j) {
+    // Set .name
+    CHECK_AND_SET(name);
+    // Set .cc_config
+    CHECK(cc_config);
+    build(c.cc_config, j["cc_config"]);
+    // Set .l2c_config
+    CHECK(l2c_config);
+    build(c.l2c_config, j["l2c_config"]);
+    // Set .l1c_config
+    CHECK(l1c_config);
+    for (const auto& item : j["l1c_config"]) {
+      L1CacheModelConfig cmc;
+      build(cmc, item);
+      c.l1c_configs.push_back(cmc);
+    }
+    // Set .cpu_configs
+    CHECK(cpu_configs);
+    for (const auto& item : j["cpu_configs"]) {
+      CpuConfig cc;
+      build(cc, item);
+      c.cpu_configs.push_back(cc);
     }
   }
+
+  void build(StimulusConfig& c, json j) {
+    // Set .name
+    CHECK_AND_SET(name);
+    // Set .type
+    CHECK_AND_SET(type);
+    // Parse type related options
+    if (c.type == "trace"){
+      // Set .filename
+      CHECK_AND_SET(filename);
+      // Set .cpath
+      for (const auto& path : j["cpath"]) {
+        c.cpaths.push_back(path);
+      }
+    } else {
+      throw BuilderException("Unknown stimulus type" + c.type);
+    }
+  }
+  
+  void build(SocConfig& c, json j) {
+    // Set .name
+    CHECK_AND_SET(name);
+    // Set .protocol
+    CHECK(protocol);
+    // Construct protocol definition.
+    const std::string protocol = jtop_["protocol"];
+    pb_ = construct_protocol_builder(protocol);
+    if (pb_ == nullptr) {
+      const std::string msg = "Invalid protocol: " + protocol;
+      throw BuilderException(msg);
+    }
+    // Set .ccls (CpuClusterConfig)
+    CHECK(ccls);
+    for (const auto& item : j["ccls"]) {
+      CpuClusterConfig ccc;
+      build(ccc, item);
+      c.ccls.push_back(ccc);
+    }
+    if (c.ccls.empty())
+      throw BuilderException("No CPU clusters configured.");
+    // Set .dcfgs (DirectoryModelConfig)
+    CHECK(dcfgs);
+    for (const auto& item : j["dcfgs"]) {
+      DirectoryModelConfig dmc;
+      build(dmc, item);
+      c.dcfgs.push_back(dmc);
+    }
+    if (c.dcfgs.empty())
+      throw BuilderException("No directories configured");
+    // Set .scfg (StimulusConfig)
+    CHECK(scfg);
+    build(c.scfg, j["scfg"]);
+    // Set .noccfg (NocModelConfig)
+    CHECK(noccfg);
+    build(c.noccfg, j["noccfg"]);
+  }
+
+  void post(SocConfig& cfg) {
+    for (CpuClusterConfig& c : cfg.ccls) {
+      post(c);
+    }
+    for (DirectoryModelConfig& c : cfg.dcfgs) {
+      post(c);
+    }
+  }
+
+  void post(CpuClusterConfig& cfg) {
+    post(cfg.cc_config);
+    post(cfg.l2c_config);
+    for (L1CacheModelConfig& l1c : cfg.l1c_configs) {
+      post(l1c);
+    }
+  }
+
+  void post(CacheControllerConfig& cfg) {
+    cfg.pbuilder = pb_;
+  }
+
+  void post(L1CacheModelConfig& cfg) {
+    cfg.pbuilder = pb_;
+  }
+
+  void post(L2CacheModelConfig& cfg) {
+    cfg.pbuilder = pb_;
+  }
+
+  void post(DirectoryModelConfig& c) {
+    c.pbuilder = pb_;
+  }
+  
   //
   ProtocolBuilder* pb_ = nullptr;
   // Input configuration stream.
   std::istream& is_;
   // Top json object.
   json jtop_;
+
+#undef CHECK_AND_SET_OPTIONAL
+#undef CHECK_AND_SET
+#undef CHECK  
 };
 
 
-SocCfg build_soc_config(std::istream& is) {
-  SocCfgBuilderJson builder(is);
+SocConfig build_soc_config(std::istream& is) {
+  SocConfigBuilderJson builder(is);
   return builder.build();
 }
 
