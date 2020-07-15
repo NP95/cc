@@ -1,2 +1,4 @@
+// Advance cursor
 +200
-C:0,LD,1000
+// Issue Load to 0
+C:0,LD,0

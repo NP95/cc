@@ -112,6 +112,7 @@ void TraceStimulus::parse_tracefile() {
 
   enum class State {
     Scanning,
+    InLineComment,
     InTime,
     InCmdIndex,
     InCmdOpcode,
@@ -144,9 +145,18 @@ void TraceStimulus::parse_tracefile() {
     // Skip whitespace
     if (c == ' ') continue;
 
+    if (c == '/' && is_->peek() == '/') {
+      is_->get();
+      state = State::InLineComment;
+      continue;
+    }
+
     if (c == '\n') {
       // New line terminates current directive.
       switch (state) {
+        case State::InLineComment: {
+          // Line comment ends
+        } break;
         case State::Scanning: {
           // Skip new lines.
         } break;
@@ -180,73 +190,19 @@ void TraceStimulus::parse_tracefile() {
       state = State::Scanning;
       // Advance line count.
       line++;
-      continue;
-    }
-
-    // Otherwise, currently accumulating current directive.
-    switch (state) {
-      case State::InTime: {
-        ctxt += c;
-      } break;
-      case State::InCmdIndex: {
-        if (c == ',') {
-          cmd_ctxt.cpu_index = std::stoi(ctxt);
-          if (cmd_ctxt.cpu_index >= ctxt_table.size()) {
-            LogMessage msg("Invalid cpu index is out of range ");
-            msg.append(ctxt);
-            msg.append(" at (");
-            msg.append(std::to_string(line));
-            msg.append(", ");
-            msg.append(std::to_string(col));
-            msg.append(")");
-            msg.level(Level::Fatal);
-            log(msg);
-          }
-          // Advance to opcode.
-          ctxt.clear();
-          state = State::InCmdOpcode;
-        } else {
-          // Sill accumulating.
+    } else if (state != State::InLineComment) {
+      // Otherwise, currently accumulating current directive.
+      switch (state) {
+        case State::InTime: {
           ctxt += c;
-        }
-      } break;
-      case State::InCmdOpcode: {
-        if (c == ',') {
-          if (ctxt == "LD") { cmd_ctxt.opcode = CpuOpcode::Load; }
-          else if (ctxt == "ST") { cmd_ctxt.opcode = CpuOpcode::Store; }
-          else {
-            LogMessage msg("Invalid opcode \'");
-            msg.append(ctxt);
-            msg.append("\' at (");
-            msg.append(std::to_string(line));
-            msg.append(", ");
-            msg.append(std::to_string(col));
-            msg.append(")");
-            msg.level(Level::Fatal);
-            log(msg);
-          }
-          ctxt.clear();
-          state = State::InCmdAddr;
-        } else {
-          // Still accumulating.
-          ctxt += c;
-        }
-      } break;
-      case State::InCmdAddr: {
-        // Still accumulating (delimited by newline.)
-        ctxt += c;
-      } break;
-      default: {
-        switch (c) {
-          case '+': {
-            state = State::InTime;
-          } break;
-          case 'C': {
-            state = State::InCmdIndex;
-            // Discard ':' prefix.
-            c = is_->get();
-            if (c != ':') {
-              LogMessage msg("Expecting \':\' at (");
+        } break;
+        case State::InCmdIndex: {
+          if (c == ',') {
+            cmd_ctxt.cpu_index = std::stoi(ctxt);
+            if (cmd_ctxt.cpu_index >= ctxt_table.size()) {
+              LogMessage msg("Invalid cpu index is out of range ");
+              msg.append(ctxt);
+              msg.append(" at (");
               msg.append(std::to_string(line));
               msg.append(", ");
               msg.append(std::to_string(col));
@@ -254,9 +210,62 @@ void TraceStimulus::parse_tracefile() {
               msg.level(Level::Fatal);
               log(msg);
             }
-          } break;
-        }
-      } break;
+            // Advance to opcode.
+            ctxt.clear();
+            state = State::InCmdOpcode;
+          } else {
+            // Sill accumulating.
+            ctxt += c;
+          }
+        } break;
+        case State::InCmdOpcode: {
+          if (c == ',') {
+            if (ctxt == "LD") { cmd_ctxt.opcode = CpuOpcode::Load; }
+            else if (ctxt == "ST") { cmd_ctxt.opcode = CpuOpcode::Store; }
+            else {
+              LogMessage msg("Invalid opcode \'");
+              msg.append(ctxt);
+              msg.append("\' at (");
+              msg.append(std::to_string(line));
+              msg.append(", ");
+              msg.append(std::to_string(col));
+              msg.append(")");
+              msg.level(Level::Fatal);
+              log(msg);
+            }
+            ctxt.clear();
+            state = State::InCmdAddr;
+          } else {
+            // Still accumulating.
+            ctxt += c;
+          }
+        } break;
+        case State::InCmdAddr: {
+          // Still accumulating (delimited by newline.)
+          ctxt += c;
+        } break;
+        default: {
+          switch (c) {
+            case '+': {
+              state = State::InTime;
+            } break;
+            case 'C': {
+              state = State::InCmdIndex;
+              // Discard ':' prefix.
+              c = is_->get();
+              if (c != ':') {
+                LogMessage msg("Expecting \':\' at (");
+                msg.append(std::to_string(line));
+                msg.append(", ");
+                msg.append(std::to_string(col));
+                msg.append(")");
+                msg.level(Level::Fatal);
+                log(msg);
+              }
+            } break;
+          }
+        } break;
+      }
     }
   }
 }

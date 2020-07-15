@@ -109,7 +109,29 @@ class Stimulus : public kernel::Module {
   StimulusCfg config_;
 };
 
+// Trace file specification:
 //
+// Directives:
+//
+//  +(A)INTEGER
+//
+//  Advance the current time cursor by INTEGER "A" such that the next
+//  set of commands shall be scheduled for issue at new time.
+//
+//  For example:
+//
+//    +100 // advance the current time cursor by 100 time-units.
+//
+//  C:(A)INTEGER:{LD,ST}:(B)INTEGER
+//
+//  Enqueue a Load (LD)/Store (ST) command to address (B) in CPU "A"'s
+//  work-queue.
+//
+//  For example:
+//
+//    C:1:LD:1000 // Cpu 1 issued a Load to 0x1000 at current time.
+//
+//    C:0:ST:1000 // CPu 0 issues a Store to 0x1000 at current time.
 //
 class TraceStimulus : public Stimulus {
  public:
