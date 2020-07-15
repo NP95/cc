@@ -30,11 +30,13 @@
 #include "l1cache.h"
 #include "cpu.h"
 #include "ccntrl.h"
+#include "stimulus.h"
 
 namespace cc {
 
-CpuCluster::CpuCluster(kernel::Kernel* k, const CpuClusterCfg& config)
-    : Agent(k, config.name), config_(config) {
+CpuCluster::CpuCluster(kernel::Kernel* k, const CpuClusterCfg& config,
+                       Stimulus* stimulus)
+    : Agent(k, config.name), config_(config), stimulus_(stimulus) {
   build();
 }
 
@@ -64,6 +66,8 @@ void CpuCluster::build() {
     Cpu* cpu = new Cpu(k(), config_.cpu_configs[i]);
     cpus_.push_back(cpu);
     add_child_module(cpu);
+    StimulusContext* stimulus = stimulus_->register_cpu(cpu);
+    cpu->set_stimulus(stimulus);
   }
 }
 

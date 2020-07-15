@@ -43,7 +43,7 @@ class Cpu;
 class CpuCluster : public Agent {
   friend class SocTop;
  public:
-  CpuCluster(kernel::Kernel* k, const CpuClusterCfg& cfg);
+  CpuCluster(kernel::Kernel* k, const CpuClusterCfg& cfg, Stimulus* stimulus);
 
   //
   const CpuClusterCfg& config() const { return config_; }
@@ -74,7 +74,9 @@ class CpuCluster : public Agent {
   std::vector<L1CacheModel*> l1cs_;
   //
   std::vector<Cpu*> cpus_;
-  //
+  // Global stimulus instance
+  Stimulus* stimulus_ = nullptr;
+  // Cluster configuration.
   CpuClusterCfg config_;
 };
 

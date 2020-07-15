@@ -197,14 +197,28 @@ struct CpuClusterCfg {
 };
 
 //
+//
+struct StimulusCfg {
+  // Module name
+  std::string name = "stimulus";
+  // Trace file.
+  std::string filename;
+  // Index to cpu instance mapping.
+  std::vector<std::string> cpath;
+};
+
+//
+//
 struct SocCfg {
   // Toplevel name
   std::string name = "top";
-  //
+  // Cpu Cluster configuration.
   std::vector<CpuClusterCfg> ccls;
-  //
+  // Directory configuration.
   std::vector<DirectoryModelConfig> dcfgs;
-  //
+  // Stimulus configuration.
+  StimulusCfg scfg;
+  // NOC/Interconnect configuration.
   NocModelConfig noccfg;
 };
 

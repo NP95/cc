@@ -25,17 +25,25 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_BUILDER_H
-#define CC_INCLUDE_CC_BUILDER_H
+#ifndef CC_DRIVER_BUILDER_H
+#define CC_DRIVER_BUILDER_H
 
-#include <string>
+#include "cc/soc.h"
+#include "cc/cfgs.h"
+#include <exception>
+#include <istream>
 
 namespace cc {
 
-class ProtocolBuilder;
+class BuilderException : public std::invalid_argument {
+ public:
+  BuilderException(const std::string& what)
+      : invalid_argument(what)
+  {}
+};
 
-ProtocolBuilder* construct_protocol_builder(const std::string& name);
+SocCfg build_soc_config(std::istream& is);
 
-} // namespace
+} // namespace cc
 
 #endif

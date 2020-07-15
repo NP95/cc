@@ -25,5 +25,5 @@
 ## POSSIBILITY OF SUCH DAMAGE.
 ## ========================================================================= ##
 
-add_executable(driver main.cc)
-target_link_libraries(driver cc)
+add_executable(driver main.cc builder.cc)
+target_link_libraries(driver cc nlohmann_json::nlohmann_json)

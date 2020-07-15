@@ -45,7 +45,6 @@ add_library(cc SHARED
   utility.cc
   soc.cc
   msg.cc
-  builder.cc
   stimulus.cc
   )
 

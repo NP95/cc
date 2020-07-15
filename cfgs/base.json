@@ -1,0 +1,13 @@
+{
+    "protocol" : "moesi",
+    "filename" : "/Users/stephenry/h/github/cc/cfgs/base.trace",
+    "stimulus" : {
+        "type" : "trace",
+        "options" : {
+            "filename" : "base.trace",
+            "map" : [
+                "top.cluster.cpu"
+            ]
+        }
+    }
+}

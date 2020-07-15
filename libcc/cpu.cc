@@ -46,16 +46,15 @@ L1CacheOpcode to_l1cache_opcode(CpuOpcode opcode) {
 //
 //
 class Cpu::ProducerProcess : public kernel::Process {
-  using Frontier = Stimulus::Frontier;
  public:
   ProducerProcess(kernel::Kernel* k, const std::string& name, Cpu* cpu)
       : kernel::Process(k, name), cpu_(cpu) {}
  private:
   // Initialization
   virtual void init() override {
-    Stimulus* stimulus = cpu_->stimulus();
-    if (!stimulus->done()) {
-      const Frontier& f = stimulus->front();
+    StimulusContext* stimulus = cpu_->stimulus();
+    Frontier f;
+    if (stimulus->front(f)) {
       wait_for(f.time);
     }
   }
@@ -66,8 +65,9 @@ class Cpu::ProducerProcess : public kernel::Process {
 
   // Elaboration
   virtual void eval() override {
-    Stimulus* stimulus = cpu_->stimulus();
-    if (stimulus->done()) return;
+    StimulusContext* stimulus = cpu_->stimulus();
+    Frontier f;
+    if (!stimulus->front(f)) return;
     
     MessageQueue* mq = cpu_->cpu_l1__cmd_q();
     if (mq->full()) {
@@ -81,7 +81,7 @@ class Cpu::ProducerProcess : public kernel::Process {
     Transaction* t = cpu_->start_transaction();
     // Free space in the issue queue, form a message and issue.
     L1CmdMsg* msg = new L1CmdMsg;
-    const Command& cmd = stimulus->front().cmd;
+    const Command& cmd = f.cmd;
     msg->set_opcode(to_l1cache_opcode(cmd.opcode()));
     msg->set_addr(cmd.addr());
     msg->set_t(t);
@@ -93,8 +93,9 @@ class Cpu::ProducerProcess : public kernel::Process {
     if (stimulus->done()) return;
 
     // Await next command
-    const Frontier& f = stimulus->front();
-    wait_for(f.time);
+    if (stimulus->front(f)) {
+      wait_for(f.time);
+    }
   }
 
   // Point to process owner module.
@@ -163,21 +164,28 @@ Cpu::~Cpu() {
 }
 
 void Cpu::build() {
-  // Capture stimulus
-  stimulus_ = config_.stimulus;
-
-  if (stimulus_ != nullptr) {
-    // Construct producer thread
-    pp_ = new ProducerProcess(k(), "producer", this);
-    add_child_process(pp_);
-    // Construct consumer thread
-    cp_ = new ConsumerProcess(k(), "consumer", this);
-    add_child_process(cp_);
-  }
-
   // Response queue
   l1_cpu__rsp_q_ = new MessageQueue(k(), "l1_cpu__rsp_q", 3);
   add_child_module(l1_cpu__rsp_q_);
+}
+
+void Cpu::set_stimulus(StimulusContext* stimulus) {
+  if (stimulus_ != nullptr) {
+    LogMessage msg("Stimulus has already been defined: ");
+    msg.append(stimulus->path());
+    msg.level(Level::Fatal);
+    log(msg);
+  }
+
+  stimulus_ = stimulus;
+  add_child_module(stimulus_);
+  // Construct producer thread
+  pp_ = new ProducerProcess(k(), "producer", this);
+  add_child_process(pp_);
+  // Construct consumer thread
+  cp_ = new ConsumerProcess(k(), "consumer", this);
+  add_child_process(cp_);
+
 }
 
 void Cpu::elab() {

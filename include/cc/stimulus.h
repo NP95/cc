@@ -28,16 +28,19 @@
 #ifndef CC_INCLUDE_CC_STIMULUS_H
 #define CC_INCLUDE_CC_STIMULUS_H
 
-#include <deque>
-#include <set>
-#include <string>
-#include <vector>
-
 #include "kernel.h"
 #include "types.h"
 #include "cfgs.h"
+#include <deque>
+#include <set>
+#include <string>
+#include <map>
 
 namespace cc {
+
+// Forwards:
+class Cpu;
+class TraceStimulusContext;
 
 enum class CpuOpcode {
   Invalid, Load, Store
@@ -49,64 +52,92 @@ std::string to_string(CpuOpcode opcode);
 //
 class Command {
  public:
+  Command() {}
   Command(CpuOpcode opcode, addr_t addr) : opcode_(opcode), addr_(addr) {}
 
   addr_t addr() const { return addr_; }
   CpuOpcode opcode() const { return opcode_; }
 
  private:
-  addr_t addr_;
-  CpuOpcode opcode_;
+  addr_t addr_ = 0;
+  CpuOpcode opcode_ = CpuOpcode::Invalid;
 };
 
-// Abstract base class encapsulating the concept of a transaction
-// source; more specifically, a block response to model the issue of
-// of load or store instructions to a cache.
-//
-class Stimulus {
- public:
-  // Transaction frontier record.
-  struct Frontier {
-    kernel::Time time;
-    Command cmd;
-  };
+// TODO: cleanup.
+// Transaction frontier record.
+struct Frontier {
+  kernel::Time time;
+  Command cmd;
+};
 
-  Stimulus() = default;
-  virtual ~Stimulus() = default;
+//
+//
+class StimulusContext : public kernel::Module {
+ public:
+  StimulusContext(kernel::Kernel* k, const std::string& name);
+  virtual ~StimulusContext() = default;
 
   // Flag denoting whether the transaction source has been exhausted.
   virtual bool done() const { return true; }
 
   // Transaction at the head of the source queue; nullptr if source
   // has been exhausted.
-  virtual Frontier& front() = 0;
-  virtual const Frontier& front() const = 0;
+  virtual bool front(Frontier& f) const = 0;
 
   // Consume transaction at the head of the source queue.
   virtual void consume() {}
+  
 };
 
-// Elementary realization of a transaction source. Transactions are
-// programmatically constructed and issued to the source before the
-// start of the simulation. Upon exhaustion of the transactions
-// the source remained exhausted for the duration of the simulation.
+// Abstract base class encapsulating the concept of a transaction
+// source; more specifically, a block response to model the issue of
+// of load or store instructions to a cache.
 //
-class ProgrammaticStimulus : public Stimulus {
+class Stimulus : public kernel::Module {
  public:
-  ProgrammaticStimulus() {}
+  Stimulus(kernel::Kernel* k, const StimulusCfg& config);
+  virtual ~Stimulus() = default;
 
-  bool done() const override { return cs_.empty(); }
-  Frontier& front() override { return cs_.front(); }
-  const Frontier& front() const override { return cs_.front(); }
+  // Accessors:
+  const StimulusCfg& config() const { return config_; }
 
-  void consume() override { cs_.pop_front(); }
-  void push_back(kernel::Time t, const Command& c) { cs_.push_back({t, c}); }
+  // Register a new CPU instance.
+  virtual StimulusContext* register_cpu(Cpu* cpu) { return nullptr; }
 
  private:
-  std::deque<Frontier> cs_;
+  // Configuration
+  StimulusCfg config_;
 };
 
+//
+//
+class TraceStimulus : public Stimulus {
+ public:
+  TraceStimulus(kernel::Kernel* k, const StimulusCfg& config);
+  ~TraceStimulus();
+ private:
 
+  // Phases
+  void build();
+  void elab() override;
+  void drc() override;
+
+  // Stimulus: 
+  StimulusContext* register_cpu(Cpu* cpu) override;
+
+  void parse_tracefile();
+
+  std::vector<TraceStimulusContext*> compute_index_table();
+
+  // Registered CPU
+  std::map<Cpu*, TraceStimulusContext*> cpumap_;
+  // Trace input
+  std::istream* is_ = nullptr;
+};
+
+//
+//
+Stimulus* stimulus_builder(kernel::Kernel* k, const StimulusCfg& cfg);
 
 }  // namespace cc
 

@@ -28,13 +28,15 @@
 #ifndef CC_INCLUDE_CC_SOC_H
 #define CC_INCLUDE_CC_SOC_H
 
+#include <string>
+
 namespace cc {
 
-namespace kernel {
-class Kernel;
-}
+namespace kernel { class Kernel; }
+
 class SocCfg;
 class SocTop;
+class ProtocolBuilder;
 
 class Soc {
  public:
@@ -56,7 +58,13 @@ class Soc {
   SocTop* top_;
 };
 
+//
+//
 Soc* construct_soc(const SocCfg& soccfg);
+
+//
+//
+ProtocolBuilder* construct_protocol_builder(const std::string& name);
 
 } // namespace cc
 

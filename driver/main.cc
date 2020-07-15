@@ -26,44 +26,22 @@
 //========================================================================== //
 
 #include "cc.h"
+#include "builder.h"
 #include <vector>
+#include <fstream>
 
+int main(int argc, const char** argv) {
 
-cc::SocCfg generate_cfg() {
-  cc::ProtocolBuilder* pbuilder = cc::construct_protocol_builder("moesi");
-
-  cc::CpuClusterCfg cfg;
-
-  cfg.cc_config.pbuilder = pbuilder;
-  cfg.l2c_config.pbuilder = pbuilder;
-  for (int i = 0; i < 1; i++) {
-    cc::L1CacheModelConfig l1c;
-    l1c.pbuilder = pbuilder;
-    cfg.l1c_configs.push_back(l1c);
-
-    cc::CpuConfig cpu;
-    
-    cc::ProgrammaticStimulus* s = new cc::ProgrammaticStimulus;
-    s->push_back(cc::kernel::Time{100}, cc::Command{cc::CpuOpcode::Load, 0});
-    cpu.stimulus = s;
-    
-    cfg.cpu_configs.push_back(cpu);
+  cc::SocCfg cfg;
+  try {
+    std::ifstream is(argv[1]);
+    cfg = cc::build_soc_config(is);
+  } catch (const cc::BuilderException& ex) {
+    std::cerr << "Failed to parse configuration file: "
+              << ex.what() << "\n";
+    return 1;
   }
 
-  // Construct a directory
-  cc::DirectoryModelConfig dir;
-  dir.pbuilder = pbuilder;
-  
-  cc::SocCfg soc;
-  soc.ccls.push_back(cfg);
-  soc.dcfgs.push_back(dir);
-  return soc;
-}
-
-int main(int argc, char** argv) {
-  // Simulation configuration.
-
-  const cc::SocCfg cfg = generate_cfg();
   cc::Soc* soc = cc::construct_soc(cfg);
   soc->initialize();
   soc->run();

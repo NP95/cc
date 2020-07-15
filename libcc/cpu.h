@@ -42,7 +42,7 @@ namespace cc {
 class Message;
 class L1CacheModel;
 class MessageQueue;
-
+class StimulusContext;
 
 //
 //
@@ -66,13 +66,15 @@ class Cpu : public Agent {
   MessageQueue* cpu_l1__cmd_q() const { return cpu_l1__cmd_q_; }
   // L1 -> CPU response queue (CPU owned)
   MessageQueue* l1_cpu__rsp_q() const { return l1_cpu__rsp_q_; }
-  // Current stimulus instance.
-  Stimulus* stimulus() const { return stimulus_; }
+  // Current stimulus context instance.
+  StimulusContext* stimulus() const { return stimulus_; }
   // Transaction table
   std::set<Transaction*>* ts() { return &ts_; }
   
   // Construction:
   void build();
+  // Set CPU instance stimulus context
+  void set_stimulus(StimulusContext* stimulus);
 
   // Elaboration:
   void elab() override;
@@ -90,7 +92,7 @@ class Cpu : public Agent {
 
  private:
   // 
-  Stimulus* stimulus_ = nullptr;
+  StimulusContext* stimulus_ = nullptr;
   // CPU -> L1 message queue.
   MessageQueue* cpu_l1__cmd_q_ = nullptr;
   // L1 -> CPU message queue

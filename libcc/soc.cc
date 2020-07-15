@@ -34,6 +34,7 @@
 #include "llc.h"
 #include "mem.h"
 #include "ccntrl.h"
+#include "stimulus.h"
 
 namespace cc {
 
@@ -54,12 +55,17 @@ class SocTop : public kernel::TopModule {
       delete dm;
     }
     delete noc_;
+    delete stimulus_;
   }
 
   const SocCfg& config() const { return config_; }
 
  private:
   void build() {
+    // Construct stimulus (as module)
+    stimulus_ = stimulus_builder(k(), config_.scfg);
+    add_child_module(stimulus_);
+    
     // Construct interconnect:
     noc_ = new NocModel(k(), config_.noccfg);
     add_child_module(noc_);
@@ -72,7 +78,7 @@ class SocTop : public kernel::TopModule {
     
     // Construct child CPU clusters
     for (const CpuClusterCfg& cccfg : config_.ccls) {
-      CpuCluster* cpuc = new CpuCluster(k(), cccfg);
+      CpuCluster* cpuc = new CpuCluster(k(), cccfg, stimulus_);
       // NOC end point is the coherence controller within the CPU
       // cluster; not the CPU cluster itself.
       noc_->register_agent(cpuc->cc());
@@ -182,6 +188,8 @@ class SocTop : public kernel::TopModule {
   std::vector<CpuCluster*> ccs_;
   // Memory Controller instances.
   std::vector<MemCntrlModel*> mms_;
+  // Stimulus "module" instance.
+  Stimulus* stimulus_;
   // Soc configuration
   SocCfg config_;
 };
@@ -219,6 +227,10 @@ void Soc::build(const SocCfg& cfg) {
 
 Soc* construct_soc(const SocCfg& soccfg) {
   return new Soc(soccfg);
+}
+
+ProtocolBuilder* construct_protocol_builder(const std::string& name) {
+  return ProtocolBuilderRegistry::build(name);
 }
 
 } // namespace
