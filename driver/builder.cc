@@ -57,6 +57,14 @@ class SocConfigBuilderJson {
     throw ex;                                                           \
   }                                                                     \
   MACRO_END
+
+#define THROW_EX(__desc)                        \
+  MACRO_BEGIN                                   \
+  BuilderException ex(__desc);                  \
+  ex.set_line(__LINE__);                        \
+  ex.set_file(__FILE__);                        \
+  throw ex;                                     \
+  MACRO_END
   
 
 #define CHECK_AND_SET_OPTIONAL(__name)                  \
@@ -166,12 +174,19 @@ class SocConfigBuilderJson {
       build(cmc, item);
       c.l1c_configs.push_back(cmc);
     }
+    if (c.l1c_configs.empty())
+      THROW_EX("No L1 are defined");
     // Set .cpu_configs
     CHECK(cpu_configs);
     for (const auto& item : j["cpu_configs"]) {
       CpuConfig cc;
       build(cc, item);
       c.cpu_configs.push_back(cc);
+    }
+    if (c.cpu_configs.empty())
+      THROW_EX("No CPU are defined");
+    if (c.cpu_configs.size() != c.l1c_configs.size()) {
+      THROW_EX("CPU count does not equal L1 count.");
     }
   }
 
