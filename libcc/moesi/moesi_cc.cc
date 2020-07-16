@@ -233,6 +233,7 @@ class MOESICCProtocol : public CCProtocol {
           msg->set_t(ace->t());
           msg->set_origin(cc());
           msg->set_opcode(ace->opcode());
+          msg->set_addr(ace->addr());
           issue_emit_to_noc(al, msg, dir);
         }
         // Update coherence state
