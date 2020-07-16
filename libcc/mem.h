@@ -91,6 +91,23 @@ class MemRspMsg : public Message {
   MemRspOpcode opcode_;
 };
 
+//
+//
+class DtMsg : public Message {
+ public:
+  DtMsg() : Message(MessageClass::Dt)
+  {}
+};
+
+//
+//
+class DtRspMsg : public Message {
+ public:
+  DtRspMsg() : Message(MessageClass::DtRsp)
+  {}
+};
+
+
 // Memory Controller Model
 //
 class MemCntrlModel : public Agent {

@@ -31,161 +31,284 @@
 #include "ccntrl.h"
 #include "dir.h"
 #include "noc.h"
+#include "mem.h"
 
-namespace cc::moesi {
+namespace {
+
+using namespace cc;
 
 //
 //
-enum class MOESICCState {
-  I, I_S, S
+enum class State {
+
+  // Invalid State
+  // 
+  I,
+
+
+  // State Transition: I -> S; Awaiting data from owner.
+  //
+  // Next states:
+  //
+  //    S:   On receipt of data (non-owning).
+  //
+  //    E:   On receipt of data (owning).
+  //
+  IS_D,
+
+
+  // Shared State
+  //
+  S,
+
+
+  // Exclusive State
+  //
+  // Next state:
+  //
+  //    M:   On commit of CPU store instruction.
+  //
+  E,
+
+
+  // Owned State
+  //
+  O,
+
+
+  // Modified State
+  //
+  M
 };
 
+
 //
 //
-const char* to_string(MOESICCState state) {
+const char* to_string(State state) {
   switch (state) {
-    case MOESICCState::I: return "I";
-    case MOESICCState::I_S: return "I_S";
-    case MOESICCState::S: return "S";
+    case State::I: return "I";
+    case State::IS_D: return "IS_D";
+    case State::S: return "S";
     default: return "Invalid";
   }
 }
 
+
 //
 //
-bool is_stable(MOESICCState state) {
+bool is_stable(State state) {
   switch (state) {
-    case MOESICCState::I:
-    case MOESICCState::S:
+    case State::I:
+    case State::S:
+    case State::E:
+    case State::O:
+    case State::M:
       return true;
     default:
       return false;
   }
 }
 
-class MOESICCLineState : public CCLineState {
+
+//
+//
+class LineState : public CCLineState {
  public:
-  MOESICCLineState() = default;
+  LineState() = default;
 
   //
-  MOESICCState state() const { return state_; }
+  State state() const { return state_; }
 
-  void set_state(MOESICCState state) { state_ = state; }
+  //
+  void set_state(State state) { state_ = state; }
 
  private:
-  MOESICCState state_;
+  // Current line state
+  State state_;
 };
 
-class MOESICCProtocol : public CCProtocol {
-  struct UpdateStateAction : public CoherenceAction {
-    UpdateStateAction(MOESICCLineState* line,
-                      MOESICCState state)
-        : line_(line), state_(state)
-    {}
-    bool execute() override {
-      line_->set_state(state_);
-      return true;
-    }
-   private:
-    MOESICCLineState* line_ = nullptr;
-    MOESICCState state_;
-  };
 
-  struct EmitMessageAction : public CoherenceAction {
-    EmitMessageAction(MessageQueue* mq, const Message* msg)
-        : mq_(mq), msg_(msg)
-    {}
-    bool execute() override {
-      return mq_->issue(msg_);
-    }
-   private:
-    MessageQueue* mq_ = nullptr;
-    const Message* msg_ = nullptr;
-  };
+//
+//
+struct UpdateStateAction : public CoherenceAction {
+  UpdateStateAction(LineState* line, State state)
+      : line_(line), state_(state)
+  {}
+  bool execute() override {
+    line_->set_state(state_);
+    return true;
+  }
+ private:
+  LineState* line_ = nullptr;
+  State state_;
+};
+
+//
+//
+struct DtToL2Action : public CoherenceAction {
+  DtToL2Action(L2CacheModel* l2c, const DtMsg* dt)
+      : l2c_(l2c), dt_(dt)
+  {}
+
+  bool execute() override {
+    // TBD: No data message queue on L2.
+    return true;
+  }
+
+ private:
+  L2CacheModel* l2c_ = nullptr;
+  const DtMsg* dt_ = nullptr;
+};
+
+
+//
+//
+class MOESICCProtocol : public CCProtocol {
  public:
   MOESICCProtocol() {}
 
+  //
+  //
   CCLineState* construct_line() const override {
-    CCLineState* line = new MOESICCLineState;
+    LineState* line = new LineState;
+    line->set_state(State::I);
     return line;
   }
 
-  std::pair<bool, CCActionList> apply(
-      const CCContext& context) const override {
+  //
+  //
+  std::pair<bool, CCActionList> apply(const CCContext& context) const override {
     bool commits = true;
     CCActionList al;
-    const Message *msg = context.msg();
-    switch (msg->cls()) {
+    LineState* line = static_cast<LineState*>(context.line());
+    switch (context.msg()->cls()) {
       case MessageClass::AceCmd: {
-        const AceCmdMsg* acecmd = static_cast<const AceCmdMsg*>(msg);
-        commits = apply(al, context, acecmd);
+        // L2 -> CC bus command
+        const AceCmdMsg* msg = static_cast<const AceCmdMsg*>(context.msg());
+        commits = apply(al, line, msg);
       } break;
-      case MessageClass::DirRsp: {
-        const DirCmdRspMsg* dirrsp = static_cast<const DirCmdRspMsg*>(msg);
-        commits = apply(al, context, dirrsp);
+      case MessageClass::CohEnd: {
+        // DIR -> CC coherence "end" message
+        const CohEndMsg* msg = static_cast<const CohEndMsg*>(context.msg());
+        commits = apply(al, line, msg);
+      } break;
+      case MessageClass::CohCmdRsp: {
+        // DIR -> CC command acknowledge.
+        const CohCmdRspMsg* msg = static_cast<const CohCmdRspMsg*>(context.msg());
+        commits = apply(al, line, msg);
+      } break;
+      case MessageClass::Dt: {
+        // {LLC, CC} -> CC cache line.
+        const DtMsg* msg = static_cast<const DtMsg*>(context.msg());
+        commits = apply(al, line, msg);
       } break;
       default: {
-        al.push_back(new ProtocolViolation("Invalid message class"));
+        issue_protocol_violation(al);
       } break;
     }
     return std::make_pair(commits, al);
   }
 
-  bool apply(CCActionList& al, const CCContext& context,
-             const AceCmdMsg* msg) const {
+  //
+  //
+  bool apply(CCActionList& al, LineState* line, const AceCmdMsg* ace) const {
     bool commits = true;
-    MOESICCLineState* line =
-        static_cast<MOESICCLineState*>(context.line());
-    switch (msg->opcode()) {
-      case AceCmdOpcode::ReadShared: {
-        // Pass command to associated directory.
-        DirCmdMsg* dirmsg = new DirCmdMsg;
-        dirmsg->set_opcode(msg->opcode());
-        dirmsg->set_addr(msg->addr());
-        dirmsg->set_t(msg->t());
-        dirmsg->set_origin(cc());
-        
-        NocMsg* nocmsg = new NocMsg;
-        nocmsg->set_t(msg->t());
-        nocmsg->set_payload(dirmsg);
-        nocmsg->set_origin(cc());
-        DirMapper* dm = cc()->dm();
-        nocmsg->set_dest(dm->lookup(msg->addr()));
+    switch (line->state()) {
+      case State::I: {
+        // Lookup home directory.
+        const DirMapper* dm = cc()->dm();
+        DirModel* dir = dm->lookup(ace->addr());
+        {
+          // Transaction starts; issue CohStrMsg
+          CohSrtMsg* msg = new CohSrtMsg;
+          msg->set_t(ace->t());
+          msg->set_origin(cc());
+          issue_emit_to_noc(al, msg, dir);
+        }
 
-        MessageQueue* cc_noc__msg_q = cc()->cc_noc__msg_q();
-        al.push_back(new EmitMessageAction(cc_noc__msg_q, nocmsg));
-        
-        // Update state
-        al.push_back(new UpdateStateAction(line, MOESICCState::I_S));
+        {
+          // Issue Corresponding CohCmdMsg indicating the actual
+          // coherence command to be executed.
+          CohCmdMsg* msg = new CohCmdMsg;
+          msg->set_t(ace->t());
+          msg->set_origin(cc());
+          msg->set_opcode(ace->opcode());
+          issue_emit_to_noc(al, msg, dir);
+        }
+        // Update coherence state
+        issue_update_state(al, line, State::IS_D);
+        commits = true;
       } break;
+
       default: {
-        al.push_back(new ProtocolViolation("Invalid opcode"));
+        // The L2 should not issue coherence transactions to the CC
+        // until prior operations to the line have completed (the L2
+        // has sufficient state to understand which transaction are
+        // taking place). Therefore, it a command is issued to the bus
+        // for a command already taking place, a fatal error has
+        // occured.
+        issue_protocol_violation(al);
       } break;
     }
     return commits;
   }
 
-  bool apply(CCActionList& al, const CCContext& context,
-             const DirCmdRspMsg* msg) const {
+  //
+  //
+  bool apply(CCActionList& al, LineState* line, const CohEndMsg* dt) const {
     bool commits = true;
-    MOESICCLineState* line =
-        static_cast<MOESICCLineState*>(context.line());
+    switch (line->state()) {
+      case State::IS_D: {
+      } break;
+      default: {
+      } break;
+    }
+    return true;
+  }
 
-    AceCmdRspRMsg* acersp = new AceCmdRspRMsg;
-    acersp->set_t(msg->t());
-    acersp->set_pass_dirty(false);
-    acersp->set_is_shared(false);
+  //
+  //
+  bool apply(CCActionList& al, LineState* line, const CohCmdRspMsg* dt) const {
+    // No-Operation
+    return true;
+  }
 
-    // Emit message to L2
-    MessageQueue* cc_l2__rsp_q = cc()->cc_l2__rsp_q();
-    al.push_back(new EmitMessageAction(cc_l2__rsp_q, acersp));
-    
-    return commits;
-  }  
+  //
+  //
+  bool apply(CCActionList& al, LineState* line, const DtMsg* dt) const {
+    bool commits = true;
+    switch (line->state()) {
+      case State::IS_D: {
+        issue_emit_dt_to_l2(al, dt);
+      } break;
+      default: {
+        // TODO
+        issue_protocol_violation(al);
+      } break;
+    }
+    return true;
+  }
+
+  //
+  //
+  void issue_emit_dt_to_l2(CCActionList& al, const DtMsg* dt) const {
+    L2CacheModel* l2c = cc()->l2c();
+    al.push_back(new DtToL2Action(l2c, dt));
+  }
+
+  //
+  //
+  void issue_update_state(DirActionList& al, LineState* line, State state) const {
+    al.push_back(new UpdateStateAction(line, state));
+  }
 };
 
-CCProtocol* build_cc_protocol() {
-  return new MOESICCProtocol{};
-}
+} // namespace
+
+namespace cc::moesi {
+
+//
+//
+CCProtocol* build_cc_protocol() { return new MOESICCProtocol{}; }
 
 } // namespace cc::moesi

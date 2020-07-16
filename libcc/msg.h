@@ -150,12 +150,6 @@ enum class MessageClass {
 
   
   // ------------------------------------------------------------------------ //
-  // Deprecate?
-  DirCmd,
-  DirRsp,
-
-  
-  // ------------------------------------------------------------------------ //
   // Coherence Messages:
 
   // Coherence transactional command(s):

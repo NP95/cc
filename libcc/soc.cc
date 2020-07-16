@@ -35,6 +35,7 @@
 #include "mem.h"
 #include "ccntrl.h"
 #include "stimulus.h"
+#include "protocol.h"
 
 namespace cc {
 

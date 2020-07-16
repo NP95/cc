@@ -243,7 +243,10 @@ class CC::RdisProcess : public kernel::Process {
           }
         }
       } break;
-      case MessageClass::DirRsp: {
+
+      case MessageClass::Dt:
+      case MessageClass::CohEnd:
+      case MessageClass::CohCmdRsp: {
         Table<CCLineState*>* table = cc_->table();
         if (it_ != table->end()) {
           context_ = CCContext();
@@ -331,6 +334,7 @@ CC::~CC() {
    delete l2_cc__cmd_q_;
    delete noc_cc__msg_q_;
    delete dir_cc__rsp_q_;
+   delete cc__dt_q_;
    delete arb_;
    delete rdis_proc_;
    delete noci_proc_;
@@ -348,6 +352,9 @@ void CC::build() {
   // DIR -> CC response queue
   dir_cc__rsp_q_ = new MessageQueue(k(), "dir_cc__rsp_q", 3);
   add_child_module(dir_cc__rsp_q_);
+  //
+  cc__dt_q_ = new MessageQueue(k(), "cc__dt_q", 3);
+  add_child_module(cc__dt_q_);
   // Arbiteer
   arb_ = new MessageQueueArbiter(k(), "arb");
   add_child_module(arb_);
@@ -364,13 +371,18 @@ void CC::build() {
   protocol_ = config_.pbuilder->create_cc();
 }
 
+//
+//
 void CC::elab() {
   // Add ingress queues to arbitrator.
   arb_->add_requester(l2_cc__cmd_q_);
   arb_->add_requester(dir_cc__rsp_q_);
+  arb_->add_requester(cc__dt_q_);
   protocol_->set_cc(this);
 }
 
+//
+//
 void CC::drc() {
 
   if (dm() == nullptr) {
@@ -384,10 +396,14 @@ void CC::drc() {
   }
 }
 
+//
+//
 MessageQueue* CC::lookup_rdis_mq(MessageClass cls) const {
   switch (cls) {
+    case MessageClass::Dt: return cc__dt_q_;
     case MessageClass::L2Cmd: return l2_cc__cmd_q_;
-    case MessageClass::DirRsp: return dir_cc__rsp_q_;
+    case MessageClass::CohEnd: return dir_cc__rsp_q_;
+    case MessageClass::CohCmdRsp: return dir_cc__rsp_q_;
     default: return nullptr;
   }
 }

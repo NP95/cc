@@ -33,15 +33,139 @@
 #include <vector>
 #include <deque>
 #include "types.h"
+#include "msg.h"
+#include "amba.h"
 
 namespace cc {
 
 // Message Forwards:
-class Message;
 class L1CacheModel;
 class L2CacheModel;
 class CC;
 class DirModel;
+class MessageQueue;
+class Agent;
+
+//
+//
+class CohSrtMsg : public Message {
+ public:
+  CohSrtMsg() : Message(MessageClass::CohSrt)
+  {}
+
+  //
+  std::string to_string() const override;
+
+  //
+  Agent* origin() const { return origin_; }
+
+  //
+  void set_origin(Agent* origin) { origin_ = origin; }
+
+ private:
+  // Originator agent of coherence transaction.
+  Agent* origin_;
+};
+
+
+//
+//
+class CohEndMsg : public Message {
+ public:
+  CohEndMsg() : Message(MessageClass::CohEnd)
+  {}
+
+  //
+  std::string to_string() const override;
+};
+
+
+//
+//
+class CohCmdMsg : public Message {
+ public:
+  CohCmdMsg() : Message(MessageClass::CohCmd)
+  {}
+
+  //
+  std::string to_string() const override;
+
+  //
+  AceCmdOpcode opcode() const { return opcode_; }
+  Agent* origin() const { return origin_; }
+  addr_t addr() const { return addr_; }
+
+  //
+  void set_opcode(AceCmdOpcode opcode) { opcode_ = opcode; }
+  void set_origin(Agent* origin) { origin_ = origin; }
+  void set_addr(addr_t addr) { addr_ = addr; }
+
+ private:
+  AceCmdOpcode opcode_;
+  Agent* origin_ = nullptr;
+  addr_t addr_;
+};
+
+
+//
+//
+class CohCmdRspMsg : public Message {
+ public:
+  CohCmdRspMsg() : Message(MessageClass::CohCmdRsp)
+  {}
+
+  //
+  std::string to_string() const override;
+};
+
+
+//
+//
+class CohFwdMsg : public Message {
+ public:
+  CohFwdMsg() : Message(MessageClass::CohFwd)
+  {}
+
+  //
+  std::string to_string() const override;
+};
+
+
+//
+//
+class CohFwdRspMsg : public Message {
+ public:
+  CohFwdRspMsg() : Message(MessageClass::CohFwdRsp)
+  {}
+
+  //
+  std::string to_string() const override;
+};
+
+
+//
+//
+class CohInvMsg : public Message {
+ public:
+  CohInvMsg() : Message(MessageClass::CohInv)
+  {}
+
+  //
+  std::string to_string() const override;
+};
+
+
+//
+//
+class CohInvRspMsg : public Message {
+ public:
+  CohInvRspMsg() : Message(MessageClass::CohInvRsp)
+  {}
+
+  //
+  std::string to_string() const override;
+};
+
 
 //
 //
@@ -239,6 +363,15 @@ class DirProtocol {
   virtual std::pair<bool, DirActionList> apply(
       const DirCoherenceContext& context) const = 0;
 
+ protected:
+
+  //
+  virtual void issue_emit_to_noc(
+      DirActionList& al, const Message* msg, Agent* dest) const;
+
+  //
+  virtual void issue_protocol_violation(DirActionList& al) const;
+
  private:
   DirModel* dir_ = nullptr;
 };
@@ -251,7 +384,25 @@ class CCLineState {
   virtual ~CCLineState() = default;
 };
 
+
+enum class CCMessageID {
+};
+
+using CCMessageIDList = std::vector<CCMessageID>;
+
 using CCActionList = std::vector<CoherenceAction*>;
+
+/*
+class CCCohUpt {
+ public:
+  CCCohUpt();
+
+ private:
+  CCMessageIDList id_list_;
+
+  CCActionList action_list_;
+};
+*/
 
 //
 //
@@ -288,8 +439,16 @@ class CCProtocol {
 
   //
   //
-  virtual std::pair<bool, CCActionList> apply(
-      const CCContext& context) const = 0;
+  virtual std::pair<bool, CCActionList> apply(const CCContext& context) const = 0;
+
+ protected:
+
+  //
+  virtual void issue_emit_to_noc(
+      CCActionList& al, const Message* msg, Agent* dest) const;
+
+  //
+  virtual void issue_protocol_violation(CCActionList& al) const;
 
  private:
   CC* cc_ = nullptr;

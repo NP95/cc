@@ -29,46 +29,13 @@
 #include "noc.h"
 #include "llc.h"
 #include "amba.h"
+#include "protocol.h"
 #include "primitives.h"
 #include "cache.h"
 #include "utility.h"
 #include <sstream>
 
 namespace cc {
-
-//
-//
-DirCmdMsg::DirCmdMsg() : Message(MessageClass::DirCmd) {}
-
-std::string DirCmdMsg::to_string() const {
-  using cc::to_string;
-  
-  std::stringstream ss;
-  {
-    Hexer h;
-    KVListRenderer r(ss);
-    render_msg_fields(r);
-    r.add_field("cls", to_string(cls()));
-    r.add_field("opcode", to_string(opcode()));
-    r.add_field("addr", h.to_hex(addr()));
-    r.add_field("origin", origin()->path());
-  }
-  return ss.str();
-}
-
-//
-//
-DirCmdRspMsg::DirCmdRspMsg() : Message(MessageClass::DirRsp) {}
-
-std::string DirCmdRspMsg::to_string() const {
-  std::stringstream ss;
-  {
-    KVListRenderer r(ss);
-    render_msg_fields(r);
-  }
-  return ss.str();
-}
-
 
 //
 //
@@ -239,8 +206,10 @@ class DirModel::RdisProcess : public kernel::Process {
     bool commits = true;
 
     switch (msg->cls()) {
-      case MessageClass::DirCmd: {
-        const DirCmdMsg* cmdmsg = static_cast<const DirCmdMsg*>(msg);
+      case MessageClass::CohSrt: {
+      } break;
+      case MessageClass::CohCmd: {
+        const CohCmdMsg* cmdmsg = static_cast<const CohCmdMsg*>(msg);
         CacheModel<DirLineState*>* cache = model_->cache();
         const CacheAddressHelper ah = cache->ah();
         // Check cache occupancy status:
@@ -365,8 +334,7 @@ class DirModel::RdisProcess : public kernel::Process {
   DirModel* model_ = nullptr;
 };
 
-DirModel::DirModel(
-    kernel::Kernel* k, const DirModelConfig& config)
+DirModel::DirModel(kernel::Kernel* k, const DirModelConfig& config)
     : Agent(k, config.name), config_(config) {
   build();
 }
@@ -407,6 +375,8 @@ void DirModel::build() {
   protocol_ = config_.pbuilder->create_dir();
 }
 
+//
+//
 void DirModel::elab() {
   // Register message queue end-points
   arb_->add_requester(cpu_dir__cmd_q_);
@@ -414,6 +384,8 @@ void DirModel::elab() {
   protocol_->set_dir(this);
 }
 
+//
+//
 void DirModel::drc() {
   if (dir_noc__msg_q_ == nullptr) {
     LogMessage lmsg("Dir to NOC message queue is unbound.", Level::Fatal);
@@ -421,9 +393,12 @@ void DirModel::drc() {
   }
 }
 
+//
+//
 MessageQueue* DirModel::lookup_rdis_mq(MessageClass cls) const {
   switch (cls) {
-    case MessageClass::DirCmd: return cpu_dir__cmd_q_;
+    case MessageClass::CohSrt: return cpu_dir__cmd_q_;
+    case MessageClass::CohCmd: return cpu_dir__cmd_q_;
     case MessageClass::LLCCmdRsp: return llc_dir__rsp_q_;
     default: return nullptr;
   }

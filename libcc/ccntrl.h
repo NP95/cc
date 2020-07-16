@@ -61,6 +61,8 @@ class CC : public Agent {
   MessageQueue* cc_noc__msg_q() const { return cc_noc__msg_q_; }
   // Directory Mapper instance.
   DirMapper* dm() const { return dm_; }
+  // L2 cache model
+  L2CacheModel* l2c() const { return l2c_; }
 
  protected:
 
@@ -106,6 +108,8 @@ class CC : public Agent {
   MessageQueue* cc_noc__msg_q_ = nullptr;
   // DIR -> CC Ingress Queue
   MessageQueue* dir_cc__rsp_q_ = nullptr;
+  // {LLC, CC} -> CC Data (dt) queue
+  MessageQueue* cc__dt_q_ = nullptr;
   // Queue selection arbiter
   MessageQueueArbiter* arb_ = nullptr;
   // Directory Mapper instance

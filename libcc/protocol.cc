@@ -26,8 +26,93 @@
 //========================================================================== //
 
 #include "protocol.h"
+#include "sim.h"
+#include "noc.h"
+#include "dir.h"
+#include "ccntrl.h"
+#include "utility.h"
 
 namespace cc {
+
+std::string CohSrtMsg::to_string() const {
+  std::stringstream ss;
+  {
+    KVListRenderer r(ss);
+    render_msg_fields(r);
+  }
+  return ss.str();
+}
+
+std::string CohEndMsg::to_string() const {
+  std::stringstream ss;
+  {
+    KVListRenderer r(ss);
+    render_msg_fields(r);
+  }
+  return ss.str();
+}
+
+std::string CohCmdMsg::to_string() const {
+  using cc::to_string;
+  
+  std::stringstream ss;
+  {
+    Hexer h;
+    KVListRenderer r(ss);
+    render_msg_fields(r);
+    r.add_field("opcode", to_string(opcode()));
+    r.add_field("addr", h.to_hex(addr()));
+    r.add_field("origin", origin()->path());
+  }
+  return ss.str();
+}
+
+
+std::string CohCmdRspMsg::to_string() const {
+  std::stringstream ss;
+  {
+    KVListRenderer r(ss);
+    render_msg_fields(r);
+  }
+  return ss.str();
+}
+
+std::string CohFwdMsg::to_string() const {
+  std::stringstream ss;
+  {
+    KVListRenderer r(ss);
+    render_msg_fields(r);
+  }
+  return ss.str();
+}
+
+std::string CohFwdRspMsg::to_string() const {
+  std::stringstream ss;
+  {
+    KVListRenderer r(ss);
+    render_msg_fields(r);
+  }
+  return ss.str();
+}
+
+std::string CohInvMsg::to_string() const {
+  std::stringstream ss;
+  {
+    KVListRenderer r(ss);
+    render_msg_fields(r);
+  }
+  return ss.str();
+}
+
+std::string CohInvRspMsg::to_string() const {
+  std::stringstream ss;
+  {
+    KVListRenderer r(ss);
+    render_msg_fields(r);
+  }
+  return ss.str();
+}
+
 
 using pbr = ProtocolBuilderRegistry;
 
@@ -42,6 +127,54 @@ ProtocolBuilder* ProtocolBuilderRegistry::build(const std::string& name) {
     r = factory->construct();
   }
   return r;
+}
+
+
+//
+//
+struct EmitMessageAction : public CoherenceAction {
+  EmitMessageAction(MessageQueue* mq, const Message* msg)
+      : mq_(mq), msg_(msg)
+  {}
+  bool execute() override {
+    return mq_->issue(msg_);
+  }
+ private:
+  MessageQueue* mq_ = nullptr;
+  const Message* msg_ = nullptr;
+};
+
+
+void DirProtocol::issue_emit_to_noc(
+    DirActionList& al, const Message* msg, Agent* dest) const {
+  // Encapsulate message in NOC transport protocol.
+  NocMsg* nocmsg = new NocMsg;
+  nocmsg->set_t(msg->t());
+  nocmsg->set_payload(msg);
+  nocmsg->set_origin(dir_);
+  nocmsg->set_dest(dest);
+  // Issue Message Emit action.
+  al.push_back(new EmitMessageAction(dir_->dir_noc__msg_q(), nocmsg));
+}
+
+void DirProtocol::issue_protocol_violation(DirActionList& al) const {
+  // TODO  
+}
+
+void CCProtocol::issue_emit_to_noc(
+    CCActionList& al, const Message* msg, Agent* dest) const {
+  // Encapsulate message in NOC transport protocol.
+  NocMsg* nocmsg = new NocMsg;
+  nocmsg->set_t(msg->t());
+  nocmsg->set_payload(msg);
+  nocmsg->set_origin(cc_);
+  nocmsg->set_dest(dest);
+  // Issue Message Emit action.
+  al.push_back(new EmitMessageAction(cc_->cc_noc__msg_q(), nocmsg));
+}
+
+void CCProtocol::issue_protocol_violation(CCActionList& al) const {
+  // TODO  
 }
 
 }  // namespace cc

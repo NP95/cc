@@ -45,41 +45,6 @@ class MessageQueue;
 
 //
 //
-class DirCmdMsg : public Message {
- public:
-  DirCmdMsg();
-
-  //
-  std::string to_string() const override;
-
-  //
-  AceCmdOpcode opcode() const { return opcode_; }
-  addr_t addr() const { return addr_; }
-  Agent* origin() const { return origin_; }
-
-  //
-  void set_opcode(AceCmdOpcode opcode) { opcode_ = opcode; }
-  void set_addr(addr_t addr) { addr_ = addr; }
-  void set_origin(Agent* origin) { origin_ = origin; }
-
- private:
-  AceCmdOpcode opcode_;
-  addr_t addr_;
-  Agent* origin_;
-};
-
-//
-//
-class DirCmdRspMsg : public Message {
- public:
-  DirCmdRspMsg();
-
-  //
-  std::string to_string() const override;
-};
-
-//
-//
 class DirModel : public Agent {
   friend class SocTop;
 

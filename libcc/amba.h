@@ -29,7 +29,6 @@
 #define CC_LIBCC_AMBA_H
 
 #include "msg.h"
-#include "protocol.h"
 
 namespace cc {
 
