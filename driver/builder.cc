@@ -136,7 +136,7 @@ class SocConfigBuilderJson {
     CHECK_AND_SET_OPTIONAL(rsp_queue_n);
   }
 
-  void build(DirectoryModelConfig& c, json j) {
+  void build(DirModelConfig& c, json j) {
     // Set .name
     CHECK_AND_SET(name);
     // Set .cmd_queue_n
@@ -153,7 +153,7 @@ class SocConfigBuilderJson {
     build(c.llcconfig, j["llcconfig"]);
   }
 
-  void build(CacheControllerConfig& c, json j) {
+  void build(CCConfig& c, json j) {
     // Set .name
     CHECK_AND_SET(name);
   }
@@ -229,10 +229,10 @@ class SocConfigBuilderJson {
     }
     if (c.ccls.empty())
       throw BuilderException("No CPU clusters configured.");
-    // Set .dcfgs (DirectoryModelConfig)
+    // Set .dcfgs (DirModelConfig)
     CHECK(dcfgs);
     for (const auto& item : j["dcfgs"]) {
-      DirectoryModelConfig dmc;
+      DirModelConfig dmc;
       build(dmc, item);
       c.dcfgs.push_back(dmc);
     }
@@ -250,7 +250,7 @@ class SocConfigBuilderJson {
     for (CpuClusterConfig& c : cfg.ccls) {
       post(c);
     }
-    for (DirectoryModelConfig& c : cfg.dcfgs) {
+    for (DirModelConfig& c : cfg.dcfgs) {
       post(c);
     }
   }
@@ -263,7 +263,7 @@ class SocConfigBuilderJson {
     }
   }
 
-  void post(CacheControllerConfig& cfg) {
+  void post(CCConfig& cfg) {
     cfg.pbuilder = pb_;
   }
 
@@ -275,7 +275,7 @@ class SocConfigBuilderJson {
     cfg.pbuilder = pb_;
   }
 
-  void post(DirectoryModelConfig& c) {
+  void post(DirModelConfig& c) {
     c.pbuilder = pb_;
   }
   

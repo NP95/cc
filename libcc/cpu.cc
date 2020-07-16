@@ -121,7 +121,7 @@ class Cpu::ConsumerProcess : public kernel::Process {
     if (!mq->empty()) {
       const Message* msg = mq->dequeue();
       switch (msg->cls()) {
-        case MessageClass::L1Rsp: {
+        case MessageClass::L1CmdRsp: {
           const L1CmdRspMsg* l1rspmsg = static_cast<const L1CmdRspMsg*>(msg);
 
           Transaction* t = l1rspmsg->t();
@@ -215,7 +215,7 @@ Transaction* Cpu::start_transaction() {
 
 void Cpu::end_transaction(Transaction* t) {
   std::set<Transaction*>::iterator it = ts_.find(t);
-  if (it == ts_.end()) {
+  if (it != ts_.end()) {
     // TODO:
     LogMessage msg("Transaction ends: ");
     msg.append(t->to_string());

@@ -43,7 +43,7 @@ CpuCluster::CpuCluster(kernel::Kernel* k, const CpuClusterConfig& config,
 //
 void CpuCluster::build() {
   // Construct cache controller.
-  cc_= new CacheController(k(), config_.cc_config);
+  cc_= new CC(k(), config_.cc_config);
   add_child_module(cc_);
 
   // Construct L2 cache instance.
@@ -144,7 +144,7 @@ void CpuCluster::set_cc_noc__msg_q(MessageQueue* mq) {
   cc_->set_cc_noc__msg_q(mq);
 }
 
-void CpuCluster::set_dm(DirectoryMapper* dm) {
+void CpuCluster::set_dm(DirMapper* dm) {
   cc_->set_dm(dm);
 }
 

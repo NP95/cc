@@ -80,16 +80,16 @@ class DirCmdRspMsg : public Message {
 
 //
 //
-class DirectoryModel : public Agent {
+class DirModel : public Agent {
   friend class SocTop;
 
   class RdisProcess;
   class NocIngressProcess;
  public:
-  DirectoryModel(kernel::Kernel* k, const DirectoryModelConfig& config);
-  ~DirectoryModel();
+  DirModel(kernel::Kernel* k, const DirModelConfig& config);
+  ~DirModel();
 
-  const DirectoryModelConfig& config() const { return config_; }
+  const DirModelConfig& config() const { return config_; }
 
   // accessors:
   // LLC owned by current directory
@@ -99,7 +99,7 @@ class DirectoryModel : public Agent {
   // dir -> noc message queue
   MessageQueue* dir_noc__msg_q() const { return dir_noc__msg_q_; }
   // coherence protocol
-  DirectoryProtocol* protocol() const { return protocol_; }
+  DirProtocol* protocol() const { return protocol_; }
 
  protected:
   // build
@@ -145,35 +145,35 @@ class DirectoryModel : public Agent {
   // Cache Instance
   CacheModel<DirLineState*>* cache_ = nullptr;
   // Coherence protocol
-  DirectoryProtocol* protocol_ = nullptr;
+  DirProtocol* protocol_ = nullptr;
   // Current directory configuration.
-  DirectoryModelConfig config_;
+  DirModelConfig config_;
 };
 
 //
 //
-class DirectoryMapper {
+class DirMapper {
  public:
-  DirectoryMapper() = default;
-  virtual ~DirectoryMapper() = default;
+  DirMapper() = default;
+  virtual ~DirMapper() = default;
 
-  virtual DirectoryModel* lookup(addr_t addr) const = 0;
+  virtual DirModel* lookup(addr_t addr) const = 0;
 };
 
 //
 //
-class SingleDirectoryMapper : public DirectoryMapper {
+class SingleDirMapper : public DirMapper {
  public:
-  SingleDirectoryMapper(DirectoryModel* dm)
+  SingleDirMapper(DirModel* dm)
       : dm_(dm) {}
 
-  DirectoryModel* lookup(addr_t addr) const override {
+  DirModel* lookup(addr_t addr) const override {
     return dm_;
   }
 
  private:
-  // Directory end-point definition.
-  DirectoryModel* dm_ = nullptr;
+  // Dir end-point definition.
+  DirModel* dm_ = nullptr;
 };
 
 } // namespace cc

@@ -25,61 +25,53 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_LIBCC_CPUCLUSTER_H
-#define CC_LIBCC_CPUCLUSTER_H
+//#include "moesi.h"
 
-#include "kernel.h"
-#include "cfgs.h"
-#include "sim.h"
+#include <string>
+
+#include "moesi_l1.h"
+#include "moesi_l2.h"
+#include "moesi_cc.h"
+#include "moesi_dir.h"
+#include "protocol.h"
+
+/*
+#include "l1cache.h"
+#include "utility.h"
+#include "msg.h"
+#include "protocol.h"
+#include "cpu.h"
+#include "amba.h"
+#include "ccntrl.h"
+#include "noc.h"
+#include "dir.h"
+#include "llc.h"
+*/
 
 namespace cc {
 
-class Message;
-class CC;
-class L2CacheModel;
-class L1CacheModel;
-class Cpu;
-
-class CpuCluster : public Agent {
-  friend class SocTop;
+class MOESIProtocolBuilder : public ProtocolBuilder {
  public:
-  CpuCluster(kernel::Kernel* k, const CpuClusterConfig& cfg, Stimulus* stimulus);
+  // Create an instance of the L1 protocol
+  L1CacheModelProtocol* create_l1() override {
+    return moesi::build_l1_protocol();
+  }
 
-  //
-  const CpuClusterConfig& config() const { return config_; }
+  // Create an instance of the L2 protocol
+  L2CacheModelProtocol* create_l2() override {
+    return moesi::build_l2_protocol();
+  }
 
-  // Child cache controller instance.
-  CC* cc() const { return cc_; }
-  // Get NOC -> CC message queue instance (CC owned)
-  MessageQueue* noc_cc__msg_q() const;
+  // Create and instance of the Directory protocol
+  DirProtocol* create_dir() override {
+    return moesi::build_dir_protocol();
+  }
 
- private:
-  // Construction
-  void build();
-  // Elaboration
-  void elab();
-  // Set CC -> NOC message queue instance (NOC owned)
-  void set_cc_noc__msg_q(MessageQueue* mq);
-  // Set directory mapper
-  void set_dm(DirMapper* dm);
-  
-  // Design Rule Check (DRC)
-  void drc();
-  
-  //
-  CC* cc_ = nullptr;
-  //
-  L2CacheModel* l2c_ = nullptr;
-  //
-  std::vector<L1CacheModel*> l1cs_;
-  //
-  std::vector<Cpu*> cpus_;
-  // Global stimulus instance
-  Stimulus* stimulus_ = nullptr;
-  // Cluster configuration.
-  CpuClusterConfig config_;
+  CCProtocol* create_cc() override {
+    return moesi::build_cc_protocol();
+  }
 };
 
-} // namespace cc
+CC_DECLARE_PROTOCOL_BUILDER("moesi", MOESIProtocolBuilder);
 
-#endif
+}  // namespace cc

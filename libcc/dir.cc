@@ -72,10 +72,10 @@ std::string DirCmdRspMsg::to_string() const {
 
 //
 //
-class DirectoryModel::NocIngressProcess : public kernel::Process {
+class DirModel::NocIngressProcess : public kernel::Process {
  public:
   NocIngressProcess(kernel::Kernel* k, const std::string& name,
-                    DirectoryModel* model)
+                    DirModel* model)
       : kernel::Process(k, name), model_(model) {
   }
 
@@ -128,10 +128,10 @@ class DirectoryModel::NocIngressProcess : public kernel::Process {
   }
 
  private:
-  DirectoryModel* model_ = nullptr;
+  DirModel* model_ = nullptr;
 };
 
-class DirectoryModel::RdisProcess : public kernel::Process {
+class DirModel::RdisProcess : public kernel::Process {
   using Tournament = MessageQueueArbiter::Tournament;
   using CacheLineIt = CacheModel<DirLineState*>::LineIterator;
 
@@ -149,7 +149,7 @@ class DirectoryModel::RdisProcess : public kernel::Process {
   }
 
  public:
-  RdisProcess(kernel::Kernel* k, const std::string& name, DirectoryModel* model)
+  RdisProcess(kernel::Kernel* k, const std::string& name, DirModel* model)
       : kernel::Process(k, name), model_(model) {
     state_ = State::Idle;
   }
@@ -265,7 +265,7 @@ class DirectoryModel::RdisProcess : public kernel::Process {
             } else {
               // Construct new line; initialized to the invalid state
               // (or the equivalent, as determined by the protocol).
-              const DirectoryProtocol* protocol = model_->protocol();
+              const DirProtocol* protocol = model_->protocol();
               DirLineState* dirline = protocol->construct_line();
               // Install newly constructed line in the cache set.
               set.install(it, ah.tag(cmdmsg->addr()), dirline);
@@ -290,7 +290,7 @@ class DirectoryModel::RdisProcess : public kernel::Process {
         CacheModel<DirLineState*>::Set set = cache->set(ah.set(addr));
         CacheLineIt it = set.find(ah.tag(addr));
         if (it != set.end()) {
-          const DirectoryProtocol* protocol = model_->protocol();
+          const DirProtocol* protocol = model_->protocol();
           context_ = DirCoherenceContext();
           context_.set_line(it->t());
           context_.set_msg(llcrsp);
@@ -360,18 +360,18 @@ class DirectoryModel::RdisProcess : public kernel::Process {
   // Coherence context
   DirCoherenceContext context_;
   // Coherence action list.
-  DirectoryActionList action_list_;
+  DirActionList action_list_;
 // Pointer to parent directory instance.
-  DirectoryModel* model_ = nullptr;
+  DirModel* model_ = nullptr;
 };
 
-DirectoryModel::DirectoryModel(
-    kernel::Kernel* k, const DirectoryModelConfig& config)
+DirModel::DirModel(
+    kernel::Kernel* k, const DirModelConfig& config)
     : Agent(k, config.name), config_(config) {
   build();
 }
 
-DirectoryModel::~DirectoryModel() {
+DirModel::~DirModel() {
   delete noc_dir__msg_q_;
   delete cpu_dir__cmd_q_;
   delete llc_dir__rsp_q_;
@@ -381,7 +381,7 @@ DirectoryModel::~DirectoryModel() {
   delete protocol_;
 }
 
-void DirectoryModel::build() {
+void DirModel::build() {
   // NOC -> DIR message queue
   noc_dir__msg_q_ = new MessageQueue(k(), "noc_dir__msg_q", 3);
   add_child_module(noc_dir__msg_q_);
@@ -394,7 +394,7 @@ void DirectoryModel::build() {
   // Construct arbiter
   arb_ = new MessageQueueArbiter(k(), "arb");
   add_child_module(arb_);
-  // Directory state cache
+  // Dir state cache
   CacheModelConfig cfg;
   cache_ = new CacheModel<DirLineState*>(cfg);
   // Construct NOC ingress thread.
@@ -407,21 +407,21 @@ void DirectoryModel::build() {
   protocol_ = config_.pbuilder->create_dir();
 }
 
-void DirectoryModel::elab() {
+void DirModel::elab() {
   // Register message queue end-points
   arb_->add_requester(cpu_dir__cmd_q_);
   arb_->add_requester(llc_dir__rsp_q_);
   protocol_->set_dir(this);
 }
 
-void DirectoryModel::drc() {
+void DirModel::drc() {
   if (dir_noc__msg_q_ == nullptr) {
-    LogMessage lmsg("Directory to NOC message queue is unbound.", Level::Fatal);
+    LogMessage lmsg("Dir to NOC message queue is unbound.", Level::Fatal);
     log(lmsg);
   }
 }
 
-MessageQueue* DirectoryModel::lookup_rdis_mq(MessageClass cls) const {
+MessageQueue* DirModel::lookup_rdis_mq(MessageClass cls) const {
   switch (cls) {
     case MessageClass::DirCmd: return cpu_dir__cmd_q_;
     case MessageClass::LLCCmdRsp: return llc_dir__rsp_q_;

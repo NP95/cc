@@ -66,7 +66,7 @@ std::string L1CmdMsg::to_string() const {
 
 //
 //
-L1CmdRspMsg::L1CmdRspMsg() : Message(MessageClass::L1Rsp) {}
+L1CmdRspMsg::L1CmdRspMsg() : Message(MessageClass::L1CmdRsp) {}
 
 //
 //
@@ -183,6 +183,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
   void handle_process_message() {
     const MsgRequesterIntf* intf = t_.intf();
     const Message* msg = intf->peek();
+    bool commits = false;
     switch (msg->cls()) {
       case MessageClass::L1Cmd: {
         CacheModel<L1LineState*>* cache = model_->cache();
@@ -200,7 +201,6 @@ class L1CacheModel::MainProcess : public kernel::Process {
           context_.set_line(it.line().t());
           context_.set_msg(msg);
           const L1CacheModelProtocol* p = model_->protocol();
-          bool commits;
           std::tie(commits, action_list_) = p->apply(context_);
           // TODO: assume commits = true
           set_state(State::ExecuteActions);
@@ -232,7 +232,6 @@ class L1CacheModel::MainProcess : public kernel::Process {
               context_ = L1CoherenceContext();
               context_.set_line(l1line);
               context_.set_msg(msg);
-              bool commits;
               std::tie(commits, action_list_) = protocol->apply(context_);
               // Advance to execute state.
               set_state(State::ExecuteActions);
@@ -249,7 +248,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
           }
         }
       } break;
-      case MessageClass::L2Rsp: {
+      case MessageClass::L2CmdRsp: {
         CacheModel<L1LineState*>* cache = model_->cache();
         const CacheAddressHelper ah = cache->ah();
         const L2CmdRspMsg* l2rsp = static_cast<const L2CmdRspMsg*>(msg);
@@ -264,7 +263,6 @@ class L1CacheModel::MainProcess : public kernel::Process {
           context_.set_line(it.line().t());
           context_.set_msg(msg);
           const L1CacheModelProtocol* p = model_->protocol();
-          bool commits;
           std::tie(commits, action_list_) = p->apply(context_);
           // TODO: assume commits = true
           set_state(State::ExecuteActions);
@@ -281,6 +279,17 @@ class L1CacheModel::MainProcess : public kernel::Process {
         lmsg.level(Level::Error);
         log(lmsg);
       } break;
+    }
+  
+    if (commits) {
+      // Current message commits and is applied to the machine state.
+      LogMessage lm("Execute message: ");
+      lm.append(msg->to_string());
+      lm.level(Level::Info);
+      log(lm);
+
+      set_state(State::ExecuteActions);
+      next_delta();
     }
   }
 

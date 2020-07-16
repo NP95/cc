@@ -25,60 +25,18 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_LIBCC_CPUCLUSTER_H
-#define CC_LIBCC_CPUCLUSTER_H
-
-#include "kernel.h"
-#include "cfgs.h"
-#include "sim.h"
+#ifndef CC_LIBCC_MOESI_MOESI_L2_H
+#define CC_LIBCC_MOESI_MOESI_L2_H
 
 namespace cc {
 
-class Message;
-class CC;
-class L2CacheModel;
-class L1CacheModel;
-class Cpu;
+class L2CacheModelProtocol;
 
-class CpuCluster : public Agent {
-  friend class SocTop;
- public:
-  CpuCluster(kernel::Kernel* k, const CpuClusterConfig& cfg, Stimulus* stimulus);
+namespace moesi {
 
-  //
-  const CpuClusterConfig& config() const { return config_; }
+L2CacheModelProtocol* build_l2_protocol();
 
-  // Child cache controller instance.
-  CC* cc() const { return cc_; }
-  // Get NOC -> CC message queue instance (CC owned)
-  MessageQueue* noc_cc__msg_q() const;
-
- private:
-  // Construction
-  void build();
-  // Elaboration
-  void elab();
-  // Set CC -> NOC message queue instance (NOC owned)
-  void set_cc_noc__msg_q(MessageQueue* mq);
-  // Set directory mapper
-  void set_dm(DirMapper* dm);
-  
-  // Design Rule Check (DRC)
-  void drc();
-  
-  //
-  CC* cc_ = nullptr;
-  //
-  L2CacheModel* l2c_ = nullptr;
-  //
-  std::vector<L1CacheModel*> l1cs_;
-  //
-  std::vector<Cpu*> cpus_;
-  // Global stimulus instance
-  Stimulus* stimulus_ = nullptr;
-  // Cluster configuration.
-  CpuClusterConfig config_;
-};
+} // namespace moesi
 
 } // namespace cc
 

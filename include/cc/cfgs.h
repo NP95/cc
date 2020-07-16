@@ -38,8 +38,8 @@ namespace cc {
 class Stimulus;
 class L1CacheModelProtocol;
 class L2CacheModelProtocol;
-class DirectoryProtocol;
-class DirectoryMapper;
+class DirProtocol;
+class DirMapper;
 class ProtocolBuilder;
 
 //
@@ -128,7 +128,7 @@ struct LLCModelConfig {
 
 //
 //
-struct DirectoryModelConfig {
+struct DirModelConfig {
   // Directory name
   std::string name = "dir";
 
@@ -155,7 +155,7 @@ struct DirectoryModelConfig {
 
 //
 //
-struct CacheControllerConfig {
+struct CCConfig {
   // Controller name
   std::string name = "ccntrl";
 
@@ -170,7 +170,7 @@ struct CpuClusterConfig {
   std::string name = "cluster";
 
   // Cache Controller config;
-  CacheControllerConfig cc_config;
+  CCConfig cc_config;
 
   // L2 cache configuration.
   L2CacheModelConfig l2c_config;
@@ -205,7 +205,7 @@ struct SocConfig {
   // Cpu Cluster configuration.
   std::vector<CpuClusterConfig> ccls;
   // Directory configuration.
-  std::vector<DirectoryModelConfig> dcfgs;
+  std::vector<DirModelConfig> dcfgs;
   // Stimulus configuration.
   StimulusConfig scfg;
   // NOC/Interconnect configuration.

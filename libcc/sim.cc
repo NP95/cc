@@ -55,12 +55,14 @@ bool MessageQueue::issue(const Message* msg, kernel::Time t) {
   if (full()) return false;
   
   // Log message issue:
+#if 0
   LogMessage lmsg("Issue Message (dst: ");
   lmsg.append(path());
   lmsg.append("): ");
   lmsg.append(msg->to_string());
   lmsg.level(Level::Debug);
   log(lmsg);
+#endif
   // Issue action:
   const kernel::Time execute_time = k()->time() + t;
   k()->add_action(execute_time, new EnqueueAction(k(), this, msg));

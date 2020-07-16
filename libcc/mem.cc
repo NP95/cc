@@ -64,7 +64,6 @@ std::string MemCmdMsg::to_string() const {
   {
     KVListRenderer r(ss);
     render_msg_fields(r);
-    r.add_field("cls", to_string(cls()));
     r.add_field("opcode", to_string(opcode()));
     r.add_field("dest", dest()->path());
   }
@@ -208,7 +207,11 @@ class MemCntrlModel::RequestDispatcherProcess : public kernel::Process {
           log(lmsg);
         } break;
       }
-      
+
+      LogMessage lm("Execute message: ");
+      lm.append(cmdmsg->to_string());
+      lm.level(Level::Info);
+      log(lm);
     } else {
       wait_on(rdis_arb->request_arrival_event());
     }

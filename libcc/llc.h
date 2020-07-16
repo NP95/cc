@@ -37,7 +37,7 @@ namespace cc {
 
 // Forwards:
 class MemCntrlModel;
-class DirectoryModel;
+class DirModel;
 class Message;
 class MessageQueue;
 
@@ -127,7 +127,7 @@ class LLCModel : public Agent {
   // Home memory controller
   MemCntrlModel* mc() const { return mc_; }
   // Directory model instance.
-  DirectoryModel* dir() const { return dir_; }
+  DirModel* dir() const { return dir_; }
   
  protected:
   // Construction/Build
@@ -140,7 +140,7 @@ class LLCModel : public Agent {
   // Set memory controller.
   void set_mc(MemCntrlModel* mc) { mc_ = mc; }
   // Set owner directory.
-  void set_dir(DirectoryModel* dir) { dir_ = dir; }
+  void set_dir(DirModel* dir) { dir_ = dir; }
   // Design Rule Check
   void drc() override;
 
@@ -165,7 +165,7 @@ class LLCModel : public Agent {
   // Home memory controller
   MemCntrlModel* mc_ = nullptr;
   // Home directory.
-  DirectoryModel* dir_ = nullptr;
+  DirModel* dir_ = nullptr;
   // Request distruction process.
   RdisProcess* rdis_proc_ = nullptr;
   // NOC Ingress process

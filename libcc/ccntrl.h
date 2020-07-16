@@ -37,20 +37,20 @@ namespace cc {
 
 class MessageQueue;
 class L2CacheModel;
-class CacheControllerLineState;
-class CacheControllerProtocol;
+class CCLineState;
+class CCProtocol;
 
-class CacheController : public Agent {
+class CC : public Agent {
   friend class CpuCluster;
 
   class RdisProcess;
   class NocIngressProcess;
  public:
-  CacheController(kernel::Kernel* k, const CacheControllerConfig& config);
-  ~CacheController();
+  CC(kernel::Kernel* k, const CCConfig& config);
+  ~CC();
 
   // Obtain cache controller configuration.
-  const CacheControllerConfig& config() const { return config_; }
+  const CCConfig& config() const { return config_; }
   // L2 -> Controller (Transaction) Command Queue (owning)
   MessageQueue* l2_cc__cmd_q() const { return l2_cc__cmd_q_; }
   // CC -> L2 Queue
@@ -60,7 +60,7 @@ class CacheController : public Agent {
   // CC -> NOC Egress Queue
   MessageQueue* cc_noc__msg_q() const { return cc_noc__msg_q_; }
   // Directory Mapper instance.
-  DirectoryMapper* dm() const { return dm_; }
+  DirMapper* dm() const { return dm_; }
 
  protected:
 
@@ -68,9 +68,9 @@ class CacheController : public Agent {
   // Pointer to module arbiter instance:
   MessageQueueArbiter* arb() const { return arb_; }
   // Protocol instance
-  CacheControllerProtocol* protocol() const { return protocol_; }
+  CCProtocol* protocol() const { return protocol_; }
   // Transaction table.
-  Table<CacheControllerLineState*>* table() const { return table_; }
+  Table<CCLineState*>* table() const { return table_; }
   
   // Construction
   void build();
@@ -80,7 +80,7 @@ class CacheController : public Agent {
   // Set slave L2C instance.
   void set_l2c(L2CacheModel* l2c) { l2c_ = l2c; }
   // Set directory mapper.
-  void set_dm(DirectoryMapper* dm) { dm_ = dm; }
+  void set_dm(DirMapper* dm) { dm_ = dm; }
   // Set CC -> NOC message queue
   void set_cc_noc__msg_q(MessageQueue* mq) { cc_noc__msg_q_ = mq; }
   /// Set CC -> L2 response queue
@@ -109,17 +109,17 @@ class CacheController : public Agent {
   // Queue selection arbiter
   MessageQueueArbiter* arb_ = nullptr;
   // Directory Mapper instance
-  DirectoryMapper* dm_ = nullptr;
+  DirMapper* dm_ = nullptr;
   // Disatpcher process
   RdisProcess* rdis_proc_ = nullptr;
   // NOC ingress process
   NocIngressProcess* noci_proc_ = nullptr;
   // Transaction table instance.
-  Table<CacheControllerLineState*>* table_ = nullptr;
+  Table<CCLineState*>* table_ = nullptr;
   // Cache controller protocol instance.
-  CacheControllerProtocol* protocol_ = nullptr;
+  CCProtocol* protocol_ = nullptr;
   // Cache controller configuration.
-  CacheControllerConfig config_;
+  CCConfig config_;
 };
 
 } // namespace cc

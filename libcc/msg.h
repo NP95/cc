@@ -78,61 +78,168 @@ class Transaction {
 //
 //
 enum class MessageClass {
-  //
-  //
+  // ------------------------------------------------------------------------ //
+  // Generic place holder denoting "Invalid"/"Bad" command (should never be
+  // seen during a simulation.
   Invalid,
 
-  //
-  //
+  
+  // ------------------------------------------------------------------------ //
+  // Cpu Comand/Response Message:
+
+  // CPU -> L1
   CpuCmd,
-  CpuRsp,
 
-  //
-  //
+  // L1 -> CPU
+  CpuCmdRsp,
+
+  
+  // ------------------------------------------------------------------------ //
+  // L1 Cache Command/Response Message:
+
+  // CPU -> L1
+  // L1  -> CPU
   L1Cmd,
-  L1Rsp,
 
-  //
-  //
+  // L1 -> CPU
+  // L1 -> L@
+  L1CmdRsp,
+
+  
+  // ------------------------------------------------------------------------ //
+  // L2 Cache Command/Response Messages:
+
+  // CC -> L2
+  // L1 -> L2
   L2Cmd,
-  L2Rsp,
 
-  //
-  //
+  // L2 -> CC
+  // L2 -> CC
+  L2CmdRsp,
+
+  
+  // ------------------------------------------------------------------------ //
+  // AXI command message from L2 to the coherence subsystem.
+
+  // L2 -> CC
   AceCmd,
+
+  // CC -> L2
   AceCmdRspR,
+
+  // CC -> L2
   AceCmdRspB,
   
+  // ------------------------------------------------------------------------ //
+  // Ace "Snoop" message encapsulating snoop requests and respones
+  // from a AMBA compliant agent (the L2).
+
+  // CC -> L2
   AceSnoop,
+
+  // L2 -> CC
   AceSnoopRsp,
 
-  //
-  //
+  
+  // ------------------------------------------------------------------------ //
+  // Network-On-Chip/Interconnect:
+
+  // Generic transport message allowing two NOC registers agents to
+  // communicate.
   Noc,
 
-  //
-  //
+  
+  // ------------------------------------------------------------------------ //
+  // Deprecate?
   DirCmd,
   DirRsp,
 
-  // Last-Level Cache Message Classes:
+  
+  // ------------------------------------------------------------------------ //
+  // Coherence Messages:
+
+  // Coherence transactional command(s):
+
+  // Coherence transaction demarcation messages:
   //
+  // CC -> DIR
+  CohSrt,
+
+  // End a coherence action:
+  //
+  // DIR -> CC
+  CohEnd,
+
+
+  // Coherence commands 
+  //
+  
+  // CC -> DIR
+  CohCmd,
+
+  // DIR -> CC
+  CohCmdRsp,
+
+  // Coherence "Forwarding"/"Snoop" messages:
+  //
+
+  // DIR -> CC
+  CohFwd,
+
+  // CC -> DIR
+  CohFwdRsp,
+
+  // Coherence agent line invalidation messages:
+  //
+
+  // DIR -> CC
+  CohInv,
+
+  // CC - DIR
+  CohInvRsp,
+
+  
+  // ------------------------------------------------------------------------ //
+  // Last-Level Cache Message Classes:
+
+  // DIR -> LLC command {Fill, Writeback}:
   LLCCmd,
+
+  // LLC -> DIR command response:
   LLCCmdRsp,
 
-  // Memory Controller Message Classes:
-  //
+  // DIR -> LLC forwarding message:
+  LLCFwd,
 
+  // LLC -> DIR forwarding response message:
+  LLCFwdRsp,
+
+  
+  // ------------------------------------------------------------------------ //
+  // Memory Controller Message Classes:
+  
   // Memory Command; agent -> memory (read/write)
   MemCmd,
   // Memory Response; memory -> agent (read data/write acknowledgement)
   MemRsp,
 
+  
+  // ------------------------------------------------------------------------ //
   // Payload Message Classes:
 
-  // Message representing the transfer of a single cache line.
+  // Permissible transactions:
+  // MEM -> LLC
+  // LLC -> MEM
+  // L2 -> LLC
+  // LLC -> L2
+  // L2 -> L2
+  // CC -> L2
+  // L2 -> CC
+
+  // Message denoting the transfer of a complete L2 cache line of data.
+  Dt,
   //
-  DataLine
+  DtRsp
 };
 
 const char* to_string(MessageClass cls);

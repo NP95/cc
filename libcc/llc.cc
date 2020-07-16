@@ -230,6 +230,12 @@ class LLCModel::RdisProcess : public kernel::Process {
       if (commit) {
         // Discard message and advance arbitration state.
         const Message* msg = t.intf()->dequeue();
+
+        LogMessage lm("Execute message: ");
+        lm.append(msg->to_string());
+        lm.level(Level::Info);
+        log(lm);
+
         t.advance();
         msg->release();
       }

@@ -34,7 +34,6 @@ add_library(cc SHARED
   l1cache.cc
   l2cache.cc
   cpu.cc
-  moesi.cc
   amba.cc
   noc.cc
   dir.cc
@@ -50,4 +49,5 @@ add_library(cc SHARED
 
 target_include_directories(cc PRIVATE ${CMAKE_SOURCE_DIR}/include/cc)
 target_include_directories(cc PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(cc PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+
+add_subdirectory(moesi)

@@ -25,18 +25,12 @@
 ## POSSIBILITY OF SUCH DAMAGE.
 ## ========================================================================= ##
 
-# Update to 3.13 for target_sources 'relative' addition.
-cmake_minimum_required(VERSION 3.10)
+# Require cmake 3.13 to relative paths.
 
-
-project(cc)
-
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-add_subdirectory(third_party)
-include_directories(include)
-add_subdirectory(libcc)
-add_subdirectory(driver)
-enable_testing()
-add_subdirectory(tests)
+target_sources(cc PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/moesi.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/moesi_l1.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/moesi_l2.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/moesi_cc.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/moesi_dir.cc
+  )

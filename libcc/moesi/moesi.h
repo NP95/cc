@@ -25,61 +25,27 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_LIBCC_CPUCLUSTER_H
-#define CC_LIBCC_CPUCLUSTER_H
+#ifndef CC_LIBCC_MOESI_MOESI_H
+#define CC_LIBCC_MOESI_MOESI_H
 
-#include "kernel.h"
-#include "cfgs.h"
-#include "sim.h"
+#include "protocol.h"
 
-namespace cc {
+namespace cc::moesi {
 
-class Message;
-class CC;
-class L2CacheModel;
-class L1CacheModel;
-class Cpu;
-
-class CpuCluster : public Agent {
-  friend class SocTop;
- public:
-  CpuCluster(kernel::Kernel* k, const CpuClusterConfig& cfg, Stimulus* stimulus);
-
-  //
-  const CpuClusterConfig& config() const { return config_; }
-
-  // Child cache controller instance.
-  CC* cc() const { return cc_; }
-  // Get NOC -> CC message queue instance (CC owned)
-  MessageQueue* noc_cc__msg_q() const;
-
+//
+//
+struct ProtocolViolation : public CoherenceAction {
+  ProtocolViolation(const std::string& desc)
+      : desc_(desc)
+  {}
+  bool execute() override {
+    throw std::runtime_error("Protocol violation!");
+    return true;
+  }
  private:
-  // Construction
-  void build();
-  // Elaboration
-  void elab();
-  // Set CC -> NOC message queue instance (NOC owned)
-  void set_cc_noc__msg_q(MessageQueue* mq);
-  // Set directory mapper
-  void set_dm(DirMapper* dm);
-  
-  // Design Rule Check (DRC)
-  void drc();
-  
-  //
-  CC* cc_ = nullptr;
-  //
-  L2CacheModel* l2c_ = nullptr;
-  //
-  std::vector<L1CacheModel*> l1cs_;
-  //
-  std::vector<Cpu*> cpus_;
-  // Global stimulus instance
-  Stimulus* stimulus_ = nullptr;
-  // Cluster configuration.
-  CpuClusterConfig config_;
+  std::string desc_;
 };
 
-} // namespace cc
+} // namespace cc::moesi
 
 #endif

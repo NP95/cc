@@ -37,9 +37,9 @@ namespace cc {
 
 //
 //
-class CacheController::NocIngressProcess : public kernel::Process {
+class CC::NocIngressProcess : public kernel::Process {
  public:
-  NocIngressProcess(kernel::Kernel* k, const std::string& name, CacheController* cc)
+  NocIngressProcess(kernel::Kernel* k, const std::string& name, CC* cc)
       :  Process(k, name), cc_(cc) {
   }
 
@@ -92,14 +92,14 @@ class CacheController::NocIngressProcess : public kernel::Process {
   }
 
  private:
-  CacheController* cc_ = nullptr;
+  CC* cc_ = nullptr;
 };
 
 //
 //
-class CacheController::RdisProcess : public kernel::Process {
+class CC::RdisProcess : public kernel::Process {
   using Tournament = MessageQueueArbiter::Tournament;
-  using TableIt = Table<CacheControllerLineState*>::Iterator;
+  using TableIt = Table<CCLineState*>::Iterator;
 
   enum class State {
     Idle, ProcessMessage, ExecuteActions
@@ -115,7 +115,7 @@ class CacheController::RdisProcess : public kernel::Process {
   }
 
  public:
-  RdisProcess(kernel::Kernel* k, const std::string& name, CacheController* cc)
+  RdisProcess(kernel::Kernel* k, const std::string& name, CC* cc)
       : Process(k, name), cc_(cc) {
   }
   State state() const { return state_; }
@@ -205,8 +205,8 @@ class CacheController::RdisProcess : public kernel::Process {
       case MessageClass::AceCmd: {
         // L2 -> CC bus tranasaction.
         const AceCmdMsg* acemsg = static_cast<const AceCmdMsg*>(msg);
-        Table<CacheControllerLineState*>* table = cc_->table();
-        const Table<CacheControllerLineState*>::Manager th(
+        Table<CCLineState*>* table = cc_->table();
+        const Table<CCLineState*>::Manager th(
             table->begin(), table->end());
 
         TableIt it = th.first_invalid();
@@ -218,15 +218,15 @@ class CacheController::RdisProcess : public kernel::Process {
         if (has_invalid_entry && !has_active_entry) {
           // There are no prior transactions to this line in flight
           // and available slots in the transaction table.
-          const CacheControllerProtocol* protocol = cc_->protocol();
-          CacheControllerLineState* line = protocol->construct_line();
+          const CCProtocol* protocol = cc_->protocol();
+          CCLineState* line = protocol->construct_line();
 
           // Install line; (move to commit).
           table->install(it, line);
           // TODO!
           it_ = it;
 
-          context_ = CacheControllerContext();
+          context_ = CCContext();
           context_.set_line(line);
           context_.set_msg(msg);
           std::tie(commits, action_list_) = protocol->apply(context_);
@@ -244,13 +244,13 @@ class CacheController::RdisProcess : public kernel::Process {
         }
       } break;
       case MessageClass::DirRsp: {
-        Table<CacheControllerLineState*>* table = cc_->table();
+        Table<CCLineState*>* table = cc_->table();
         if (it_ != table->end()) {
-          context_ = CacheControllerContext();
-          CacheControllerLineState* line = *it_;
+          context_ = CCContext();
+          CCLineState* line = *it_;
           context_.set_line(line);
           context_.set_msg(msg);
-          const CacheControllerProtocol* protocol = cc_->protocol();
+          const CCProtocol* protocol = cc_->protocol();
           std::tie(commits, action_list_) = protocol->apply(context_);
           set_state(State::ExecuteActions);
           next_delta();
@@ -312,22 +312,22 @@ class CacheController::RdisProcess : public kernel::Process {
   // Current arbitration tournament.
   Tournament t_;
   // Current processing context.
-  CacheControllerContext context_;
+  CCContext context_;
   // Current processing state
   State state_;
   // Coherence action list.
-  CacheControllerActionList action_list_;
+  CCActionList action_list_;
   // Cache controller instance.
-  CacheController* cc_ = nullptr;
+  CC* cc_ = nullptr;
 };
 
-CacheController::CacheController(
-    kernel::Kernel* k, const CacheControllerConfig& config)
+CC::CC(
+    kernel::Kernel* k, const CCConfig& config)
     : Agent(k, config.name), config_(config) {
   build();
 }
 
-CacheController::~CacheController() {
+CC::~CC() {
    delete l2_cc__cmd_q_;
    delete noc_cc__msg_q_;
    delete dir_cc__rsp_q_;
@@ -338,7 +338,7 @@ CacheController::~CacheController() {
    delete protocol_;
  }
 
-void CacheController::build() {
+void CC::build() {
   // Construct L2 to CC command queue
   l2_cc__cmd_q_ = new MessageQueue(k(), "l2_cc__cmd_q", 3);
   add_child_module(l2_cc__cmd_q_);
@@ -358,23 +358,23 @@ void CacheController::build() {
   noci_proc_ = new NocIngressProcess(k(), "noci_proc", this);
   add_child_process(noci_proc_);
   // Transaction table
-  table_ = new Table<CacheControllerLineState*>(k(), "ttable", 16);
+  table_ = new Table<CCLineState*>(k(), "ttable", 16);
   add_child_module(table_);
   // Create protocol instance
   protocol_ = config_.pbuilder->create_cc();
 }
 
-void CacheController::elab() {
+void CC::elab() {
   // Add ingress queues to arbitrator.
   arb_->add_requester(l2_cc__cmd_q_);
   arb_->add_requester(dir_cc__rsp_q_);
   protocol_->set_cc(this);
 }
 
-void CacheController::drc() {
+void CC::drc() {
 
   if (dm() == nullptr) {
-    // The Directory Mapper object computes the host directory for a
+    // The Dir Mapper object computes the host directory for a
     // given address. In a single directory system, this is a basic
     // mapping to a single directory instance, but in more performant
     // systems this may some non-trivial mapping to multiple home
@@ -384,7 +384,7 @@ void CacheController::drc() {
   }
 }
 
-MessageQueue* CacheController::lookup_rdis_mq(MessageClass cls) const {
+MessageQueue* CC::lookup_rdis_mq(MessageClass cls) const {
   switch (cls) {
     case MessageClass::L2Cmd: return l2_cc__cmd_q_;
     case MessageClass::DirRsp: return dir_cc__rsp_q_;

@@ -57,7 +57,7 @@ std::string L2CmdMsg::to_string() const {
   std::stringstream ss;
   {
     KVListRenderer r(ss);
-    r.add_field("cls", to_string(cls()));
+    render_msg_fields(r);
     r.add_field("opcode", to_string(opcode()));
     Hexer h;
     r.add_field("addr", h.to_hex(addr()));
@@ -67,7 +67,7 @@ std::string L2CmdMsg::to_string() const {
 
 //
 //
-L2CmdRspMsg::L2CmdRspMsg() : Message(MessageClass::L2Rsp) {}
+L2CmdRspMsg::L2CmdRspMsg() : Message(MessageClass::L2CmdRsp) {}
 
 //
 //
@@ -194,6 +194,7 @@ class L2CacheModel::MainProcess : public kernel::Process {
   void handle_process_message() {
     const MsgRequesterIntf* intf = t_.intf();
     const Message* msg = intf->peek();
+    bool commits = false;
     switch (msg->cls()) {
       case MessageClass::L2Cmd: {
         const L2CmdMsg* cmdmsg = static_cast<const L2CmdMsg*>(msg);
@@ -230,7 +231,6 @@ class L2CacheModel::MainProcess : public kernel::Process {
               context_ = L2CoherenceContext();
               context_.set_line(l2line);
               context_.set_msg(msg);
-              bool commits = false;
               std::tie(commits, action_list_) = protocol->apply(context_);
               // Advance to execute state.
               set_state(State::ExecuteActions);
@@ -248,7 +248,6 @@ class L2CacheModel::MainProcess : public kernel::Process {
           context_.set_line(it_->t());
           context_.set_msg(msg);
           const L2CacheModelProtocol* protocol = model_->protocol();
-          bool commits = false;
           std::tie(commits, action_list_) = protocol->apply(context_);
           // Advance to execute state.
           set_state(State::ExecuteActions);
@@ -265,6 +264,17 @@ class L2CacheModel::MainProcess : public kernel::Process {
         lmsg.level(Level::Fatal);
         log(lmsg);
       } break;
+    }
+
+    if (commits) {
+      // Current message commits and is applied to the machine state.
+      LogMessage lm("Execute message: ");
+      lm.append(msg->to_string());
+      lm.level(Level::Info);
+      log(lm);
+
+      set_state(State::ExecuteActions);
+      next_delta();
     }
   }
 

@@ -40,8 +40,8 @@ namespace cc {
 class Message;
 class L1CacheModel;
 class L2CacheModel;
-class CacheController;
-class DirectoryModel;
+class CC;
+class DirModel;
 
 //
 //
@@ -198,7 +198,7 @@ class DirLineState {
   virtual bool is_evictable() const { return is_stable(); }
 };
 
-using DirectoryActionList = std::vector<CoherenceAction*>;
+using DirActionList = std::vector<CoherenceAction*>;
 
 //
 //
@@ -219,16 +219,16 @@ class DirCoherenceContext {
 
 //
 //
-class DirectoryProtocol {
+class DirProtocol {
  public:
-  DirectoryProtocol() = default;
-  virtual ~DirectoryProtocol() = default;
+  DirProtocol() = default;
+  virtual ~DirProtocol() = default;
 
   //
-  DirectoryModel* dir() const { return dir_; }
+  DirModel* dir() const { return dir_; }
 
   //
-  void set_dir(DirectoryModel* dir) { dir_ = dir; }
+  void set_dir(DirModel* dir) { dir_ = dir; }
 
   //
   //
@@ -236,63 +236,63 @@ class DirectoryProtocol {
 
   //
   //
-  virtual std::pair<bool, DirectoryActionList> apply(
+  virtual std::pair<bool, DirActionList> apply(
       const DirCoherenceContext& context) const = 0;
 
  private:
-  DirectoryModel* dir_ = nullptr;
+  DirModel* dir_ = nullptr;
 };
 
 //
 //
-class CacheControllerLineState {
+class CCLineState {
  public:
-  CacheControllerLineState() = default;
-  virtual ~CacheControllerLineState() = default;
+  CCLineState() = default;
+  virtual ~CCLineState() = default;
 };
 
-using CacheControllerActionList = std::vector<CoherenceAction*>;
+using CCActionList = std::vector<CoherenceAction*>;
 
 //
 //
-class CacheControllerContext {
+class CCContext {
  public:
-  CacheControllerContext() = default;
+  CCContext() = default;
 
   const Message* msg() const { return msg_; }
-  CacheControllerLineState* line() const { return line_; }
+  CCLineState* line() const { return line_; }
 
   void set_msg(const Message* msg) { msg_ = msg; }
-  void set_line(CacheControllerLineState* line) { line_ = line; }
+  void set_line(CCLineState* line) { line_ = line; }
 
  private:
   const Message* msg_ = nullptr;
-  CacheControllerLineState* line_ = nullptr;
+  CCLineState* line_ = nullptr;
 };
 
 //
 //
-class CacheControllerProtocol {
+class CCProtocol {
  public:
-  CacheControllerProtocol() = default;
-  virtual ~CacheControllerProtocol() = default;
+  CCProtocol() = default;
+  virtual ~CCProtocol() = default;
 
   //
-  CacheController* cc() const { return cc_; }
+  CC* cc() const { return cc_; }
 
   //
-  void set_cc(CacheController* cc) { cc_ = cc; }
+  void set_cc(CC* cc) { cc_ = cc; }
 
   //
-  virtual CacheControllerLineState* construct_line() const = 0;
+  virtual CCLineState* construct_line() const = 0;
 
   //
   //
-  virtual std::pair<bool, CacheControllerActionList> apply(
-      const CacheControllerContext& context) const = 0;
+  virtual std::pair<bool, CCActionList> apply(
+      const CCContext& context) const = 0;
 
  private:
-  CacheController* cc_ = nullptr;
+  CC* cc_ = nullptr;
 };
 
 //
@@ -307,11 +307,11 @@ class ProtocolBuilder {
   // Create an instance of the L2 protocol
   virtual L2CacheModelProtocol* create_l2() = 0;
 
-  // Create an instance of the Directory protocol
-  virtual DirectoryProtocol* create_dir() = 0;
+  // Create an instance of the Dir protocol
+  virtual DirProtocol* create_dir() = 0;
 
   // Create an instance of a Cache Controller protocol.
-  virtual CacheControllerProtocol* create_cc() = 0;
+  virtual CCProtocol* create_cc() = 0;
 };
 
 //

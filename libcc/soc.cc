@@ -51,7 +51,7 @@ class SocTop : public kernel::TopModule {
       delete cc;
     }
     //
-    for (DirectoryModel* dm : dms_) {
+    for (DirModel* dm : dms_) {
       delete dm;
     }
     delete noc_;
@@ -87,8 +87,8 @@ class SocTop : public kernel::TopModule {
     }
 
     // Construct child directories
-    for (const DirectoryModelConfig& dcfg : config_.dcfgs) {
-      DirectoryModel* dm = new DirectoryModel(k(), dcfg);
+    for (const DirModelConfig& dcfg : config_.dcfgs) {
+      DirModel* dm = new DirModel(k(), dcfg);
       noc_->register_agent(dm);
       add_child_module(dm);
       dms_.push_back(dm);
@@ -103,7 +103,7 @@ class SocTop : public kernel::TopModule {
         // Bind DIR instance to associated LLC.
         dm->set_llc(llc);
       } else {
-        // Directory is Null filter, it must therefore interact
+        // Dir is Null filter, it must therefore interact
         // directly with the memory controller to initiate
         // lookups/writebacks to main memory.
         // TODO
@@ -128,14 +128,14 @@ class SocTop : public kernel::TopModule {
       // CC -> NOC message queue
       cpuc->set_cc_noc__msg_q(port->ingress());
     }
-    for (DirectoryModel* dm : dms_) {
+    for (DirModel* dm : dms_) {
       NocPort* port = noc_->get_agent_port(dm);
       // NOC -> DIR message queue
       port->set_egress(dm->noc_dir__msg_q());
       // DIR -> NOC message queue
       dm->set_dir_noc__msg_q(port->ingress());
 
-      const DirectoryModelConfig& cfg = dm->config();
+      const DirModelConfig& cfg = dm->config();
       if (!cfg.is_null_filter) {
         LLCModel* llc = dm->llc();
         // Bind memory controller
@@ -158,7 +158,7 @@ class SocTop : public kernel::TopModule {
       mm->set_mem_noc__msg_q(port->ingress());
     }
     // Construct directory mapper
-    dm_ = new SingleDirectoryMapper(*dms_.begin());
+    dm_ = new SingleDirMapper(*dms_.begin());
     for (CpuCluster* cc : ccs_) {
       cc->set_dm(dm_);
     }
@@ -177,11 +177,11 @@ class SocTop : public kernel::TopModule {
   }
 
   // Directory Mapper instance
-  DirectoryMapper* dm_;
+  DirMapper* dm_;
   // NOC/Interconnect instance
   NocModel* noc_ = nullptr;
   // Directory model instance
-  std::vector<DirectoryModel*> dms_;
+  std::vector<DirModel*> dms_;
   // LLC Models 1-to-1 relationship with non-Null Filter directories.
   std::vector<LLCModel*> llcs_;
   // CPU Cluster instances
