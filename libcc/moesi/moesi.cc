@@ -25,28 +25,11 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-//#include "moesi.h"
-
-#include <string>
-
 #include "moesi_l1.h"
 #include "moesi_l2.h"
 #include "moesi_cc.h"
 #include "moesi_dir.h"
 #include "protocol.h"
-
-/*
-#include "l1cache.h"
-#include "utility.h"
-#include "msg.h"
-#include "protocol.h"
-#include "cpu.h"
-#include "amba.h"
-#include "ccntrl.h"
-#include "noc.h"
-#include "dir.h"
-#include "llc.h"
-*/
 
 namespace cc {
 
