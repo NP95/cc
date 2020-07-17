@@ -243,7 +243,6 @@ class CC::RdisProcess : public kernel::Process {
           }
         }
       } break;
-
       case MessageClass::Dt:
       case MessageClass::CohEnd:
       case MessageClass::CohCmdRsp: {

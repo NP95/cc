@@ -33,7 +33,7 @@ namespace {
 
 using namespace cc;
 
-enum class MOESIL1State {
+enum class State {
   // Invalid
   I,
   I_S,
@@ -51,28 +51,28 @@ enum class MOESIL1State {
 
 //
 //
-const char* to_string(MOESIL1State state) {
+const char* to_string(State state) {
   switch (state) {
-    case MOESIL1State::I: return "I";
-    case MOESIL1State::I_S: return "I_S";
-    case MOESIL1State::S: return "S";
-    case MOESIL1State::I_E: return "I_E";
-    case MOESIL1State::E: return "E";
-    case MOESIL1State::E_M: return "E_M";
-    case MOESIL1State::M: return "M";
-    case MOESIL1State::M_I: return "M_I";
+    case State::I: return "I";
+    case State::I_S: return "I_S";
+    case State::S: return "S";
+    case State::I_E: return "I_E";
+    case State::E: return "E";
+    case State::E_M: return "E_M";
+    case State::M: return "M";
+    case State::M_I: return "M_I";
     default: return "Invalid";
   }
 };
 
 //
 //
-bool is_stable(MOESIL1State state) {
+bool is_stable(State state) {
   switch (state) {
-    case MOESIL1State::I:
-    case MOESIL1State::S:
-    case MOESIL1State::E:
-    case MOESIL1State::M:
+    case State::I:
+    case State::S:
+    case State::E:
+    case State::M:
       return true;
     default:
       return false;
@@ -86,8 +86,8 @@ class MOESIL1LineState : public L1LineState {
   MOESIL1LineState() {}
 
   // Current line state.
-  MOESIL1State state() const { return state_; }
-  void set_state(MOESIL1State state) { state_ = state; }
+  State state() const { return state_; }
+  void set_state(State state) { state_ = state; }
 
   // Stable state status.
   bool is_stable() const {
@@ -95,13 +95,13 @@ class MOESIL1LineState : public L1LineState {
   }
 
  private:
-  MOESIL1State state_ = MOESIL1State::I;
+  State state_ = State::I;
 };
 
 //
 //
 struct UpdateStateAction : public CoherenceAction {
-  UpdateStateAction(MOESIL1LineState* line, MOESIL1State state)
+  UpdateStateAction(MOESIL1LineState* line, State state)
       : line_(line), state_(state)
   {}
   bool execute() override {
@@ -110,7 +110,7 @@ struct UpdateStateAction : public CoherenceAction {
   }
  private:
   MOESIL1LineState* line_ = nullptr;
-  MOESIL1State state_;
+  State state_;
 };
 
 //
@@ -136,10 +136,12 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
     MOESIL1LineState* line = static_cast<MOESIL1LineState*>(c.line());
     switch(c.msg()->cls()) {
       case MessageClass::L1Cmd: {
-        const L1CmdMsg* msg = static_cast<const L1CmdMsg*>(c.msg());
-        apply(c, line, msg);
+        // CPU -> L1 command:
+        apply(c, line, static_cast<const L1CmdMsg*>(c.msg()));
       } break;
       case MessageClass::L2CmdRsp: {
+        // L2 -> L1 command response:
+        apply(c, line, static_cast<const L1CmdRspMsg*>(c.msg()));
       } break;
       default: {
         // Unknown message class; error
@@ -157,7 +159,9 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
 
   void apply(L1CacheContext& c, MOESIL1LineState* line, const L1CmdMsg* msg) const {
     switch (line->state()) {
-      case MOESIL1State::I: {
+      case State::I: {
+        // Line is not in the cache; issue the appropriate request to
+        // L2 to initiate the fill operation.
         {
           // Emit request to L2.
           L2CmdMsg* l2cmdmsg = new L2CmdMsg();
@@ -175,22 +179,70 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
           issue_msg(c.actions(), l1cache()->l1_l2__cmd_q(), l2cmdmsg);
         }
         // Update state
-        issue_update_state(c, line, MOESIL1State::I_S);
+        issue_update_state(c, line, State::I_S);
         // Update context
+        // Wrong, should not commit!
+        // c.set_stalled(true);
         c.set_commits(true);
         c.set_dequeue(true);
+        // Install new entry in transaction table as the transaction
+        // has now started and commands are inflight. The transaction
+        // itself is not complete at this point.
+        c.set_ttadd(true);
         c.set_wait(L1Wait::NextEpochIfHasRequestOrWait);
       } break;
+      case State::S: {
+        // Line is present in the cache. 
+        switch (msg->opcode()) {
+          case L1CacheOpcode::CpuLoad: {
+            // LD to line in S-state can complete immediately. Forward
+            // the response to the CPU.
+            {
+              L1CmdRspMsg* rsp = new L1CmdRspMsg;
+              rsp->set_t(msg->t());
+              issue_msg(c.actions(), c.l1cache()->l1_cpu__rsp_q(), rsp);
+            }
+            // Update context.
+            c.set_commits(true);
+            c.set_dequeue(true);
+            c.set_wait(L1Wait::NextEpochIfHasRequestOrWait);
+          } break;
+          case L1CacheOpcode::CpuStore: {
+          } break;
+        }
+      } break;
       default: {
+        // Invalid state
       } break;
     }
   }
 
-  void emit_to_l2(const Message* msg) {
+  void apply(L1CacheContext& c, MOESIL1LineState* line, const L1CmdRspMsg* msg) const {
+    switch (line->state()) {
+      case State::I_S: {
+        // Response has arrived back at L1 from L2. Forward response
+        // to CPU.
+        {
+          L1CmdRspMsg* rsp = new L1CmdRspMsg;
+          rsp->set_t(msg->t());
+          issue_msg(c.actions(), c.l1cache()->l1_cpu__rsp_q(), rsp);
+        }
+        // Update state
+        issue_update_state(c, line, State::S);
+        // Update context
+        c.set_commits(true);
+        c.set_dequeue(true);
+        c.set_ttdel(true);
+        c.set_wait(L1Wait::NextEpochIfHasRequestOrWait);
+      } break;
+      default: {
+        // Invalid state
+      } break;
+    }
   }
 
   void issue_update_state(
-      L1CacheContext& c, MOESIL1LineState* line, MOESIL1State state) const {
+      L1CacheContext& c, MOESIL1LineState* line, State state) const {
     std::vector<CoherenceAction*>& a = c.actions();
     a.push_back(new UpdateStateAction(line, state));
   }

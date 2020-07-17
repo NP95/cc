@@ -115,9 +115,6 @@ class L1CacheModel::MainProcess : public kernel::Process {
     wait_on_context(c);
   }
 
-  // Finalization
-  void fini() override {}
-
   // Evaluation
   void eval() override {
     MessageQueueArbiter* arb = model_->arb();
@@ -125,6 +122,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
 
     // Construct and initialize current processing context.
     L1CacheContext c;
+    c.set_l1cache(model_);
     c.set_t(t);
 
     // Check if requests are present, if not block until a new message
@@ -145,12 +143,10 @@ class L1CacheModel::MainProcess : public kernel::Process {
       case MessageClass::L1Cmd: {
         // L1 command originating from either the CPU or the parent
         // L2 cache instance.
-        const L1CmdMsg* cmd = static_cast<const L1CmdMsg*>(c.msg());
-        eval_msg(c, cmd);
+        eval_msg(c, static_cast<const L1CmdMsg*>(c.msg()));
       } break;
       case MessageClass::L2CmdRsp: {
-        const L2CmdRspMsg* rsp = static_cast<const L2CmdRspMsg*>(c.msg());
-        eval_msg(c, rsp);
+        eval_msg(c, static_cast<const L2CmdRspMsg*>(c.msg()));
       } break;
       default: {
         using cc::to_string;
@@ -160,11 +156,15 @@ class L1CacheModel::MainProcess : public kernel::Process {
         log(lmsg);
       } break;
     }
-    // If context commits, apply set of state updates.
-    if (c.commits()) { execute(c); }
+    // If command commits, execute compute action list.
+    if (c.commits()) {
+      execute(c);
+    }
     // Apply context's wait condition to processes wait-state.
     wait_on_context(c);
   }
+
+ private:
 
   void eval_msg(L1CacheContext& c, const L1CmdMsg* cmd) const {
     L1Cache* cache = model_->cache();
@@ -186,11 +186,13 @@ class L1CacheModel::MainProcess : public kernel::Process {
         c.set_dequeue(false);
         c.set_stalled(true);
         protocol->evict(c);
+        check_resources(c);
       } else {
         // Eviction not required for the command to complete.
         c.set_it(p.first);
         c.set_dequeue(true);
         protocol->install(c);
+        check_resources(c);
         if (c.commits()) {
           set.install(c.it(), ah.tag(cmd->addr()), c.line());
           // Line ownership passed to cache.
@@ -202,16 +204,45 @@ class L1CacheModel::MainProcess : public kernel::Process {
       c.set_line(it->t());
       c.set_dequeue(true);
       protocol->apply(c);
+      check_resources(c);
     }
   }
 
   void eval_msg(L1CacheContext& c, const L2CmdRspMsg* rsp) const {
+    L1TTable* tt = model_->tt();
+
+    L1TTable::iterator it = tt->find(rsp->t());
+    if (it == tt->end()) {
+      LogMessage msg("Cannot find transaction table entry for ");
+      msg.append(to_string(rsp->t()));
+      msg.level(Level::Fatal);
+      log(msg);
+    }
+
+    L1TState* st = it->second;
+    c.set_line(st->line());
+    const L1CacheModelProtocol* protocol = model_->protocol();
+    protocol->apply(c);
   }
 
-  void execute(L1CacheContext& c) const {
+  void check_resources(L1CacheContext& c) const {
+    if (!c.commits()) return;
+
+    // Check the set of L1 resources used by this context to determine
+    // if it can commit to the machine state in one single atomic
+    // action. If not, commit cannot take place and the message is
+    // blocked until sufficient resources become available.
+
+    // TODO
+  }
+
+  void execute(const L1CacheContext& c) const {
+    // Current action (command issue to L2 or consequent eviction)
+    // commits, therefore install entry in the transaction table.
     for (CoherenceAction* a : c.actions()) {
       a->execute();
     }
+    update_ttable(c);
     L1Tournament t = c.t();
     if (c.stalled()) {
       t.intf()->set_blocked(true);
@@ -221,7 +252,30 @@ class L1CacheModel::MainProcess : public kernel::Process {
     }
   }
 
-  void wait_on_context(L1CacheContext& c) {
+  void update_ttable(const L1CacheContext& c) const {
+    L1TTable* tt = model_->tt();
+    Transaction* trn = c.msg()->t();
+    if (c.ttadd()) {
+      // Create new state.
+      L1TState* st = new L1TState;
+      st->set_line(c.line());
+      // Install context into table.
+      tt->install(trn, st);
+    } else if (c.ttdel()) {
+      // Delete entry from table.
+      L1TTable::iterator it = tt->find(trn);
+      if (it == tt->end()) {
+        LogMessage msg("Transaction not present in transaction table!");
+        msg.level(Level::Fatal);
+        log(msg);
+      }
+      L1TState* st = it->second;
+      st->release();
+      tt->erase(it);
+    }
+  }
+
+  void wait_on_context(const L1CacheContext& c) {
     switch (c.wait()) {
       case L1Wait::MsgArrival: {
         MessageQueueArbiter* arb = model_->arb();
@@ -240,7 +294,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
         }
       } break;
       default: {
-        LogMessage msg("Invalid wait condition.");
+        LogMessage msg("Invalid wait condition: ");
         msg.append(to_string(c.wait()));
         msg.level(Level::Fatal);
         log(msg);
@@ -257,27 +311,32 @@ L1CacheModel::L1CacheModel(kernel::Kernel* k, const L1CacheModelConfig& config)
   build();
 }
 
-L1CacheModel::~L1CacheModel() {}
+L1CacheModel::~L1CacheModel() {
+  delete cpu_l1__cmd_q_;
+  delete l2_l1__rsp_q_;
+  delete arb_;
+  delete tt_;
+  delete main_;
+  delete cache_;
+}
 
 void L1CacheModel::build() {
   // Construct command request queue
   cpu_l1__cmd_q_ = new MessageQueue(k(), "cpu_l1__cmd_q", 16);
   add_child_module(cpu_l1__cmd_q_);
-
   // Construct L2 -> L1 response queue
   l2_l1__rsp_q_ = new MessageQueue(k(), "l2_l1__rsp_q", 16);
   add_child_module(l2_l1__rsp_q_);
-
   // Arbiter
   arb_ = new MessageQueueArbiter(k(), "arb");
   add_child_module(arb_);
-
+  // Transaction table.
+  tt_ = new L1TTable(k(), "tt", 16);
+  add_child_module(tt_);
   // Main thread of execution
   main_ = new MainProcess(k(), "main", this);
   add_child_process(main_);
-
-  cache_ = new CacheModel<L1LineState*>(config_.cconfig);
-
+  cache_ = new L1Cache(config_.cconfig);
   // Set up protocol
   protocol_ = config_.pbuilder->create_l1();
 }

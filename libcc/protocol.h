@@ -39,9 +39,9 @@
 namespace cc {
 
 // Message Forwards:
-class L1CmdMsg;
 class L1CacheContext;
 class L1CacheModel;
+class L2CacheContext;
 class L2CacheModel;
 class CC;
 class DirModel;
@@ -168,7 +168,6 @@ class CohInvRspMsg : public Message {
   std::string to_string() const override;
 };
 
-
 //
 //
 class L1LineState {
@@ -200,6 +199,8 @@ class CoherenceAction {
   virtual bool execute() = 0;
   virtual void release() { delete this; }
 };
+
+using CoherenceActionList = std::vector<CoherenceAction*>;
 
 using L1CoherenceActionList = std::vector<CoherenceAction*>;
 
@@ -247,7 +248,6 @@ class L1CacheModelProtocol {
   virtual void evict(L1CacheContext& c) const = 0;
 
  protected:
-
   virtual void issue_msg(
       L1CoherenceActionList& al, MessageQueue* mq, const Message* msg) const;
 
@@ -308,12 +308,19 @@ class L2CacheModelProtocol {
 
   //
   //
-  virtual L2LineState* construct_line() const = 0;
+  virtual void install(L2CacheContext& c) const = 0;
 
   //
   //
-  virtual std::pair<bool, L2CoherenceActionList> apply(
-      const L2CoherenceContext& context) const = 0;
+  virtual void apply(L2CacheContext& c) const = 0;
+
+  //
+  //
+  virtual void evict(L2CacheContext& c) const = 0;
+
+ protected:
+  virtual void issue_msg(
+      L1CoherenceActionList& al, MessageQueue* mq, const Message* msg) const;
 
  private:
   L2CacheModel* l2cache_ = nullptr;

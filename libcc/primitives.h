@@ -266,6 +266,49 @@ class Arbiter : public kernel::Module {
   std::vector<kernel::RequesterIntf<T>*> intfs_;
 };
 
+
+//
+//
+template<typename K, typename V>
+class Table2 : public kernel::Module {
+  using table_type = std::map<K, V>;
+ public:
+
+  using iterator = typename table_type::iterator;
+  using const_iterator = typename table_type::const_iterator;
+
+  Table2(kernel::Kernel* k, const std::string& name, std::size_t n)
+      : Module(k, name), n_(n) {
+  }
+
+  // Accessors:
+  std::size_t n() const { return n_; }
+  std::size_t size() const { return m_.size(); }
+
+  iterator begin() { return m_.begin(); }
+  const_iterator begin() const { return m_.begin(); }
+
+  iterator end() { return m_.end(); }
+  const_iterator end() const { return m_.end(); }
+  
+
+  iterator find(K k) { return m_.find(k); }
+  const iterator find(K k) const { return m_.find(k); }
+
+  //
+  void install(K k, V v) { m_.insert_or_assign(k, v); }
+
+  //
+  void erase(iterator it) { m_.erase(it); }
+
+ private:
+  // Table size.
+  std::size_t n_;
+  // Table state.
+  table_type m_;
+};
+
+
 //
 //
 template<typename T>

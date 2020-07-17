@@ -39,12 +39,8 @@
 namespace cc {
 
 // Forwards:
-class Stimulus;
-class Message;
-class MessageQueue;
-template <typename>
-class Arbiter;
 class Cpu;
+class L1CacheModel;
 class L2CacheModel;
 class L1LineState;
 
@@ -107,8 +103,9 @@ enum class L1Wait {
   NextEpochIfHasRequestOrWait
 };
 
+//
 const char* to_string(L1Wait w);
-  
+
 //
 //
 class L1CacheContext {
@@ -121,24 +118,30 @@ class L1CacheContext {
   bool stalled() const { return stalled_; }
   bool dequeue() const { return dequeue_; }
   bool commits() const { return commits_; }
+  bool ttadd() const { return ttadd_; }
+  bool ttdel() const { return ttdel_; }
   const Message* msg() const { return msg_; }
   L1CacheLineIt it() const { return it_; }
   L1LineState* line() const { return line_; }
   L1Tournament t() const { return t_; }
-  std::vector<CoherenceAction*>& actions() { return al_; }
-  const std::vector<CoherenceAction*>& actions() const { return al_; }
+  CoherenceActionList& actions() { return al_; }
+  const CoherenceActionList& actions() const { return al_; }
   L1Wait wait() const { return wait_; }
+  L1CacheModel* l1cache() const { return l1cache_; }
 
   //
   void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
   void set_stalled(bool stalled) { stalled_ = stalled; }
   void set_dequeue(bool dequeue) { dequeue_ = dequeue; }
   void set_commits(bool commits) { commits_ = commits; }
+  void set_ttadd(bool ttadd) { ttadd_ = ttadd; }
+  void set_ttdel(bool ttdel) { ttdel_ = ttdel; }
   void set_msg(const Message* msg) { msg_ = msg; }
   void set_it(L1CacheLineIt it) { it_ = it; }
   void set_line(L1LineState* line) { line_ = line; }
   void set_t(L1Tournament t) { t_ = t; }
   void set_wait(L1Wait wait) { wait_ = wait; }
+  void set_l1cache(L1CacheModel* l1cache) { l1cache_ = l1cache; }
   
  private:
   // Current message is stalled (cannot execute) for some protocol or
@@ -146,24 +149,58 @@ class L1CacheContext {
   bool stalled_ = false;
   // Dequeue message from associated message queue upon execution.
   bool dequeue_ = false;
-  //
+  // Do commit context to L1 state and issue actions.
   bool commits_ = false;
   // Context owns the current line (on an install line) and therefore
   // must delete the line upon destruction.
   bool owns_line_ = false;
+  // Transaction table ADD
+  bool ttadd_ = false;
+  // Transaction table DELete
+  bool ttdel_ = false;
   // Current cache line
   L1LineState* line_ = nullptr;
   // Current arbitration tournament.
   L1Tournament t_;
   //
   L1CacheLineIt it_;
-  //
+  // Message being processed.
   const Message* msg_ = nullptr;
   //
-  std::vector<CoherenceAction*> al_;
+  CoherenceActionList al_;
   // Condition on which the process is to be re-evaluated.
   L1Wait wait_ = L1Wait::Invalid;
+  // L1 cache instance
+  L1CacheModel* l1cache_ = nullptr;
 };
+
+//
+//
+class L1TState {
+ public:
+  L1TState() = default;
+  virtual ~L1TState() = default;
+
+  void release() { delete this; }
+
+  //
+  L1LineState* line() const { return line_; }
+
+  //
+  void set_line(L1LineState* line) { line_ = line; }
+
+ private:
+  // Cache line on which current transaction is executing. (Can
+  // otherwise be recovered from the address, but this simply saves
+  // the lookup into the cache structure).
+  L1LineState* line_ = nullptr;
+  // Set of message queues block on the current transaction.
+  std::vector<MessageQueue*> bmqs_;
+};
+
+//
+//
+using L1TTable = Table2<Transaction*, L1TState*>;
 
 //
 //
@@ -171,6 +208,7 @@ class L1CacheModel : public Agent {
   class MainProcess;
 
   friend class CpuCluster;
+  
  public:
   L1CacheModel(kernel::Kernel* k, const L1CacheModelConfig& config);
   virtual ~L1CacheModel();
@@ -198,6 +236,8 @@ class L1CacheModel : public Agent {
   CacheModel<L1LineState*>* cache() const { return cache_; }
   // Protocol
   L1CacheModelProtocol* protocol() const { return protocol_; }
+  // Transaction table.
+  L1TTable* tt() const { return tt_; }
   
   // Build Phase:
   void build();
@@ -233,10 +273,12 @@ class L1CacheModel : public Agent {
   MessageQueue* l1_cpu__rsp_q_ = nullptr;
   // Message servicing arbiter.
   MessageQueueArbiter* arb_ = nullptr;
+  // Transaction table.
+  L1TTable* tt_ = nullptr;
   // Main process of execution.
   MainProcess* main_ = nullptr;
   // Cache Instance
-  CacheModel<L1LineState*>* cache_ = nullptr;
+  L1Cache* cache_ = nullptr;
   // Pointer to parent L2.
   L2CacheModel* l2c_ = nullptr;
   // L1 cache protocol
