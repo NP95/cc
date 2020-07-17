@@ -145,6 +145,11 @@ struct EmitMessageAction : public CoherenceAction {
 };
 
 
+void L1CacheModelProtocol::issue_msg(
+    L1CoherenceActionList& al, MessageQueue* mq, const Message* msg) const {
+  al.push_back(new EmitMessageAction(mq, msg));
+}
+
 void DirProtocol::issue_emit_to_noc(
     DirActionList& al, const Message* msg, Agent* dest) const {
   // Encapsulate message in NOC transport protocol.

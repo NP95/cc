@@ -25,12 +25,13 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "moesi.h"
 #include "protocol.h"
-#include "sim.h"
 #include "l1cache.h"
+#include "l2cache.h"
 
-namespace cc::moesi {
+namespace {
+
+using namespace cc;
 
 enum class MOESIL1State {
   // Invalid
@@ -66,6 +67,20 @@ const char* to_string(MOESIL1State state) {
 
 //
 //
+bool is_stable(MOESIL1State state) {
+  switch (state) {
+    case MOESIL1State::I:
+    case MOESIL1State::S:
+    case MOESIL1State::E:
+    case MOESIL1State::M:
+      return true;
+    default:
+      return false;
+  }
+}
+
+//
+//
 class MOESIL1LineState : public L1LineState {
  public:
   MOESIL1LineState() {}
@@ -77,7 +92,6 @@ class MOESIL1LineState : public L1LineState {
   // Stable state status.
   bool is_stable() const {
     return true;
-
   }
 
  private:
@@ -86,171 +100,111 @@ class MOESIL1LineState : public L1LineState {
 
 //
 //
-class MOESIL1CacheProtocol : public L1CacheModelProtocol {
-  struct UpdateStateAction : public CoherenceAction {
-    UpdateStateAction(MOESIL1LineState* line, MOESIL1State state)
-        : line_(line), state_(state)
-    {}
-    bool execute() override {
-      line_->set_state(state_);
-      return true;
-    }
-   private:
-    MOESIL1LineState* line_ = nullptr;
-    MOESIL1State state_;
-  };
+struct UpdateStateAction : public CoherenceAction {
+  UpdateStateAction(MOESIL1LineState* line, MOESIL1State state)
+      : line_(line), state_(state)
+  {}
+  bool execute() override {
+    line_->set_state(state_);
+    return true;
+  }
+ private:
+  MOESIL1LineState* line_ = nullptr;
+  MOESIL1State state_;
+};
 
-  struct EmitMessageAction : public CoherenceAction {
-    EmitMessageAction(MessageQueue* mq, const Message* msg)
-        : mq_(mq), msg_(msg)
-    {}
-    bool execute() override {
-      return mq_->issue(msg_);
-    }
-   private:
-    MessageQueue* mq_ = nullptr;
-    const Message* msg_ = nullptr;
-  };
+//
+//
+class MOESIL1CacheProtocol : public L1CacheModelProtocol {
   
  public:
-  MOESIL1CacheProtocol() {}
+  MOESIL1CacheProtocol() = default;
 
-  L1LineState* construct_line() const override {
-    MOESIL1LineState* l1 = new MOESIL1LineState();
-    return l1;
+  //
+  //
+  void install(L1CacheContext& c) const override {
+    MOESIL1LineState* line = new MOESIL1LineState();
+    // Leak on line if operation is not committed.
+    c.set_line(line);
+    c.set_owns_line(true);
+    apply(c);
   }
 
-  std::pair<bool, L1CoherenceActionList> apply(
-      const L1CoherenceContext& context) const override {
-    bool commits;
-    L1CoherenceActionList al;
-
-    const Message* msg = context.msg();
-    switch(msg->cls()) {
+  //
+  //
+  void apply(L1CacheContext& c) const override {
+    MOESIL1LineState* line = static_cast<MOESIL1LineState*>(c.line());
+    switch(c.msg()->cls()) {
       case MessageClass::L1Cmd: {
-        const L1CmdMsg* l1cmdmsg = static_cast<const L1CmdMsg*>(msg);
-        commits = apply(al, context, l1cmdmsg);
+        const L1CmdMsg* msg = static_cast<const L1CmdMsg*>(c.msg());
+        apply(c, line, msg);
       } break;
       case MessageClass::L2CmdRsp: {
-        const L2CmdRspMsg* l2rspmsg = static_cast<const L2CmdRspMsg*>(msg);
-        commits = apply(al, context, l2rspmsg);
       } break;
       default: {
         // Unknown message class; error
-        commits = false;
       } break;
     }
-    return std::make_pair(commits, al);
   }
 
-  bool apply(L1CoherenceActionList& al, const L1CoherenceContext& context,
-             const L1CmdMsg* msg) const {
-    bool commits = true;
-    MOESIL1LineState* line = static_cast<MOESIL1LineState*>(context.line());
+  //
+  //
+  void evict(L1CacheContext& c) const override {
+    // TODO
+  }
+
+ private:
+
+  void apply(L1CacheContext& c, MOESIL1LineState* line, const L1CmdMsg* msg) const {
     switch (line->state()) {
       case MOESIL1State::I: {
-        // Emit request to L2.
-        L2CmdMsg* l2cmdmsg = new L2CmdMsg();
-        l2cmdmsg->set_t(msg->t());
-        l2cmdmsg->set_addr(msg->addr());
-        switch (msg->opcode()) {
-          case L1CacheOpcode::CpuLoad: {
-            l2cmdmsg->set_opcode(L2CmdOpcode::L1GetS);
-          } break;
-          case L1CacheOpcode::CpuStore: {
-            l2cmdmsg->set_opcode(L2CmdOpcode::L1GetE);
-          } break;
+        {
+          // Emit request to L2.
+          L2CmdMsg* l2cmdmsg = new L2CmdMsg();
+          l2cmdmsg->set_t(msg->t());
+          l2cmdmsg->set_addr(msg->addr());
+          switch (msg->opcode()) {
+            case L1CacheOpcode::CpuLoad: {
+              l2cmdmsg->set_opcode(L2CmdOpcode::L1GetS);
+            } break;
+            case L1CacheOpcode::CpuStore: {
+              l2cmdmsg->set_opcode(L2CmdOpcode::L1GetE);
+            } break;
+          }
+          l2cmdmsg->set_l1cache(l1cache());
+          issue_msg(c.actions(), l1cache()->l1_l2__cmd_q(), l2cmdmsg);
         }
-        l2cmdmsg->set_l1cache(l1cache());
-        al.push_back(new EmitMessageAction(l1cache()->l1_l2__cmd_q(), l2cmdmsg));
         // Update state
-        al.push_back(new UpdateStateAction(line, MOESIL1State::I_S));
-      } break;
-      case MOESIL1State::E: {
-        switch (msg->opcode()) {
-          case L1CacheOpcode::CpuLoad: {
-            commits = true;
-          } break;
-          case L1CacheOpcode::CpuStore: {
-            commits = true;
-            al.push_back(new UpdateStateAction(line, MOESIL1State::M));
-          } break;
-        }
-      } break;
-      case MOESIL1State::M: {
-        switch (msg->opcode()) {
-          case L1CacheOpcode::CpuLoad: {
-            commits = true;
-          } break;
-          case L1CacheOpcode::CpuStore: {
-            commits = true;
-          } break;
-        }
-      } break;
-      case MOESIL1State::S: {
-        switch (msg->opcode()) {
-          case L1CacheOpcode::CpuLoad: {
-            commits = true;
-
-            L1CmdRspMsg* l1rspmsg = new L1CmdRspMsg();
-            l1rspmsg->set_t(msg->t());
-            al.push_back(new EmitMessageAction(l1cache()->l1_cpu__rsp_q(), l1rspmsg));
-          } break;
-          case L1CacheOpcode::CpuStore: {
-            // Cannot store to a line in the Shared-state; the line
-            // must first be promoted to the exclusive state.
-            commits = false;
-            L2CmdMsg* l2cmdmsg = new L2CmdMsg();
-            l2cmdmsg->set_t(msg->t());
-            l2cmdmsg->set_addr(msg->addr());
-            l2cmdmsg->set_opcode(L2CmdOpcode::L1GetE);
-            al.push_back(new EmitMessageAction(l1cache()->l1_l2__cmd_q(), l2cmdmsg));
-
-            al.push_back(new UpdateStateAction(line, MOESIL1State::S_E));
-          } break;
-        }
+        issue_update_state(c, line, MOESIL1State::I_S);
+        // Update context
+        c.set_commits(true);
+        c.set_dequeue(true);
+        c.set_wait(L1Wait::NextEpochIfHasRequestOrWait);
       } break;
       default: {
-        al.push_back(new ProtocolViolation("Invalid line state"));
       } break;
     }
-    return commits;
   }
 
-  bool apply(L1CoherenceActionList& al, const L1CoherenceContext& context,
-             const L2CmdRspMsg* msg) const {
-    bool commits = true;
-    MOESIL1LineState* line = static_cast<MOESIL1LineState*>(context.line());
-    switch (line->state()) {
-      case MOESIL1State::I_S: {
-        L1CmdRspMsg* l1rsp = new L1CmdRspMsg();
-        l1rsp->set_t(msg->t());
-        al.push_back(new EmitMessageAction(l1cache()->l1_cpu__rsp_q(), l1rsp));
-
-        switch (msg->opcode()) {
-          case L2RspOpcode::L1InstallS: {
-            al.push_back(new UpdateStateAction(line, MOESIL1State::S));
-          } break;
-          case L2RspOpcode::L1InstallE: {
-            // Requested a line in the Shared state; line arrives in
-            // the exclusive state.
-            al.push_back(new UpdateStateAction(line, MOESIL1State::E));
-          } break;
-          default: {
-            // Unknown opcode.
-          } break;
-        }
-      } break;
-      default: {
-        al.push_back(new ProtocolViolation("Invalid line state"));
-      } break;
-    }
-    return commits;
+  void emit_to_l2(const Message* msg) {
   }
+
+  void issue_update_state(
+      L1CacheContext& c, MOESIL1LineState* line, MOESIL1State state) const {
+    std::vector<CoherenceAction*>& a = c.actions();
+    a.push_back(new UpdateStateAction(line, state));
+  }
+
 };
 
-L1CacheModelProtocol* build_l1_protocol() {
-  return new MOESIL1CacheProtocol{};
-}
+} // namespace
+
+
+namespace cc::moesi {
+
+//
+//
+L1CacheModelProtocol* build_l1_protocol() { return new MOESIL1CacheProtocol{}; }
 
 } // namespace cc::moesi
+

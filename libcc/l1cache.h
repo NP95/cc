@@ -32,7 +32,9 @@
 
 #include "cc/cfgs.h"
 #include "primitives.h"
-#include "l2cache.h"
+#include "sim.h"
+#include "protocol.h"
+#include "cache.h"
 
 namespace cc {
 
@@ -44,7 +46,6 @@ template <typename>
 class Arbiter;
 class Cpu;
 class L2CacheModel;
-template <typename> class CacheModel;
 class L1LineState;
 
 
@@ -85,10 +86,90 @@ class L1CmdRspMsg : public Message {
   std::string to_string() const override;
 };
 
+
+using L1Tournament = MessageQueueArbiter::Tournament;
+// Cache data type
+using L1Cache = CacheModel<L1LineState*>;
+// Cache Set data type
+using L1CacheSet = L1Cache::Set;
+// Cache Line Iterator type.
+using L1CacheLineIt = L1Cache::LineIterator;
+
+//
+//
+enum class L1Wait {
+  // Invalid wait condition; indicates unset.
+  Invalid,
+  // Await the arrival of a message at the ingress arbiter.
+  MsgArrival,
+  // If further requests, wait for next epoch, otherwise block until
+  // new messages arrive.
+  NextEpochIfHasRequestOrWait
+};
+
+const char* to_string(L1Wait w);
+  
+//
+//
+class L1CacheContext {
+ public:
+  L1CacheContext() = default;
+  ~L1CacheContext();
+
+  //
+  bool owns_line() const { return owns_line_; }
+  bool stalled() const { return stalled_; }
+  bool dequeue() const { return dequeue_; }
+  bool commits() const { return commits_; }
+  const Message* msg() const { return msg_; }
+  L1CacheLineIt it() const { return it_; }
+  L1LineState* line() const { return line_; }
+  L1Tournament t() const { return t_; }
+  std::vector<CoherenceAction*>& actions() { return al_; }
+  const std::vector<CoherenceAction*>& actions() const { return al_; }
+  L1Wait wait() const { return wait_; }
+
+  //
+  void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
+  void set_stalled(bool stalled) { stalled_ = stalled; }
+  void set_dequeue(bool dequeue) { dequeue_ = dequeue; }
+  void set_commits(bool commits) { commits_ = commits; }
+  void set_msg(const Message* msg) { msg_ = msg; }
+  void set_it(L1CacheLineIt it) { it_ = it; }
+  void set_line(L1LineState* line) { line_ = line; }
+  void set_t(L1Tournament t) { t_ = t; }
+  void set_wait(L1Wait wait) { wait_ = wait; }
+  
+ private:
+  // Current message is stalled (cannot execute) for some protocol or
+  // flow control related issue.
+  bool stalled_ = false;
+  // Dequeue message from associated message queue upon execution.
+  bool dequeue_ = false;
+  //
+  bool commits_ = false;
+  // Context owns the current line (on an install line) and therefore
+  // must delete the line upon destruction.
+  bool owns_line_ = false;
+  // Current cache line
+  L1LineState* line_ = nullptr;
+  // Current arbitration tournament.
+  L1Tournament t_;
+  //
+  L1CacheLineIt it_;
+  //
+  const Message* msg_ = nullptr;
+  //
+  std::vector<CoherenceAction*> al_;
+  // Condition on which the process is to be re-evaluated.
+  L1Wait wait_ = L1Wait::Invalid;
+};
+
 //
 //
 class L1CacheModel : public Agent {
   class MainProcess;
+
   friend class CpuCluster;
  public:
   L1CacheModel(kernel::Kernel* k, const L1CacheModelConfig& config);

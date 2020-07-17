@@ -178,7 +178,8 @@ class MOESIDirProtocol : public DirProtocol {
 
   //
   //
-  std::pair<bool, DirActionList> apply(const DirCoherenceContext& context) const override{
+  std::pair<bool, DirActionList> apply(
+      const DirCoherenceContext& context) const override{ 
     bool commits = true;
     DirActionList al;
     LineState* line = static_cast<LineState*>(context.line());

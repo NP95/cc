@@ -39,6 +39,8 @@
 namespace cc {
 
 // Message Forwards:
+class L1CmdMsg;
+class L1CacheContext;
 class L1CacheModel;
 class L2CacheModel;
 class CC;
@@ -174,6 +176,9 @@ class L1LineState {
   L1LineState() {}
   virtual ~L1LineState() = default;
 
+  // Release line back to pool, or destruct.
+  virtual void release() { delete this; }
+
   // Flag indiciating if the line is currently residing in a stable
   // state.
   virtual bool is_stable() const = 0;
@@ -231,12 +236,20 @@ class L1CacheModelProtocol {
 
   //
   //
-  virtual L1LineState* construct_line() const = 0;
+  virtual void install(L1CacheContext& c) const = 0;
 
   //
   //
-  virtual std::pair<bool, L1CoherenceActionList> apply(
-      const L1CoherenceContext& context) const = 0;
+  virtual void apply(L1CacheContext& c) const = 0;
+
+  //
+  //
+  virtual void evict(L1CacheContext& c) const = 0;
+
+ protected:
+
+  virtual void issue_msg(
+      L1CoherenceActionList& al, MessageQueue* mq, const Message* msg) const;
 
  private:
   L1CacheModel* l1cache_ = nullptr;

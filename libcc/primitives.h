@@ -223,7 +223,14 @@ class Arbiter : public kernel::Module {
   // Event denoting rising edge to the ready to grant state.
   kernel::Event& request_arrival_event() { return *request_arrival_event_; }
   // Initiate an arbitration tournament.
-  Tournament tournament() { return Tournament(this); }
+  Tournament tournament() {
+    const Tournament t = Tournament(this);
+    if (t.deadlock()) {
+      const LogMessage msg("A protocol deadlock has been detected.", Level::Fatal);
+      log(msg);
+    }
+    return t;
+  }
   // Add a requester to the current arbiter (Build-/Elaboration-Phases only).
   void add_requester(kernel::RequesterIntf<T>* intf) { intfs_.push_back(intf); }
 
