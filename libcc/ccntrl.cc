@@ -26,12 +26,13 @@
 //========================================================================== //
 
 #include "ccntrl.h"
-#include "primitives.h"
-#include "msg.h"
-#include "protocol.h"
+
 #include "amba.h"
-#include "noc.h"
 #include "dir.h"
+#include "msg.h"
+#include "noc.h"
+#include "primitives.h"
+#include "protocol.h"
 
 namespace cc {
 
@@ -40,8 +41,7 @@ namespace cc {
 class CC::NocIngressProcess : public kernel::Process {
  public:
   NocIngressProcess(kernel::Kernel* k, const std::string& name, CC* cc)
-      :  Process(k, name), cc_(cc) {
-  }
+      : Process(k, name), cc_(cc) {}
 
   // Initialization
   void init() override {
@@ -52,7 +52,7 @@ class CC::NocIngressProcess : public kernel::Process {
   // Evaluation
   void eval() override {
     using cc::to_string;
-    
+
     // Upon reception of a NOC message, remove transport layer
     // encapsulation and issue to the appropriate ingress queue.
     MessageQueue* noc_mq = cc_->noc_cc__msg_q();
@@ -101,27 +101,27 @@ class CC::RdisProcess : public kernel::Process {
   using Tournament = MessageQueueArbiter::Tournament;
   using TableIt = Table<CCLineState*>::Iterator;
 
-  enum class State {
-    Idle, ProcessMessage, ExecuteActions
-  };
+  enum class State { Idle, ProcessMessage, ExecuteActions };
 
   static const char* to_string(State s) {
     switch (s) {
-      case State::Idle: return "Idle";
-      case State::ProcessMessage: return "ProcessMessage";
-      case State::ExecuteActions: return "ExecuteActions";
-      default: return "Invalid";
+      case State::Idle:
+        return "Idle";
+      case State::ProcessMessage:
+        return "ProcessMessage";
+      case State::ExecuteActions:
+        return "ExecuteActions";
+      default:
+        return "Invalid";
     }
   }
 
  public:
   RdisProcess(kernel::Kernel* k, const std::string& name, CC* cc)
-      : Process(k, name), cc_(cc) {
-  }
+      : Process(k, name), cc_(cc) {}
   State state() const { return state_; }
 
  private:
-
   void set_state(State state) {
 #ifdef VERBOSE_LOGGING
     if (state_ != state) {
@@ -141,7 +141,7 @@ class CC::RdisProcess : public kernel::Process {
     Arbiter<const Message*>* arb = cc_->arb();
     set_state(State::Idle);
     wait_on(arb->request_arrival_event());
-  }    
+  }
 
   // Evaluation
   void eval() override {
@@ -164,8 +164,7 @@ class CC::RdisProcess : public kernel::Process {
   }
 
   // Finalization
-  void fini() override {
-  }
+  void fini() override {}
 
   void handle_awaiting_message() {
     // Idle state, awaiting more work.
@@ -177,7 +176,7 @@ class CC::RdisProcess : public kernel::Process {
     // unrecoverable.
     if (t_.deadlock()) {
       const LogMessage msg{"A protocol deadlock has been detected.",
-            Level::Fatal};
+                           Level::Fatal};
       log(msg);
     }
 
@@ -206,12 +205,11 @@ class CC::RdisProcess : public kernel::Process {
         // L2 -> CC bus tranasaction.
         const AceCmdMsg* acemsg = static_cast<const AceCmdMsg*>(msg);
         Table<CCLineState*>* table = cc_->table();
-        const Table<CCLineState*>::Manager th(
-            table->begin(), table->end());
+        const Table<CCLineState*>::Manager th(table->begin(), table->end());
 
         TableIt it = th.first_invalid();
 
-        //const bool has_invalid_entry = (it != table->end());
+        // const bool has_invalid_entry = (it != table->end());
         // const bool has_active_entry = false; // TODO
         const bool has_invalid_entry = true;
         const bool has_active_entry = false;
@@ -265,7 +263,7 @@ class CC::RdisProcess : public kernel::Process {
       } break;
       default: {
         using cc::to_string;
-        
+
         LogMessage lmsg("Invalid message class: ");
         lmsg.append(to_string(msg->cls()));
         lmsg.level(Level::Fatal);
@@ -310,7 +308,7 @@ class CC::RdisProcess : public kernel::Process {
 
   // TODO: save table entry for reuse.
   TableIt it_;
-  
+
   // Current arbitration tournament.
   Tournament t_;
   // Current processing context.
@@ -323,23 +321,22 @@ class CC::RdisProcess : public kernel::Process {
   CC* cc_ = nullptr;
 };
 
-CC::CC(
-    kernel::Kernel* k, const CCConfig& config)
+CC::CC(kernel::Kernel* k, const CCConfig& config)
     : Agent(k, config.name), config_(config) {
   build();
 }
 
 CC::~CC() {
-   delete l2_cc__cmd_q_;
-   delete noc_cc__msg_q_;
-   delete dir_cc__rsp_q_;
-   delete cc__dt_q_;
-   delete arb_;
-   delete rdis_proc_;
-   delete noci_proc_;
-   delete table_;
-   delete protocol_;
- }
+  delete l2_cc__cmd_q_;
+  delete noc_cc__msg_q_;
+  delete dir_cc__rsp_q_;
+  delete cc__dt_q_;
+  delete arb_;
+  delete rdis_proc_;
+  delete noci_proc_;
+  delete table_;
+  delete protocol_;
+}
 
 void CC::build() {
   // Construct L2 to CC command queue
@@ -383,7 +380,6 @@ void CC::elab() {
 //
 //
 void CC::drc() {
-
   if (dm() == nullptr) {
     // The Dir Mapper object computes the host directory for a
     // given address. In a single directory system, this is a basic
@@ -399,12 +395,17 @@ void CC::drc() {
 //
 MessageQueue* CC::lookup_rdis_mq(MessageClass cls) const {
   switch (cls) {
-    case MessageClass::Dt: return cc__dt_q_;
-    case MessageClass::L2Cmd: return l2_cc__cmd_q_;
-    case MessageClass::CohEnd: return dir_cc__rsp_q_;
-    case MessageClass::CohCmdRsp: return dir_cc__rsp_q_;
-    default: return nullptr;
+    case MessageClass::Dt:
+      return cc__dt_q_;
+    case MessageClass::L2Cmd:
+      return l2_cc__cmd_q_;
+    case MessageClass::CohEnd:
+      return dir_cc__rsp_q_;
+    case MessageClass::CohCmdRsp:
+      return dir_cc__rsp_q_;
+    default:
+      return nullptr;
   }
 }
 
-} // namespace cc
+}  // namespace cc

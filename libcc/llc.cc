@@ -26,20 +26,25 @@
 //========================================================================== //
 
 #include "llc.h"
+
+#include "dir.h"
+#include "mem.h"
 #include "msg.h"
 #include "noc.h"
-#include "mem.h"
-#include "dir.h"
 #include "utility.h"
 
 namespace cc {
 
 const char* to_string(LLCCmdOpcode opcode) {
   switch (opcode) {
-    case LLCCmdOpcode::Fill: return "Fill";
-    case LLCCmdOpcode::Evict: return "Evict";
-    case LLCCmdOpcode::PutLine: return "PutLine";
-    default: return "Invalid";
+    case LLCCmdOpcode::Fill:
+      return "Fill";
+    case LLCCmdOpcode::Evict:
+      return "Evict";
+    case LLCCmdOpcode::PutLine:
+      return "PutLine";
+    default:
+      return "Invalid";
   }
 }
 
@@ -47,10 +52,9 @@ const char* to_string(LLCCmdOpcode opcode) {
 //
 LLCCmdMsg::LLCCmdMsg() : Message(MessageClass::LLCCmd) {}
 
-
 std::string LLCCmdMsg::to_string() const {
   using cc::to_string;
-  
+
   std::stringstream ss;
   {
     Hexer h;
@@ -65,20 +69,20 @@ std::string LLCCmdMsg::to_string() const {
 
 const char* to_string(LLCRspOpcode opcode) {
   switch (opcode) {
-    case LLCRspOpcode::Okay: return "Okay";
-    default: return "Invalid";
+    case LLCRspOpcode::Okay:
+      return "Okay";
+    default:
+      return "Invalid";
   }
 }
-
 
 //
 //
 LLCCmdRspMsg::LLCCmdRspMsg() : Message(MessageClass::LLCCmdRsp) {}
 
-
 std::string LLCCmdRspMsg::to_string() const {
   using cc::to_string;
-  
+
   std::stringstream ss;
   {
     Hexer h;
@@ -95,8 +99,7 @@ std::string LLCCmdRspMsg::to_string() const {
 class LLCModel::NocIngressProcess : public kernel::Process {
  public:
   NocIngressProcess(kernel::Kernel* k, const std::string& name, LLCModel* model)
-      : Process(k, name), model_(model) {
-  }
+      : Process(k, name), model_(model) {}
 
  private:
   // Initialization
@@ -108,7 +111,7 @@ class LLCModel::NocIngressProcess : public kernel::Process {
   // Elaboration
   void eval() override {
     using cc::to_string;
-    
+
     // Upon reception of a NOC message, remove transport layer
     // encapsulation and issue to the appropriate ingress queue.
     MessageQueue* noc_mq = model_->noc_llc__msg_q();
@@ -148,9 +151,8 @@ class LLCModel::NocIngressProcess : public kernel::Process {
   }
 
   // Finalization
-  void fini() override {
-  }
-  
+  void fini() override {}
+
   LLCModel* model_ = nullptr;
 };
 
@@ -159,23 +161,24 @@ class LLCModel::NocIngressProcess : public kernel::Process {
 class LLCModel::RdisProcess : public kernel::Process {
   using Tournament = MessageQueueArbiter::Tournament;
 
-  enum class State {
-    Idle, ProcessMessage, ExecuteActions
-  };
+  enum class State { Idle, ProcessMessage, ExecuteActions };
 
   static const char* to_string(State s) {
     switch (s) {
-      case State::Idle: return "Idle";
-      case State::ProcessMessage: return "ProcessMessage";
-      case State::ExecuteActions: return "ExecuteActions";
-      default: return "Invalid";
+      case State::Idle:
+        return "Idle";
+      case State::ProcessMessage:
+        return "ProcessMessage";
+      case State::ExecuteActions:
+        return "ExecuteActions";
+      default:
+        return "Invalid";
     }
   }
 
  public:
   RdisProcess(kernel::Kernel* k, const std::string& name, LLCModel* model)
-      : kernel::Process(k, name), model_(model) {
-  }
+      : kernel::Process(k, name), model_(model) {}
 
   State state() const { return state_; }
   void set_state(State state) {
@@ -191,7 +194,6 @@ class LLCModel::RdisProcess : public kernel::Process {
   }
 
  private:
-
   // Initialization
   void init() override {
     set_state(State::Idle);
@@ -259,7 +261,7 @@ class LLCModel::RdisProcess : public kernel::Process {
         memcmd->set_opcode(MemCmdOpcode::Read);
         memcmd->set_dest(model_);
         memcmd->set_t(msg->t());
-    
+
         NocMsg* nocmsg = new NocMsg;
         nocmsg->set_origin(model_);
         nocmsg->set_dest(model_->mc());
@@ -303,8 +305,7 @@ class LLCModel::RdisProcess : public kernel::Process {
   }
 
   // Finalization
-  void fini() override {
-  }
+  void fini() override {}
 
   // Current machine state
   State state_ = State::Idle;
@@ -362,10 +363,13 @@ void LLCModel::drc() {
 
 MessageQueue* LLCModel::lookup_rdis_mq(MessageClass cls) const {
   switch (cls) {
-    case MessageClass::LLCCmd: return dir_llc__cmd_q_;
-    case MessageClass::MemRsp: return mem_llc__rsp_q_;
-    default: return nullptr;
+    case MessageClass::LLCCmd:
+      return dir_llc__cmd_q_;
+    case MessageClass::MemRsp:
+      return mem_llc__rsp_q_;
+    default:
+      return nullptr;
   }
 }
 
-} // namespace cc
+}  // namespace cc

@@ -26,15 +26,19 @@
 //========================================================================== //
 
 #include "l2cache.h"
+
 #include "utility.h"
 
 namespace cc {
 
 const char* to_string(L2CmdOpcode opcode) {
   switch (opcode) {
-    case L2CmdOpcode::L1GetS: return "L1GetS";
-    case L2CmdOpcode::L1GetE: return "L1GetE";
-    default: return "Invalid";
+    case L2CmdOpcode::L1GetS:
+      return "L1GetS";
+    case L2CmdOpcode::L1GetE:
+      return "L1GetE";
+    default:
+      return "Invalid";
   }
 }
 
@@ -62,9 +66,12 @@ L2CmdRspMsg::L2CmdRspMsg() : Message(MessageClass::L2CmdRsp) {}
 //
 const char* to_string(L2RspOpcode opcode) {
   switch (opcode) {
-    case L2RspOpcode::L1InstallS: return "L1InstallS";
-    case L2RspOpcode::L1InstallE: return "L1InstallE";
-    default: return "Invalid";
+    case L2RspOpcode::L1InstallS:
+      return "L1InstallS";
+    case L2RspOpcode::L1InstallE:
+      return "L1InstallE";
+    default:
+      return "Invalid";
   }
 }
 
@@ -84,11 +91,14 @@ std::string L2CmdRspMsg::to_string() const {
 
 const char* to_string(L2Wait w) {
   switch (w) {
-    case L2Wait::Invalid: return "Invalid";
-    case L2Wait::MsgArrival: return "MsgArrival";
+    case L2Wait::Invalid:
+      return "Invalid";
+    case L2Wait::MsgArrival:
+      return "MsgArrival";
     case L2Wait::NextEpochIfHasRequestOrWait:
       return "NextEpochIfHasRequestOrWait";
-    default: return "Unknown";
+    default:
+      return "Unknown";
   }
 }
 
@@ -97,7 +107,6 @@ L2CacheContext::~L2CacheContext() {
     a->release();
   }
 }
-
 
 //
 //
@@ -108,8 +117,8 @@ class L2CacheModel::MainProcess : public kernel::Process {
  public:
   MainProcess(kernel::Kernel* k, const std::string& name, L2CacheModel* model)
       : kernel::Process(k, name), model_(model) {}
- private:
 
+ private:
   // Initialization:
   void init() override {
     Arbiter<const Message*>* arb = model_->arb();
@@ -138,7 +147,9 @@ class L2CacheModel::MainProcess : public kernel::Process {
       } break;
     }
     // If context commits, apply set of state updates.
-    if (c.commits()) { execute(c); }
+    if (c.commits()) {
+      execute(c);
+    }
     // Apply context's wait condition to processes wait-state.
     wait_on_context(c);
   }
@@ -157,7 +168,8 @@ class L2CacheModel::MainProcess : public kernel::Process {
       // evicted.
       L2Cache::Evictor evictor;
       if (const std::pair<L2CacheLineIt, bool> p =
-          evictor.nominate(set.begin(), set.end()); p.second) {
+              evictor.nominate(set.begin(), set.end());
+          p.second) {
         // Eviction required before command can complete.
         c.set_it(p.first);
         c.set_dequeue(false);
@@ -185,8 +197,7 @@ class L2CacheModel::MainProcess : public kernel::Process {
     }
   }
 
-  void check_resources(L2CacheContext& c) const {
-  }
+  void check_resources(L2CacheContext& c) const {}
 
   void execute(const L2CacheContext& c) const {
     for (CoherenceAction* a : c.actions()) {
@@ -240,7 +251,7 @@ L2CacheModel::~L2CacheModel() {}
 
 void L2CacheModel::add_l1c(L1CacheModel* l1c) {
   // Called during build phase.
-  
+
   // Construct associated message queues
   MessageQueue* l1c_cmdq = new MessageQueue(k(), "l1_l2__cmd_q", 3);
   l1_l2__cmd_qs_.push_back(l1c_cmdq);
@@ -274,15 +285,13 @@ void L2CacheModel::elab() {
   protocol_->set_l2cache(this);
 }
 
-void L2CacheModel::set_l1cache_n(std::size_t n) {
-  l2_l1__rsp_qs_.resize(n);
-}
+void L2CacheModel::set_l1cache_n(std::size_t n) { l2_l1__rsp_qs_.resize(n); }
 
 void L2CacheModel::drc() {
   if (protocol_ == nullptr) {
     // No protocol is defined.
   }
-  
+
   if (l1cs_.empty()) {
     // Typically, a nominal configuration would expect some number of
     // L1 caches to belong to the L2. This is not strictly necessary,
@@ -294,4 +303,4 @@ void L2CacheModel::drc() {
   }
 }
 
-} // namespace cc
+}  // namespace cc

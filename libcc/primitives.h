@@ -158,7 +158,7 @@ template <typename T>
 class Arbiter : public kernel::Module {
  public:
   using Interface = kernel::RequesterIntf<T>;
-  
+
   // Helper class which encapsulates the concept of a single
   // arbitration round.
   class Tournament {
@@ -226,7 +226,8 @@ class Arbiter : public kernel::Module {
   Tournament tournament() {
     const Tournament t = Tournament(this);
     if (t.deadlock()) {
-      const LogMessage msg("A protocol deadlock has been detected.", Level::Fatal);
+      const LogMessage msg("A protocol deadlock has been detected.",
+                           Level::Fatal);
       log(msg);
     }
     return t;
@@ -266,20 +267,18 @@ class Arbiter : public kernel::Module {
   std::vector<kernel::RequesterIntf<T>*> intfs_;
 };
 
-
 //
 //
-template<typename K, typename V>
+template <typename K, typename V>
 class Table2 : public kernel::Module {
   using table_type = std::map<K, V>;
- public:
 
+ public:
   using iterator = typename table_type::iterator;
   using const_iterator = typename table_type::const_iterator;
 
   Table2(kernel::Kernel* k, const std::string& name, std::size_t n)
-      : Module(k, name), n_(n) {
-  }
+      : Module(k, name), n_(n) {}
 
   // Accessors:
   std::size_t n() const { return n_; }
@@ -290,7 +289,6 @@ class Table2 : public kernel::Module {
 
   iterator end() { return m_.end(); }
   const_iterator end() const { return m_.end(); }
-  
 
   iterator find(K k) { return m_.find(k); }
   const iterator find(K k) const { return m_.find(k); }
@@ -308,12 +306,10 @@ class Table2 : public kernel::Module {
   table_type m_;
 };
 
-
 //
 //
-template<typename T>
+template <typename T>
 class Table : public kernel::Module {
-
   struct Entry {
     // Flag denoting validity of table.
     bool is_valid = false;
@@ -322,9 +318,8 @@ class Table : public kernel::Module {
   };
 
   using raw_iterator = typename std::vector<Entry>::iterator;
-  
- public:
 
+ public:
   class Iterator {
    public:
     Iterator() : it_() {}
@@ -333,10 +328,13 @@ class Table : public kernel::Module {
     // Iterator operators
     T& operator*() { return it_->t; }
     const T& operator*() const { return it_->t; }
-    Iterator& operator++() { ++it_; return *this; }
+    Iterator& operator++() {
+      ++it_;
+      return *this;
+    }
     Iterator operator++(int) const { return Iterator(it_ + 1); }
     raw_iterator operator->() const { return it_; }
-    bool operator==(const Iterator& rhs) const{ return it_ == rhs.it_; }
+    bool operator==(const Iterator& rhs) const { return it_ == rhs.it_; }
     bool operator!=(const Iterator& rhs) const { return !operator==(rhs.it_); }
 
    private:
@@ -344,13 +342,10 @@ class Table : public kernel::Module {
     raw_iterator it_;
   };
 
-
   // Utility class to perform a verify of operation on a transaction
   // table.
   struct Manager {
-    Manager(Iterator begin, Iterator end)
-        : begin_(begin), end_(end)
-    {}
+    Manager(Iterator begin, Iterator end) : begin_(begin), end_(end) {}
 
     Iterator begin() const { return begin_; }
     Iterator end() const { return end_; }
@@ -368,15 +363,13 @@ class Table : public kernel::Module {
       // TODO
       return end_;
     }
-  
-    bool is_full() const {
-      return first_invalid() == end();
-    }
+
+    bool is_full() const { return first_invalid() == end(); }
 
    private:
     Iterator begin_, end_;
   };
-  
+
   Table(kernel::Kernel* k, const std::string& name, std::size_t n)
       : Module(k, name), n_(n) {
     t_.resize(n);
@@ -395,9 +388,7 @@ class Table : public kernel::Module {
   Iterator begin() { return Iterator(t_.begin()); }
   Iterator end() { return Iterator(t_.end()); }
 
-  bool install(Iterator it, const T& t) {
-    return false;
-  }
+  bool install(Iterator it, const T& t) { return false; }
 
  private:
   // Count of unused locations in table.

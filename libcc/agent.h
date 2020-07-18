@@ -28,9 +28,6 @@
 #ifndef CC_INCLUDE_CC_AGENT_H
 #define CC_INCLUDE_CC_AGENT_H
 
-namespace cc {
-
-
-} // namespace cc
+namespace cc {}  // namespace cc
 
 #endif

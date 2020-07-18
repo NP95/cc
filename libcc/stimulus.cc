@@ -26,33 +26,38 @@
 //========================================================================== //
 
 #include "cc/stimulus.h"
-#include "cpu.h"
-#include <fstream>
+
+#include <algorithm>
 #include <deque>
+#include <fstream>
+
+#include "cpu.h"
 
 namespace cc {
 
 std::string to_string(CpuOpcode opcode) {
-  switch (opcode){
-    case CpuOpcode::Load: return "Load";
-    case CpuOpcode::Store: return "Store";
-    default: return "Invalid";
+  switch (opcode) {
+    case CpuOpcode::Load:
+      return "Load";
+    case CpuOpcode::Store:
+      return "Store";
+    default:
+      return "Invalid";
   }
 }
 
 Stimulus::Stimulus(kernel::Kernel* k, const StimulusConfig& config)
-    : Module(k, config.name), config_(config) {
-}
+    : Module(k, config.name), config_(config) {}
 
 StimulusContext::StimulusContext(kernel::Kernel* k, const std::string& name)
     : Module(k, name) {}
 
 class TraceStimulusContext : public StimulusContext {
   friend class TraceStimulus;
+
  public:
   TraceStimulusContext(kernel::Kernel* k, const std::string& name)
-      : StimulusContext(k, name)
-  {}
+      : StimulusContext(k, name) {}
 
   // Stimulus: Flag indicate that stimulus is complete
   bool done() const override { return fs_.empty(); }
@@ -69,7 +74,9 @@ class TraceStimulusContext : public StimulusContext {
   // Stimulus: Consume current head of queue, or NOP if already
   // exhausted.
   void consume() override {
-    if (!done()) { fs_.pop_front(); }
+    if (!done()) {
+      fs_.pop_front();
+    }
   }
 
  private:
@@ -80,16 +87,12 @@ class TraceStimulusContext : public StimulusContext {
   std::deque<Frontier> fs_;
 };
 
-
-
 TraceStimulus::TraceStimulus(kernel::Kernel* k, const StimulusConfig& config)
     : Stimulus(k, config) {
   build();
 }
 
-TraceStimulus::~TraceStimulus() {
-  delete is_;
-}
+TraceStimulus::~TraceStimulus() { delete is_; }
 
 void TraceStimulus::build() {
   const StimulusConfig& c = config();
@@ -97,12 +100,9 @@ void TraceStimulus::build() {
   is_ = new std::ifstream(c.filename);
 }
 
-void TraceStimulus::elab() {
-  parse_tracefile();
-}
+void TraceStimulus::elab() { parse_tracefile(); }
 
-void TraceStimulus::drc() {
-}
+void TraceStimulus::drc() {}
 
 void TraceStimulus::parse_tracefile() {
   using time_type = kernel::Time::time_type;
@@ -219,9 +219,11 @@ void TraceStimulus::parse_tracefile() {
         } break;
         case State::InCmdOpcode: {
           if (c == ',') {
-            if (ctxt == "LD") { cmd_ctxt.opcode = CpuOpcode::Load; }
-            else if (ctxt == "ST") { cmd_ctxt.opcode = CpuOpcode::Store; }
-            else {
+            if (ctxt == "LD") {
+              cmd_ctxt.opcode = CpuOpcode::Load;
+            } else if (ctxt == "ST") {
+              cmd_ctxt.opcode = CpuOpcode::Store;
+            } else {
               LogMessage msg("Invalid opcode \'");
               msg.append(ctxt);
               msg.append("\' at (");
@@ -290,6 +292,7 @@ std::vector<TraceStimulusContext*> TraceStimulus::compute_index_table() {
       bool operator()(const std::pair<Cpu*, TraceStimulusContext*> p) const {
         return p.first->path() == path_;
       }
+
      private:
       std::string path_;
     };
@@ -321,4 +324,4 @@ Stimulus* stimulus_builder(kernel::Kernel* k, const StimulusConfig& cfg) {
   return new TraceStimulus(k, cfg);
 }
 
-} // namespace cc
+}  // namespace cc

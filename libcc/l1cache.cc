@@ -29,10 +29,10 @@
 
 #include "cache.h"
 #include "cpu.h"
-#include "protocol.h"
-#include "msg.h"
 #include "l2cache.h"
+#include "msg.h"
 #include "primitives.h"
+#include "protocol.h"
 #include "utility.h"
 
 // #define VERBOSE_LOGGING
@@ -41,18 +41,20 @@ namespace cc {
 
 const char* to_string(L1CacheOpcode opcode) {
   switch (opcode) {
-    case L1CacheOpcode::CpuLoad: return "CpuLoad";
-    case L1CacheOpcode::CpuStore: return "CpuStore";
-    default: return "Invalid";
+    case L1CacheOpcode::CpuLoad:
+      return "CpuLoad";
+    case L1CacheOpcode::CpuStore:
+      return "CpuStore";
+    default:
+      return "Invalid";
   }
 }
 
 L1CmdMsg::L1CmdMsg() : Message(MessageClass::L1Cmd) {}
 
-
 std::string L1CmdMsg::to_string() const {
   using cc::to_string;
-  
+
   std::stringstream ss;
   {
     KVListRenderer r(ss);
@@ -72,7 +74,7 @@ L1CmdRspMsg::L1CmdRspMsg() : Message(MessageClass::L1CmdRsp) {}
 //
 std::string L1CmdRspMsg::to_string() const {
   using cc::to_string;
-  
+
   std::stringstream ss;
   {
     KVListRenderer r(ss);
@@ -81,14 +83,16 @@ std::string L1CmdRspMsg::to_string() const {
   return ss.str();
 }
 
-
 const char* to_string(L1Wait w) {
   switch (w) {
-    case L1Wait::Invalid: return "Invalid";
-    case L1Wait::MsgArrival: return "MsgArrival";
+    case L1Wait::Invalid:
+      return "Invalid";
+    case L1Wait::MsgArrival:
+      return "MsgArrival";
     case L1Wait::NextEpochIfHasRequestOrWait:
       return "NextEpochIfHasRequestOrWait";
-    default: return "Unknown";
+    default:
+      return "Unknown";
   }
 }
 
@@ -97,7 +101,9 @@ L1CacheContext::~L1CacheContext() {
   for (CoherenceAction* a : al_) {
     a->release();
   }
-  if (owns_line()) { line_->release(); }
+  if (owns_line()) {
+    line_->release();
+  }
 }
 
 //
@@ -165,7 +171,6 @@ class L1CacheModel::MainProcess : public kernel::Process {
   }
 
  private:
-
   void eval_msg(L1CacheContext& c, const L1CmdMsg* cmd) const {
     L1Cache* cache = model_->cache();
     const CacheAddressHelper ah = cache->ah();
@@ -180,7 +185,8 @@ class L1CacheModel::MainProcess : public kernel::Process {
       // evicted.
       L1Cache::Evictor evictor;
       if (const std::pair<L1CacheLineIt, bool> p =
-          evictor.nominate(set.begin(), set.end()); p.second) {
+              evictor.nominate(set.begin(), set.end());
+          p.second) {
         // Eviction required before command can complete.
         c.set_it(p.first);
         c.set_dequeue(false);

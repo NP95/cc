@@ -28,16 +28,18 @@
 #include "kernel.h"
 
 #include <algorithm>
-#include <iostream>
 #include <exception>
+#include <iostream>
 
 namespace cc::kernel {
 
 const char* to_string(Phase phases) {
   switch (phases) {
-#define __declare_to_string(__name)		\
-    case Phase::__name: return #__name; break;
-      PHASES(__declare_to_string)
+#define __declare_to_string(__name) \
+  case Phase::__name:               \
+    return #__name;                 \
+    break;
+    PHASES(__declare_to_string)
   }
 #undef __declare_to_string
   return "Invalid";
@@ -68,9 +70,7 @@ std::string Time::to_string() const {
   return std::string{std::to_string(time) + "." + std::to_string(delta)};
 }
 
-std::string to_string(const Time& t) {
-  return t.to_string();
-}
+std::string to_string(const Time& t) { return t.to_string(); }
 
 std::ostream& operator<<(std::ostream& os, const Time& t) {
   return os << t.to_string();
@@ -112,9 +112,7 @@ void LogContext::info(const std::string& name, bool nl) {
   }
 }
 
-Kernel::Kernel(seed_type seed)
-    : random_source_(seed), Module(this, "kernel") {
-}
+Kernel::Kernel(seed_type seed) : random_source_(seed), Module(this, "kernel") {}
 
 void Kernel::run(RunMode r, Time t) {
   // Build phase is already complete by this stage and it is assume
@@ -184,16 +182,16 @@ void Kernel::invoke_run(RunMode r, Time t) {
       if (r == RunMode::ForTime && t < e.time) break;
 
       if (eq_.size() > 1) {
-	// EventComparer has undefined behavior unless greater than or
-	// equal to two entries.
-	std::pop_heap(eq_.begin(), eq_.end(), EventComparer{});
+        // EventComparer has undefined behavior unless greater than or
+        // equal to two entries.
+        std::pop_heap(eq_.begin(), eq_.end(), EventComparer{});
       }
       eq_.pop_back();
       if (e.time < current_time) {
         // TODO: Kernel should eventually become the top-level module.
-        
-        // LogMessage msg("Attempt to schedule an action in the past", Level::Fatal);
-        // log(msg);
+
+        // LogMessage msg("Attempt to schedule an action in the past",
+        // Level::Fatal); log(msg);
         throw std::runtime_error("Fatal error occurred.");
       }
       time_ = e.time;
@@ -252,13 +250,8 @@ Loggable::Loggable(Kernel* k, const std::string& name) : Object(k, name) {}
 
 void Loggable::log_prefix(Level l, std::ostream& os) const {
   const char* t = type_str();
-  os << l.to_char()
-     << "["
-     << to_string(k()->phase())[0] << ";"
-     << path()
-     << ";" << t[0]
-     << "@" << k()->time()
-     << "]: ";
+  os << l.to_char() << "[" << to_string(k()->phase())[0] << ";" << path() << ";"
+     << t[0] << "@" << k()->time() << "]: ";
 }
 
 void Loggable::log(const LogMessage& m) const {
@@ -380,7 +373,8 @@ void Module::add_child_module(Module* m) {
   ms_.push_back(m);
 }
 
-TopModule::TopModule(kernel::Kernel* k, const std::string& name) : Module(k, name) {
+TopModule::TopModule(kernel::Kernel* k, const std::string& name)
+    : Module(k, name) {
   set_top();
 }
 

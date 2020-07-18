@@ -30,9 +30,9 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <type_traits>
-#include <string>
 #include <ostream>
+#include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -65,13 +65,14 @@ typename std::underlying_type<T>::type ut(T e) {
 
 class KVListRenderer {
   using kv_type = std::pair<std::string, std::string>;
+
  public:
   KVListRenderer(std::ostream& os);
   ~KVListRenderer();
 
   //
   void add_field(const std::string& key, const std::string& value);
-  
+
  private:
   void initialize();
   void finalize();
@@ -94,7 +95,7 @@ struct Hexer {
 
   // Convert some multi-byte value to hex equivalent.
   std::string to_hex(std::uint64_t x, std::size_t bits = 64) const;
-  std::string to_hex(const char * c, std::size_t bits) const;
+  std::string to_hex(const char* c, std::size_t bits) const;
 
   // Convert integer in range [0, 16) to hex character.
   char hex_char(char x) const;

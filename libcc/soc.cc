@@ -26,16 +26,17 @@
 //========================================================================== //
 
 #include "cc/soc.h"
+
 #include "cc/cfgs.h"
 #include "cc/kernel.h"
-#include "noc.h"
+#include "ccntrl.h"
 #include "cpucluster.h"
 #include "dir.h"
 #include "llc.h"
 #include "mem.h"
-#include "ccntrl.h"
-#include "stimulus.h"
+#include "noc.h"
 #include "protocol.h"
+#include "stimulus.h"
 
 namespace cc {
 
@@ -66,7 +67,7 @@ class SocTop : public kernel::TopModule {
     // Construct stimulus (as module)
     stimulus_ = stimulus_builder(k(), config_.scfg);
     add_child_module(stimulus_);
-    
+
     // Construct interconnect:
     noc_ = new NocModel(k(), config_.noccfg);
     add_child_module(noc_);
@@ -76,7 +77,7 @@ class SocTop : public kernel::TopModule {
     noc_->register_agent(mm);
     add_child_module(mm);
     mms_.push_back(mm);
-    
+
     // Construct child CPU clusters
     for (const CpuClusterConfig& cccfg : config_.ccls) {
       CpuCluster* cpuc = new CpuCluster(k(), cccfg, stimulus_);
@@ -195,13 +196,9 @@ class SocTop : public kernel::TopModule {
   SocConfig config_;
 };
 
-Soc::Soc(const SocConfig& cfg) {
-  build(cfg);
-}
+Soc::Soc(const SocConfig& cfg) { build(cfg); }
 
-Soc::~Soc() {
-  delete kernel_;
-}
+Soc::~Soc() { delete kernel_; }
 
 void Soc::initialize() {
   kernel_->invoke_elab();
@@ -215,9 +212,7 @@ void Soc::run() {
   kernel_->invoke_run(r, t);
 }
 
-void Soc::finalize() {
-  kernel_->invoke_fini();
-}
+void Soc::finalize() { kernel_->invoke_fini(); }
 
 void Soc::build(const SocConfig& cfg) {
   // Construct simulation kernel
@@ -226,12 +221,10 @@ void Soc::build(const SocConfig& cfg) {
   top_ = new SocTop(kernel_, cfg);
 }
 
-Soc* construct_soc(const SocConfig& soccfg) {
-  return new Soc(soccfg);
-}
+Soc* construct_soc(const SocConfig& soccfg) { return new Soc(soccfg); }
 
 ProtocolBuilder* construct_protocol_builder(const std::string& name) {
   return ProtocolBuilderRegistry::build(name);
 }
 
-} // namespace
+}  // namespace cc

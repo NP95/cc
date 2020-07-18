@@ -28,9 +28,10 @@
 #ifndef CC_LIBCC_MSG_H
 #define CC_LIBCC_MSG_H
 
+#include <string>
+
 #include "cc/kernel.h"
 #include "cc/types.h"
-#include <string>
 
 namespace cc {
 
@@ -39,14 +40,15 @@ class KVListRenderer;
 // Forwards:
 namespace kernel {
 
-template<typename> class Agent;
-template<typename> class RequesterIntf;
-}
-  
+template <typename>
+class Agent;
+template <typename>
+class RequesterIntf;
+}  // namespace kernel
+
 //
 //
 using trans_id_t = std::size_t;
-
 
 //
 //
@@ -58,12 +60,10 @@ class Transaction {
   //
   virtual std::string to_string() const;
 
-
   // Accessors:
   kernel::Time start_time() const { return start_time_; }
 
   trans_id_t tid() const { return tid_; }
-  
 
   // Setters:
   void set_start_time(kernel::Time time) { start_time_ = time; }
@@ -83,7 +83,6 @@ enum class MessageClass {
   // seen during a simulation.
   Invalid,
 
-  
   // ------------------------------------------------------------------------ //
   // Cpu Comand/Response Message:
 
@@ -93,7 +92,6 @@ enum class MessageClass {
   // L1 -> CPU
   CpuCmdRsp,
 
-  
   // ------------------------------------------------------------------------ //
   // L1 Cache Command/Response Message:
 
@@ -105,7 +103,6 @@ enum class MessageClass {
   // L1 -> L@
   L1CmdRsp,
 
-  
   // ------------------------------------------------------------------------ //
   // L2 Cache Command/Response Messages:
 
@@ -117,7 +114,6 @@ enum class MessageClass {
   // L2 -> CC
   L2CmdRsp,
 
-  
   // ------------------------------------------------------------------------ //
   // AXI command message from L2 to the coherence subsystem.
 
@@ -129,7 +125,7 @@ enum class MessageClass {
 
   // CC -> L2
   AceCmdRspB,
-  
+
   // ------------------------------------------------------------------------ //
   // Ace "Snoop" message encapsulating snoop requests and respones
   // from a AMBA compliant agent (the L2).
@@ -140,7 +136,6 @@ enum class MessageClass {
   // L2 -> CC
   AceSnoopRsp,
 
-  
   // ------------------------------------------------------------------------ //
   // Network-On-Chip/Interconnect:
 
@@ -148,7 +143,6 @@ enum class MessageClass {
   // communicate.
   Noc,
 
-  
   // ------------------------------------------------------------------------ //
   // Coherence Messages:
 
@@ -164,10 +158,9 @@ enum class MessageClass {
   // DIR -> CC
   CohEnd,
 
-
-  // Coherence commands 
+  // Coherence commands
   //
-  
+
   // CC -> DIR
   CohCmd,
 
@@ -192,7 +185,6 @@ enum class MessageClass {
   // CC - DIR
   CohInvRsp,
 
-  
   // ------------------------------------------------------------------------ //
   // Last-Level Cache Message Classes:
 
@@ -208,16 +200,14 @@ enum class MessageClass {
   // LLC -> DIR forwarding response message:
   LLCFwdRsp,
 
-  
   // ------------------------------------------------------------------------ //
   // Memory Controller Message Classes:
-  
+
   // Memory Command; agent -> memory (read/write)
   MemCmd,
   // Memory Response; memory -> agent (read data/write acknowledgement)
   MemRsp,
 
-  
   // ------------------------------------------------------------------------ //
   // Payload Message Classes:
 
@@ -238,7 +228,6 @@ enum class MessageClass {
 
 const char* to_string(MessageClass cls);
 
-
 // Message unimque ID type
 using msg_id_t = std::size_t;
 
@@ -246,7 +235,6 @@ using msg_id_t = std::size_t;
 //
 class Message {
  public:
-
   Message(MessageClass cls);
   virtual ~Message() = default;
 
@@ -255,8 +243,12 @@ class Message {
   kernel::Agent<const Message*>* agent() const { return origin_; }
   msg_id_t mid() const { return mid_; }
 
-  virtual std::string to_string_short() const { return "Some message"; } // TO abstract
-  virtual std::string to_string() const { return "Some message"; } // TO abstract
+  virtual std::string to_string_short() const {
+    return "Some message";
+  }  // TO abstract
+  virtual std::string to_string() const {
+    return "Some message";
+  }  // TO abstract
 
   void set_origin(kernel::Agent<const Message*>* origin) { origin_ = origin; }
   void set_t(Transaction* t) { t_ = t; }
@@ -282,6 +274,6 @@ class Message {
 
 using MsgRequesterIntf = kernel::RequesterIntf<const Message*>;
 
-} // namespace cc
+}  // namespace cc
 
 #endif

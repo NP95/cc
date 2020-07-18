@@ -30,11 +30,11 @@
 
 #include <set>
 
-#include "kernel.h"
-#include "sim.h"
 #include "cc/cfgs.h"
+#include "kernel.h"
 #include "msg.h"
 #include "primitives.h"
+#include "sim.h"
 
 namespace cc {
 
@@ -49,8 +49,9 @@ class StimulusContext;
 class Cpu : public Agent {
   class ProducerProcess;
   class ConsumerProcess;
-  
+
   friend class CpuCluster;
+
  public:
   Cpu(kernel::Kernel* k, const CpuConfig& config);
   ~Cpu();
@@ -59,7 +60,6 @@ class Cpu : public Agent {
   const CpuConfig& config() const { return config_; }
 
  protected:
-
   // Accessors;
 
   // CPU -> L1 command queue (L1 owned)
@@ -70,7 +70,7 @@ class Cpu : public Agent {
   StimulusContext* stimulus() const { return stimulus_; }
   // Transaction table
   std::set<Transaction*>* ts() { return &ts_; }
-  
+
   // Construction:
   void build();
   // Set CPU instance stimulus context
@@ -91,7 +91,7 @@ class Cpu : public Agent {
   void end_transaction(Transaction* t);
 
  private:
-  // 
+  //
   StimulusContext* stimulus_ = nullptr;
   // CPU -> L1 message queue.
   MessageQueue* cpu_l1__cmd_q_ = nullptr;

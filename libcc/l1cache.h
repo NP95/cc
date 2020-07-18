@@ -30,11 +30,11 @@
 
 #include <string>
 
+#include "cache.h"
 #include "cc/cfgs.h"
 #include "primitives.h"
-#include "sim.h"
 #include "protocol.h"
-#include "cache.h"
+#include "sim.h"
 
 namespace cc {
 
@@ -44,11 +44,7 @@ class L1CacheModel;
 class L2CacheModel;
 class L1LineState;
 
-
-enum class L1CacheOpcode {
-  CpuLoad,
-  CpuStore
-};
+enum class L1CacheOpcode { CpuLoad, CpuStore };
 
 //
 //
@@ -81,7 +77,6 @@ class L1CmdRspMsg : public Message {
   //
   std::string to_string() const override;
 };
-
 
 using L1Tournament = MessageQueueArbiter::Tournament;
 // Cache data type
@@ -142,7 +137,7 @@ class L1CacheContext {
   void set_t(L1Tournament t) { t_ = t; }
   void set_wait(L1Wait wait) { wait_ = wait; }
   void set_l1cache(L1CacheModel* l1cache) { l1cache_ = l1cache; }
-  
+
  private:
   // Current message is stalled (cannot execute) for some protocol or
   // flow control related issue.
@@ -208,7 +203,7 @@ class L1CacheModel : public Agent {
   class MainProcess;
 
   friend class CpuCluster;
-  
+
  public:
   L1CacheModel(kernel::Kernel* k, const L1CacheModelConfig& config);
   virtual ~L1CacheModel();
@@ -238,7 +233,7 @@ class L1CacheModel : public Agent {
   L1CacheModelProtocol* protocol() const { return protocol_; }
   // Transaction table.
   L1TTable* tt() const { return tt_; }
-  
+
   // Build Phase:
   void build();
 
@@ -252,7 +247,7 @@ class L1CacheModel : public Agent {
   void set_l1_l2__cmd_q(MessageQueue* mq) { l1_l2__cmd_q_ = mq; }
   // Set L1 -> CPU Response Queue
   void set_l1_cpu__rsp_q(MessageQueue* mq) { l1_cpu__rsp_q_ = mq; }
-  
+
   // Design Rule Check (DRC) Phase
   virtual void drc() override;
 

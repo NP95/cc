@@ -28,10 +28,10 @@
 #ifndef CC_LIBCC_CCNTRL_H
 #define CC_LIBCC_CCNTRL_H
 
-#include "cc/kernel.h"
 #include "cc/cfgs.h"
-#include "sim.h"
+#include "cc/kernel.h"
 #include "msg.h"
+#include "sim.h"
 
 namespace cc {
 
@@ -45,6 +45,7 @@ class CC : public Agent {
 
   class RdisProcess;
   class NocIngressProcess;
+
  public:
   CC(kernel::Kernel* k, const CCConfig& config);
   ~CC();
@@ -65,7 +66,6 @@ class CC : public Agent {
   L2CacheModel* l2c() const { return l2c_; }
 
  protected:
-
   // Accessors:
   // Pointer to module arbiter instance:
   MessageQueueArbiter* arb() const { return arb_; }
@@ -73,7 +73,7 @@ class CC : public Agent {
   CCProtocol* protocol() const { return protocol_; }
   // Transaction table.
   Table<CCLineState*>* table() const { return table_; }
-  
+
   // Construction
   void build();
 
@@ -87,14 +87,13 @@ class CC : public Agent {
   void set_cc_noc__msg_q(MessageQueue* mq) { cc_noc__msg_q_ = mq; }
   /// Set CC -> L2 response queue
   void set_cc_l2__rsp_q(MessageQueue* mq) { cc_l2__rsp_q_ = mq; }
-  
+
   // Design Rule Check (DRC)
   void drc();
 
-
   // lookup rdis process message queue for traffic class.
   MessageQueue* lookup_rdis_mq(MessageClass cls) const;
-  
+
  private:
   // L2 Cache Model to which this controller is bound.
   L2CacheModel* l2c_ = nullptr;
@@ -126,6 +125,6 @@ class CC : public Agent {
   CCConfig config_;
 };
 
-} // namespace cc
+}  // namespace cc
 
 #endif

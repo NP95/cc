@@ -28,17 +28,16 @@
 #ifndef CC_LIBC_DIR_H
 #define CC_LIBC_DIR_H
 
+#include <map>
+
 #include "msg.h"
 #include "sim.h"
-#include <map>
 
 namespace cc {
 
 //
 //
-enum class MemCmdOpcode {
-  Read, Write
-};
+enum class MemCmdOpcode { Read, Write };
 
 const char* to_string(MemCmdOpcode opcode);
 
@@ -66,9 +65,7 @@ class MemCmdMsg : public Message {
 
 //
 //
-enum class MemRspOpcode {
-  ReadOkay, WriteOkay
-};
+enum class MemRspOpcode { ReadOkay, WriteOkay };
 
 const char* to_string(MemRspOpcode opcode);
 
@@ -95,26 +92,24 @@ class MemRspMsg : public Message {
 //
 class DtMsg : public Message {
  public:
-  DtMsg() : Message(MessageClass::Dt)
-  {}
+  DtMsg() : Message(MessageClass::Dt) {}
 };
 
 //
 //
 class DtRspMsg : public Message {
  public:
-  DtRspMsg() : Message(MessageClass::DtRsp)
-  {}
+  DtRspMsg() : Message(MessageClass::DtRsp) {}
 };
-
 
 // Memory Controller Model
 //
 class MemCntrlModel : public Agent {
   class NocIngressProcess;
   class RequestDispatcherProcess;
-  
+
   friend class SocTop;
+
  public:
   MemCntrlModel(kernel::Kernel* k);
   ~MemCntrlModel();
@@ -154,10 +149,10 @@ class MemCntrlModel : public Agent {
   MessageQueue* noc_mem__msg_q_ = nullptr;
   // MEM -> NOC message queue (owned by noc)
   MessageQueue* mem_noc__msg_q_ = nullptr;
-  
+
   // NOC Ingress Queue thread
   NocIngressProcess* noci_proc_ = nullptr;
-  
+
   // Request Dispatcher process
   RequestDispatcherProcess* rdis_proc_ = nullptr;
   // Request Dispatcher arbitrator
@@ -166,6 +161,6 @@ class MemCntrlModel : public Agent {
   std::map<Agent*, MessageQueue*> rdis_mq_;
 };
 
-} // namespace cc
+}  // namespace cc
 
 #endif

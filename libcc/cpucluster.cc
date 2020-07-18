@@ -26,10 +26,11 @@
 //========================================================================== //
 
 #include "cpucluster.h"
-#include "l2cache.h"
-#include "l1cache.h"
-#include "cpu.h"
+
 #include "ccntrl.h"
+#include "cpu.h"
+#include "l1cache.h"
+#include "l2cache.h"
 #include "stimulus.h"
 
 namespace cc {
@@ -43,7 +44,7 @@ CpuCluster::CpuCluster(kernel::Kernel* k, const CpuClusterConfig& config,
 //
 void CpuCluster::build() {
   // Construct cache controller.
-  cc_= new CC(k(), config_.cc_config);
+  cc_ = new CC(k(), config_.cc_config);
   add_child_module(cc_);
 
   // Construct L2 cache instance.
@@ -76,7 +77,7 @@ void CpuCluster::elab() {
   // Elabration occurs top-down; therefore ensure that all agents are
   // Bind Cache Controller to L2 instanceappropriately bound before an
   // attempt is made to elaborate down the hierarchy.
-  
+
   // (L2 -> CC) Bind L2 cache to parent Cache Controller
   l2c_->set_cc(cc_);
   l2c_->set_l1cache_n(cpus_.size());
@@ -84,7 +85,7 @@ void CpuCluster::elab() {
   // (CC -> L2) Bind Cache Controller to L2 instance.
   cc_->set_l2c(l2c_);
   cc_->set_cc_l2__rsp_q(l2c_->cc_l2__rsp_q());
-  
+
   // Bind L1 caches to parent L2.
   for (std::size_t i = 0; i < l1cs_.size(); i++) {
     L1CacheModel* l1c = l1cs_[i];
@@ -123,7 +124,7 @@ void CpuCluster::drc() {
     const LogMessage msg("No CPU(s) configured", Level::Fatal);
     log(msg);
   }
-  
+
   if (cpus_.size() != l1cs_.size()) {
     // Fatal: Size mismatch on CPU to L1 Cache instances.
     LogMessage msg("Count mismatch on L1 (");
@@ -136,16 +137,12 @@ void CpuCluster::drc() {
   }
 }
 
-MessageQueue* CpuCluster::noc_cc__msg_q() const {
-  return cc_->noc_cc__msg_q();
-}
+MessageQueue* CpuCluster::noc_cc__msg_q() const { return cc_->noc_cc__msg_q(); }
 
 void CpuCluster::set_cc_noc__msg_q(MessageQueue* mq) {
   cc_->set_cc_noc__msg_q(mq);
 }
 
-void CpuCluster::set_dm(DirMapper* dm) {
-  cc_->set_dm(dm);
-}
+void CpuCluster::set_dm(DirMapper* dm) { cc_->set_dm(dm); }
 
-} // namespace cc
+}  // namespace cc

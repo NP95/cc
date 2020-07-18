@@ -26,6 +26,7 @@
 //========================================================================== //
 
 #include "mem.h"
+
 #include "noc.h"
 #include "utility.h"
 
@@ -35,9 +36,12 @@ namespace cc {
 //
 const char* to_string(MemCmdOpcode opcode) {
   switch (opcode) {
-    case MemCmdOpcode::Read: return "Read";
-    case MemCmdOpcode::Write: return "Write";
-    default: return "Invalid";
+    case MemCmdOpcode::Read:
+      return "Read";
+    case MemCmdOpcode::Write:
+      return "Write";
+    default:
+      return "Invalid";
   }
 }
 
@@ -45,9 +49,12 @@ const char* to_string(MemCmdOpcode opcode) {
 //
 const char* to_string(MemRspOpcode opcode) {
   switch (opcode) {
-    case MemRspOpcode::ReadOkay: return "ReadOkay";
-    case MemRspOpcode::WriteOkay: return "WriteOkay";
-    default: return "Invalid";
+    case MemRspOpcode::ReadOkay:
+      return "ReadOkay";
+    case MemRspOpcode::WriteOkay:
+      return "WriteOkay";
+    default:
+      return "Invalid";
   }
 }
 
@@ -59,7 +66,7 @@ MemCmdMsg::MemCmdMsg() : Message(MessageClass::MemCmd) {}
 //
 std::string MemCmdMsg::to_string() const {
   using cc::to_string;
-  
+
   std::stringstream ss;
   {
     KVListRenderer r(ss);
@@ -78,7 +85,7 @@ MemRspMsg::MemRspMsg() : Message(MessageClass::MemRsp) {}
 //
 std::string MemRspMsg::to_string() const {
   using cc::to_string;
-  
+
   std::stringstream ss;
   {
     KVListRenderer r(ss);
@@ -93,11 +100,11 @@ std::string MemRspMsg::to_string() const {
 //
 class MemCntrlModel::NocIngressProcess : public kernel::Process {
  public:
-  NocIngressProcess(kernel::Kernel* k, const std::string& name, MemCntrlModel* model)
-      : kernel::Process(k, name), model_(model) {
-  }
- private:
+  NocIngressProcess(kernel::Kernel* k, const std::string& name,
+                    MemCntrlModel* model)
+      : kernel::Process(k, name), model_(model) {}
 
+ private:
   // Initialization
   void init() override {
     MessageQueue* mq = model_->noc_mem__msg_q();
@@ -144,8 +151,7 @@ class MemCntrlModel::NocIngressProcess : public kernel::Process {
   }
 
   // Finalization
-  void fini() override {
-  }
+  void fini() override {}
 
   // Pointer to owning Mem instance.
   MemCntrlModel* model_ = nullptr;
@@ -155,12 +161,11 @@ class MemCntrlModel::NocIngressProcess : public kernel::Process {
 //
 class MemCntrlModel::RequestDispatcherProcess : public kernel::Process {
  public:
-  RequestDispatcherProcess(kernel::Kernel* k, const std::string& name, MemCntrlModel* model)
-      : Process(k, name), model_(model) {
-  }
+  RequestDispatcherProcess(kernel::Kernel* k, const std::string& name,
+                           MemCntrlModel* model)
+      : Process(k, name), model_(model) {}
 
  private:
-
   // Initialization
   void init() override {
     MessageQueueArbiter* rdis_arb = model_->rdis_arb();
@@ -171,23 +176,22 @@ class MemCntrlModel::RequestDispatcherProcess : public kernel::Process {
   void eval() override {
     using Tournament = MessageQueueArbiter::Tournament;
     using Interface = MessageQueueArbiter::Interface;
-    
+
     MessageQueueArbiter* rdis_arb = model_->rdis_arb();
     Tournament t = rdis_arb->tournament();
     if (t.has_requester()) {
       Interface* intf = t.intf();
 
-      const MemCmdMsg* cmdmsg =
-          static_cast<const MemCmdMsg*>(intf->dequeue());
+      const MemCmdMsg* cmdmsg = static_cast<const MemCmdMsg*>(intf->dequeue());
       switch (cmdmsg->opcode()) {
         case MemCmdOpcode::Write:
         case MemCmdOpcode::Read: {
           const bool is_read = (cmdmsg->opcode() == MemCmdOpcode::Read);
           MemRspMsg* rspmsg = new MemRspMsg;
-          rspmsg->set_opcode(
-              is_read ? MemRspOpcode::ReadOkay : MemRspOpcode::WriteOkay);
+          rspmsg->set_opcode(is_read ? MemRspOpcode::ReadOkay
+                                     : MemRspOpcode::WriteOkay);
           rspmsg->set_t(cmdmsg->t());
-          
+
           // Memory read command
           NocMsg* nocmsg = new NocMsg();
           nocmsg->set_payload(rspmsg);
@@ -218,17 +222,13 @@ class MemCntrlModel::RequestDispatcherProcess : public kernel::Process {
   }
 
   // Finalization
-  void fini() override {
-  }
+  void fini() override {}
 
   //
   MemCntrlModel* model_ = nullptr;
 };
 
-MemCntrlModel::MemCntrlModel(kernel::Kernel* k)
-    : Agent(k, "mem") {
-  build();
-}
+MemCntrlModel::MemCntrlModel(kernel::Kernel* k) : Agent(k, "mem") { build(); }
 
 MemCntrlModel::~MemCntrlModel() {
   // Delete queues.
@@ -252,7 +252,7 @@ void MemCntrlModel::build() {
   // NOC ingress process:
   noci_proc_ = new NocIngressProcess(k(), "noci", this);
   add_child_process(noci_proc_);
-  
+
   // Request dispatcher process:
   rdis_proc_ = new RequestDispatcherProcess(k(), "rdis", this);
   add_child_process(rdis_proc_);
@@ -292,5 +292,4 @@ MessageQueue* MemCntrlModel::lookup_rdis_mq(Agent* agent) {
   return mq;
 }
 
-} // namespace cc
-
+}  // namespace cc

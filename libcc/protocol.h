@@ -28,13 +28,14 @@
 #ifndef CC_LIBCC_PROTOCOL_H
 #define CC_LIBCC_PROTOCOL_H
 
+#include <deque>
 #include <map>
 #include <string>
 #include <vector>
-#include <deque>
-#include "types.h"
-#include "msg.h"
+
 #include "amba.h"
+#include "msg.h"
+#include "types.h"
 
 namespace cc {
 
@@ -52,8 +53,7 @@ class Agent;
 //
 class CohSrtMsg : public Message {
  public:
-  CohSrtMsg() : Message(MessageClass::CohSrt)
-  {}
+  CohSrtMsg() : Message(MessageClass::CohSrt) {}
 
   //
   std::string to_string() const override;
@@ -69,25 +69,21 @@ class CohSrtMsg : public Message {
   Agent* origin_;
 };
 
-
 //
 //
 class CohEndMsg : public Message {
  public:
-  CohEndMsg() : Message(MessageClass::CohEnd)
-  {}
+  CohEndMsg() : Message(MessageClass::CohEnd) {}
 
   //
   std::string to_string() const override;
 };
 
-
 //
 //
 class CohCmdMsg : public Message {
  public:
-  CohCmdMsg() : Message(MessageClass::CohCmd)
-  {}
+  CohCmdMsg() : Message(MessageClass::CohCmd) {}
 
   //
   std::string to_string() const override;
@@ -108,61 +104,51 @@ class CohCmdMsg : public Message {
   addr_t addr_;
 };
 
-
 //
 //
 class CohCmdRspMsg : public Message {
  public:
-  CohCmdRspMsg() : Message(MessageClass::CohCmdRsp)
-  {}
+  CohCmdRspMsg() : Message(MessageClass::CohCmdRsp) {}
 
   //
   std::string to_string() const override;
 };
-
 
 //
 //
 class CohFwdMsg : public Message {
  public:
-  CohFwdMsg() : Message(MessageClass::CohFwd)
-  {}
+  CohFwdMsg() : Message(MessageClass::CohFwd) {}
 
   //
   std::string to_string() const override;
 };
-
 
 //
 //
 class CohFwdRspMsg : public Message {
  public:
-  CohFwdRspMsg() : Message(MessageClass::CohFwdRsp)
-  {}
+  CohFwdRspMsg() : Message(MessageClass::CohFwdRsp) {}
 
   //
   std::string to_string() const override;
 };
-
 
 //
 //
 class CohInvMsg : public Message {
  public:
-  CohInvMsg() : Message(MessageClass::CohInv)
-  {}
+  CohInvMsg() : Message(MessageClass::CohInv) {}
 
   //
   std::string to_string() const override;
 };
 
-
 //
 //
 class CohInvRspMsg : public Message {
  public:
-  CohInvRspMsg() : Message(MessageClass::CohInvRsp)
-  {}
+  CohInvRspMsg() : Message(MessageClass::CohInvRsp) {}
 
   //
   std::string to_string() const override;
@@ -203,7 +189,6 @@ class CoherenceAction {
 using CoherenceActionList = std::vector<CoherenceAction*>;
 
 using L1CoherenceActionList = std::vector<CoherenceAction*>;
-
 
 //
 //
@@ -248,8 +233,8 @@ class L1CacheModelProtocol {
   virtual void evict(L1CacheContext& c) const = 0;
 
  protected:
-  virtual void issue_msg(
-      L1CoherenceActionList& al, MessageQueue* mq, const Message* msg) const;
+  virtual void issue_msg(L1CoherenceActionList& al, MessageQueue* mq,
+                         const Message* msg) const;
 
  private:
   L1CacheModel* l1cache_ = nullptr;
@@ -274,7 +259,6 @@ class L2LineState {
 //
 //
 using L2CoherenceActionList = std::vector<CoherenceAction*>;
-
 
 //
 //
@@ -319,8 +303,8 @@ class L2CacheModelProtocol {
   virtual void evict(L2CacheContext& c) const = 0;
 
  protected:
-  virtual void issue_msg(
-      L1CoherenceActionList& al, MessageQueue* mq, const Message* msg) const;
+  virtual void issue_msg(L1CoherenceActionList& al, MessageQueue* mq,
+                         const Message* msg) const;
 
  private:
   L2CacheModel* l2cache_ = nullptr;
@@ -384,10 +368,9 @@ class DirProtocol {
       const DirCoherenceContext& context) const = 0;
 
  protected:
-
   //
-  virtual void issue_emit_to_noc(
-      DirActionList& al, const Message* msg, Agent* dest) const;
+  virtual void issue_emit_to_noc(DirActionList& al, const Message* msg,
+                                 Agent* dest) const;
 
   //
   virtual void issue_protocol_violation(DirActionList& al) const;
@@ -404,9 +387,7 @@ class CCLineState {
   virtual ~CCLineState() = default;
 };
 
-
-enum class CCMessageID {
-};
+enum class CCMessageID {};
 
 using CCMessageIDList = std::vector<CCMessageID>;
 
@@ -459,13 +440,13 @@ class CCProtocol {
 
   //
   //
-  virtual std::pair<bool, CCActionList> apply(const CCContext& context) const = 0;
+  virtual std::pair<bool, CCActionList> apply(
+      const CCContext& context) const = 0;
 
  protected:
-
   //
-  virtual void issue_emit_to_noc(
-      CCActionList& al, const Message* msg, Agent* dest) const;
+  virtual void issue_emit_to_noc(CCActionList& al, const Message* msg,
+                                 Agent* dest) const;
 
   //
   virtual void issue_protocol_violation(CCActionList& al) const;

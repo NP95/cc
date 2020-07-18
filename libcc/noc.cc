@@ -26,16 +26,17 @@
 //========================================================================== //
 
 #include "noc.h"
+
+#include <sstream>
+
 #include "primitives.h"
 #include "utility.h"
-#include <sstream>
 
 namespace cc {
 
 //
 //
 NocMsg::NocMsg() : Message(MessageClass::Noc) {}
-
 
 std::string NocMsg::to_string() const {
   using cc::to_string;
@@ -52,34 +53,33 @@ std::string NocMsg::to_string() const {
 //
 //
 class NocModel::MainProcess : public kernel::Process {
-
-  enum class State {
-    Idle, ChooseQueue, IssueMessage
-  };
+  enum class State { Idle, ChooseQueue, IssueMessage };
 
   static const char* to_string(State state) {
     switch (state) {
-      case State::Idle: return "Idle";
-      case State::ChooseQueue: return "ChooseQueue";
-      case State::IssueMessage: return "IssueMessage";
-      default: return "Invalid";
+      case State::Idle:
+        return "Idle";
+      case State::ChooseQueue:
+        return "ChooseQueue";
+      case State::IssueMessage:
+        return "IssueMessage";
+      default:
+        return "Invalid";
     }
   }
 
   struct Context {
     MessageQueueArbiter::Tournament t;
   };
-  
+
  public:
   MainProcess(kernel::Kernel* k, const std::string& name, NocModel* model)
-      : kernel::Process(k, name), model_(model)
-  {}
+      : kernel::Process(k, name), model_(model) {}
 
   State state() const { return state_; }
   void set_state(State state) { state_ = state; }
 
  private:
-
   void init() override {
     // Await the arrival of requesters
     MessageQueueArbiter* arb = model_->arb();
@@ -103,8 +103,7 @@ class NocModel::MainProcess : public kernel::Process {
     }
   }
 
-  void fini() override {
-  }
+  void fini() override {}
 
   void handle_awaiting_message() {
     // Idle state, awaiting more work.
@@ -116,7 +115,7 @@ class NocModel::MainProcess : public kernel::Process {
     // unrecoverable.
     if (t.deadlock()) {
       const LogMessage msg{"A protocol deadlock has been detected.",
-            Level::Fatal};
+                           Level::Fatal};
       log(msg);
     }
 
@@ -185,8 +184,8 @@ class NocModel::MainProcess : public kernel::Process {
       } break;
     }
 
-    //kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
-    //issue_message(intf->dequeue());
+    // kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
+    // issue_message(intf->dequeue());
     set_state(State::Idle);
     wait_for(kernel::Time{10, 0});
   }
@@ -203,16 +202,13 @@ NocPort::NocPort(kernel::Kernel* k, const std::string& name) : Module(k, name) {
   build();
 }
 
-NocPort::~NocPort() {
-  delete ingress_;
-}
+NocPort::~NocPort() { delete ingress_; }
 
 void NocPort::build() {
   // Construct owned ingress queue; egress is owned by the agent itself.
   ingress_ = new MessageQueue(k(), "ingress", 3);
   add_child_module(ingress_);
 }
-
 
 NocModel::NocModel(kernel::Kernel* k, const NocModelConfig& config)
     : Agent(k, config.name), config_(config) {
@@ -266,4 +262,4 @@ void NocModel::drc() {
   }
 }
 
-} // namespace cc
+}  // namespace cc

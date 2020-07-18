@@ -26,7 +26,8 @@
 //========================================================================== //
 
 #include "utility.h"
-#include  <algorithm>
+
+#include <algorithm>
 
 namespace cc {
 
@@ -42,28 +43,24 @@ KVListRenderer::~KVListRenderer() {
   finalize();
 }
 
-void KVListRenderer::initialize() {
-  os_ << "'{";
-}
+void KVListRenderer::initialize() { os_ << "'{"; }
 
-void KVListRenderer::finalize() {
-  os_ << "}";
-}
+void KVListRenderer::finalize() { os_ << "}"; }
 
 void KVListRenderer::render(const kv_type& kv) {
   os_ << kv.first << ":" << kv.second;
 }
 
-void KVListRenderer::add_field(
-    const std::string& key, const std::string& value){
+void KVListRenderer::add_field(const std::string& key,
+                               const std::string& value) {
   kvs_.push_back(std::make_pair(key, value));
 }
 
 std::string Hexer::to_hex(std::uint64_t x, std::size_t bits) const {
-  return to_hex(reinterpret_cast<const char *>(std::addressof(x)), bits);
+  return to_hex(reinterpret_cast<const char*>(std::addressof(x)), bits);
 }
 
-std::string Hexer::to_hex(const char * c, std::size_t bits) const {
+std::string Hexer::to_hex(const char* c, std::size_t bits) const {
   if (bits == 0) return "";
 
   // Predecrement character point to simply control logic in main
@@ -82,15 +79,14 @@ std::string Hexer::to_hex(const char * c, std::size_t bits) const {
       bits_mask = std::min(4ul, bits);
       result.push_back(hex_char(x & mask<char>(bits_mask)));
       bits -= bits_mask;
-    }    
+    }
   }
 
   if (truncate_) {
     // Remove leading zeros such that: 0x00000000 becomes 0x0.
-    while ((result.size() > 1) && (result.back() == '0'))
-      result.pop_back();
+    while ((result.size() > 1) && (result.back() == '0')) result.pop_back();
   }
-  
+
   if (prefix_) {
     // Append hex prefix if applicable.
     result.push_back('x');
@@ -105,8 +101,6 @@ char Hexer::hex_char(char x) const {
   return (x < 10) ? ('0' + x) : ((upper_case_ ? 'A' : 'a') + (x - 10));
 }
 
-const char* to_string(bool b) {
-  return b ? "true" : "false";
-}
+const char* to_string(bool b) { return b ? "true" : "false"; }
 
-} // namespace cc
+}  // namespace cc

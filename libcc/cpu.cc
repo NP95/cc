@@ -26,20 +26,25 @@
 //========================================================================== //
 
 #include "cpu.h"
-#include "utility.h"
+
+#include <exception>
+#include <sstream>
+
+#include "l1cache.h"
 #include "msg.h"
 #include "stimulus.h"
-#include "l1cache.h"
-#include <sstream>
-#include <exception>
+#include "utility.h"
 
 namespace cc {
 
 L1CacheOpcode to_l1cache_opcode(CpuOpcode opcode) {
   switch (opcode) {
-    case CpuOpcode::Load: return L1CacheOpcode::CpuLoad;
-    case CpuOpcode::Store: return L1CacheOpcode::CpuStore;
-    default: throw std::invalid_argument("Unknown CpuOpcode");
+    case CpuOpcode::Load:
+      return L1CacheOpcode::CpuLoad;
+    case CpuOpcode::Store:
+      return L1CacheOpcode::CpuStore;
+    default:
+      throw std::invalid_argument("Unknown CpuOpcode");
   }
 }
 
@@ -49,6 +54,7 @@ class Cpu::ProducerProcess : public kernel::Process {
  public:
   ProducerProcess(kernel::Kernel* k, const std::string& name, Cpu* cpu)
       : kernel::Process(k, name), cpu_(cpu) {}
+
  private:
   // Initialization
   virtual void init() override {
@@ -60,15 +66,14 @@ class Cpu::ProducerProcess : public kernel::Process {
   }
 
   // Finalization
-  virtual void fini() override {
-  }
+  virtual void fini() override {}
 
   // Elaboration
   virtual void eval() override {
     StimulusContext* stimulus = cpu_->stimulus();
     Frontier f;
     if (!stimulus->front(f)) return;
-    
+
     MessageQueue* mq = cpu_->cpu_l1__cmd_q();
     if (mq->full()) {
       // Cpu issue queue has backpressured, therefore await notification
@@ -76,7 +81,7 @@ class Cpu::ProducerProcess : public kernel::Process {
       wait_on(mq->non_full_event());
       return;
     }
-      
+
     // A new transaction starts.
     Transaction* t = cpu_->start_transaction();
     // Free space in the issue queue, form a message and issue.
@@ -108,6 +113,7 @@ class Cpu::ConsumerProcess : public kernel::Process {
  public:
   ConsumerProcess(kernel::Kernel* k, const std::string& name, Cpu* cpu)
       : kernel::Process(k, name), cpu_(cpu) {}
+
  private:
   // Initialization
   virtual void init() override {
@@ -133,7 +139,7 @@ class Cpu::ConsumerProcess : public kernel::Process {
         } break;
       }
     }
-    if (mq->empty()) { 
+    if (mq->empty()) {
       wait_on(mq->non_empty_event());
     } else {
       next_delta();
@@ -141,8 +147,7 @@ class Cpu::ConsumerProcess : public kernel::Process {
   }
 
   // Finalization
-  virtual void fini() override {
-  }
+  virtual void fini() override {}
 
   // Point to process owner module.
   Cpu* cpu_ = nullptr;
@@ -185,11 +190,9 @@ void Cpu::set_stimulus(StimulusContext* stimulus) {
   // Construct consumer thread
   cp_ = new ConsumerProcess(k(), "consumer", this);
   add_child_process(cp_);
-
 }
 
-void Cpu::elab() {
-}
+void Cpu::elab() {}
 
 void Cpu::drc() {
   // Do DRC

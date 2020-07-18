@@ -28,8 +28,8 @@
 #ifndef CC_LIBCC_CPUCLUSTER_H
 #define CC_LIBCC_CPUCLUSTER_H
 
-#include "kernel.h"
 #include "cfgs.h"
+#include "kernel.h"
 #include "sim.h"
 
 namespace cc {
@@ -42,8 +42,10 @@ class Cpu;
 
 class CpuCluster : public Agent {
   friend class SocTop;
+
  public:
-  CpuCluster(kernel::Kernel* k, const CpuClusterConfig& cfg, Stimulus* stimulus);
+  CpuCluster(kernel::Kernel* k, const CpuClusterConfig& cfg,
+             Stimulus* stimulus);
 
   //
   const CpuClusterConfig& config() const { return config_; }
@@ -62,10 +64,10 @@ class CpuCluster : public Agent {
   void set_cc_noc__msg_q(MessageQueue* mq);
   // Set directory mapper
   void set_dm(DirMapper* dm);
-  
+
   // Design Rule Check (DRC)
   void drc();
-  
+
   //
   CC* cc_ = nullptr;
   //
@@ -80,6 +82,6 @@ class CpuCluster : public Agent {
   CpuClusterConfig config_;
 };
 
-} // namespace cc
+}  // namespace cc
 
 #endif

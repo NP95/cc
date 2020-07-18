@@ -45,10 +45,8 @@ class MessageQueue : public kernel::Module,
   bool empty() const { return q_->empty(); }
   bool full() const { return q_->full(); }
 
-
   bool issue(const Message* msg, kernel::Time t = kernel::Time{});
 
-  
   // Endpoint Interface:
   void push(const Message* msg);
 
@@ -73,8 +71,7 @@ class MessageQueue : public kernel::Module,
 class MessageQueueArbiter : public Arbiter<const Message*> {
  public:
   MessageQueueArbiter(kernel::Kernel* k, const std::string& name)
-      : Arbiter(k, name)
-  {}
+      : Arbiter(k, name) {}
 };
 
 //
@@ -86,6 +83,6 @@ class Agent : public kernel::Module {
 
 std::string to_string(const Agent* agent);
 
-} // namespace cc
+}  // namespace cc
 
 #endif

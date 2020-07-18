@@ -26,14 +26,16 @@
 //========================================================================== //
 
 #include "dir.h"
-#include "noc.h"
-#include "llc.h"
-#include "amba.h"
-#include "protocol.h"
-#include "primitives.h"
-#include "cache.h"
-#include "utility.h"
+
 #include <sstream>
+
+#include "amba.h"
+#include "cache.h"
+#include "llc.h"
+#include "noc.h"
+#include "primitives.h"
+#include "protocol.h"
+#include "utility.h"
 
 namespace cc {
 
@@ -41,10 +43,8 @@ namespace cc {
 //
 class DirModel::NocIngressProcess : public kernel::Process {
  public:
-  NocIngressProcess(kernel::Kernel* k, const std::string& name,
-                    DirModel* model)
-      : kernel::Process(k, name), model_(model) {
-  }
+  NocIngressProcess(kernel::Kernel* k, const std::string& name, DirModel* model)
+      : kernel::Process(k, name), model_(model) {}
 
   // Initialization
   void init() override {
@@ -55,7 +55,7 @@ class DirModel::NocIngressProcess : public kernel::Process {
   // Evaluation
   void eval() override {
     using cc::to_string;
-    
+
     // Upon reception of a NOC message, remove transport layer
     // encapsulation and issue to the appropriate ingress queue.
     MessageQueue* noc_mq = model_->noc_dir__msg_q();
@@ -102,16 +102,18 @@ class DirModel::RdisProcess : public kernel::Process {
   using Tournament = MessageQueueArbiter::Tournament;
   using CacheLineIt = CacheModel<DirLineState*>::LineIterator;
 
-  enum class State {
-    Idle, ProcessMessage, ExecuteActions
-  };
+  enum class State { Idle, ProcessMessage, ExecuteActions };
 
   static const char* to_string(State s) {
     switch (s) {
-      case State::Idle: return "Idle";
-      case State::ProcessMessage: return "ProcessMessage";
-      case State::ExecuteActions: return "ExecuteActions";
-      default: return "Invalid";
+      case State::Idle:
+        return "Idle";
+      case State::ProcessMessage:
+        return "ProcessMessage";
+      case State::ExecuteActions:
+        return "ExecuteActions";
+      default:
+        return "Invalid";
     }
   }
 
@@ -137,7 +139,6 @@ class DirModel::RdisProcess : public kernel::Process {
   }
 
  private:
-
   // Initialization
   void init() override {
     set_state(State::Idle);
@@ -169,8 +170,7 @@ class DirModel::RdisProcess : public kernel::Process {
   }
 
   // Finalization
-  void fini() override {
-  }
+  void fini() override {}
 
   void handle_awaiting_message() {
     // Idle state, awaiting more work.
@@ -182,7 +182,7 @@ class DirModel::RdisProcess : public kernel::Process {
     // unrecoverable.
     if (t_.deadlock()) {
       const LogMessage msg{"A protocol deadlock has been detected.",
-            Level::Fatal};
+                           Level::Fatal};
       log(msg);
     }
 
@@ -219,8 +219,8 @@ class DirModel::RdisProcess : public kernel::Process {
         } else {
           // Cache miss; either service current command by installing
           CacheModel<DirLineState*>::Evictor evictor;
-          const std::pair<CacheModel<DirLineState*>::LineIterator, bool> line_lookup =
-              evictor.nominate(set.begin(), set.end());
+          const std::pair<CacheModel<DirLineState*>::LineIterator, bool>
+              line_lookup = evictor.nominate(set.begin(), set.end());
 
           CacheLineIt it = line_lookup.first;
           if (it != set.end()) {
@@ -255,7 +255,7 @@ class DirModel::RdisProcess : public kernel::Process {
         const CacheAddressHelper ah = cache->ah();
         // Check cache occupancy status:
         // const addr_t addr = llcrsp->addr();
-        const addr_t addr  = 0;
+        const addr_t addr = 0;
         CacheModel<DirLineState*>::Set set = cache->set(ah.set(addr));
         CacheLineIt it = set.find(ah.tag(addr));
         if (it != set.end()) {
@@ -270,11 +270,12 @@ class DirModel::RdisProcess : public kernel::Process {
           // message to the directory erroneously or the line of interest
           // has been evicted during the interval between when the original
           // LLC command was issued, and when the response had arrived.
-          LogMessage lm("LLC response received but line is not present "
-                        "in cache.");
+          LogMessage lm(
+              "LLC response received but line is not present "
+              "in cache.");
           lm.level(Level::Error);
           log(lm);
-        }        
+        }
       } break;
       default: {
         using cc::to_string;
@@ -330,7 +331,7 @@ class DirModel::RdisProcess : public kernel::Process {
   DirCoherenceContext context_;
   // Coherence action list.
   DirActionList action_list_;
-// Pointer to parent directory instance.
+  // Pointer to parent directory instance.
   DirModel* model_ = nullptr;
 };
 
@@ -397,11 +398,15 @@ void DirModel::drc() {
 //
 MessageQueue* DirModel::lookup_rdis_mq(MessageClass cls) const {
   switch (cls) {
-    case MessageClass::CohSrt: return cpu_dir__cmd_q_;
-    case MessageClass::CohCmd: return cpu_dir__cmd_q_;
-    case MessageClass::LLCCmdRsp: return llc_dir__rsp_q_;
-    default: return nullptr;
+    case MessageClass::CohSrt:
+      return cpu_dir__cmd_q_;
+    case MessageClass::CohCmd:
+      return cpu_dir__cmd_q_;
+    case MessageClass::LLCCmdRsp:
+      return llc_dir__rsp_q_;
+    default:
+      return nullptr;
   }
 }
 
-} // namespace cc
+}  // namespace cc

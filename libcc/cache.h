@@ -137,7 +137,7 @@ class CacheModel {
     }
     LineIterator& operator*() { return *raw_; }
     const LineIterator& operator*() const { return *raw_; }
-    
+
     line_iterator operator->() const { return raw_; }
 
    private:
@@ -182,7 +182,7 @@ class CacheModel {
     }
     ConstLineIterator& operator*() { return *raw_; }
     const ConstLineIterator& operator*() const { return *raw_; }
-    
+
     const_line_iterator operator->() const { return raw_; }
 
    private:
@@ -193,45 +193,45 @@ class CacheModel {
   };
 
   class Evictor {
-  public:
+   public:
     enum class Policy { First };
-    
-    explicit Evictor(Policy policy = Policy::First)
-      : policy_(policy) {}
+
+    explicit Evictor(Policy policy = Policy::First) : policy_(policy) {}
 
     Policy policy() const { return policy_; }
 
-    std::pair<LineIterator, bool> nominate(
-       LineIterator begin, LineIterator end) const {
+    std::pair<LineIterator, bool> nominate(LineIterator begin,
+                                           LineIterator end) const {
       LineIterator it;
       // Firstly consider empty lines within the set.
       it = begin;
       while (it != end) {
-	// const Line& line = it.line();
-	if (!it->valid()) return std::make_pair(it, false);
-	++it;
+        // const Line& line = it.line();
+        if (!it->valid()) return std::make_pair(it, false);
+        ++it;
       }
       // Otherwise, consider lines which can be evicted.
       it = begin;
       std::vector<LineIterator> ns;
       while (it != end) {
-	const T& t = it->t();
-	if (t->is_evictable()) ns.push_back(it);
+        const T& t = it->t();
+        if (t->is_evictable()) ns.push_back(it);
       }
       // If no nominations selected, return end()
       if (ns.empty()) return std::make_pair(end, false);
 
       // Otherwise, select according to selected policy.
       switch (policy()) {
-      case Policy::First: {
-	return std::make_pair(*ns.begin(), false);
-      } break;
-      default: {
-	return std::make_pair(end, false);
-      } break;
+        case Policy::First: {
+          return std::make_pair(*ns.begin(), false);
+        } break;
+        default: {
+          return std::make_pair(end, false);
+        } break;
       }
     }
-  private:
+
+   private:
     Policy policy_;
   };
 

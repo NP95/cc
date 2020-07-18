@@ -30,12 +30,12 @@
 
 #include <vector>
 
+#include "cache.h"
 #include "cfgs.h"
 #include "kernel.h"
 #include "msg.h"
-#include "sim.h"
 #include "protocol.h"
-#include "cache.h"
+#include "sim.h"
 
 namespace cc {
 
@@ -51,9 +51,7 @@ class CC;
 
 //
 //
-enum class L2CmdOpcode {
-  L1GetS, L1GetE
-};
+enum class L2CmdOpcode { L1GetS, L1GetE };
 
 const char* to_string(L2CmdOpcode opcode);
 
@@ -65,7 +63,7 @@ class L2CmdMsg : public Message {
 
   //
   std::string to_string() const override;
-  
+
   //
   L2CmdOpcode opcode() const { return opcode_; }
   addr_t addr() const { return addr_; }
@@ -74,7 +72,7 @@ class L2CmdMsg : public Message {
   void set_opcode(L2CmdOpcode opcode) { opcode_ = opcode; }
   void set_addr(addr_t addr) { addr_ = addr; }
   void set_l1cache(L1CacheModel* l1cache) { l1cache_ = l1cache; }
-  
+
  private:
   // Originator L1 cache instance (for response message).
   L1CacheModel* l1cache_ = nullptr;
@@ -84,9 +82,7 @@ class L2CmdMsg : public Message {
 
 //
 //
-enum class L2RspOpcode {
-  L1InstallS, L1InstallE
-};
+enum class L2RspOpcode { L1InstallS, L1InstallE };
 
 const char* to_string(L2RspOpcode opcode);
 
@@ -108,7 +104,6 @@ class L2CmdRspMsg : public Message {
  private:
   L2RspOpcode opcode_;
 };
-
 
 // Arbitration tournament type
 using L2Tournament = MessageQueueArbiter::Tournament;
@@ -211,7 +206,6 @@ class L2CacheModel : public Agent {
   MessageQueue* cc_l2__rsp_q() const { return cc_l2__rsp_q_; }
 
  protected:
-
   // Accessors:
   // Pointer to module arbiter instance.
   MessageQueueArbiter* arb() const { return arb_; }
@@ -237,12 +231,11 @@ class L2CacheModel : public Agent {
   void set_l2_l1__rsp_q(std::size_t n, MessageQueue* mq) {
     l2_l1__rsp_qs_[n] = mq;
   }
-  
+
   // Design Rule Check (DRC) callback
   virtual void drc() override;
 
  private:
-
   // L2 Cache Configuration.
   L2CacheModelConfig config_;
   // Child L1 Caches

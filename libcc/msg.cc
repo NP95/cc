@@ -26,42 +26,73 @@
 //========================================================================== //
 
 #include "msg.h"
-#include "utility.h"
+
 #include <sstream>
+
+#include "utility.h"
 
 namespace cc {
 
 const char* to_string(MessageClass cls) {
   switch (cls) {
-    case MessageClass::Invalid: return "Invalid";
-    case MessageClass::CpuCmd: return "CpuCmd";
-    case MessageClass::CpuCmdRsp: return "CpuCmdRsp";
-    case MessageClass::L1Cmd: return "L1Cmd";
-    case MessageClass::L1CmdRsp: return "L1CmdRsp";
-    case MessageClass::L2Cmd: return "L2Cmd";
-    case MessageClass::L2CmdRsp: return "L2CmdRsp";
-    case MessageClass::AceCmd: return "AceCmd";
-    case MessageClass::AceCmdRspR: return "AceCmdRspR";
-    case MessageClass::AceCmdRspB: return "AceCmdRspB";
-    case MessageClass::AceSnoop: return "AceSnoop";
-    case MessageClass::AceSnoopRsp: return "AceSnoopRsp";
-    case MessageClass::Noc: return "Noc";
-    case MessageClass::CohSrt: return "CohSrt";
-    case MessageClass::CohEnd: return "CohEnd";
-    case MessageClass::CohCmd: return "CohCmd";
-    case MessageClass::CohFwd: return "CohFwd";
-    case MessageClass::CohFwdRsp: return "CohFwdRsp";
-    case MessageClass::CohInv: return "CohInv";
-    case MessageClass::CohInvRsp: return "CohInvRsp";
-    case MessageClass::LLCCmd: return "LLCCmd";
-    case MessageClass::LLCCmdRsp: return "LLCCmdRsp";
-    case MessageClass::LLCFwd: return "LLCFwd";
-    case MessageClass::LLCFwdRsp: return "LLCFwdRsp";
-    case MessageClass::MemCmd: return "MemCmd";
-    case MessageClass::MemRsp: return "MemRsp";
-    case MessageClass::Dt: return "Dt";
-    case MessageClass::DtRsp: return "DtRsp";
-    default: return "Invalid";
+    case MessageClass::Invalid:
+      return "Invalid";
+    case MessageClass::CpuCmd:
+      return "CpuCmd";
+    case MessageClass::CpuCmdRsp:
+      return "CpuCmdRsp";
+    case MessageClass::L1Cmd:
+      return "L1Cmd";
+    case MessageClass::L1CmdRsp:
+      return "L1CmdRsp";
+    case MessageClass::L2Cmd:
+      return "L2Cmd";
+    case MessageClass::L2CmdRsp:
+      return "L2CmdRsp";
+    case MessageClass::AceCmd:
+      return "AceCmd";
+    case MessageClass::AceCmdRspR:
+      return "AceCmdRspR";
+    case MessageClass::AceCmdRspB:
+      return "AceCmdRspB";
+    case MessageClass::AceSnoop:
+      return "AceSnoop";
+    case MessageClass::AceSnoopRsp:
+      return "AceSnoopRsp";
+    case MessageClass::Noc:
+      return "Noc";
+    case MessageClass::CohSrt:
+      return "CohSrt";
+    case MessageClass::CohEnd:
+      return "CohEnd";
+    case MessageClass::CohCmd:
+      return "CohCmd";
+    case MessageClass::CohFwd:
+      return "CohFwd";
+    case MessageClass::CohFwdRsp:
+      return "CohFwdRsp";
+    case MessageClass::CohInv:
+      return "CohInv";
+    case MessageClass::CohInvRsp:
+      return "CohInvRsp";
+    case MessageClass::LLCCmd:
+      return "LLCCmd";
+    case MessageClass::LLCCmdRsp:
+      return "LLCCmdRsp";
+    case MessageClass::LLCFwd:
+      return "LLCFwd";
+    case MessageClass::LLCFwdRsp:
+      return "LLCFwdRsp";
+    case MessageClass::MemCmd:
+      return "MemCmd";
+    case MessageClass::MemRsp:
+      return "MemRsp";
+    case MessageClass::Dt:
+      return "Dt";
+    case MessageClass::DtRsp:
+      return "DtRsp";
+    default:
+      return "Invalid";
   }
 }
 
@@ -72,7 +103,7 @@ Transaction::Transaction() {
 
 std::string Transaction::to_string() const {
   using std::to_string;
-  
+
   std::stringstream ss;
   {
     KVListRenderer r(ss);
@@ -86,10 +117,9 @@ Message::Message(MessageClass cls) : cls_(cls) {
   mid_ = mid_counter++;
 }
 
-
 void Message::render_msg_fields(KVListRenderer& r) const {
   using std::to_string;
-  
+
   Hexer h;
   r.add_field("mid", to_string(mid()));
   r.add_field("cls", to_string(cls()));
@@ -100,5 +130,4 @@ void Message::render_msg_fields(KVListRenderer& r) const {
   }
 }
 
-
-} // namespace cc
+}  // namespace cc

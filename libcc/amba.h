@@ -82,7 +82,6 @@ class AceCmdMsg : public Message {
   addr_t addr_;
 };
 
-
 //
 //
 class AceCmdRspRMsg : public Message {
@@ -146,7 +145,7 @@ class AceSnpMsg : public Message {
   AceSnpOpcode opcode() const { return opcode_; }
 
   void set_opcode(AceSnpOpcode opcode) { opcode_ = opcode; }
-  
+
  private:
   AceSnpOpcode opcode_;
 };
@@ -182,6 +181,6 @@ class AceSnpRspMsg : public Message {
   bool was_unique_ = false;
 };
 
-} // namespace cc
+}  // namespace cc
 
 #endif

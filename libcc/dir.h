@@ -28,13 +28,13 @@
 #ifndef CC_LIBCC_DIR_H
 #define CC_LIBCC_DIR_H
 
-#include "kernel.h"
-#include "cfgs.h"
-#include "types.h"
-#include "sim.h"
-#include "msg.h"
-#include "cache.h"
 #include "amba.h"
+#include "cache.h"
+#include "cfgs.h"
+#include "kernel.h"
+#include "msg.h"
+#include "sim.h"
+#include "types.h"
 
 namespace cc {
 
@@ -50,6 +50,7 @@ class DirModel : public Agent {
 
   class RdisProcess;
   class NocIngressProcess;
+
  public:
   DirModel(kernel::Kernel* k, const DirModelConfig& config);
   ~DirModel();
@@ -75,7 +76,7 @@ class DirModel : public Agent {
   void elab() override;
   //
   void set_dir_noc__msg_q(MessageQueue* mq) { dir_noc__msg_q_ = mq; }
-  
+
   // design rule check (drc)
   void drc() override;
 
@@ -86,10 +87,9 @@ class DirModel : public Agent {
   // point to module cache instance.
   CacheModel<DirLineState*>* cache() const { return cache_; }
 
-
   // lookup rdis process message queue for traffic class.
   MessageQueue* lookup_rdis_mq(MessageClass cls) const;
-  
+
  private:
   // queue selection arbiter
   MessageQueueArbiter* arb_ = nullptr;
@@ -129,18 +129,15 @@ class DirMapper {
 //
 class SingleDirMapper : public DirMapper {
  public:
-  SingleDirMapper(DirModel* dm)
-      : dm_(dm) {}
+  SingleDirMapper(DirModel* dm) : dm_(dm) {}
 
-  DirModel* lookup(addr_t addr) const override {
-    return dm_;
-  }
+  DirModel* lookup(addr_t addr) const override { return dm_; }
 
  private:
   // Dir end-point definition.
   DirModel* dm_ = nullptr;
 };
 
-} // namespace cc
+}  // namespace cc
 
 #endif

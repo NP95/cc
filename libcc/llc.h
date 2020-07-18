@@ -28,10 +28,10 @@
 #ifndef CC_LIBCC_LLC_H
 #define CC_LIBCC_LLC_H
 
-#include "kernel.h"
-#include "sim.h"
 #include "cfgs.h"
+#include "kernel.h"
 #include "msg.h"
+#include "sim.h"
 
 namespace cc {
 
@@ -76,12 +76,9 @@ class LLCCmdMsg : public Message {
   LLCCmdOpcode opcode_;
 };
 
-
 //
 //
-enum class LLCRspOpcode {
-  Okay
-};
+enum class LLCRspOpcode { Okay };
 
 const char* to_string(LLCRspOpcode opcode);
 
@@ -104,7 +101,6 @@ class LLCCmdRspMsg : public Message {
   LLCRspOpcode opcode_;
 };
 
-
 //
 //
 class LLCModel : public Agent {
@@ -112,6 +108,7 @@ class LLCModel : public Agent {
   class NocIngressProcess;
 
   friend class SocTop;
+
  public:
   LLCModel(kernel::Kernel* k, const LLCModelConfig& config);
   ~LLCModel();
@@ -128,7 +125,7 @@ class LLCModel : public Agent {
   MemCntrlModel* mc() const { return mc_; }
   // Directory model instance.
   DirModel* dir() const { return dir_; }
-  
+
  protected:
   // Construction/Build
   void build();
@@ -150,7 +147,7 @@ class LLCModel : public Agent {
   MessageQueueArbiter* arb() const { return arb_; }
   // lookup rdis process message queue for traffic class.
   MessageQueue* lookup_rdis_mq(MessageClass cls) const;
-  
+
  private:
   // LLC -> NOC command queue (NOC owned)
   MessageQueue* llc_noc__msg_q_ = nullptr;
@@ -174,6 +171,6 @@ class LLCModel : public Agent {
   LLCModelConfig config_;
 };
 
-} // namespace cc
+}  // namespace cc
 
 #endif

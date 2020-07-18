@@ -26,10 +26,11 @@
 //========================================================================== //
 
 #include "protocol.h"
-#include "sim.h"
-#include "noc.h"
-#include "dir.h"
+
 #include "ccntrl.h"
+#include "dir.h"
+#include "noc.h"
+#include "sim.h"
 #include "utility.h"
 
 namespace cc {
@@ -54,7 +55,7 @@ std::string CohEndMsg::to_string() const {
 
 std::string CohCmdMsg::to_string() const {
   using cc::to_string;
-  
+
   std::stringstream ss;
   {
     Hexer h;
@@ -66,7 +67,6 @@ std::string CohCmdMsg::to_string() const {
   }
   return ss.str();
 }
-
 
 std::string CohCmdRspMsg::to_string() const {
   std::stringstream ss;
@@ -113,7 +113,6 @@ std::string CohInvRspMsg::to_string() const {
   return ss.str();
 }
 
-
 using pbr = ProtocolBuilderRegistry;
 
 // Coherence protocol registry
@@ -129,34 +128,32 @@ ProtocolBuilder* ProtocolBuilderRegistry::build(const std::string& name) {
   return r;
 }
 
-
 //
 //
 struct EmitMessageAction : public CoherenceAction {
   EmitMessageAction(MessageQueue* mq, const Message* msg)
-      : mq_(mq), msg_(msg)
-  {}
-  bool execute() override {
-    return mq_->issue(msg_);
-  }
+      : mq_(mq), msg_(msg) {}
+  bool execute() override { return mq_->issue(msg_); }
+
  private:
   MessageQueue* mq_ = nullptr;
   const Message* msg_ = nullptr;
 };
 
-
-void L1CacheModelProtocol::issue_msg(
-    L1CoherenceActionList& al, MessageQueue* mq, const Message* msg) const {
+void L1CacheModelProtocol::issue_msg(L1CoherenceActionList& al,
+                                     MessageQueue* mq,
+                                     const Message* msg) const {
   al.push_back(new EmitMessageAction(mq, msg));
 }
 
-void L2CacheModelProtocol::issue_msg(
-    L1CoherenceActionList& al, MessageQueue* mq, const Message* msg) const {
+void L2CacheModelProtocol::issue_msg(L1CoherenceActionList& al,
+                                     MessageQueue* mq,
+                                     const Message* msg) const {
   al.push_back(new EmitMessageAction(mq, msg));
 }
 
-void DirProtocol::issue_emit_to_noc(
-    DirActionList& al, const Message* msg, Agent* dest) const {
+void DirProtocol::issue_emit_to_noc(DirActionList& al, const Message* msg,
+                                    Agent* dest) const {
   // Encapsulate message in NOC transport protocol.
   NocMsg* nocmsg = new NocMsg;
   nocmsg->set_t(msg->t());
@@ -168,11 +165,11 @@ void DirProtocol::issue_emit_to_noc(
 }
 
 void DirProtocol::issue_protocol_violation(DirActionList& al) const {
-  // TODO  
+  // TODO
 }
 
-void CCProtocol::issue_emit_to_noc(
-    CCActionList& al, const Message* msg, Agent* dest) const {
+void CCProtocol::issue_emit_to_noc(CCActionList& al, const Message* msg,
+                                   Agent* dest) const {
   // Encapsulate message in NOC transport protocol.
   NocMsg* nocmsg = new NocMsg;
   nocmsg->set_t(msg->t());
@@ -184,7 +181,7 @@ void CCProtocol::issue_emit_to_noc(
 }
 
 void CCProtocol::issue_protocol_violation(CCActionList& al) const {
-  // TODO  
+  // TODO
 }
 
 }  // namespace cc

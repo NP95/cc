@@ -26,38 +26,57 @@
 //========================================================================== //
 
 #include "amba.h"
-#include "utility.h"
+
 #include <sstream>
+
+#include "utility.h"
 
 namespace cc {
 
 const char* to_string(AceCmdOpcode opcode) {
   switch (opcode) {
-    case AceCmdOpcode::ReadNoSnoop: return "ReadNoSnoop";
-    case AceCmdOpcode::ReadOnce: return "ReadOnce";
-    case AceCmdOpcode::ReadClean: return "ReadClean";
-    case AceCmdOpcode::ReadSharedNotDirty: return "ReadSharedNotDirty";
-    case AceCmdOpcode::ReadShared: return "ReadShared";
-    case AceCmdOpcode::ReadUnique: return "ReadUnique";
-    case AceCmdOpcode::CleanUnique: return "CleanUnique";
-    case AceCmdOpcode::CleanShared: return "CleanShared";
-    case AceCmdOpcode::CleanInvalid: return "CleanInvalid";
-    case AceCmdOpcode::MakeUnique: return "MakeUnique";
-    case AceCmdOpcode::MakeInvalid: return "MakeInvalid";
-    case AceCmdOpcode::WriteNoSnoop: return "WriteNoSnoop";
-    case AceCmdOpcode::WriteLineUnique: return "WriteLineUnique";
-    case AceCmdOpcode::WriteBack: return "WriteBack";
-    case AceCmdOpcode::WriteClean: return "WriteClean";
-    case AceCmdOpcode::Evict: return "Evict";
-    case AceCmdOpcode::Invalid: return "Invalid";
-    default: return "Invalid";
+    case AceCmdOpcode::ReadNoSnoop:
+      return "ReadNoSnoop";
+    case AceCmdOpcode::ReadOnce:
+      return "ReadOnce";
+    case AceCmdOpcode::ReadClean:
+      return "ReadClean";
+    case AceCmdOpcode::ReadSharedNotDirty:
+      return "ReadSharedNotDirty";
+    case AceCmdOpcode::ReadShared:
+      return "ReadShared";
+    case AceCmdOpcode::ReadUnique:
+      return "ReadUnique";
+    case AceCmdOpcode::CleanUnique:
+      return "CleanUnique";
+    case AceCmdOpcode::CleanShared:
+      return "CleanShared";
+    case AceCmdOpcode::CleanInvalid:
+      return "CleanInvalid";
+    case AceCmdOpcode::MakeUnique:
+      return "MakeUnique";
+    case AceCmdOpcode::MakeInvalid:
+      return "MakeInvalid";
+    case AceCmdOpcode::WriteNoSnoop:
+      return "WriteNoSnoop";
+    case AceCmdOpcode::WriteLineUnique:
+      return "WriteLineUnique";
+    case AceCmdOpcode::WriteBack:
+      return "WriteBack";
+    case AceCmdOpcode::WriteClean:
+      return "WriteClean";
+    case AceCmdOpcode::Evict:
+      return "Evict";
+    case AceCmdOpcode::Invalid:
+      return "Invalid";
+    default:
+      return "Invalid";
   }
 }
 
 //
 //
 AceCmdMsg::AceCmdMsg() : Message(MessageClass::AceCmd) {}
-
 
 std::string AceCmdMsg::to_string() const {
   using cc::to_string;
@@ -69,7 +88,6 @@ std::string AceCmdMsg::to_string() const {
     r.add_field("opcode", to_string(opcode()));
     Hexer h;
     r.add_field("addr", h.to_hex(addr()));
-
   }
   return ss.str();
 }
@@ -93,11 +111,9 @@ std::string AceCmdRspRMsg::to_string() const {
   return ss.str();
 }
 
-
 //
 //
 AceCmdRspBMsg::AceCmdRspBMsg() : Message(MessageClass::AceCmdRspB) {}
-
 
 //
 //
@@ -116,19 +132,28 @@ std::string AceCmdRspBMsg::to_string() const {
 //
 const char* to_string(AceSnpOpcode opcode) {
   switch (opcode) {
-    case AceSnpOpcode::ReadOnce: return "ReadOnce";
-    case AceSnpOpcode::ReadClean: return "ReadClean";
-    case AceSnpOpcode::ReadNotSharedDirty: return "ReadNotSharedDirty";
-    case AceSnpOpcode::ReadShared: return "ReadShared";
-    case AceSnpOpcode::ReadUnique: return "ReadUnique";
-    case AceSnpOpcode::CleanInvalid: return "CleanInvalid";
-    case AceSnpOpcode::MakeInvalid: return "MakeInvalid";
-    case AceSnpOpcode::CleanShared: return "CleanShared";
-    case AceSnpOpcode::Invalid: return "Invalid";
-    default: return "Invalid";
+    case AceSnpOpcode::ReadOnce:
+      return "ReadOnce";
+    case AceSnpOpcode::ReadClean:
+      return "ReadClean";
+    case AceSnpOpcode::ReadNotSharedDirty:
+      return "ReadNotSharedDirty";
+    case AceSnpOpcode::ReadShared:
+      return "ReadShared";
+    case AceSnpOpcode::ReadUnique:
+      return "ReadUnique";
+    case AceSnpOpcode::CleanInvalid:
+      return "CleanInvalid";
+    case AceSnpOpcode::MakeInvalid:
+      return "MakeInvalid";
+    case AceSnpOpcode::CleanShared:
+      return "CleanShared";
+    case AceSnpOpcode::Invalid:
+      return "Invalid";
+    default:
+      return "Invalid";
   }
 }
-
 
 //
 //
@@ -156,4 +181,4 @@ std::string AceSnpRspMsg::to_string() const {
   return ss.str();
 }
 
-} // namespace cc
+}  // namespace cc

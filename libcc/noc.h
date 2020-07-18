@@ -28,19 +28,18 @@
 #ifndef CC_LIBCC_NOC_H
 #define CC_LIBCC_NOC_H
 
-#include "kernel.h"
-#include "sim.h"
-#include "cc/cfgs.h"
-#include "msg.h"
-#include <vector>
 #include <map>
+#include <vector>
+
+#include "cc/cfgs.h"
+#include "kernel.h"
+#include "msg.h"
+#include "sim.h"
 
 namespace cc {
 
-
 class MessageQueue;
 class MessageQueueArbiter;
-
 
 class NocMsg : public Message {
  public:
@@ -57,7 +56,7 @@ class NocMsg : public Message {
   void set_payload(const Message* payload) { payload_ = payload; }
   void set_origin(Agent* origin) { origin_ = origin; }
   void set_dest(Agent* dest) { dest_ = dest; }
-  
+
  private:
   const Message* payload_ = nullptr;
   Agent* origin_ = nullptr;
@@ -66,6 +65,7 @@ class NocMsg : public Message {
 
 class NocPort : public kernel::Module {
   friend class SocTop;
+
  public:
   NocPort(kernel::Kernel* k, const std::string& name);
   ~NocPort();
@@ -75,13 +75,14 @@ class NocPort : public kernel::Module {
 
   // Owned by agent
   MessageQueue* egress() const { return egress_; }
+
  private:
   // Build phase:
   void build();
 
   // Elaboration phase:
   void set_egress(MessageQueue* egress) { egress_ = egress; }
-  
+
   MessageQueue* ingress_ = nullptr;
   MessageQueue* egress_ = nullptr;
 };
@@ -92,8 +93,8 @@ class NocModel : public Agent {
   class MainProcess;
 
   friend class SocTop;
+
  public:
-  
   NocModel(kernel::Kernel* k, const NocModelConfig& config);
 
   const NocModelConfig& config() const { return config_; }
@@ -101,7 +102,6 @@ class NocModel : public Agent {
   NocPort* get_agent_port(Agent* agent);
 
  protected:
-
   // Build Phase
   void build();
   // Construct new agent interface.
@@ -117,7 +117,7 @@ class NocModel : public Agent {
 
   // Arbiter
   MessageQueueArbiter* arb() const { return arb_; }
-  
+
  private:
   // Queue selection arbiter
   MessageQueueArbiter* arb_ = nullptr;
@@ -129,6 +129,6 @@ class NocModel : public Agent {
   NocModelConfig config_;
 };
 
-} // namespace 
+}  // namespace cc
 
 #endif

@@ -26,6 +26,7 @@
 //========================================================================== //
 
 #include "sim.h"
+
 #include "msg.h"
 #include "protocol.h"
 
@@ -36,7 +37,6 @@ MessageQueue::MessageQueue(kernel::Kernel* k, const std::string& name,
     : kernel::Module(k, name) {
   build(n);
 }
-
 
 bool MessageQueue::issue(const Message* msg, kernel::Time t) {
   struct EnqueueAction : kernel::Action {
@@ -53,8 +53,8 @@ bool MessageQueue::issue(const Message* msg, kernel::Time t) {
   };
 
   if (full()) return false;
-  
-  // Log message issue:
+
+    // Log message issue:
 #if 0
   LogMessage lmsg("Issue Message (dst: ");
   lmsg.append(path());
@@ -70,7 +70,6 @@ bool MessageQueue::issue(const Message* msg, kernel::Time t) {
   return true;
 }
 
-
 void MessageQueue::push(const Message* msg) {
   if (!q_->enqueue(msg)) {
     LogMessage lmsg("Attempt to push new message to full queue.", Level::Error);
@@ -78,9 +77,7 @@ void MessageQueue::push(const Message* msg) {
   }
 }
 
-
 bool MessageQueue::has_req() const { return !q_->empty(); }
-
 
 const Message* MessageQueue::peek() const {
   const Message* msg = nullptr;
@@ -90,7 +87,6 @@ const Message* MessageQueue::peek() const {
   }
   return msg;
 }
-
 
 const Message* MessageQueue::dequeue() {
   const Message* msg = nullptr;
@@ -102,20 +98,16 @@ const Message* MessageQueue::dequeue() {
   return msg;
 }
 
-
 kernel::Event& MessageQueue::request_arrival_event() {
   return q_->non_empty_event();
 }
-
 
 void MessageQueue::build(std::size_t n) {
   q_ = new Queue<const Message*>(k(), "queue", n);
   add_child_module(q_);
 }
 
-
-Agent::Agent(kernel::Kernel* k, const std::string& name) : Module(k, name) {
-}
+Agent::Agent(kernel::Kernel* k, const std::string& name) : Module(k, name) {}
 
 std::string to_string(const Agent* agent) { return agent->path(); }
 
