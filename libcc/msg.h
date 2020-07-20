@@ -56,23 +56,24 @@ class Transaction {
  public:
   Transaction();
   virtual ~Transaction() = default;
+  virtual void release() const { delete this; }
 
   //
   virtual std::string to_string() const;
 
   // Accessors:
   kernel::Time start_time() const { return start_time_; }
-
   trans_id_t tid() const { return tid_; }
+  line_id_t line_id() const { return line_id_; }
 
   // Setters:
   void set_start_time(kernel::Time time) { start_time_ = time; }
-
-  virtual void release() const { delete this; }
+  void set_line_id(line_id_t line_id) { line_id_ = line_id; }
 
  private:
   kernel::Time start_time_;
   trans_id_t tid_;
+  line_id_t line_id_;
 };
 
 //
@@ -271,8 +272,6 @@ class Message {
   // Originating agent.
   kernel::Agent<const Message*>* origin_;
 };
-
-using MsgRequesterIntf = kernel::RequesterIntf<const Message*>;
 
 }  // namespace cc
 

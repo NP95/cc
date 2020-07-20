@@ -36,6 +36,19 @@
 
 namespace cc {
 
+const char* to_string(CCWait w) {
+  switch (w) {
+    case CCWait::Invalid:
+      return "Invalid";
+    case CCWait::MsgArrival:
+      return "MsgArrival";
+    case CCWait::NextEpochIfHasRequestOrWait:
+      return "NextEpochIfHasRequestOrWait";
+    default:
+      return "Unknown";
+  }
+}
+
 //
 //
 class CC::NocIngressProcess : public kernel::Process {
@@ -97,226 +110,186 @@ class CC::NocIngressProcess : public kernel::Process {
 
 //
 //
-class CC::RdisProcess : public kernel::Process {
-  using Tournament = MessageQueueArbiter::Tournament;
-  using TableIt = Table<CCLineState*>::Iterator;
+class TAddrFinder {
+ public:
+  TAddrFinder(CCTTable::iterator begin, CCTTable::iterator end)
+      : begin_(begin), end_(end)
+  {}
 
-  enum class State { Idle, ProcessMessage, ExecuteActions };
-
-  static const char* to_string(State s) {
-    switch (s) {
-      case State::Idle:
-        return "Idle";
-      case State::ProcessMessage:
-        return "ProcessMessage";
-      case State::ExecuteActions:
-        return "ExecuteActions";
-      default:
-        return "Invalid";
-    }
+  // Search the table for a transaction to the current line. Return true
+  // if a corresponding transaction has been found.
+  bool has_transaction(line_id_t line_id) {
+    // TODO
+    return false;
   }
 
+ private:
+  CCTTable::iterator begin_, end_;
+};
+
+
+//
+//
+class CC::RdisProcess : public kernel::Process {
  public:
   RdisProcess(kernel::Kernel* k, const std::string& name, CC* cc)
       : Process(k, name), cc_(cc) {}
-  State state() const { return state_; }
 
  private:
-  void set_state(State state) {
-#ifdef VERBOSE_LOGGING
-    if (state_ != state) {
-      LogMessage msg("State transition: ");
-      msg.level(Level::Debug);
-      msg.append(to_string(state_));
-      msg.append(" -> ");
-      msg.append(to_string(state));
-      log(msg);
-    }
-#endif
-    state_ = state;
-  }
 
   // Initialization
   void init() override {
-    Arbiter<const Message*>* arb = cc_->arb();
-    set_state(State::Idle);
-    wait_on(arb->request_arrival_event());
+    CCContext c;
+    c.set_wait(CCWait::MsgArrival);
+    wait_on_context(c);
   }
 
   // Evaluation
   void eval() override {
-    switch (state()) {
-      case State::Idle: {
-        handle_awaiting_message();
-      } break;
-      case State::ProcessMessage: {
-        handle_process_message();
-      } break;
-      case State::ExecuteActions: {
-        handle_execute_actions();
-      } break;
-      default: {
-        // Unknown state
-        const LogMessage lmsg("Transition into invalid state.", Level::Fatal);
-        log(lmsg);
-      } break;
-    }
-  }
+    MQArb* arb = cc_->arb();
+    MQArbTmt t = arb->tournament();
 
-  // Finalization
-  void fini() override {}
+    CCContext c;
+    c.set_cc(cc_);
+    c.set_t(t);
 
-  void handle_awaiting_message() {
-    // Idle state, awaiting more work.
-    MessageQueueArbiter* arb = cc_->arb();
-    t_ = arb->tournament();
-
-    // Detect deadlock at L1Cache front-end. This occurs only in the
-    // presence of a protocol violation and is therefore by definition
-    // unrecoverable.
-    if (t_.deadlock()) {
-      const LogMessage msg{"A protocol deadlock has been detected.",
-                           Level::Fatal};
-      log(msg);
+    // Check if requests are present, if not block until a new message
+    // arrives at the arbiter. Process should ideally not wake in the
+    // absence of requesters.
+    if (!t.has_requester()) {
+      c.set_wait(CCWait::MsgArrival);
+      wait_on_context(c);
+      return;
     }
 
-    // Check for the presence of issue-able messages at the
-    // pipeline front-end.
-    if (t_.has_requester()) {
-      // A message is available; begin processing in the next
-      // delta cycle.
-      set_state(State::ProcessMessage);
-      next_delta();
-    } else {
-      // Otherwise, block awaiting the arrival of a message at on
-      // the of the message queues.
-      wait_on(arb->request_arrival_event());
-    }
-  }
+    // Fetch nominated message.
+    const Message* msg = t.winner()->peek();
+    c.set_mq(t.winner());
+    c.set_msg(msg);
 
-  void handle_process_message() {
-    const MsgRequesterIntf* intf = t_.intf();
-    const Message* msg = intf->peek();
-    bool commits = false;
-
-    // Dispatch on message class:
-    switch (msg->cls()) {
+    switch (c.msg()->cls()) {
       case MessageClass::AceCmd: {
-        // L2 -> CC bus tranasaction.
-        const AceCmdMsg* acemsg = static_cast<const AceCmdMsg*>(msg);
-        Table<CCLineState*>* table = cc_->table();
-        const Table<CCLineState*>::Manager th(table->begin(), table->end());
-
-        TableIt it = th.first_invalid();
-
-        // const bool has_invalid_entry = (it != table->end());
-        // const bool has_active_entry = false; // TODO
-        const bool has_invalid_entry = true;
-        const bool has_active_entry = false;
-        if (has_invalid_entry && !has_active_entry) {
-          // There are no prior transactions to this line in flight
-          // and available slots in the transaction table.
-          const CCProtocol* protocol = cc_->protocol();
-          CCLineState* line = protocol->construct_line();
-
-          // Install line; (move to commit).
-          table->install(it, line);
-          // TODO!
-          it_ = it;
-
-          context_ = CCContext();
-          context_.set_line(line);
-          context_.set_msg(msg);
-          std::tie(commits, action_list_) = protocol->apply(context_);
-          set_state(State::ExecuteActions);
-          next_delta();
-        } else {
-          // Transaction cannot proceed because the table is either
-          // full, or there is another entry for this line which
-          // is currently active.
-          if (!has_invalid_entry) {
-            // LOG
-          } else if (has_active_entry) {
-            // LOG
-          }
-        }
+        eval_msg(c, static_cast<const AceCmdMsg*>(c.msg()));
       } break;
-      case MessageClass::Dt:
-      case MessageClass::CohEnd:
-      case MessageClass::CohCmdRsp: {
-        Table<CCLineState*>* table = cc_->table();
-        if (it_ != table->end()) {
-          context_ = CCContext();
-          CCLineState* line = *it_;
-          context_.set_line(line);
-          context_.set_msg(msg);
-          const CCProtocol* protocol = cc_->protocol();
-          std::tie(commits, action_list_) = protocol->apply(context_);
-          set_state(State::ExecuteActions);
-          next_delta();
-        } else {
-          LogMessage lm("Cannot find table context for message: ");
-          lm.append(msg->to_string());
-          lm.level(Level::Fatal);
-          log(lm);
-        }
+      case MessageClass::CohEnd: {
+        CCTState* st = lookup_tt(c.msg()->t());
+        c.set_st(st);
+        eval_msg(c, static_cast<const CohEndMsg*>(c.msg()));
       } break;
       default: {
         using cc::to_string;
-
-        LogMessage lmsg("Invalid message class: ");
-        lmsg.append(to_string(msg->cls()));
-        lmsg.level(Level::Fatal);
+        LogMessage lmsg("Invalid message class received: ");
+        lmsg.append(to_string(c.msg()->cls()));
+        lmsg.level(Level::Error);
         log(lmsg);
       } break;
     }
+    // If command commits, execute compute action list.
+    if (c.commits()) {
+      execute(c);
+    }
+    // Apply context's wait condition to processes wait-state.
+    wait_on_context(c);
+  }
 
-    if (commits) {
-      // Current message commits and is applied to the machine state.
-      LogMessage lm("Execute message: ");
-      lm.append(msg->to_string());
-      lm.level(Level::Info);
-      log(lm);
+  void eval_msg(CCContext& c, const AceCmdMsg* msg) {
+    CCTTable* tt = cc_->table();
+    TAddrFinder af(tt->begin(), tt->end());
+    if (tt->full() || af.has_transaction(msg->addr())) {
+      // Transaction table is either full, or there is already
+      // a transaction in flight for the current line.
+      c.mq()->set_blocked(true);
+      return;
+    }
+    // Otherwise, install a new transaction entry table and proceed
+    const CCProtocol* protocol = cc_->protocol();
+    protocol->install(c);
+  }
 
-      set_state(State::ExecuteActions);
-      next_delta();
+  CCTState* lookup_tt(Transaction* t) {
+    CCTTable* tt = cc_->table();
+    CCTTable::iterator it = tt->find(t);
+    if (it == tt->end()) {
+      LogMessage msg("Cannot find entry in transaction table.");
+      msg.level(Level::Fatal);
+      log(msg);
+      return nullptr;
+    }
+    return it->second;
+  }
+
+  void eval_msg(CCContext& c, const CohEndMsg* msg) {
+    const CCProtocol* protocol = cc_->protocol();
+    protocol->apply(c);
+  }
+
+  void execute(CCContext& c) {
+    // Current action (command issue to L2 or consequent eviction)
+    // commits, therefore install entry in the transaction table.
+    for (CoherenceAction* a : c.actions()) {
+      a->execute();
+    }
+    update_ttable(c);
+    MQArbTmt t = c.t();
+    if (c.dequeue()) {
+      t.winner()->dequeue();
+      t.advance();
     }
   }
 
-  void handle_execute_actions() {
-    while (!action_list_.empty()) {
-      CoherenceAction* action = action_list_.back();
-      if (!action->execute()) break;
-
-      action->release();
-      action_list_.pop_back();
-    }
-    if (action_list_.empty()) {
-      using Interface = MessageQueueArbiter::Interface;
-
-      // Complete: discard message and advance arbitration state.
-      Interface* intf = t_.intf();
-      const Message* msg = intf->dequeue();
-      msg->release();
-      t_.advance();
-
-      // Return to idle state.
-      set_state(State::Idle);
-      next_delta();
+  void update_ttable(CCContext& c) {
+    CCTTable* tt = cc_->table();
+    Transaction* t = c.msg()->t();
+    if (c.ttadd()) {
+      // Install new entry in transaction table.
+      CCTState* st = new CCTState;
+      st->set_msg(c.msg());
+      st->set_line(c.line());
+      c.set_owns_line(false);
+      tt->install(t, st);
+    } else if (c.ttdel()) {
+      // Delete entry from table.
+      CCTTable::iterator it = tt->find(t);
+      if (it == tt->end()) {
+        LogMessage msg("Transaction not present in transaction table!");
+        msg.level(Level::Fatal);
+        log(msg);
+      }
+      CCTState* st = it->second;
+      for (MessageQueue* mq : st->bmqs())
+        mq->set_blocked(false);
+      st->release();
+      tt->erase(it);
     }
   }
 
-  // TODO: save table entry for reuse.
-  TableIt it_;
+  void wait_on_context(const CCContext& c) {
+    switch (c.wait()) {
+      case CCWait::MsgArrival: {
+        MQArb* arb = cc_->arb();
+        wait_on(arb->request_arrival_event());
+      } break;
+      case CCWait::NextEpochIfHasRequestOrWait: {
+        MQArb* arb = cc_->arb();
+        MQArbTmt t = arb->tournament();
+        if (t.has_requester()) {
+          // Wait some delay
+          wait_for(kernel::Time{10, 0});
+        } else {
+          // No further commands, block process until something
+          // arrives.
+          wait_on(arb->request_arrival_event());
+        }
+      } break;
+      default: {
+        LogMessage msg("Invalid wait condition: ");
+        msg.append(to_string(c.wait()));
+        msg.level(Level::Fatal);
+        log(msg);
+      } break;
+    }
+  }
 
-  // Current arbitration tournament.
-  Tournament t_;
-  // Current processing context.
-  CCContext context_;
-  // Current processing state
-  State state_;
-  // Coherence action list.
-  CCActionList action_list_;
   // Cache controller instance.
   CC* cc_ = nullptr;
 };
@@ -334,7 +307,7 @@ CC::~CC() {
   delete arb_;
   delete rdis_proc_;
   delete noci_proc_;
-  delete table_;
+  delete tt_;
   delete protocol_;
 }
 
@@ -352,7 +325,7 @@ void CC::build() {
   cc__dt_q_ = new MessageQueue(k(), "cc__dt_q", 3);
   add_child_module(cc__dt_q_);
   // Arbiteer
-  arb_ = new MessageQueueArbiter(k(), "arb");
+  arb_ = new MQArb(k(), "arb");
   add_child_module(arb_);
   // Dispatcher process
   rdis_proc_ = new RdisProcess(k(), "rdis_proc", this);
@@ -361,8 +334,8 @@ void CC::build() {
   noci_proc_ = new NocIngressProcess(k(), "noci_proc", this);
   add_child_process(noci_proc_);
   // Transaction table
-  table_ = new Table<CCLineState*>(k(), "ttable", 16);
-  add_child_module(table_);
+  tt_ = new CCTTable(k(), "tt", 16);
+  add_child_module(tt_);
   // Create protocol instance
   protocol_ = config_.pbuilder->create_cc();
 }
@@ -374,7 +347,6 @@ void CC::elab() {
   arb_->add_requester(l2_cc__cmd_q_);
   arb_->add_requester(dir_cc__rsp_q_);
   arb_->add_requester(cc__dt_q_);
-  protocol_->set_cc(this);
 }
 
 //

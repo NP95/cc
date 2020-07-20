@@ -69,7 +69,7 @@ class NocModel::MainProcess : public kernel::Process {
   }
 
   struct Context {
-    MessageQueueArbiter::Tournament t;
+    MQArbTmt t;
   };
 
  public:
@@ -82,7 +82,7 @@ class NocModel::MainProcess : public kernel::Process {
  private:
   void init() override {
     // Await the arrival of requesters
-    MessageQueueArbiter* arb = model_->arb();
+    MQArb* arb = model_->arb();
     set_state(State::Idle);
     wait_on(arb->request_arrival_event());
   }
@@ -107,8 +107,8 @@ class NocModel::MainProcess : public kernel::Process {
 
   void handle_awaiting_message() {
     // Idle state, awaiting more work.
-    MessageQueueArbiter* arb = model_->arb();
-    MessageQueueArbiter::Tournament t = arb->tournament();
+    MQArb* arb = model_->arb();
+    MQArbTmt t = arb->tournament();
 
     // Detect deadlock at L1Cache front-end. This occurs only in the
     // presence of a protocol violation and is therefore by definition
@@ -133,7 +133,7 @@ class NocModel::MainProcess : public kernel::Process {
 
   void handle_choose_queue() {
     // Idle state, awaiting more work.
-    MessageQueueArbiter* arb = model_->arb();
+    MQArb* arb = model_->arb();
 
     ctxt_.t = arb->tournament();
     if (ctxt_.t.has_requester()) {
@@ -143,8 +143,8 @@ class NocModel::MainProcess : public kernel::Process {
   }
 
   void handle_issue_message() {
-    MsgRequesterIntf* intf = ctxt_.t.intf();
-    const Message* msg = intf->peek();
+    MessageQueue* mq = ctxt_.t.winner();
+    const Message* msg = mq->peek();
     switch (msg->cls()) {
       case MessageClass::Noc: {
         // Forward message to destination message queue after some
@@ -167,7 +167,7 @@ class NocModel::MainProcess : public kernel::Process {
         // Message has now been issued to destination. Destroy
         // transport message and update arbitration.
         // nocmsg->release();
-        intf->dequeue();
+        mq->dequeue();
 
         // Advance arbitration state.
         ctxt_.t.advance();
@@ -226,7 +226,7 @@ NocPort* NocModel::get_agent_port(Agent* agent) {
 
 void NocModel::build() {
   // Construct ingress selection aribter
-  arb_ = new MessageQueueArbiter(k(), "arb");
+  arb_ = new MQArb(k(), "arb");
   add_child_module(arb_);
 
   // Construct main process

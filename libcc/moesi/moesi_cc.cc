@@ -30,6 +30,7 @@
 #include "amba.h"
 #include "ccntrl.h"
 #include "dir.h"
+#include "l2cache.h"
 #include "noc.h"
 #include "mem.h"
 
@@ -124,7 +125,7 @@ class LineState : public CCLineState {
 
  private:
   // Current line state
-  State state_;
+  State state_ = State::I;
 };
 
 
@@ -165,143 +166,73 @@ struct DtToL2Action : public CoherenceAction {
 //
 class MOESICCProtocol : public CCProtocol {
  public:
-  MOESICCProtocol() {}
+  MOESICCProtocol() = default;
 
   //
   //
-  CCLineState* construct_line() const override {
+  void install(CCContext& c) const override {
     LineState* line = new LineState;
-    line->set_state(State::I);
-    return line;
+    c.set_line(line);
+    c.set_owns_line(true);
+    apply(c);
   }
 
   //
   //
-  std::pair<bool, CCActionList> apply(const CCContext& context) const override {
-    bool commits = true;
-    CCActionList al;
-    LineState* line = static_cast<LineState*>(context.line());
-    switch (context.msg()->cls()) {
+  void apply(CCContext& c) const override {
+    switch (c.msg()->cls()) {
       case MessageClass::AceCmd: {
-        // L2 -> CC bus command
-        const AceCmdMsg* msg = static_cast<const AceCmdMsg*>(context.msg());
-        commits = apply(al, line, msg);
+        eval_msg(c, static_cast<const AceCmdMsg*>(c.msg()));
       } break;
       case MessageClass::CohEnd: {
-        // DIR -> CC coherence "end" message
-        const CohEndMsg* msg = static_cast<const CohEndMsg*>(context.msg());
-        commits = apply(al, line, msg);
-      } break;
-      case MessageClass::CohCmdRsp: {
-        // DIR -> CC command acknowledge.
-        const CohCmdRspMsg* msg = static_cast<const CohCmdRspMsg*>(context.msg());
-        commits = apply(al, line, msg);
-      } break;
-      case MessageClass::Dt: {
-        // {LLC, CC} -> CC cache line.
-        const DtMsg* msg = static_cast<const DtMsg*>(context.msg());
-        commits = apply(al, line, msg);
-      } break;
-      default: {
-        issue_protocol_violation(al);
-      } break;
-    }
-    return std::make_pair(commits, al);
-  }
-
-  //
-  //
-  bool apply(CCActionList& al, LineState* line, const AceCmdMsg* ace) const {
-    bool commits = true;
-    switch (line->state()) {
-      case State::I: {
-        // Lookup home directory.
-        const DirMapper* dm = cc()->dm();
-        DirModel* dir = dm->lookup(ace->addr());
-        {
-          // Transaction starts; issue CohStrMsg
-          CohSrtMsg* msg = new CohSrtMsg;
-          msg->set_t(ace->t());
-          msg->set_origin(cc());
-          issue_emit_to_noc(al, msg, dir);
-        }
-
-        {
-          // Issue Corresponding CohCmdMsg indicating the actual
-          // coherence command to be executed.
-          CohCmdMsg* msg = new CohCmdMsg;
-          msg->set_t(ace->t());
-          msg->set_origin(cc());
-          msg->set_opcode(ace->opcode());
-          msg->set_addr(ace->addr());
-          issue_emit_to_noc(al, msg, dir);
-        }
-        // Update coherence state
-        issue_update_state(al, line, State::IS_D);
-        commits = true;
-      } break;
-
-      default: {
-        // The L2 should not issue coherence transactions to the CC
-        // until prior operations to the line have completed (the L2
-        // has sufficient state to understand which transaction are
-        // taking place). Therefore, it a command is issued to the bus
-        // for a command already taking place, a fatal error has
-        // occured.
-        issue_protocol_violation(al);
-      } break;
-    }
-    return commits;
-  }
-
-  //
-  //
-  bool apply(CCActionList& al, LineState* line, const CohEndMsg* dt) const {
-    bool commits = true;
-    switch (line->state()) {
-      case State::IS_D: {
+        eval_msg(c, static_cast<const CohCmdMsg*>(c.msg()));
       } break;
       default: {
       } break;
     }
-    return true;
   }
 
-  //
-  //
-  bool apply(CCActionList& al, LineState* line, const CohCmdRspMsg* dt) const {
-    // No-Operation
-    return true;
-  }
+  void eval_msg(CCContext& c, const AceCmdMsg* msg) const {
+    switch (msg->opcode()) {
+      case AceCmdOpcode::ReadShared: {
+        const DirMapper* dm = c.cc()->dm();
+        
+        CohSrtMsg* cohsrt = new CohSrtMsg;
+        cohsrt->set_t(msg->t());
+        cohsrt->set_origin(c.cc());
+        issue_emit_to_noc(c, cohsrt, dm->lookup(msg->addr()));
 
-  //
-  //
-  bool apply(CCActionList& al, LineState* line, const DtMsg* dt) const {
-    bool commits = true;
-    switch (line->state()) {
-      case State::IS_D: {
-        issue_emit_dt_to_l2(al, dt);
+        CohCmdMsg* cohcmd = new CohCmdMsg;
+        cohcmd->set_t(msg->t());
+        cohcmd->set_opcode(msg->opcode());
+        cohcmd->set_origin(c.cc());
+        cohcmd->set_addr(msg->addr());
+        issue_emit_to_noc(c, cohcmd, dm->lookup(msg->addr()));
+
+        // Message is inserted into TT
+        c.set_dequeue(true);
+        c.set_commits(true);
+        c.set_ttadd(true);
+        c.set_wait(CCWait::NextEpochIfHasRequestOrWait);
       } break;
       default: {
-        // TODO
-        issue_protocol_violation(al);
       } break;
     }
-    return true;
   }
 
-  //
-  //
-  void issue_emit_dt_to_l2(CCActionList& al, const DtMsg* dt) const {
-    L2CacheModel* l2c = cc()->l2c();
-    al.push_back(new DtToL2Action(l2c, dt));
-  }
+  void eval_msg(CCContext& c, const CohCmdMsg* msg) const {
+    AceCmdRspRMsg* rmsg = new AceCmdRspRMsg;
+    rmsg->set_t(msg->t());
 
-  //
-  //
-  void issue_update_state(DirActionList& al, LineState* line, State state) const {
-    al.push_back(new UpdateStateAction(line, state));
+    L2CacheModel* l2cache = c.cc()->l2c();
+    issue_msg(c, l2cache->cc_l2__rsp_q(), rmsg);
+
+    c.set_dequeue(true);
+    c.set_commits(true);
+    c.set_ttdel(true);
+    c.set_wait(CCWait::NextEpochIfHasRequestOrWait);
   }
+  
 };
 
 } // namespace

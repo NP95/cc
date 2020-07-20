@@ -83,7 +83,7 @@ class DirModel : public Agent {
   // accessor(s)
 
   // directory arbiter instance.
-  MessageQueueArbiter* arb() const { return arb_; }
+  MQArb* arb() const { return arb_; }
   // point to module cache instance.
   CacheModel<DirLineState*>* cache() const { return cache_; }
 
@@ -92,7 +92,7 @@ class DirModel : public Agent {
 
  private:
   // queue selection arbiter
-  MessageQueueArbiter* arb_ = nullptr;
+  MQArb* arb_ = nullptr;
   // NOC -> DIR message queue (owned by directory)
   MessageQueue* noc_dir__msg_q_ = nullptr;
   // DIR -> NOC message queue (owned by NOC)

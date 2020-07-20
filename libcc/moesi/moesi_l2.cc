@@ -39,7 +39,7 @@ using namespace cc;
 //
 enum class State {
   I,
-  I_S,
+  IS,
   S,
   E,
   M,
@@ -51,7 +51,7 @@ enum class State {
 const char* to_string(State state) {
   switch (state) {
     case State::I: return "I";
-    case State::I_S: return "I_S";
+    case State::IS: return "IS";
     case State::S: return "S";
     case State::E: return "E";
     case State::M: return "M";
@@ -133,7 +133,6 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
   //
   void install(L2CacheContext& c) const {
     MOESIL2LineState* line = new MOESIL2LineState;
-    line->set_state(State::S);
     c.set_line(line);
     c.set_owns_line(true);
     apply(c);
@@ -146,6 +145,9 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
     switch (c.msg()->cls()) {
       case MessageClass::L2Cmd: {
         apply(c, line, static_cast<const L2CmdMsg*>(c.msg()));
+      } break;
+      case MessageClass::AceCmdRspR: {
+        apply(c, line, static_cast<const AceCmdRspRMsg*>(c.msg()));
       } break;
       default: {
         // Invalid message class.
@@ -161,20 +163,40 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
 
 
  private:
-  void apply(L2CacheContext& c, const MOESIL2LineState* line, const L2CmdMsg* cmd) const {
+  void apply(L2CacheContext& c, MOESIL2LineState* line, const L2CmdMsg* cmd) const {
     switch (line->state()) {
       case State::I: {
+        AceCmdMsg* msg = new AceCmdMsg;
+        msg->set_t(cmd->t());
+        switch (cmd->opcode()) {
+          case L2CmdOpcode::L1GetS: {
+            // State I; requesting GetS (ie. Shared); issue ReadShared
+            msg->set_opcode(AceCmdOpcode::ReadShared);
+          } break;
+          case L2CmdOpcode::L1GetE: {
+            // State I; requesting GetE (i.e. Exclusive); issue ReadShared
+            msg->set_opcode(AceCmdOpcode::ReadUnique);
+          } break;
+        }
+        issue_msg(c.actions(), c.l2cache()->l2_cc__cmd_q(), msg);
+        // Update state
+        issue_update_state(c, line, State::IS);
+        // Update context
+        c.set_stalled(true);
+        c.set_commits(true);
+        // Starts new transaction, therefore install new table entry.
+        c.set_ttadd(true);
+        // Set wait condition
+        c.set_wait(L2Wait::NextEpochIfHasRequestOrWait);
       } break;
       case State::S: {
         switch (cmd->opcode()) {
           case L2CmdOpcode::L1GetS: {
             // L1 -> L2 GetS command when presently in the S state; command
             // succeeds; forward data to requesting L1 in the S state.
-            {
-              L2CmdRspMsg* msg = new L2CmdRspMsg;
-              msg->set_t(cmd->t());
-              issue_msg(c.actions(), cmd->l1cache()->l2_l1__rsp_q(), msg);
-            }
+            L2CmdRspMsg* msg = new L2CmdRspMsg;
+            msg->set_t(cmd->t());
+            issue_msg(c.actions(), cmd->l1cache()->l2_l1__rsp_q(), msg);
             c.set_commits(true);
             c.set_dequeue(true);
             // Transaction completes; delete transaction table entry.
@@ -192,6 +214,32 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
     }
   }
 
+  void apply(L2CacheContext& c, MOESIL2LineState* line, const AceCmdRspRMsg* msg) const {
+    switch (line->state()) {
+      case State::IS: {
+        L2CmdRspMsg* rsp = new L2CmdRspMsg;
+        rsp->set_t(msg->t());
+
+        // Always sending to the zeroth L1
+        L2CacheModel* l2cache = c.l2cache();
+        issue_msg(c.actions(), l2cache->l2_l1__rsp_q(0), rsp);
+
+        issue_update_state(c, line, State::S);
+
+        c.set_commits(true);
+        c.set_dequeue(true);
+        c.set_wait(L2Wait::NextEpochIfHasRequestOrWait);
+      } break;
+      default: {
+      } break;
+    }
+  }
+
+  void issue_update_state(
+      L2CacheContext& c, MOESIL2LineState* line, State state) const {
+    std::vector<CoherenceAction*>& a = c.actions();
+    a.push_back(new UpdateStateAction(line, state));
+  }
 };
 
 } // namespace

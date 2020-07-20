@@ -55,14 +55,14 @@ bool MessageQueue::issue(const Message* msg, kernel::Time t) {
   if (full()) return false;
 
     // Log message issue:
-#if 0
+  //#if 0
   LogMessage lmsg("Issue Message (dst: ");
   lmsg.append(path());
   lmsg.append("): ");
   lmsg.append(msg->to_string());
   lmsg.level(Level::Debug);
   log(lmsg);
-#endif
+  //#endif
   // Issue action:
   const kernel::Time execute_time = k()->time() + t;
   k()->add_action(execute_time, new EnqueueAction(k(), this, msg));
@@ -77,7 +77,7 @@ void MessageQueue::push(const Message* msg) {
   }
 }
 
-bool MessageQueue::has_req() const { return !q_->empty(); }
+bool MessageQueue::has_req() const { return !blocked() && !q_->empty(); }
 
 const Message* MessageQueue::peek() const {
   const Message* msg = nullptr;
@@ -95,6 +95,13 @@ const Message* MessageQueue::dequeue() {
     log(lmsg);
     return nullptr;
   }
+
+  //#if 0
+  LogMessage lm("Dequeue message: ");
+  lm.append(msg->to_string());
+  lm.level(Level::Debug);
+  log(lm);
+  //#endif
   return msg;
 }
 

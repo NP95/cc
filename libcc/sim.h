@@ -34,8 +34,7 @@ namespace cc {
 
 //
 //
-class MessageQueue : public kernel::Module,
-                     public kernel::RequesterIntf<const Message*> {
+class MessageQueue : public kernel::Module {
  public:
   MessageQueue(kernel::Kernel* k, const std::string& name, std::size_t n);
 
@@ -47,15 +46,21 @@ class MessageQueue : public kernel::Module,
 
   bool issue(const Message* msg, kernel::Time t = kernel::Time{});
 
+  // Set blocked status of requestor.
+  void set_blocked(bool blocked) { blocked_ = blocked; }
+
+  // Flag indicating that the current agent is blocked.
+  bool blocked() const { return blocked_; }
+
   // Endpoint Interface:
   void push(const Message* msg);
 
   // Requester Interface:
-  bool has_req() const override;
-  const Message* peek() const override;
-  const Message* dequeue() override;
+  bool has_req() const;
+  const Message* peek() const;
+  const Message* dequeue();
 
-  kernel::Event& request_arrival_event() override;
+  kernel::Event& request_arrival_event();
   kernel::Event& non_empty_event() { return q_->non_empty_event(); }
   kernel::Event& non_full_event() { return q_->non_full_event(); }
 
@@ -64,15 +69,21 @@ class MessageQueue : public kernel::Module,
   void build(std::size_t n);
   // Queue primitive.
   Queue<const Message*>* q_ = nullptr;
+  // Flag indicating that the current requestor is blocked.
+  bool blocked_ = false;
 };
 
 //
 //
-class MessageQueueArbiter : public Arbiter<const Message*> {
+class MQArb : public Arbiter<MessageQueue> {
  public:
-  MessageQueueArbiter(kernel::Kernel* k, const std::string& name)
+  MQArb(kernel::Kernel* k, const std::string& name)
       : Arbiter(k, name) {}
 };
+
+//
+//
+using MQArbTmt = MQArb::Tournament;
 
 //
 //

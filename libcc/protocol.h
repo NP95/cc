@@ -41,10 +41,13 @@ namespace cc {
 
 // Message Forwards:
 class L1CacheContext;
+class L1CacheOutcome;
+
 class L1CacheModel;
 class L2CacheContext;
 class L2CacheModel;
 class CC;
+class CCContext;
 class DirModel;
 class MessageQueue;
 class Agent;
@@ -188,25 +191,6 @@ class CoherenceAction {
 
 using CoherenceActionList = std::vector<CoherenceAction*>;
 
-using L1CoherenceActionList = std::vector<CoherenceAction*>;
-
-//
-//
-class L1CoherenceContext {
- public:
-  L1CoherenceContext() = default;
-
-  L1LineState* line() const { return line_; }
-  const Message* msg() const { return msg_; }
-
-  void set_line(L1LineState* line) { line_ = line; }
-  void set_msg(const Message* msg) { msg_ = msg; }
-
- private:
-  L1LineState* line_ = nullptr;
-  const Message* msg_ = nullptr;
-};
-
 //
 //
 class L1CacheModelProtocol {
@@ -215,29 +199,20 @@ class L1CacheModelProtocol {
   virtual ~L1CacheModelProtocol() = default;
 
   //
-  L1CacheModel* l1cache() const { return l1cache_; }
-
   //
-  void set_l1cache(L1CacheModel* l1cache) { l1cache_ = l1cache; }
-
-  //
-  //
-  virtual void install(L1CacheContext& c) const = 0;
+  virtual void install(L1CacheContext& c, L1CacheOutcome& o) const = 0;
 
   //
   //
-  virtual void apply(L1CacheContext& c) const = 0;
+  virtual void apply(L1CacheContext& c, L1CacheOutcome& o) const = 0;
 
   //
   //
-  virtual void evict(L1CacheContext& c) const = 0;
+  virtual void evict(L1CacheContext& c, L1CacheOutcome& o) const = 0;
 
  protected:
-  virtual void issue_msg(L1CoherenceActionList& al, MessageQueue* mq,
+  virtual void issue_msg(CoherenceActionList& al, MessageQueue* mq,
                          const Message* msg) const;
-
- private:
-  L1CacheModel* l1cache_ = nullptr;
 };
 
 //
@@ -254,27 +229,6 @@ class L2LineState {
   // Flag indiciating if the line is currently evictable (not in a
   // transient state).
   virtual bool is_evictable() const { return is_stable(); }
-};
-
-//
-//
-using L2CoherenceActionList = std::vector<CoherenceAction*>;
-
-//
-//
-class L2CoherenceContext {
- public:
-  L2CoherenceContext() = default;
-
-  L2LineState* line() const { return line_; }
-  const Message* msg() const { return msg_; }
-
-  void set_line(L2LineState* line) { line_ = line; }
-  void set_msg(const Message* msg) { msg_ = msg; }
-
- private:
-  L2LineState* line_ = nullptr;
-  const Message* msg_ = nullptr;
 };
 
 //
@@ -303,7 +257,7 @@ class L2CacheModelProtocol {
   virtual void evict(L2CacheContext& c) const = 0;
 
  protected:
-  virtual void issue_msg(L1CoherenceActionList& al, MessageQueue* mq,
+  virtual void issue_msg(CoherenceActionList& al, MessageQueue* mq,
                          const Message* msg) const;
 
  private:
@@ -393,35 +347,6 @@ using CCMessageIDList = std::vector<CCMessageID>;
 
 using CCActionList = std::vector<CoherenceAction*>;
 
-/*
-class CCCohUpt {
- public:
-  CCCohUpt();
-
- private:
-  CCMessageIDList id_list_;
-
-  CCActionList action_list_;
-};
-*/
-
-//
-//
-class CCContext {
- public:
-  CCContext() = default;
-
-  const Message* msg() const { return msg_; }
-  CCLineState* line() const { return line_; }
-
-  void set_msg(const Message* msg) { msg_ = msg; }
-  void set_line(CCLineState* line) { line_ = line; }
-
- private:
-  const Message* msg_ = nullptr;
-  CCLineState* line_ = nullptr;
-};
-
 //
 //
 class CCProtocol {
@@ -430,29 +355,21 @@ class CCProtocol {
   virtual ~CCProtocol() = default;
 
   //
-  CC* cc() const { return cc_; }
-
   //
-  void set_cc(CC* cc) { cc_ = cc; }
-
-  //
-  virtual CCLineState* construct_line() const = 0;
+  virtual void install(CCContext& c) const = 0;
 
   //
   //
-  virtual std::pair<bool, CCActionList> apply(
-      const CCContext& context) const = 0;
+  virtual void apply(CCContext& c) const = 0;
 
  protected:
   //
-  virtual void issue_emit_to_noc(CCActionList& al, const Message* msg,
-                                 Agent* dest) const;
+  virtual void issue_msg(CCContext& c, MessageQueue* mq,
+                         const Message* msg) const;
 
   //
-  virtual void issue_protocol_violation(CCActionList& al) const;
-
- private:
-  CC* cc_ = nullptr;
+  virtual void issue_emit_to_noc(CCContext& c, const Message* msg,
+                                 Agent* dest) const;
 };
 
 //

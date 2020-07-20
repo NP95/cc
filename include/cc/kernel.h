@@ -459,36 +459,6 @@ class TopModule : public Module {
   TopModule(Kernel* k, const std::string& name);
 };
 
-//
-//
-template <typename T>
-class RequesterIntf {
- public:
-  virtual ~RequesterIntf() = default;
-
-  // Flag indicating the current agent is requesting.
-  virtual bool has_req() const { return false; }
-
-  // Peek at the current 'T' without consuming it.
-  virtual T peek() const = 0;
-
-  // Reference to underlying state being arbitrated.
-  virtual T dequeue() = 0;
-
-  // Set blocked status of requestor.
-  void set_blocked(bool b = true) { blocked_ = true; }
-
-  // Flag indicating that the current agent is blocked.
-  bool blocked() const { return blocked_; }
-
-  // Event denoting the arrival of a requester at the interface.
-  virtual kernel::Event& request_arrival_event() = 0;
-
- private:
-  // Flag indicating that the current requestor is blocked.
-  bool blocked_ = false;
-};
-
 }  // namespace cc::kernel
 
 #endif  // CC_KERNEL_H

@@ -144,7 +144,7 @@ class LLCModel : public Agent {
   // Accessors:
 
   // Queue arbiter:
-  MessageQueueArbiter* arb() const { return arb_; }
+  MQArb* arb() const { return arb_; }
   // lookup rdis process message queue for traffic class.
   MessageQueue* lookup_rdis_mq(MessageClass cls) const;
 
@@ -158,7 +158,7 @@ class LLCModel : public Agent {
   // MEM -> LLC response queue (LLC owned)
   MessageQueue* mem_llc__rsp_q_ = nullptr;
   // Queue selector arbiter
-  MessageQueueArbiter* arb_ = nullptr;
+  MQArb* arb_ = nullptr;
   // Home memory controller
   MemCntrlModel* mc_ = nullptr;
   // Home directory.

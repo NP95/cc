@@ -140,16 +140,35 @@ struct EmitMessageAction : public CoherenceAction {
   const Message* msg_ = nullptr;
 };
 
-void L1CacheModelProtocol::issue_msg(L1CoherenceActionList& al,
+void L1CacheModelProtocol::issue_msg(CoherenceActionList& al,
                                      MessageQueue* mq,
                                      const Message* msg) const {
   al.push_back(new EmitMessageAction(mq, msg));
 }
 
-void L2CacheModelProtocol::issue_msg(L1CoherenceActionList& al,
+void L2CacheModelProtocol::issue_msg(CoherenceActionList& al,
                                      MessageQueue* mq,
                                      const Message* msg) const {
   al.push_back(new EmitMessageAction(mq, msg));
+}
+
+void CCProtocol::issue_msg(CCContext& c, MessageQueue* mq,
+                           const Message* msg) const {
+  c.actions().push_back(new EmitMessageAction(mq, msg));
+}
+
+void CCProtocol::issue_emit_to_noc(CCContext& c, const Message* msg,
+                                   Agent* dest) const {
+  CC* cc = c.cc();
+  // Encapsulate message in NOC transport protocol.
+  NocMsg* nocmsg = new NocMsg;
+  nocmsg->set_t(msg->t());
+  nocmsg->set_payload(msg);
+  nocmsg->set_origin(cc);
+  nocmsg->set_dest(dest);
+  // Issue Message Emit action.
+  c.actions().push_back(
+      new EmitMessageAction(cc->cc_noc__msg_q(), nocmsg));
 }
 
 void DirProtocol::issue_emit_to_noc(DirActionList& al, const Message* msg,
@@ -168,20 +187,5 @@ void DirProtocol::issue_protocol_violation(DirActionList& al) const {
   // TODO
 }
 
-void CCProtocol::issue_emit_to_noc(CCActionList& al, const Message* msg,
-                                   Agent* dest) const {
-  // Encapsulate message in NOC transport protocol.
-  NocMsg* nocmsg = new NocMsg;
-  nocmsg->set_t(msg->t());
-  nocmsg->set_payload(msg);
-  nocmsg->set_origin(cc_);
-  nocmsg->set_dest(dest);
-  // Issue Message Emit action.
-  al.push_back(new EmitMessageAction(cc_->cc_noc__msg_q(), nocmsg));
-}
-
-void CCProtocol::issue_protocol_violation(CCActionList& al) const {
-  // TODO
-}
 
 }  // namespace cc

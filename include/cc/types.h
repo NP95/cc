@@ -34,6 +34,8 @@ namespace cc {
 
 using addr_t = std::uint64_t;
 
+using line_id_t = std::uint64_t;
+
 // Underlying primitive type denotign all cache states in the
 // simulation (overloaded where applicable for each coherency
 // protocol)

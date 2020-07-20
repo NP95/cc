@@ -116,11 +116,11 @@ class NocModel : public Agent {
   // Accessors;
 
   // Arbiter
-  MessageQueueArbiter* arb() const { return arb_; }
+  MQArb* arb() const { return arb_; }
 
  private:
   // Queue selection arbiter
-  MessageQueueArbiter* arb_ = nullptr;
+  MQArb* arb_ = nullptr;
   // Set of ingress Message Queues
   std::map<Agent*, NocPort*> ports_;
   // Main thread of execution.

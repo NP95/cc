@@ -140,7 +140,7 @@ class MemCntrlModel : public Agent {
   // Accessors(s)
 
   // RDIS aribter
-  MessageQueueArbiter* rdis_arb() const { return rdis_arb_; }
+  MQArb* rdis_arb() const { return rdis_arb_; }
 
   MessageQueue* lookup_rdis_mq(Agent* agent);
 
@@ -156,7 +156,7 @@ class MemCntrlModel : public Agent {
   // Request Dispatcher process
   RequestDispatcherProcess* rdis_proc_ = nullptr;
   // Request Dispatcher arbitrator
-  MessageQueueArbiter* rdis_arb_ = nullptr;
+  MQArb* rdis_arb_ = nullptr;
   // Request Dispatcher memory queues
   std::map<Agent*, MessageQueue*> rdis_mq_;
 };

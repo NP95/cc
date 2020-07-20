@@ -168,21 +168,18 @@ class MemCntrlModel::RequestDispatcherProcess : public kernel::Process {
  private:
   // Initialization
   void init() override {
-    MessageQueueArbiter* rdis_arb = model_->rdis_arb();
+    MQArb* rdis_arb = model_->rdis_arb();
     wait_on(rdis_arb->request_arrival_event());
   }
 
   // Evaluation
   void eval() override {
-    using Tournament = MessageQueueArbiter::Tournament;
-    using Interface = MessageQueueArbiter::Interface;
-
-    MessageQueueArbiter* rdis_arb = model_->rdis_arb();
-    Tournament t = rdis_arb->tournament();
+    MQArb* rdis_arb = model_->rdis_arb();
+    MQArbTmt t = rdis_arb->tournament();
     if (t.has_requester()) {
-      Interface* intf = t.intf();
+      MessageQueue* mq = t.winner();
 
-      const MemCmdMsg* cmdmsg = static_cast<const MemCmdMsg*>(intf->dequeue());
+      const MemCmdMsg* cmdmsg = static_cast<const MemCmdMsg*>(mq->dequeue());
       switch (cmdmsg->opcode()) {
         case MemCmdOpcode::Write:
         case MemCmdOpcode::Read: {
@@ -257,7 +254,7 @@ void MemCntrlModel::build() {
   rdis_proc_ = new RequestDispatcherProcess(k(), "rdis", this);
   add_child_process(rdis_proc_);
   // Construct arbiter
-  rdis_arb_ = new MessageQueueArbiter(k(), "arb");
+  rdis_arb_ = new MQArb(k(), "arb");
   add_child_module(rdis_arb_);
 }
 

@@ -41,6 +41,7 @@ namespace cc {
 
 // Forwards:
 class L1CacheModel;
+class L2CacheModel;
 class MessageQueue;
 template <typename>
 class Arbiter;
@@ -48,6 +49,7 @@ class L2LineState;
 template <typename>
 class CacheModel;
 class CC;
+class L2TState;
 
 //
 //
@@ -105,8 +107,6 @@ class L2CmdRspMsg : public Message {
   L2RspOpcode opcode_;
 };
 
-// Arbitration tournament type
-using L2Tournament = MessageQueueArbiter::Tournament;
 // Cache data type
 using L2Cache = CacheModel<L2LineState*>;
 // Cache Set data type
@@ -137,30 +137,42 @@ class L2CacheContext {
   ~L2CacheContext();
 
   // Getters:
+  L2CacheModel* l2cache() const { return l2cache_; }
   bool owns_line() const { return owns_line_; }
   bool stalled() const { return stalled_; }
   bool commits() const { return commits_; }
   bool dequeue() const { return dequeue_; }
+  bool ttadd() const { return ttadd_; }
+  bool ttdel() const { return ttdel_; }
   const Message* msg() const { return msg_; }
+  MessageQueue* mq() const { return mq_; }
   CoherenceActionList& actions() { return al_; }
   const CoherenceActionList& actions() const { return al_; }
-  L2Tournament t() const { return t_; }
+  MQArbTmt t() const { return t_; }
   L2CacheLineIt it() const { return it_; }
   L2LineState* line() const { return line_; }
+  L2TState* st() const { return st_; }
   L2Wait wait() const { return wait_; }
 
   // Setters:
+  void set_l2cache(L2CacheModel* l2cache) { l2cache_ = l2cache; }
   void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
   void set_stalled(bool stalled) { stalled_ = stalled; }
   void set_commits(bool commits) { commits_ = commits; }
   void set_dequeue(bool dequeue) { dequeue_ = dequeue; }
+  void set_ttadd(bool ttadd) { ttadd_ = ttadd; }
+  void set_ttdel(bool ttdel) { ttdel_ = ttdel; }
   void set_msg(const Message* msg) { msg_ = msg; }
-  void set_t(L2Tournament t) { t_ = t; }
+  void set_mq(MessageQueue* mq) { mq_ = mq; }
+  void set_t(MQArbTmt t) { t_ = t; }
   void set_it(L2CacheLineIt it) { it_ = it; }
   void set_line(L2LineState* line) { line_ = line; }
+  void set_st(L2TState* st) { st_ = st; }
   void set_wait(L2Wait wait) { wait_ = wait; }
 
  private:
+  //
+  L2CacheModel* l2cache_ = nullptr;
   // Message owning queue is stalled/
   bool stalled_ = false;
   // Dequeue message from associated message queue upon execution.
@@ -170,12 +182,20 @@ class L2CacheContext {
   // Context owns the current line (on an install line) and therefore
   // must delete the line upon destruction.
   bool owns_line_ = false;
+  // Transaction table ADD
+  bool ttadd_ = false;
+  // Transaction table DELete
+  bool ttdel_ = false;
   // Current cache line
   L2LineState* line_ = nullptr;
   // Message being processed.
   const Message* msg_ = nullptr;
+  // Current Message Queue
+  MessageQueue* mq_ = nullptr;
+  //
+  L2TState* st_ = nullptr;
   // Current arbitration tournament.
-  L2Tournament t_;
+  MQArbTmt t_;
   // Current line in cache.
   L2CacheLineIt it_;
   // Condition on which the process is to be re-evaluated.
@@ -183,6 +203,39 @@ class L2CacheContext {
   // Coherence actions.
   CoherenceActionList al_;
 };
+
+//
+//
+class L2TState {
+ public:
+  L2TState() = default;
+  virtual ~L2TState() = default;
+
+  // Destruct/Return to pool
+  void release() { delete this; }
+
+  // Get current cache line
+  L2LineState* line() const { return line_; }
+  // Set of Message Queues blocked on the current transaction.
+  const std::vector<MessageQueue*>& bmqs() const { return bmqs_; }
+
+  // Set current cache line
+  void set_line(L2LineState* line) { line_ = line; }
+  // Add Blocked Message Queue
+  void add_bmq(MessageQueue* mq) { bmqs_.push_back(mq); }
+
+ private:
+  // Cache line on which current transaction is executing. (Can
+  // otherwise be recovered from the address, but this simply saves
+  // the lookup into the cache structure).
+  L2LineState* line_ = nullptr;
+  // Set of message queues block on the current transaction.
+  std::vector<MessageQueue*> bmqs_;
+};
+
+//
+//
+using L2TTable = Table<Transaction*, L2TState*>;
 
 //
 //
@@ -208,11 +261,13 @@ class L2CacheModel : public Agent {
  protected:
   // Accessors:
   // Pointer to module arbiter instance.
-  MessageQueueArbiter* arb() const { return arb_; }
+  MQArb* arb() const { return arb_; }
   // Point to module cache instance.
   CacheModel<L2LineState*>* cache() const { return cache_; }
   // Protocol instance
   L2CacheModelProtocol* protocol() const { return protocol_; }
+  // Transaction table.
+  L2TTable* tt() const { return tt_; }
 
   // Construction:
   void build();
@@ -249,7 +304,9 @@ class L2CacheModel : public Agent {
   // CC -> L2 Response Queue
   MessageQueue* cc_l2__rsp_q_ = nullptr;
   // Queue selection arbiter
-  MessageQueueArbiter* arb_ = nullptr;
+  MQArb* arb_ = nullptr;
+  // Transaction table.
+  L2TTable* tt_ = nullptr;
   // Cache Instance
   CacheModel<L2LineState*>* cache_ = nullptr;
   // Cache Controller instance

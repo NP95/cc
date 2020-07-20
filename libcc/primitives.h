@@ -157,8 +157,6 @@ class Queue : public kernel::Module {
 template <typename T>
 class Arbiter : public kernel::Module {
  public:
-  using Interface = kernel::RequesterIntf<T>;
-
   // Helper class which encapsulates the concept of a single
   // arbitration round.
   class Tournament {
@@ -169,14 +167,14 @@ class Arbiter : public kernel::Module {
     Tournament() : parent_(nullptr) {}
 
     // Return the winning requester interface.
-    kernel::RequesterIntf<T>* intf() const { return intf_; }
-    bool has_requester() const { return intf_ != nullptr; }
+    T* winner() const { return winner_; }
+    bool has_requester() const { return winner_ != nullptr; }
     bool deadlock() const { return deadlock_; }
 
     // Advance arbitration state to the next index if prior
     // arbitration has succeeded.
     void advance() const {
-      if (intf_ != nullptr) {
+      if (winner_ != nullptr) {
         parent_->idx_ = (idx_ + 1) % parent_->n();
       }
     }
@@ -184,11 +182,11 @@ class Arbiter : public kernel::Module {
    private:
     void execute() {
       std::size_t requesters = 0;
-      intf_ = nullptr;
+      winner_ = nullptr;
       for (std::size_t i = 0; i < parent_->n(); i++) {
         // Compute index of next requester interface in roundrobin order.
         idx_ = (parent_->idx_ + i) % parent_->n();
-        kernel::RequesterIntf<T>* cur = parent_->intfs_[idx_];
+        T* cur = parent_->ts_[idx_];
 
         if (!cur->has_req()) continue;
         // Current agent is requesting, proceed.
@@ -197,7 +195,7 @@ class Arbiter : public kernel::Module {
         if (!cur->blocked()) {
           // Current agent is requesting and is not blocked by some
           // protocol condition.
-          intf_ = cur;
+          winner_ = cur;
           return;
         }
       }
@@ -207,7 +205,7 @@ class Arbiter : public kernel::Module {
       deadlock_ = (requesters == parent_->n());
     }
     bool deadlock_ = false;
-    kernel::RequesterIntf<T>* intf_ = nullptr;
+    T* winner_ = nullptr;
     Arbiter* parent_ = nullptr;
     std::size_t idx_ = 0;
   };
@@ -219,7 +217,7 @@ class Arbiter : public kernel::Module {
   virtual ~Arbiter() = default;
 
   // The number of requesting agents.
-  std::size_t n() const { return intfs_.size(); }
+  std::size_t n() const { return ts_.size(); }
   // Event denoting rising edge to the ready to grant state.
   kernel::Event& request_arrival_event() { return *request_arrival_event_; }
   // Initiate an arbitration tournament.
@@ -233,7 +231,7 @@ class Arbiter : public kernel::Module {
     return t;
   }
   // Add a requester to the current arbiter (Build-/Elaboration-Phases only).
-  void add_requester(kernel::RequesterIntf<T>* intf) { intfs_.push_back(intf); }
+  void add_requester(T* t) { ts_.push_back(t); }
 
  private:
   void build() {
@@ -242,12 +240,12 @@ class Arbiter : public kernel::Module {
   }
 
   void elab() override {
-    if (!intfs_.empty()) {
+    if (!ts_.empty()) {
       // Construct EventOr denoting the event which is notified when the
       // arbiter goes from having no requestors to having non-zero
       // requestors.
-      for (kernel::RequesterIntf<T>* r : intfs_) {
-        request_arrival_event_->add_child_event(&r->request_arrival_event());
+      for (T* t : ts_) {
+        request_arrival_event_->add_child_event(&t->request_arrival_event());
       }
       request_arrival_event_->finalize();
     } else {
@@ -264,25 +262,26 @@ class Arbiter : public kernel::Module {
   // Current arbitration index.
   std::size_t idx_ = 0;
   //
-  std::vector<kernel::RequesterIntf<T>*> intfs_;
+  std::vector<T*> ts_;
 };
 
 //
 //
 template <typename K, typename V>
-class Table2 : public kernel::Module {
+class Table : public kernel::Module {
   using table_type = std::map<K, V>;
 
  public:
   using iterator = typename table_type::iterator;
   using const_iterator = typename table_type::const_iterator;
 
-  Table2(kernel::Kernel* k, const std::string& name, std::size_t n)
+  Table(kernel::Kernel* k, const std::string& name, std::size_t n)
       : Module(k, name), n_(n) {}
 
   // Accessors:
   std::size_t n() const { return n_; }
   std::size_t size() const { return m_.size(); }
+  bool full() const { return size() == n(); }
 
   iterator begin() { return m_.begin(); }
   const_iterator begin() const { return m_.begin(); }
@@ -304,99 +303,6 @@ class Table2 : public kernel::Module {
   std::size_t n_;
   // Table state.
   table_type m_;
-};
-
-//
-//
-template <typename T>
-class Table : public kernel::Module {
-  struct Entry {
-    // Flag denoting validity of table.
-    bool is_valid = false;
-    // Table entry state.
-    T t;
-  };
-
-  using raw_iterator = typename std::vector<Entry>::iterator;
-
- public:
-  class Iterator {
-   public:
-    Iterator() : it_() {}
-    Iterator(raw_iterator it) : it_(it) {}
-
-    // Iterator operators
-    T& operator*() { return it_->t; }
-    const T& operator*() const { return it_->t; }
-    Iterator& operator++() {
-      ++it_;
-      return *this;
-    }
-    Iterator operator++(int) const { return Iterator(it_ + 1); }
-    raw_iterator operator->() const { return it_; }
-    bool operator==(const Iterator& rhs) const { return it_ == rhs.it_; }
-    bool operator!=(const Iterator& rhs) const { return !operator==(rhs.it_); }
-
-   private:
-    // Pointer to underlying state in parent structure.
-    raw_iterator it_;
-  };
-
-  // Utility class to perform a verify of operation on a transaction
-  // table.
-  struct Manager {
-    Manager(Iterator begin, Iterator end) : begin_(begin), end_(end) {}
-
-    Iterator begin() const { return begin_; }
-    Iterator end() const { return end_; }
-
-    Iterator first_invalid() const {
-      Iterator it = begin_;
-      while (it != end_) {
-        if (!it->is_valid) break;
-        ++it;
-      }
-      return it;
-    }
-
-    Iterator find_transaction(addr_t addr) {
-      // TODO
-      return end_;
-    }
-
-    bool is_full() const { return first_invalid() == end(); }
-
-   private:
-    Iterator begin_, end_;
-  };
-
-  Table(kernel::Kernel* k, const std::string& name, std::size_t n)
-      : Module(k, name), n_(n) {
-    t_.resize(n);
-  }
-
-  // Accessors:
-  // Table size.
-  std::size_t n() const { return n_; }
-  // Number of unused slots
-  std::size_t free_n() const { return free_n_; }
-  // Flag denoting whether table is empty.
-  bool is_empty() const { return n() == free_n(); }
-  // Flag denoting whether table is fully utilized.
-  bool is_full() const { return free_n() == 0; }
-
-  Iterator begin() { return Iterator(t_.begin()); }
-  Iterator end() { return Iterator(t_.end()); }
-
-  bool install(Iterator it, const T& t) { return false; }
-
- private:
-  // Count of unused locations in table.
-  std::size_t free_n_;
-  // Table state.
-  std::vector<Entry> t_;
-  // Table size
-  std::size_t n_;
 };
 
 }  // namespace cc

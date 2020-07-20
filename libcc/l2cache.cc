@@ -111,7 +111,6 @@ L2CacheContext::~L2CacheContext() {
 //
 //
 class L2CacheModel::MainProcess : public kernel::Process {
-  using Tournament = MessageQueueArbiter::Tournament;
   using CacheLineIt = CacheModel<L2LineState*>::LineIterator;
 
  public:
@@ -121,27 +120,36 @@ class L2CacheModel::MainProcess : public kernel::Process {
  private:
   // Initialization:
   void init() override {
-    Arbiter<const Message*>* arb = model_->arb();
-    wait_on(arb->request_arrival_event());
+    L2CacheContext c;
+    c.set_wait(L2Wait::MsgArrival);
+    wait_on_context(c);
   }
 
   // Evaluation:
   void eval() override {
-    MessageQueueArbiter* arb = model_->arb();
-    L2Tournament t = arb->tournament();
+    MQArb* arb = model_->arb();
+    MQArbTmt t = arb->tournament();
 
     // Construct and initialize current processing context.
     L2CacheContext c;
+    c.set_l2cache(model_);
     c.set_t(t);
 
     // Fetch nominated message.
-    const Message* msg = t.intf()->peek();
+    const Message* msg = t.winner()->peek();
+    c.set_mq(t.winner());
     c.set_msg(msg);
 
     // Dispatch to appropriate message class
     switch (c.msg()->cls()) {
       case MessageClass::L2Cmd: {
         eval_msg(c, static_cast<const L2CmdMsg*>(c.msg()));
+      } break;
+      case MessageClass::AceCmdRspR: {
+        L2TState* st = lookup_tt(c.msg()->t());
+        c.set_st(st);
+        c.set_line(st->line());
+        eval_msg(c, static_cast<const AceCmdRspRMsg*>(c.msg()));
       } break;
       default: {
       } break;
@@ -172,14 +180,11 @@ class L2CacheModel::MainProcess : public kernel::Process {
           p.second) {
         // Eviction required before command can complete.
         c.set_it(p.first);
-        c.set_dequeue(false);
-        c.set_stalled(true);
         protocol->evict(c);
         check_resources(c);
       } else {
         // Eviction not required for the command to complete.
         c.set_it(p.first);
-        c.set_dequeue(true);
         protocol->install(c);
         check_resources(c);
         if (c.commits()) {
@@ -191,10 +196,27 @@ class L2CacheModel::MainProcess : public kernel::Process {
     } else {
       // Line is present in the cache, apply state update.
       c.set_line(it->t());
-      c.set_dequeue(true);
       protocol->apply(c);
       check_resources(c);
     }
+  }
+
+  void eval_msg(L2CacheContext& c, const AceCmdRspRMsg* rsp) const {
+    const L2CacheModelProtocol* protocol = model_->protocol();
+    protocol->apply(c);
+  }
+
+  
+  L2TState* lookup_tt(Transaction* t) {
+    L2TTable* tt = model_->tt();
+    L2TTable::iterator it = tt->find(t);
+    if (it == tt->end()) {
+      LogMessage msg("Cannot find entry in transaction table.");
+      msg.level(Level::Fatal);
+      log(msg);
+      return nullptr;
+    }
+    return it->second;
   }
 
   void check_resources(L2CacheContext& c) const {}
@@ -203,24 +225,53 @@ class L2CacheModel::MainProcess : public kernel::Process {
     for (CoherenceAction* a : c.actions()) {
       a->execute();
     }
-    L2Tournament t = c.t();
-    if (c.stalled()) {
-      t.intf()->set_blocked(true);
-    } else if (c.dequeue()) {
-      t.intf()->dequeue();
+    update_ttable(c);
+    MQArbTmt t = c.t();
+    if (c.dequeue()) {
+      t.winner()->dequeue();
       t.advance();
     }
   }
 
+  void update_ttable(const L2CacheContext& c) const {
+    L2TTable* tt = model_->tt();
+    Transaction* trn = c.msg()->t();
+    if (c.ttadd()) {
+      // Create new state.
+      L2TState* st = new L2TState;
+      st->set_line(c.line());
+      
+      if (c.stalled()) {
+        c.mq()->set_blocked(true);
+        st->add_bmq(c.mq());
+      }
+      // Install context into table.
+      tt->install(trn, st);
+    } else if (c.ttdel()) {
+      // Delete entry from table.
+      L2TTable::iterator it = tt->find(trn);
+      if (it == tt->end()) {
+        LogMessage msg("Transaction not present in transaction table!");
+        msg.level(Level::Fatal);
+        log(msg);
+      }
+      L2TState* st = it->second;
+      for (MessageQueue* mq : st->bmqs())
+        mq->set_blocked(false);
+      st->release();
+      tt->erase(it);
+    }
+  }
+  
   void wait_on_context(const L2CacheContext& c) {
     switch (c.wait()) {
       case L2Wait::MsgArrival: {
-        MessageQueueArbiter* arb = model_->arb();
+        MQArb* arb = model_->arb();
         wait_on(arb->request_arrival_event());
       } break;
       case L2Wait::NextEpochIfHasRequestOrWait: {
-        MessageQueueArbiter* arb = model_->arb();
-        L2Tournament t = arb->tournament();
+        MQArb* arb = model_->arb();
+        MQArbTmt t = arb->tournament();
         if (t.has_requester()) {
           // Wait some delay
           wait_for(kernel::Time{10, 0});
@@ -247,7 +298,13 @@ L2CacheModel::L2CacheModel(kernel::Kernel* k, const L2CacheModelConfig& config)
   build();
 }
 
-L2CacheModel::~L2CacheModel() {}
+L2CacheModel::~L2CacheModel() {
+  delete cc_l2__rsp_q_;
+  delete arb_;
+  delete main_;
+  delete cache_;
+  delete protocol_;
+}
 
 void L2CacheModel::add_l1c(L1CacheModel* l1c) {
   // Called during build phase.
@@ -265,13 +322,16 @@ void L2CacheModel::build() {
   cc_l2__rsp_q_ = new MessageQueue(k(), "cc_l2__rsp_q", 16);
   add_child_module(cc_l2__rsp_q_);
   // Arbiter
-  arb_ = new MessageQueueArbiter(k(), "arb");
+  arb_ = new MQArb(k(), "arb");
   add_child_module(arb_);
+  // Transaction table.
+  tt_ = new L2TTable(k(), "tt", 16);
+  add_child_module(tt_);
   // Main thread
   main_ = new MainProcess(k(), "main", this);
   add_child_process(main_);
   // Cache model
-  cache_ = new CacheModel<L2LineState*>(config_.cconfig);
+  cache_ = new L2Cache(config_.cconfig);
   // Setup protocol
   protocol_ = config_.pbuilder->create_l2();
 }

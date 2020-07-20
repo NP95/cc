@@ -32,6 +32,7 @@
 #include "cc/kernel.h"
 #include "msg.h"
 #include "sim.h"
+#include "protocol.h"
 
 namespace cc {
 
@@ -39,7 +40,130 @@ class MessageQueue;
 class L2CacheModel;
 class CCLineState;
 class CCProtocol;
+class CC;
 
+
+//
+//
+class CCTState {
+ public:
+  CCTState() = default;
+
+  // Destruct/Return to pool
+  void release() { delete this; }
+
+  //
+  CCLineState* line() const { return line_; }
+  // Command responsible for the current transaction.
+  const Message* msg() const { return msg_; }
+  // Set of Message Queues blocked on the current transaction.
+  const std::vector<MessageQueue*>& bmqs() const { return bmqs_; }
+
+  //
+  void set_line(CCLineState* line) { line_ = line; }
+  //
+  void set_msg(const Message* msg) { msg_ = msg; }
+  // Add Blocked Message Queue
+  void add_bmq(MessageQueue* mq) { bmqs_.push_back(mq); }
+  
+ private:
+  CCLineState* line_ = nullptr;
+  // Set of message queues block on the current transaction.
+  std::vector<MessageQueue*> bmqs_;
+  //
+  const Message* msg_ = nullptr;
+};
+
+//
+//
+using CCTTable = Table<Transaction*, CCTState*>;
+
+//
+//
+enum class CCWait {
+  Invalid,
+  //
+  MsgArrival,
+  //
+  NextEpochIfHasRequestOrWait
+};
+
+//
+const char* to_string(CCWait w);
+
+//
+//
+class CCContext {
+ public:
+  CCContext() = default;
+
+  //
+  bool owns_line() const { return owns_line_; }
+  bool stalled() const { return stalled_; }
+  bool dequeue() const { return dequeue_; }
+  bool commits() const { return commits_; }
+  bool ttadd() const { return ttadd_; }
+  bool ttdel() const { return ttdel_; }
+  const Message* msg() const { return msg_; }
+  MessageQueue* mq() const { return mq_; }
+  MQArbTmt t() const { return t_; }
+  CoherenceActionList& actions() { return al_; }
+  const CoherenceActionList& actions() const { return al_; }
+  CC* cc() const { return cc_; }
+  CCWait wait() const { return wait_; }
+  CCLineState* line() const { return line_; }
+  CCTState* st() const { return st_; }
+
+  //
+  void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
+  void set_stalled(bool stalled) { stalled_ = stalled; }
+  void set_dequeue(bool dequeue) { dequeue_ = dequeue; }
+  void set_commits(bool commits) { commits_ = commits; }
+  void set_ttadd(bool ttadd) { ttadd_ = ttadd; }
+  void set_ttdel(bool ttdel) { ttdel_ = ttdel; }
+  void set_msg(const Message* msg) { msg_ = msg; }
+  void set_mq(MessageQueue* mq) { mq_ = mq; }
+  void set_t(MQArbTmt t) { t_ = t; }
+  void set_wait(CCWait wait) { wait_ = wait; }
+  void set_line(CCLineState* line) { line_ = line; }
+  void set_cc(CC* cc) { cc_ = cc; }
+  void set_st(CCTState* st) { st_ = st; }
+
+ private:
+  // Current message is stalled (cannot execute) for some protocol or
+  // flow control related issue.
+  bool stalled_ = false;
+  // Dequeue message from associated message queue upon execution.
+  bool dequeue_ = false;
+  // Do commit context to L1 state and issue actions.
+  bool commits_ = false;
+  // Context owns the current line (on an install line) and therefore
+  // must delete the line upon destruction.
+  bool owns_line_ = false;
+  // Transaction table ADD
+  bool ttadd_ = false;
+  // Transaction table DELete
+  bool ttdel_ = false;
+  // Current arbitration tournament.
+  MQArbTmt t_;
+  //
+  CC* cc_ = nullptr;
+  //
+  CCLineState* line_ = nullptr;
+  //
+  CCTState* st_ = nullptr;
+  // Message being processed.
+  const Message* msg_ = nullptr;
+  // Current Message Queue
+  MessageQueue* mq_ = nullptr;
+  //
+  CoherenceActionList al_;
+  // Wait condition.
+  CCWait wait_ = CCWait::Invalid;
+};
+
+//
+//
 class CC : public Agent {
   friend class CpuCluster;
 
@@ -68,11 +192,11 @@ class CC : public Agent {
  protected:
   // Accessors:
   // Pointer to module arbiter instance:
-  MessageQueueArbiter* arb() const { return arb_; }
+  MQArb* arb() const { return arb_; }
   // Protocol instance
   CCProtocol* protocol() const { return protocol_; }
   // Transaction table.
-  Table<CCLineState*>* table() const { return table_; }
+  CCTTable* table() const { return tt_; }
 
   // Construction
   void build();
@@ -110,7 +234,7 @@ class CC : public Agent {
   // {LLC, CC} -> CC Data (dt) queue
   MessageQueue* cc__dt_q_ = nullptr;
   // Queue selection arbiter
-  MessageQueueArbiter* arb_ = nullptr;
+  MQArb* arb_ = nullptr;
   // Directory Mapper instance
   DirMapper* dm_ = nullptr;
   // Disatpcher process
@@ -118,7 +242,7 @@ class CC : public Agent {
   // NOC ingress process
   NocIngressProcess* noci_proc_ = nullptr;
   // Transaction table instance.
-  Table<CCLineState*>* table_ = nullptr;
+  CCTTable* tt_ = nullptr;
   // Cache controller protocol instance.
   CCProtocol* protocol_ = nullptr;
   // Cache controller configuration.

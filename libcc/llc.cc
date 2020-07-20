@@ -159,7 +159,6 @@ class LLCModel::NocIngressProcess : public kernel::Process {
 //
 //
 class LLCModel::RdisProcess : public kernel::Process {
-  using Tournament = MessageQueueArbiter::Tournament;
 
   enum class State { Idle, ProcessMessage, ExecuteActions };
 
@@ -198,19 +197,19 @@ class LLCModel::RdisProcess : public kernel::Process {
   void init() override {
     set_state(State::Idle);
 
-    MessageQueueArbiter* arb = model_->arb();
+    MQArb* arb = model_->arb();
     wait_on(arb->request_arrival_event());
   }
 
   // Elaboration
   void eval() override {
-    MessageQueueArbiter* arb = model_->arb();
-    Tournament t;
+    MQArb* arb = model_->arb();
+    MQArbTmt t;
     bool commit = false;
 
     t = arb->tournament();
     if (t.has_requester()) {
-      const Message* msg = t.intf()->peek();
+      const Message* msg = t.winner()->peek();
       switch (msg->cls()) {
         case MessageClass::LLCCmd: {
           const LLCCmdMsg* llccmd = static_cast<const LLCCmdMsg*>(msg);
@@ -231,7 +230,7 @@ class LLCModel::RdisProcess : public kernel::Process {
       }
       if (commit) {
         // Discard message and advance arbitration state.
-        const Message* msg = t.intf()->dequeue();
+        const Message* msg = t.winner()->dequeue();
 
         LogMessage lm("Execute message: ");
         lm.append(msg->to_string());
@@ -338,7 +337,7 @@ void LLCModel::build() {
   mem_llc__rsp_q_ = new MessageQueue(k(), "mem_llc__rsp_q", 3);
   add_child_module(mem_llc__rsp_q_);
   // Construct arbiter
-  arb_ = new MessageQueueArbiter(k(), "arb");
+  arb_ = new MQArb(k(), "arb");
   add_child_module(arb_);
   // Construct main thread
   rdis_proc_ = new RdisProcess(k(), "main", this);

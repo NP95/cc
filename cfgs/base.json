@@ -39,7 +39,7 @@
     "scfg" : {
         "name" : "stimulus",
         "type" : "trace",
-        "filename" : "/home/stephenry/github/cc/cfgs/base.trace",
+        "filename" : "/Users/stephenry/h/github/cc/cfgs/base.trace",
         "cpath" : [
             "top.cluster.cpu"
         ]
