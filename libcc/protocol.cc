@@ -143,15 +143,14 @@ struct EmitMessageAction : public CoherenceAction {
 
 L1CacheModelProtocol::L1CacheModelProtocol(kernel::Kernel* k)
     : Module(k, "l1protocol") {}
-    
+
 void L1CacheModelProtocol::issue_msg(L1CommandList& cl, MessageQueue* mq,
                                      const Message* msg) const {
   CoherenceAction* action = new EmitMessageAction(mq, msg);
   cl.push_back(L1CommandBuilder::from_action(action));
 }
 
-void L2CacheModelProtocol::issue_msg(CoherenceActionList& al,
-                                     MessageQueue* mq,
+void L2CacheModelProtocol::issue_msg(CoherenceActionList& al, MessageQueue* mq,
                                      const Message* msg) const {
   al.push_back(new EmitMessageAction(mq, msg));
 }
@@ -171,8 +170,7 @@ void CCProtocol::issue_emit_to_noc(CCContext& c, const Message* msg,
   nocmsg->set_origin(cc);
   nocmsg->set_dest(dest);
   // Issue Message Emit action.
-  c.actions().push_back(
-      new EmitMessageAction(cc->cc_noc__msg_q(), nocmsg));
+  c.actions().push_back(new EmitMessageAction(cc->cc_noc__msg_q(), nocmsg));
 }
 
 void DirProtocol::issue_emit_to_noc(DirActionList& al, const Message* msg,
@@ -190,6 +188,5 @@ void DirProtocol::issue_emit_to_noc(DirActionList& al, const Message* msg,
 void DirProtocol::issue_protocol_violation(DirActionList& al) const {
   // TODO
 }
-
 
 }  // namespace cc

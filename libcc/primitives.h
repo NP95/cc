@@ -294,14 +294,10 @@ class Table : public kernel::Module {
   const iterator find(K k) const { return m_.find(k); }
 
   //
-  virtual void install(K k, V v) {
-    m_.insert_or_assign(k, v);
-  }
+  virtual void install(K k, V v) { m_.insert_or_assign(k, v); }
 
   //
-  virtual void remove(iterator it) {
-    m_.erase(it);
-  }
+  virtual void remove(iterator it) { m_.erase(it); }
 
  private:
   // Table size.

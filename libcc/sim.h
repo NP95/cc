@@ -49,7 +49,6 @@ class MessageQueue : public kernel::Module {
 
   bool issue(const Message* msg, kernel::Time t = kernel::Time{});
 
-
   // Set blocked status of requestor.
   void set_blocked(bool blocked) { blocked_ = blocked; }
 
@@ -81,8 +80,7 @@ class MessageQueue : public kernel::Module {
 //
 class MQArb : public Arbiter<MessageQueue> {
  public:
-  MQArb(kernel::Kernel* k, const std::string& name)
-      : Arbiter(k, name) {}
+  MQArb(kernel::Kernel* k, const std::string& name) : Arbiter(k, name) {}
 };
 
 //
@@ -96,37 +94,35 @@ class Agent : public kernel::Module {
   Agent(kernel::Kernel* k, const std::string& name);
 };
 
-
 std::string to_string(const Agent* agent);
 
 //
 //
-template<typename STATE>
+template <typename STATE>
 class TransactionTable : public Table<const Transaction*, STATE> {
   using base_type = Table<const Transaction*, STATE>;
+
  public:
   using key_type = const Transaction*;
   using value_type = STATE;
   using iterator = typename base_type::iterator;
   using const_iterator = typename base_type::const_iterator;
-  
+
   TransactionTable(kernel::Kernel* k, const std::string& name, std::size_t n)
-      : Table<const Transaction*, STATE>(k, name, n)
-  {}
+      : Table<const Transaction*, STATE>(k, name, n) {}
 
   //
   const_iterator find_line_id(line_id_t line_id) const {
     const_iterator it = base_type::begin();
     while (it != base_type::end()) {
-      if (it->first->line_id() == line_id)
-        break;
+      if (it->first->line_id() == line_id) break;
       ++it;
     }
     return it;
   }
-  
+
   //
-  void install(const Transaction* t, const STATE & state) {
+  void install(const Transaction* t, const STATE& state) {
     base_type::install(t, state);
   }
 
@@ -143,12 +139,8 @@ class TransactionTable : public Table<const Transaction*, STATE> {
   }
 
   //
-  void remove(iterator it) override {
-    base_type::remove(it);
-  }
-  
+  void remove(iterator it) override { base_type::remove(it); }
 };
-
 
 }  // namespace cc
 

@@ -32,8 +32,8 @@
 
 #include "cache.h"
 #include "cc/cfgs.h"
-#include "primitives.h"
 #include "msg.h"
+#include "primitives.h"
 #include "sim.h"
 
 namespace cc {
@@ -116,6 +116,7 @@ const char* to_string(L1Opcode opcode);
 //
 class L1Command {
   friend class L1CommandBuilder;
+
  public:
   L1Command(L1Opcode opcode) : opcode_(opcode) {}
   virtual ~L1Command();
@@ -124,7 +125,7 @@ class L1Command {
 
   L1Opcode opcode() const { return opcode_; }
   CoherenceAction* action() const { return oprands.coh.action; }
-  
+
  private:
   //
   union {
@@ -149,6 +150,7 @@ class L1CommandBuilder {
 //
 class L1CommandList {
   using vector_type = std::vector<L1Command*>;
+
  public:
   using const_iterator = vector_type::const_iterator;
 
@@ -165,27 +167,6 @@ class L1CommandList {
 };
 
 //
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 //
 class L1TState {
@@ -211,7 +192,7 @@ class L1TState {
   // the lookup into the cache structure).
   L1LineState* line_ = nullptr;
   //
-  std::vector<MessageQueue*> mqs_; 
+  std::vector<MessageQueue*> mqs_;
 };
 
 //

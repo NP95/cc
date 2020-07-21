@@ -153,7 +153,6 @@ class DirModel::RdisProcess : public kernel::Process {
     MQArb* arb = model_->arb();
     t_ = arb->tournament();
 
-
     // Check for the presence of issue-able messages at the
     // pipeline front-end.
     if (t_.has_requester()) {
@@ -162,7 +161,7 @@ class DirModel::RdisProcess : public kernel::Process {
       switch (msg->cls()) {
         case MessageClass::CohCmd: {
           const CohCmdMsg* cmd = static_cast<const CohCmdMsg*>(msg);
-          
+
           CohEndMsg* cohend = new CohEndMsg;
           cohend->set_t(cmd->t());
 

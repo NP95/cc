@@ -113,8 +113,7 @@ class CC::NocIngressProcess : public kernel::Process {
 class TAddrFinder {
  public:
   TAddrFinder(CCTTable::iterator begin, CCTTable::iterator end)
-      : begin_(begin), end_(end)
-  {}
+      : begin_(begin), end_(end) {}
 
   // Search the table for a transaction to the current line. Return true
   // if a corresponding transaction has been found.
@@ -127,7 +126,6 @@ class TAddrFinder {
   CCTTable::iterator begin_, end_;
 };
 
-
 //
 //
 class CC::RdisProcess : public kernel::Process {
@@ -136,7 +134,6 @@ class CC::RdisProcess : public kernel::Process {
       : Process(k, name), cc_(cc) {}
 
  private:
-
   // Initialization
   void init() override {
     CCContext c;
@@ -256,8 +253,7 @@ class CC::RdisProcess : public kernel::Process {
         log(msg);
       }
       CCTState* st = it->second;
-      for (MessageQueue* mq : st->bmqs())
-        mq->set_blocked(false);
+      for (MessageQueue* mq : st->bmqs()) mq->set_blocked(false);
       st->release();
       tt->remove(it);
     }

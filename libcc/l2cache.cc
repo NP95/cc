@@ -206,7 +206,6 @@ class L2CacheModel::MainProcess : public kernel::Process {
     protocol->apply(c);
   }
 
-  
   L2TState* lookup_tt(Transaction* t) {
     L2TTable* tt = model_->tt();
     L2TTable::iterator it = tt->find(t);
@@ -240,7 +239,7 @@ class L2CacheModel::MainProcess : public kernel::Process {
       // Create new state.
       L2TState* st = new L2TState;
       st->set_line(c.line());
-      
+
       if (c.stalled()) {
         c.mq()->set_blocked(true);
         st->add_bmq(c.mq());
@@ -256,13 +255,12 @@ class L2CacheModel::MainProcess : public kernel::Process {
         log(msg);
       }
       L2TState* st = it->second;
-      for (MessageQueue* mq : st->bmqs())
-        mq->set_blocked(false);
+      for (MessageQueue* mq : st->bmqs()) mq->set_blocked(false);
       st->release();
       tt->remove(it);
     }
   }
-  
+
   void wait_on_context(const L2CacheContext& c) {
     switch (c.wait()) {
       case L2Wait::MsgArrival: {

@@ -54,7 +54,7 @@ bool MessageQueue::issue(const Message* msg, kernel::Time t) {
 
   if (full()) return false;
 
-    // Log message issue:
+  // Log message issue:
   //#if 0
   LogMessage lmsg("Issue Message (dst: ");
   lmsg.append(path());
@@ -69,7 +69,6 @@ bool MessageQueue::issue(const Message* msg, kernel::Time t) {
 
   return true;
 }
-
 
 void MessageQueue::push(const Message* msg) {
   if (!q_->enqueue(msg)) {

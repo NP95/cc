@@ -85,20 +85,24 @@ std::string L1CmdRspMsg::to_string() const {
 
 const char* to_string(L1Opcode opcode) {
   switch (opcode) {
-#define __declare_to_string(__name)             \
-    case L1Opcode::__name: return #__name;
+#define __declare_to_string(__name) \
+  case L1Opcode::__name:            \
+    return #__name;
     L1OPCODE_LIST(__declare_to_string)
 #undef __declare_to_string
-    default: return "Invalid";
+    default:
+      return "Invalid";
   }
 }
 
 L1CacheContext::~L1CacheContext() {
-  if (owns_line()) { delete line_; }
+  if (owns_line()) {
+    delete line_;
+  }
 }
 
 L1Command::~L1Command() {
-  switch (opcode()){
+  switch (opcode()) {
     case L1Opcode::InvokeCoherenceAction: {
       oprands.coh.action->release();
     } break;
@@ -121,21 +125,17 @@ L1CommandList::~L1CommandList() {
   for (L1Command* cmd : cmds_) {
     cmd->release();
   }
-
 }
 
-void L1CommandList::push_back(L1Command *cmd) {
-  cmds_.push_back(cmd);
-}
+void L1CommandList::push_back(L1Command* cmd) { cmds_.push_back(cmd); }
 
 class L1CommandInterpreter {
-
   struct State {
     L1TTable::iterator table_it;
-    
+
     addr_t addr;
   };
-  
+
  public:
   L1CommandInterpreter() = default;
 
@@ -146,9 +146,11 @@ class L1CommandInterpreter {
     switch (c->opcode()) {
       default: {
       } break;
-#define __declare_dispatcher(__name)                    \
-      case L1Opcode::__name: execute##__name(ctxt, c); break;
-      L1OPCODE_LIST(__declare_dispatcher)
+#define __declare_dispatcher(__name) \
+  case L1Opcode::__name:             \
+    execute##__name(ctxt, c);        \
+    break;
+        L1OPCODE_LIST(__declare_dispatcher)
 #undef __declare_dispatcher
     }
   }
@@ -167,33 +169,36 @@ class L1CommandInterpreter {
     L1TTable* tt = model_->tt();
     state_.table_it = tt->find(ctxt.msg()->t());
     if (state_.table_it == tt->end()) {
-      throw std::runtime_error("Transaction not present in the transaction table");
+      throw std::runtime_error(
+          "Transaction not present in the transaction table");
     }
   }
 
   void executeTableRemove(L1CacheContext& ctxt, const L1Command* cmd) const {
     // Remove the current Transsaction context from the
     // Transaction Table.
-    L1TState *st = state_.table_it->second;
+    L1TState* st = state_.table_it->second;
     st->release();
     L1TTable* tt = model_->tt();
     tt->remove(state_.table_it);
   }
 
-  void executeTableMqUnblockAll(L1CacheContext& ctxt, const L1Command* cmd) const {
+  void executeTableMqUnblockAll(L1CacheContext& ctxt,
+                                const L1Command* cmd) const {
     // For the current table context, unblock all messages
     // queues that are currently blocked awaiting completion of
     // the current transaction.
-    const L1TState *st = state_.table_it->second;
+    const L1TState* st = state_.table_it->second;
     for (MessageQueue* mq : st->mq()) {
       mq->set_blocked(false);
     }
   }
 
-  void executeTableMqAddToBlockedList(L1CacheContext& ctxt, const L1Command* cmd) const {
+  void executeTableMqAddToBlockedList(L1CacheContext& ctxt,
+                                      const L1Command* cmd) const {
     // Add the currently address Message Queue to the set of
     // queues blocked on the current transaction.
-    L1TState *st = state_.table_it->second;
+    L1TState* st = state_.table_it->second;
     st->add_blocked_mq(ctxt.mq());
   }
 
@@ -204,7 +209,8 @@ class L1CommandInterpreter {
     process_->wait_on(arb->request_arrival_event());
   }
 
-  void executeWaitNextEpochOrWait(L1CacheContext& ctxt, const L1Command* cmd) const {
+  void executeWaitNextEpochOrWait(L1CacheContext& ctxt,
+                                  const L1Command* cmd) const {
     MQArb* arb = model_->arb();
     MQArbTmt t = arb->tournament();
     if (t.has_requester()) {
@@ -243,8 +249,9 @@ class L1CommandInterpreter {
     const CacheAddressHelper ah = cache->ah();
     L1CacheSet set = cache->set(ah.set(state_.addr));
     L1Cache::Evictor evictor;
-    if (const std::pair<L1CacheLineIt, bool> p = evictor.nominate(
-            set.begin(), set.end()); !p.second) {
+    if (const std::pair<L1CacheLineIt, bool> p =
+            evictor.nominate(set.begin(), set.end());
+        !p.second) {
       set.install(p.first, ah.tag(state_.addr), ctxt.line());
       ctxt.set_owns_line(false);
     } else {
@@ -252,7 +259,8 @@ class L1CommandInterpreter {
     }
   }
 
-  void executeInvokeCoherenceAction(L1CacheContext& ctxt, const L1Command* cmd) const {
+  void executeInvokeCoherenceAction(L1CacheContext& ctxt,
+                                    const L1Command* cmd) const {
     CoherenceAction* action = cmd->action();
     action->execute();
   }
@@ -269,6 +277,7 @@ class L1CommandInterpreter {
 //
 class L1CacheModel::MainProcess : public kernel::Process {
   using cb = L1CommandBuilder;
+
  public:
   MainProcess(kernel::Kernel* k, const std::string& name, L1CacheModel* model)
       : kernel::Process(k, name), model_(model) {}
@@ -306,8 +315,12 @@ class L1CacheModel::MainProcess : public kernel::Process {
 
     // Dispatch to appropriate handler based upon message class.
     switch (c.msg()->cls()) {
-      case MessageClass::L1Cmd: process_l1cmd(c, cl); break;
-      case MessageClass::L2CmdRsp: process_l2cmdrsp(c, cl); break;
+      case MessageClass::L1Cmd:
+        process_l1cmd(c, cl);
+        break;
+      case MessageClass::L2CmdRsp:
+        process_l2cmdrsp(c, cl);
+        break;
       default: {
         LogMessage lmsg("Invalid message class received: ");
         lmsg.append(cc::to_string(c.msg()->cls()));
@@ -316,7 +329,9 @@ class L1CacheModel::MainProcess : public kernel::Process {
       } break;
     }
 
-    if (can_execute(cl)) { execute(c, cl); }
+    if (can_execute(cl)) {
+      execute(c, cl);
+    }
   }
 
  private:
@@ -335,8 +350,9 @@ class L1CacheModel::MainProcess : public kernel::Process {
       // is currently full, another line must be nominated and
       // evicted.
       L1Cache::Evictor evictor;
-      if (const std::pair<L1CacheLineIt, bool> p = evictor.nominate(
-              set.begin(), set.end()); p.second) {
+      if (const std::pair<L1CacheLineIt, bool> p =
+              evictor.nominate(set.begin(), set.end());
+          p.second) {
         // TODO
       } else {
         c.set_line(protocol->construct_line());
@@ -366,9 +382,7 @@ class L1CacheModel::MainProcess : public kernel::Process {
     }
   }
 
-  bool can_execute(L1CommandList& cl) const {
-    return true;
-  }
+  bool can_execute(L1CommandList& cl) const { return true; }
 
   void execute(L1CacheContext& ctxt, const L1CommandList& cl) {
     L1TTable::iterator table_it;
@@ -379,12 +393,12 @@ class L1CacheModel::MainProcess : public kernel::Process {
       interpreter.set_l1cache(model_);
       interpreter.set_process(this);
       for (const L1Command* cmd : cl) {
-	LogMessage lm("Executing opcode: ");
-	lm.append(to_string(cmd->opcode()));
-	lm.level(Level::Debug);
-	log(lm);
+        LogMessage lm("Executing opcode: ");
+        lm.append(to_string(cmd->opcode()));
+        lm.level(Level::Debug);
+        log(lm);
 
-	interpreter.execute(ctxt, cmd);
+        interpreter.execute(ctxt, cmd);
       }
     } catch (const std::runtime_error& ex) {
       LogMessage lm("Interpreter encountered an error: ");

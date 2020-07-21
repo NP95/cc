@@ -159,7 +159,6 @@ class LLCModel::NocIngressProcess : public kernel::Process {
 //
 //
 class LLCModel::RdisProcess : public kernel::Process {
-
   enum class State { Idle, ProcessMessage, ExecuteActions };
 
   static const char* to_string(State s) {

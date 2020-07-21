@@ -31,8 +31,8 @@
 #include "cc/cfgs.h"
 #include "cc/kernel.h"
 #include "msg.h"
-#include "sim.h"
 #include "protocol.h"
+#include "sim.h"
 
 namespace cc {
 
@@ -41,7 +41,6 @@ class L2CacheModel;
 class CCLineState;
 class CCProtocol;
 class CC;
-
 
 //
 //
@@ -65,7 +64,7 @@ class CCTState {
   void set_msg(const Message* msg) { msg_ = msg; }
   // Add Blocked Message Queue
   void add_bmq(MessageQueue* mq) { bmqs_.push_back(mq); }
-  
+
  private:
   CCLineState* line_ = nullptr;
   // Set of message queues block on the current transaction.
