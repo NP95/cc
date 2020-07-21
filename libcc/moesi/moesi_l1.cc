@@ -44,7 +44,6 @@ enum class State {
   SE,
   // Exclusive
   E,
-  EM,
   // Modified
   M,
   MI
@@ -191,12 +190,74 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
             L1CmdRspMsg* rsp = new L1CmdRspMsg;
             rsp->set_t(msg->t());
             issue_msg(cl, c.l1cache()->l1_cpu__rsp_q(), rsp);
-            // Conusme L1Cmd as it can complete successfully.
+            // Consume L1Cmd as it can complete successfully.
             cl.push_back(cb::from_opcode(L1Opcode::MsgConsume));
             // Advance to next
             cl.push_back(cb::from_opcode(L1Opcode::WaitNextEpochOrWait));
           } break;
           case L1CacheOpcode::CpuStore: {
+            // Store instruction to line in S-state. Line must be promoted to
+            // the E state before the transaction can complete.
+            issue_update_state(cl, line, State::SE);
+          } break;
+        }
+      } break;
+      case State::M: {
+        switch (msg->opcode()) {
+          case L1CacheOpcode::CpuLoad: {
+            // Ld from M-state; commits immediately
+            L1CmdRspMsg* rsp = new L1CmdRspMsg;
+            rsp->set_t(msg->t());
+            // Issue response to CPU.
+            issue_msg(cl, c.l1cache()->l1_cpu__rsp_q(), rsp);
+            // Consume message
+            cl.push_back(cb::from_opcode(L1Opcode::MsgConsume));
+            // Advance to next
+            cl.push_back(cb::from_opcode(L1Opcode::WaitNextEpochOrWait));
+          } break;
+          case L1CacheOpcode::CpuStore: {
+            // St to M-state; commits immediate.
+            L1CmdRspMsg* rsp = new L1CmdRspMsg;
+            rsp->set_t(msg->t());
+            // Issue response to CPU.
+            issue_msg(cl, c.l1cache()->l1_cpu__rsp_q(), rsp);
+            // Consume message
+            cl.push_back(cb::from_opcode(L1Opcode::MsgConsume));
+            // Advance to next
+            cl.push_back(cb::from_opcode(L1Opcode::WaitNextEpochOrWait));
+          } break;
+          default: {
+
+          } break;
+        }
+      } break;
+      case State::E: {
+        switch (msg->opcode()) {
+          case L1CacheOpcode::CpuLoad: {
+            // Load to line in the exclusive state; instruction can complete
+            // successfully.
+            L1CmdRspMsg* rsp = new L1CmdRspMsg;
+            rsp->set_t(msg->t());
+            issue_msg(cl, c.l1cache()->l1_cpu__rsp_q(), rsp);
+            // Instruction commits.
+            cl.push_back(cb::from_opcode(L1Opcode::MsgConsume));
+            // Advance to next
+            cl.push_back(cb::from_opcode(L1Opcode::WaitNextEpochOrWait));
+          } break;
+          case L1CacheOpcode::CpuStore: {
+            // Store to line the exclusive state; instruction can complete
+            // but line must transition to the modified state.
+            L1CmdRspMsg* rsp = new L1CmdRspMsg;
+            rsp->set_t(msg->t());
+            issue_msg(cl, c.l1cache()->l1_cpu__rsp_q(), rsp);
+            issue_update_state(cl, line, State::M);
+            // Instruction commits
+            cl.push_back(cb::from_opcode(L1Opcode::MsgConsume));
+            // Advance to next
+            cl.push_back(cb::from_opcode(L1Opcode::WaitNextEpochOrWait));
+          } break;
+          default: {
+            // Unknown CPU command.
           } break;
         }
       } break;
@@ -220,6 +281,9 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
         cl.push_back(cb::from_opcode(L1Opcode::MsgConsume));
         // Advance to next
         cl.push_back(cb::from_opcode(L1Opcode::WaitNextEpochOrWait));
+      } break;
+      case State::ES: {
+        //
       } break;
       default: {
         // Invalid state
