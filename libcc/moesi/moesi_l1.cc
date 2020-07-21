@@ -176,11 +176,11 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
         // Set blocked status in Message Queue to rescind requestor
         // status.
         cl.push_back(cb::from_opcode(L1Opcode::MqSetBlocked));
-        cl.push_back(cb::from_opcode(L1Opcode::MSgL1CmdExtractAddr));
+        cl.push_back(cb::from_opcode(L1Opcode::MsgL1CmdExtractAddr));
         // Install new cache line.
         cl.push_back(cb::from_opcode(L1Opcode::InstallLine));
         // Advance to next
-        cl.push_back(cb::from_opcode(L1Opcode::WaitNextEpochOrWait);
+        cl.push_back(cb::from_opcode(L1Opcode::WaitNextEpochOrWait));
       } break;
       case State::S: {
         // Line is present in the cache. 
@@ -192,9 +192,9 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
             rsp->set_t(msg->t());
             issue_msg(cl, c.l1cache()->l1_cpu__rsp_q(), rsp);
             // Conusme L1Cmd as it can complete successfully.
-            cl.push_back(cb::from_opcode(L1OPcode::MsgConsume));
+            cl.push_back(cb::from_opcode(L1Opcode::MsgConsume));
             // Advance to next
-            cl.push_back(cb::from_opcode(WaitNextEpochOrWait));
+            cl.push_back(cb::from_opcode(L1Opcode::WaitNextEpochOrWait));
           } break;
           case L1CacheOpcode::CpuStore: {
           } break;
@@ -215,7 +215,7 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
         // Update transaction table; wake all blocked Message Queues
         // and delete context.
         cl.push_back(cb::from_opcode(L1Opcode::TableGetCurrentState));
-        cl.push_back(cb::from_opcode(L1Opcode::TabgleMqUnblockAll));
+        cl.push_back(cb::from_opcode(L1Opcode::TableMqUnblockAll));
         // Consume committed message.
         cl.push_back(cb::from_opcode(L1Opcode::MsgConsume));
         // Advance to next

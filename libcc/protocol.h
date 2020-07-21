@@ -40,6 +40,7 @@
 namespace cc {
 
 // Message Forwards:
+class L1CommandList;
 class L1CacheContext;
 
 class L1CacheModel;

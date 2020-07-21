@@ -33,7 +33,7 @@
 #include "cache.h"
 #include "cc/cfgs.h"
 #include "primitives.h"
-//#include "protocol.h"
+#include "msg.h"
 #include "sim.h"
 
 namespace cc {
@@ -114,9 +114,12 @@ const char* to_string(L1Opcode opcode);
 //
 //
 class L1Command {
+  friend class L1CommandBuilder;
  public:
-  L1Command(L1Opcode opcode);
-  ~L1Command();
+  L1Command(L1Opcode opcode) : opcode_(opcode) {}
+  virtual ~L1Command();
+
+  virtual void release() const { delete this; }
 
   L1Opcode opcode() const { return opcode_; }
   CoherenceAction* action() { return oprands.coh.action; }
@@ -143,7 +146,22 @@ class L1CommandBuilder {
 
 //
 //
-using L1CommandList = std::vector<L1Command*>;
+class L1CommandList {
+  using vector_type = std::vector<L1Command*>;
+ public:
+  using const_iterator = vector_type::const_iterator;
+
+  L1CommandList() = default;
+  ~L1CommandList();
+
+  const_iterator begin() const { return cmds_.begin(); }
+  const_iterator end() const { return cmds_.end(); }
+
+  void push_back(L1Command* cmd);
+
+ private:
+  std::vector<L1Command*> cmds_;
+};
 
 //
 //
