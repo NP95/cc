@@ -86,7 +86,7 @@ using L1CacheSet = L1Cache::Set;
 // Cache Line Iterator type.
 using L1CacheLineIt = L1Cache::LineIterator;
 
-
+// clang-format off
 #define L1OPCODE_LIST(__func)                   \
   __func(TableInstall)                          \
   __func(TableGetCurrentState)                  \
@@ -100,6 +100,7 @@ using L1CacheLineIt = L1Cache::LineIterator;
   __func(MsgL1CmdExtractAddr)                   \
   __func(InstallLine)                           \
   __func(InvokeCoherenceAction)
+// clang-format on
 
 enum class L1Opcode {
 #define __declare_opcode(__name) __name,
@@ -122,7 +123,7 @@ class L1Command {
   virtual void release() const { delete this; }
 
   L1Opcode opcode() const { return opcode_; }
-  CoherenceAction* action() { return oprands.coh.action; }
+  CoherenceAction* action() const { return oprands.coh.action; }
   
  private:
   //
@@ -164,6 +165,28 @@ class L1CommandList {
 };
 
 //
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 //
 class L1TState {
  public:
@@ -203,6 +226,7 @@ class L1CacheContext {
   ~L1CacheContext();
 
   //
+  MQArbTmt t() const { return t_; }
   const Message* msg() const { return mq_->peek(); }
   MessageQueue* mq() const { return mq_; }
   L1CacheModel* l1cache() const { return l1cache_; }
@@ -210,12 +234,15 @@ class L1CacheContext {
   L1LineState* line() const { return line_; }
 
   //
+  void set_t(MQArbTmt t) { t_ = t; }
   void set_mq(MessageQueue* mq) { mq_ = mq; }
   void set_l1cache(L1CacheModel* l1cache) { l1cache_ = l1cache; }
   void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
   void set_line(L1LineState* line) { line_ = line; }
 
  private:
+  // Current Message Queue arbiter tournament.
+  MQArbTmt t_;
   //
   bool owns_line_ = false;
   //

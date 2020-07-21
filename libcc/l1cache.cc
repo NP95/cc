@@ -129,158 +129,136 @@ void L1CommandList::push_back(L1Command *cmd) {
 }
 
 class L1CommandInterpreter {
- public:
-  L1CommandInterpreter(L1CacheModel* model, kernel::Process* process)
-      : model_(model), process_(process) {}
 
-  void execute(const L1Command* c) {
+  struct State {
+    L1TTable::iterator table_it;
+    
+    addr_t addr;
+  };
+  
+ public:
+  L1CommandInterpreter() = default;
+
+  void set_l1cache(L1CacheModel* model) { model_ = model; }
+  void set_process(kernel::Process* process) { process_ = process; }
+
+  void execute(L1CacheContext& ctxt, const L1Command* c) {
     switch (c->opcode()) {
       default: {
       } break;
 #define __declare_dispatcher(__name)                    \
-      case L1Opcode::__name: execute##__name(c); break;
+      case L1Opcode::__name: execute##__name(ctxt, c); break;
       L1OPCODE_LIST(__declare_dispatcher)
 #undef __declare_dispatcher
     }
   }
 
  private:
-  void executeTableInstall(const L1Command* cmd) const {
-    //    L1TTable* tt = model_->tt();
-    //    L1TState* st = new L1TState();
-    //    st->set_line(c.line());
-    //    tt->install(c.msg()->t(), st);
+  void executeTableInstall(L1CacheContext& ctxt, const L1Command* cmd) const {
+    L1TTable* tt = model_->tt();
+    L1TState* st = new L1TState();
+    st->set_line(ctxt.line());
+    tt->install(ctxt.msg()->t(), st);
   }
 
-  void executeTableGetCurrentState(const L1Command* cmd) const {
+  void executeTableGetCurrentState(L1CacheContext& ctxt, const L1Command* cmd) {
     // Lookup the Transaction Table for the current transaction
     // and set the table pointer for subsequent operations.
-    /*
     L1TTable* tt = model_->tt();
-    table_it = tt->find(c.msg()->t());
-    if (table_it == tt->end()) {
-      LogMessage msg("Transaction not present in transaction table!");
-      msg.level(Level::Fatal);
-      log(msg);
+    state_.table_it = tt->find(ctxt.msg()->t());
+    if (state_.table_it == tt->end()) {
+      throw std::runtime_error("Transaction not present in the transaction table");
     }
-    */
   }
 
-  void executeTableRemove(const L1Command* cmd) const {
+  void executeTableRemove(L1CacheContext& ctxt, const L1Command* cmd) const {
     // Remove the current Transsaction context from the
     // Transaction Table.
-    /*
-    L1TState *st = table_it->second;
+    L1TState *st = state_.table_it->second;
     st->release();
     L1TTable* tt = model_->tt();
-    tt->remove(table_it);
-    */
+    tt->remove(state_.table_it);
   }
 
-  void executeTableMqUnblockAll(const L1Command* cmd) const {
+  void executeTableMqUnblockAll(L1CacheContext& ctxt, const L1Command* cmd) const {
     // For the current table context, unblock all messages
     // queues that are currently blocked awaiting completion of
     // the current transaction.
-    /*
-    L1TState *st = table_it->second;
+    const L1TState *st = state_.table_it->second;
     for (MessageQueue* mq : st->mq()) {
       mq->set_blocked(false);
     }
-    */
   }
 
-  void executeTableMqAddToBlockedList(const L1Command* cmd) const {
+  void executeTableMqAddToBlockedList(L1CacheContext& ctxt, const L1Command* cmd) const {
     // Add the currently address Message Queue to the set of
     // queues blocked on the current transaction.
-    /*
-    L1TState *st = table_it->second;
-    st->add_blocked_mq(c.mq());
-    */
+    L1TState *st = state_.table_it->second;
+    st->add_blocked_mq(ctxt.mq());
   }
 
-  void executeWaitOnMsg(const L1Command* cmd) const {
+  void executeWaitOnMsg(L1CacheContext& ctxt, const L1Command* cmd) const {
     // Set wait state of current process; await the arrival of a
     // new message.
-    /*
     MQArb* arb = model_->arb();
-    wait_on(arb->request_arrival_event());
-    */
+    process_->wait_on(arb->request_arrival_event());
   }
 
-  void executeWaitNextEpochOrWait(const L1Command* cmd) const {
-  /*
+  void executeWaitNextEpochOrWait(L1CacheContext& ctxt, const L1Command* cmd) const {
     MQArb* arb = model_->arb();
     MQArbTmt t = arb->tournament();
     if (t.has_requester()) {
       // Wait some delay
-      wait_for(kernel::Time{10, 0});
+      process_->wait_for(kernel::Time{10, 0});
     } else {
       // No further commands, block process until something
       // arrives.
-      wait_on(arb->request_arrival_event());
+      process_->wait_on(arb->request_arrival_event());
     }
-  */
   }
 
-  void executeMqSetBlocked(const L1Command* cmd) const {
-  /*
+  void executeMqSetBlocked(L1CacheContext& ctxt, const L1Command* cmd) const {
     // Set the blocked status of the current Message Queue.
-    c.mq()->set_blocked(true);
-  */
+    ctxt.mq()->set_blocked(true);
   }
 
-  void executeMsgConsume(const L1Command* cmd) const {
-  /*
+  void executeMsgConsume(L1CacheContext& ctxt, const L1Command* cmd) const {
     // Dequeue and release the head message of the currently
     // addressed Message Queue.
-    const Message* msg = c.mq()->dequeue();
+    const Message* msg = ctxt.mq()->dequeue();
     msg->release();
-    t_.advance();
-  */
+    ctxt.t().advance();
   }
 
-  void executeMsgL1CmdExtractAddr(const L1Command* cmd) const {
-  /*
+  void executeMsgL1CmdExtractAddr(L1CacheContext& ctxt, const L1Command* cmd) {
     // Extract address field from command message.
-    const L1CmdMsg* cmd = static_cast<const L1CmdMsg*>(c.msg());
-    addr = cmd->addr();
-  */
+    state_.addr = static_cast<const L1CmdMsg*>(ctxt.msg())->addr();
   }
 
-  void executeInstallLine(const L1Command* cmd) const {
-  /*
+  void executeInstallLine(L1CacheContext& ctxt, const L1Command* cmd) const {
     // Install line within the current context into the cache at
     // an appropriate location. Expects that any prior evictions
     // to thg destination set have already taken place.
     L1Cache* cache = model_->cache();
     const CacheAddressHelper ah = cache->ah();
-    L1CacheSet set = cache->set(ah.set(addr));
+    L1CacheSet set = cache->set(ah.set(state_.addr));
     L1Cache::Evictor evictor;
     if (const std::pair<L1CacheLineIt, bool> p = evictor.nominate(
             set.begin(), set.end()); !p.second) {
-      set.install(p.first, ah.tag(addr), c.line());
-      c.set_owns_line(false);
+      set.install(p.first, ah.tag(state_.addr), ctxt.line());
+      ctxt.set_owns_line(false);
     } else {
-      LogMessage msg("Cannot install line as set is full.");
-      msg.level(Level::Fatal);
-      log(msg);
+      throw std::runtime_error("Cannot install line as set is full.");
     }
-  */
   }
 
-  void executeInvokeCoherenceAction(const L1Command* cmd) const {
-  /*
-    CoherenceActions* actions = c.oprands.coh.actions;
-    actions->execute();
-  */
+  void executeInvokeCoherenceAction(L1CacheContext& ctxt, const L1Command* cmd) const {
+    CoherenceAction* action = cmd->action();
+    action->execute();
   }
 
-
-  struct {
-    addr_t addr;
-    
-  } context_;
-
+  //
+  State state_;
   //
   kernel::Process* process_ = nullptr;
   //
@@ -307,24 +285,24 @@ class L1CacheModel::MainProcess : public kernel::Process {
   // Evaluation
   void eval() override {
     MQArb* arb = model_->arb();
-    t_ = arb->tournament();
 
     // Construct and initialize current processing context.
     L1CommandList cl;
     L1CacheContext c;
+    c.set_t(arb->tournament());
     c.set_l1cache(model_);
 
     // Check if requests are present, if not block until a new message
     // arrives at the arbiter. Process should ideally not wake in the
     // absence of requesters.
-    if (!t_.has_requester()) {
+    if (!c.t().has_requester()) {
       cl.push_back(cb::from_opcode(L1Opcode::WaitOnMsg));
       execute(c, cl);
       return;
     }
 
     // Fetch nominated message queue
-    c.set_mq(t_.winner());
+    c.set_mq(c.t().winner());
 
     // Dispatch to appropriate handler based upon message class.
     switch (c.msg()->cls()) {
@@ -392,24 +370,30 @@ class L1CacheModel::MainProcess : public kernel::Process {
     return true;
   }
 
-  void execute(L1CacheContext& c, const L1CommandList& cl) {
+  void execute(L1CacheContext& ctxt, const L1CommandList& cl) {
     L1TTable::iterator table_it;
     addr_t addr;
 
-    L1CommandInterpreter interpreter(model_, this);
-    for (const L1Command* cmd : cl) {
-      LogMessage lm("Executing opcode: ");
-      //lm.append(to_string(opcode));
-      lm.level(Level::Debug);
+    try {
+      L1CommandInterpreter interpreter;
+      interpreter.set_l1cache(model_);
+      interpreter.set_process(this);
+      for (const L1Command* cmd : cl) {
+	LogMessage lm("Executing opcode: ");
+	lm.append(to_string(cmd->opcode()));
+	lm.level(Level::Debug);
+	log(lm);
+
+	interpreter.execute(ctxt, cmd);
+      }
+    } catch (const std::runtime_error& ex) {
+      LogMessage lm("Interpreter encountered an error: ");
+      lm.append(ex.what());
+      lm.level(Level::Fatal);
       log(lm);
-      
-      interpreter.execute(cmd);
-      cmd->release();
     }
   }
 
-  // Current arbiter Tournament
-  MQArbTmt t_;
   // Pointer to parent module.
   L1CacheModel* model_ = nullptr;
 };
