@@ -259,7 +259,7 @@ class CC::RdisProcess : public kernel::Process {
       for (MessageQueue* mq : st->bmqs())
         mq->set_blocked(false);
       st->release();
-      tt->erase(it);
+      tt->remove(it);
     }
   }
 

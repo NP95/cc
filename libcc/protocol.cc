@@ -29,6 +29,7 @@
 
 #include "ccntrl.h"
 #include "dir.h"
+#include "l1cache.h"
 #include "noc.h"
 #include "sim.h"
 #include "utility.h"
@@ -140,10 +141,13 @@ struct EmitMessageAction : public CoherenceAction {
   const Message* msg_ = nullptr;
 };
 
-void L1CacheModelProtocol::issue_msg(CoherenceActionList& al,
-                                     MessageQueue* mq,
+L1CacheModelProtocol::L1CacheModelProtocol(kernel::Kernel* k)
+    : Module(k, "l1protocol") {}
+    
+void L1CacheModelProtocol::issue_msg(L1CommandList& cl, MessageQueue* mq,
                                      const Message* msg) const {
-  al.push_back(new EmitMessageAction(mq, msg));
+  CoherenceAction* action = new EmitMessageAction(mq, msg);
+  cl.push_back(L1CommandBuilder::from_action(action));
 }
 
 void L2CacheModelProtocol::issue_msg(CoherenceActionList& al,

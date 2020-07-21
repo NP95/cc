@@ -33,11 +33,14 @@
 
 namespace cc {
 
+// Forwards:
+namespace kernel { class Kernel; }
+
 class MOESIProtocolBuilder : public ProtocolBuilder {
  public:
   // Create an instance of the L1 protocol
-  L1CacheModelProtocol* create_l1() override {
-    return moesi::build_l1_protocol();
+  L1CacheModelProtocol* create_l1(kernel::Kernel* k) override {
+    return moesi::build_l1_protocol(k);
   }
 
   // Create an instance of the L2 protocol

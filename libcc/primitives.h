@@ -277,6 +277,7 @@ class Table : public kernel::Module {
 
   Table(kernel::Kernel* k, const std::string& name, std::size_t n)
       : Module(k, name), n_(n) {}
+  virtual ~Table() = default;
 
   // Accessors:
   std::size_t n() const { return n_; }
@@ -293,10 +294,14 @@ class Table : public kernel::Module {
   const iterator find(K k) const { return m_.find(k); }
 
   //
-  void install(K k, V v) { m_.insert_or_assign(k, v); }
+  virtual void install(K k, V v) {
+    m_.insert_or_assign(k, v);
+  }
 
   //
-  void erase(iterator it) { m_.erase(it); }
+  virtual void remove(iterator it) {
+    m_.erase(it);
+  }
 
  private:
   // Table size.

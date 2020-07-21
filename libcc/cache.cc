@@ -49,6 +49,10 @@ addr_t CacheAddressHelper::tag(const addr_t& a) const {
   return (a >> (offset_bits_ + line_bits_));
 }
 
+addr_t CacheAddressHelper::line_id(const addr_t& a) const {
+  return a >> offset_bits_;
+}
+
 std::size_t CacheModelConfig::lines() const { return ways_n * sets_n; }
 
 std::size_t CacheModelConfig::bytes() const { return line_bytes_n * lines(); }

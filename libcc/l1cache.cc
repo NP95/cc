@@ -83,28 +83,208 @@ std::string L1CmdRspMsg::to_string() const {
   return ss.str();
 }
 
-const char* to_string(L1Wait w) {
-  switch (w) {
-    case L1Wait::Invalid:
-      return "Invalid";
-    case L1Wait::MsgArrival:
-      return "MsgArrival";
-    case L1Wait::NextEpochIfHasRequestOrWait:
-      return "NextEpochIfHasRequestOrWait";
-    default:
-      return "Unknown";
+const char* to_string(L1Opcode opcode) {
+  switch (opcode) {
+#define __declare_to_string(__name)             \
+    case L1Opcode::__name: return #__name;
+    L1OPCODE_LIST(__declare_to_string)
+#undef __declare_to_string
+    default: return "Invalid";
   }
 }
 
-L1CacheOutcome::~L1CacheOutcome() {
+L1Worklist::~L1Worklist() {
   // Destroy all actions.
   for (CoherenceAction* a : al_) {
     a->release();
   }
-  if (owns_line()) {
-    line_->release();
+}
+
+L1CacheContext::~L1CacheContext() {
+  if (owns_line()) { delete line_; }
+}
+
+L1Command::L1Command(L1Opcode opcode) : opcode_(opcode) {}
+
+L1Command::~L1Command() {
+  switch (opcode()){
+    case L1Opcode::InvokeCoherenceAction: {
+      oprands.coh.action->release();
+    } break;
+    default: {
+    } break;
   }
 }
+
+L1Command* L1CommandBuilder::build_by_opcode(L1Opcode opcode) {
+  return new L1Command(opcode);
+}
+
+L1Command* L1CommandBuilder::build_from_action(
+    L1Opcode opcode, CoherenceAction* action) {
+  L1Command* cmd = new L1Command(L1Opcode::InvokeCoherenceAction);
+  cmd->oprands.coh.action = action;
+  return cmd;
+}
+
+class L1CommandInterpreter {
+ public:
+  L1CommandInterpreter(L1CacheModel* model, kernel::Process* process)
+      : model_(model), process_(process) {}
+
+  void execute(const L1Command& c) {
+    switch (c.opcode) {
+      default: {
+      } break;
+#define __declare_dispatcher(__name)                    \
+      case L1Opcode::__name: execute##__name(c); break;
+      L1OPCODE_LIST(__declare_dispatcher)
+#undef __declare_dispatcher
+    }
+  }
+
+ private:
+  void executeTableInstall(const L1Command& cmd) const {
+    L1TTable* tt = model_->tt();
+    L1TState* st = new L1TState();
+    st->set_line(c.line());
+    tt->install(c.msg()->t(), st);
+  }
+
+  void executeTableGetCurrentState(const L1Command& cmd) const {
+    // Lookup the Transaction Table for the current transaction
+    // and set the table pointer for subsequent operations.
+    /*
+    L1TTable* tt = model_->tt();
+    table_it = tt->find(c.msg()->t());
+    if (table_it == tt->end()) {
+      LogMessage msg("Transaction not present in transaction table!");
+      msg.level(Level::Fatal);
+      log(msg);
+    }
+    */
+  }
+
+  void executeTableRemove(const L1Command& cmd) const {
+    // Remove the current Transsaction context from the
+    // Transaction Table.
+    /*
+    L1TState *st = table_it->second;
+    st->release();
+    L1TTable* tt = model_->tt();
+    tt->remove(table_it);
+    */
+  }
+
+  void executeTableMqUnblockAll(const L1Command& cmd) const {
+    // For the current table context, unblock all messages
+    // queues that are currently blocked awaiting completion of
+    // the current transaction.
+    /*
+    L1TState *st = table_it->second;
+    for (MessageQueue* mq : st->mq()) {
+      mq->set_blocked(false);
+    }
+    */
+  }
+
+  void executeTableMqAddToBlockedList(const L1Command& cmd) const {
+    // Add the currently address Message Queue to the set of
+    // queues blocked on the current transaction.
+    /*
+    L1TState *st = table_it->second;
+    st->add_blocked_mq(c.mq());
+    */
+  }
+
+  void executeWaitOnMsg(const L1Command& cmd) const {
+    // Set wait state of current process; await the arrival of a
+    // new message.
+    /*
+    MQArb* arb = model_->arb();
+    wait_on(arb->request_arrival_event());
+    */
+  }
+
+  void executeWaitNextEpochOrWait(const L1Command& cmd) const {
+  /*
+    MQArb* arb = model_->arb();
+    MQArbTmt t = arb->tournament();
+    if (t.has_requester()) {
+      // Wait some delay
+      wait_for(kernel::Time{10, 0});
+    } else {
+      // No further commands, block process until something
+      // arrives.
+      wait_on(arb->request_arrival_event());
+    }
+  */
+  }
+
+  void executeMqSetBlocked(const L1Command& cmd) const {
+  /*
+    // Set the blocked status of the current Message Queue.
+    c.mq()->set_blocked(true);
+  */
+  }
+
+  void executeMsgConsume(const L1Command& cmd) const {
+  /*
+    // Dequeue and release the head message of the currently
+    // addressed Message Queue.
+    const Message* msg = c.mq()->dequeue();
+    msg->release();
+    t_.advance();
+  */
+  }
+
+  void executeMsgL1CmdExtractAddr(const L1Command& cmd) const {
+  /*
+    // Extract address field from command message.
+    const L1CmdMsg* cmd = static_cast<const L1CmdMsg*>(c.msg());
+    addr = cmd->addr();
+  */
+  }
+
+  void executeInstallLine(const L1Command& cmd) const {
+  /*
+    // Install line within the current context into the cache at
+    // an appropriate location. Expects that any prior evictions
+    // to thg destination set have already taken place.
+    L1Cache* cache = model_->cache();
+    const CacheAddressHelper ah = cache->ah();
+    L1CacheSet set = cache->set(ah.set(addr));
+    L1Cache::Evictor evictor;
+    if (const std::pair<L1CacheLineIt, bool> p = evictor.nominate(
+            set.begin(), set.end()); !p.second) {
+      set.install(p.first, ah.tag(addr), c.line());
+      c.set_owns_line(false);
+    } else {
+      LogMessage msg("Cannot install line as set is full.");
+      msg.level(Level::Fatal);
+      log(msg);
+    }
+  */
+  }
+
+  void executeInvokeCoherenceAction(const L1Command& cmd) const {
+  /*
+    CoherenceActions* actions = c.oprands.coh.actions;
+    actions->execute();
+  */
+  }
+
+
+  struct {
+    addr_t addr;
+    
+  } context_;
+
+  //
+  kernel::Process* process_ = nullptr;
+  //
+  L1CacheModel* model_ = nullptr;
+};
 
 //
 //
@@ -116,86 +296,60 @@ class L1CacheModel::MainProcess : public kernel::Process {
  private:
   // Initialization
   void init() override {
-    L1CacheOutcome o;
-    o.set_wait(L1Wait::MsgArrival);
-    wait_on_context(o);
+    L1CacheContext c;
+    L1Worklist w;
+    w.add_opcode(L1Opcode::WaitOnMsg);
+    execute(c, w);
   }
 
   // Evaluation
   void eval() override {
     MQArb* arb = model_->arb();
-    MQArbTmt t = arb->tournament();
+    t_ = arb->tournament();
 
     // Construct and initialize current processing context.
-    L1CacheOutcome o;
+    L1Worklist w;
     L1CacheContext c;
     c.set_l1cache(model_);
 
     // Check if requests are present, if not block until a new message
     // arrives at the arbiter. Process should ideally not wake in the
     // absence of requesters.
-    if (!t.has_requester()) {
-      o.set_wait(L1Wait::MsgArrival);
-      wait_on_context(o);
+    if (!t_.has_requester()) {
+      w.add_opcode(L1Opcode::WaitOnMsg);
+      execute(c, w);
       return;
     }
 
     // Fetch nominated message queue
-    c.set_mq(t.winner());
+    c.set_mq(t_.winner());
 
     // Dispatch to appropriate handler based upon message class.
     switch (c.msg()->cls()) {
-      case MessageClass::L1Cmd: {
-        process_l1cmd(c, o);
-      } break;
-      case MessageClass::L2CmdRsp: {
-        process_l2cmdrsp(c, o);
-      } break;
+      case MessageClass::L1Cmd: process_l1cmd(c, w); break;
+      case MessageClass::L2CmdRsp: process_l2cmdrsp(c, w); break;
       default: {
-        using cc::to_string;
-
         LogMessage lmsg("Invalid message class received: ");
-        lmsg.append(to_string(c.msg()->cls()));
+        lmsg.append(cc::to_string(c.msg()->cls()));
         lmsg.level(Level::Error);
         log(lmsg);
       } break;
     }
 
-    // If command commits, execute compute action list.
-    if (o.commits()) {
-      LogMessage lm("Commit message: ");
-      lm.append(c.msg()->to_string());
-      lm.level(Level::Debug);
-      log(lm);
-      
-      // Current action (command issue to L2 or consequent eviction)
-      // commits, therefore install entry in the transaction table.
-      for (CoherenceAction* a : o.actions()) {
-        a->execute();
-      }
-      update_ttable(c, o);
-      if (o.dequeue()) {
-        const Message* msg = c.mq()->dequeue();
-        msg->release();
-        t.advance();
-      }
-    }
-
-    // Apply context's wait condition to processes wait-state.
-    wait_on_context(o);
+    if (can_execute(w)) { execute(c, w); }
   }
 
  private:
-  void process_l1cmd(L1CacheContext& c, L1CacheOutcome& o) const {
+  void process_l1cmd(L1CacheContext& c, L1Worklist& w) const {
     const L1CmdMsg* cmd = static_cast<const L1CmdMsg*>(c.msg());
     L1Cache* cache = model_->cache();
     const CacheAddressHelper ah = cache->ah();
     const L1CacheModelProtocol* protocol = model_->protocol();
 
+    // Otherwise, no transactions to current line in flight, therefore
+    // query the cache to determine hit/miss status of line_id.
     L1CacheSet set = cache->set(ah.set(cmd->addr()));
-    L1CacheLineIt it = set.find(ah.tag(cmd->addr()));
-
-    if (it == set.end()) {
+    if (L1CacheLineIt it = set.find(ah.tag(cmd->addr())); it == set.end()) {
       // Line for current address has not been found in the set,
       // therefore a new line must either be installed or, if the set
       // is currently full, another line must be nominated and
@@ -205,105 +359,55 @@ class L1CacheModel::MainProcess : public kernel::Process {
               set.begin(), set.end()); p.second) {
         // TODO
       } else {
-        // Eviction not required for the command to complete.
-        //c.set_it(p.first);
-        protocol->install(c, o);
-        check_resources(o);
-        if (o.commits()) {
-          set.install(p.first, ah.tag(cmd->addr()), o.line());
-          // Line ownership passed to cache.
-          o.set_owns_line(false);
-        }
+        c.set_line(protocol->construct_line());
+        c.set_owns_line(true);
+        protocol->apply(c, w);
       }
     } else {
       // Line is present in the cache, apply state update.
       c.set_line(it->t());
-      protocol->apply(c, o);
-      check_resources(o);
+      protocol->apply(c, w);
     }
   }
 
-  void process_l2cmdrsp(L1CacheContext& c, L1CacheOutcome& o) const {
-    L1TTable* tt = model_->tt();
+  void process_l2cmdrsp(L1CacheContext& c, L1Worklist& w) const {
     Transaction* t = c.msg()->t();
-    L1TTable::iterator it = tt->find(t);
-    if (it == tt->end()) {
+    L1TTable* tt = model_->tt();
+    if (L1TTable::iterator it = tt->find(t); it != tt->end()) {
+      const L1CacheModelProtocol* protocol = model_->protocol();
+      const L1TState* st = it->second;
+      c.set_line(st->line());
+      protocol->apply(c, w);
+    } else {
       LogMessage lm("Cannot find transaction table entry for ");
       lm.append(to_string(t));
       lm.level(Level::Fatal);
       log(lm);
     }
-    c.set_st(it->second);
-    model_->protocol()->apply(c, o);
   }
 
-  void check_resources(L1CacheOutcome& o) const {
-    if (!o.commits()) return;
-
-    // Check the set of L1 resources used by this context to determine
-    // if it can commit to the machine state in one single atomic
-    // action. If not, commit cannot take place and the message is
-    // blocked until sufficient resources become available.
-
-    // TODO
+  bool can_execute(L1Worklist& w) const {
+    return true;
   }
 
-  void update_ttable(const L1CacheContext& c, L1CacheOutcome& o) const {
-    L1TTable* tt = model_->tt();
-    Transaction* trn = c.msg()->t();
-    if (o.ttadd()) {
-      // Create new state.
-      L1TState* st = new L1TState;
-      st->set_line(o.line());
-      if (o.stalled()) {
-        c.mq()->set_blocked(true);
-        st->add_bmq(c.mq());
-      }
-      // Install context into table.
-      tt->install(trn, st);
-    } else if (o.ttdel()) {
-      // Delete entry from table.
-      L1TTable::iterator it = tt->find(trn);
-      if (it == tt->end()) {
-        LogMessage msg("Transaction not present in transaction table!");
-        msg.level(Level::Fatal);
-        log(msg);
-      }
-      L1TState* st = it->second;
-      for (MessageQueue* mq : st->bmqs())
-        mq->set_blocked(false);
-      st->release();
-      tt->erase(it);
+  void execute(L1CacheContext& c, const L1Worklist& w) {
+    L1TTable::iterator table_it;
+    addr_t addr;
+
+    L1CommandInterpreter interpreter(model_, this);
+    for (const L1Command* cmd : w.cmds()) {
+      LogMessage lm("Executing opcode: ");
+      //lm.append(to_string(opcode));
+      lm.level(Level::Debug);
+      log(lm);
+      
+      interpreter.execute(cmd);
+      cmd->release();
     }
   }
 
-  void wait_on_context(const L1CacheOutcome& o) {
-    switch (o.wait()) {
-      case L1Wait::MsgArrival: {
-        MQArb* arb = model_->arb();
-        wait_on(arb->request_arrival_event());
-      } break;
-      case L1Wait::NextEpochIfHasRequestOrWait: {
-        MQArb* arb = model_->arb();
-        MQArbTmt t = arb->tournament();
-        if (t.has_requester()) {
-          // Wait some delay
-          wait_for(kernel::Time{10, 0});
-        } else {
-          // No further commands, block process until something
-          // arrives.
-          wait_on(arb->request_arrival_event());
-        }
-      } break;
-      default: {
-        LogMessage msg("Invalid wait condition: ");
-        msg.append(to_string(o.wait()));
-        msg.level(Level::Fatal);
-        log(msg);
-      } break;
-    }
-  }
-
+  // Current arbiter Tournament
+  MQArbTmt t_;
   // Pointer to parent module.
   L1CacheModel* model_ = nullptr;
 };
@@ -341,7 +445,8 @@ void L1CacheModel::build() {
   //
   cache_ = new L1Cache(config_.cconfig);
   // Set up protocol
-  protocol_ = config_.pbuilder->create_l1();
+  protocol_ = config_.pbuilder->create_l1(k());
+  add_child_module(protocol_);
 }
 
 void L1CacheModel::elab() {

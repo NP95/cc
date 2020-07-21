@@ -33,7 +33,7 @@
 #include "cache.h"
 #include "cc/cfgs.h"
 #include "primitives.h"
-#include "protocol.h"
+//#include "protocol.h"
 #include "sim.h"
 
 namespace cc {
@@ -43,6 +43,7 @@ class Cpu;
 class L1CacheModel;
 class L2CacheModel;
 class L1LineState;
+class CoherenceAction;
 
 enum class L1CacheOpcode { CpuLoad, CpuStore };
 
@@ -85,130 +86,122 @@ using L1CacheSet = L1Cache::Set;
 // Cache Line Iterator type.
 using L1CacheLineIt = L1Cache::LineIterator;
 
-//
-//
-enum class L1Wait {
-  // Invalid wait condition; indicates unset.
-  Invalid,
-  // Await the arrival of a message at the ingress arbiter.
-  MsgArrival,
-  // If further requests, wait for next epoch, otherwise block until
-  // new messages arrive.
-  NextEpochIfHasRequestOrWait
+
+#define L1OPCODE_LIST(__func)                   \
+  __func(TableInstall)                          \
+  __func(TableGetCurrentState)                  \
+  __func(TableRemove)                           \
+  __func(TableMqUnblockAll)                     \
+  __func(TableMqAddToBlockedList)               \
+  __func(WaitOnMsg)                             \
+  __func(WaitNextEpochOrWait)                   \
+  __func(MqSetBlocked)                          \
+  __func(MsgConsume)                            \
+  __func(MsgL1CmdExtractAddr)                   \
+  __func(InstallLine)                           \
+  __func(InvokeCoherenceAction)
+
+enum class L1Opcode {
+#define __declare_opcode(__name) __name,
+  L1OPCODE_LIST(__declare_opcode)
+#undef __declare_opcode
 };
 
 //
-const char* to_string(L1Wait w);
+//
+const char* to_string(L1Opcode opcode);
 
-class L1CacheOutcome {
+//
+//
+class L1Command {
  public:
-  L1CacheOutcome() = default;
-  ~L1CacheOutcome();
+  L1Command(L1Opcode opcode);
+  ~L1Command();
 
-  //
-  bool owns_line() const { return owns_line_; }
-  L1LineState* line() const { return line_; }
-  bool stalled() const { return stalled_; }
-  bool dequeue() const { return dequeue_; }
-  bool commits() const { return commits_; }
-  bool ttadd() const { return ttadd_; }
-  bool ttdel() const { return ttdel_; }
-  CoherenceActionList& actions() { return al_; }
-  const CoherenceActionList& actions() const { return al_; }
-  L1Wait wait() const { return wait_; }
-
-  //
-  void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
-  void set_line(L1LineState* line) { line_ = line; }
-  void set_stalled(bool stalled) { stalled_ = stalled; }
-  void set_dequeue(bool dequeue) { dequeue_ = dequeue; }
-  void set_commits(bool commits) { commits_ = commits; }
-  void set_ttadd(bool ttadd) { ttadd_ = ttadd; }
-  void set_ttdel(bool ttdel) { ttdel_ = ttdel; }
-  void set_wait(L1Wait wait) { wait_ = wait; }
-
+  L1Opcode opcode() const { return opcode_; }
+  CoherenceAction* action() { return oprands.coh.action; }
+  
  private:
-  // Current message is stalled (cannot execute) for some protocol or
-  // flow control related issue.
-  bool stalled_ = false;
-  // Dequeue message from associated message queue upon execution.
-  bool dequeue_ = false;
-  // Do commit context to L1 state and issue actions.
-  bool commits_ = false;
-  // Context owns the current line (on an install line) and therefore
-  // must delete the line upon destruction.
-  bool owns_line_ = false;
-  // Transaction table ADD
-  bool ttadd_ = false;
-  // Transaction table DELete
-  bool ttdel_ = false;
-  // Current cache line
-  L1LineState* line_ = nullptr;
-  // Action list
-  CoherenceActionList al_;
-  // Condition on which the process is to be re-evaluated.
-  L1Wait wait_ = L1Wait::Invalid;
+  //
+  union {
+    struct {
+      CoherenceAction* action;
+    } coh;
+  } oprands;
+  //
+  L1Opcode opcode_;
 };
+
+//
+//
+class L1CommandBuilder {
+ public:
+  static L1Command* from_opcode(L1Opcode opcode);
+
+  static L1Command* from_action(CoherenceAction* action);
+};
+
+//
+//
+using L1CommandList = std::vector<L1Command*>;
 
 //
 //
 class L1TState {
  public:
   L1TState() = default;
-  virtual ~L1TState() = default;
 
   // Destruct/Return to pool
   void release() { delete this; }
 
   // Get current cache line
   L1LineState* line() const { return line_; }
-  // Set of Message Queues blocked on the current transaction.
-  const std::vector<MessageQueue*>& bmqs() const { return bmqs_; }
 
   // Set current cache line
   void set_line(L1LineState* line) { line_ = line; }
-  // Add Blocked Message Queue
-  void add_bmq(MessageQueue* mq) { bmqs_.push_back(mq); }
+
+  void add_blocked_mq(MessageQueue* mq) { mqs_.push_back(mq); }
+
+  const std::vector<MessageQueue*>& mq() const { return mqs_; }
 
  private:
   // Cache line on which current transaction is executing. (Can
   // otherwise be recovered from the address, but this simply saves
   // the lookup into the cache structure).
   L1LineState* line_ = nullptr;
-  // Set of message queues block on the current transaction.
-  std::vector<MessageQueue*> bmqs_;
+  //
+  std::vector<MessageQueue*> mqs_; 
 };
 
 //
 //
-using L1TTable = Table<Transaction*, L1TState*>;
+using L1TTable = TransactionTable<L1TState*>;
 
 //
 //
 class L1CacheContext {
  public:
   L1CacheContext() = default;
+  ~L1CacheContext();
 
   //
   const Message* msg() const { return mq_->peek(); }
   MessageQueue* mq() const { return mq_; }
   L1CacheModel* l1cache() const { return l1cache_; }
-  L1TState* st() const { return st_; }
-  L1LineState* line() const {
-    return st_ ? st_->line() : line_;
-  }
+  bool owns_line() const { return owns_line_; }
+  L1LineState* line() const { return line_; }
 
   //
   void set_mq(MessageQueue* mq) { mq_ = mq; }
   void set_l1cache(L1CacheModel* l1cache) { l1cache_ = l1cache; }
-  void set_st(L1TState* st) { st_ = st; }
+  void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
   void set_line(L1LineState* line) { line_ = line; }
 
  private:
-  // Current cache line
+  //
+  bool owns_line_ = false;
+  //
   L1LineState* line_ = nullptr;
-  // Transaction state.
-  L1TState* st_ = nullptr;
   // Current Message Queue
   MessageQueue* mq_ = nullptr;
   // L1 cache instance
@@ -221,6 +214,7 @@ class L1CacheModel : public Agent {
   class MainProcess;
 
   friend class CpuCluster;
+  friend class L1CommandInterpreter;
 
  public:
   L1CacheModel(kernel::Kernel* k, const L1CacheModelConfig& config);

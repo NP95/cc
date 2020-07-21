@@ -332,6 +332,10 @@ class Event : public ProcessHost {
  public:
   Event(Kernel* k, const std::string& name);
 
+  // Has awaiting processes.x
+  bool has_awaitees() const { return !ps_.empty(); }
+
+  // Wait awaitees
   void notify();
 
  private:

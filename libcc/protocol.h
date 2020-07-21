@@ -41,7 +41,6 @@ namespace cc {
 
 // Message Forwards:
 class L1CacheContext;
-class L1CacheOutcome;
 
 class L1CacheModel;
 class L2CacheContext;
@@ -193,25 +192,25 @@ using CoherenceActionList = std::vector<CoherenceAction*>;
 
 //
 //
-class L1CacheModelProtocol {
+class L1CacheModelProtocol : public kernel::Module {
  public:
-  L1CacheModelProtocol() = default;
+  L1CacheModelProtocol(kernel::Kernel* k);
   virtual ~L1CacheModelProtocol() = default;
 
   //
   //
-  virtual void install(L1CacheContext& c, L1CacheOutcome& o) const = 0;
+  virtual L1LineState* construct_line() const = 0;
 
   //
   //
-  virtual void apply(L1CacheContext& c, L1CacheOutcome& o) const = 0;
+  virtual void apply(L1CacheContext& c, L1CommandList& cl) const = 0;
 
   //
   //
-  virtual void evict(L1CacheContext& c, L1CacheOutcome& o) const = 0;
+  virtual void evict(L1CacheContext& c, L1CommandList& cl) const = 0;
 
  protected:
-  virtual void issue_msg(CoherenceActionList& al, MessageQueue* mq,
+  virtual void issue_msg(L1CommandList& cl, MessageQueue* mq,
                          const Message* msg) const;
 };
 
@@ -379,7 +378,7 @@ class ProtocolBuilder {
   virtual ~ProtocolBuilder() = default;
 
   // Create an instance of the L1 protocol
-  virtual L1CacheModelProtocol* create_l1() = 0;
+  virtual L1CacheModelProtocol* create_l1(kernel::Kernel*) = 0;
 
   // Create an instance of the L2 protocol
   virtual L2CacheModelProtocol* create_l2() = 0;

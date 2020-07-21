@@ -70,6 +70,7 @@ bool MessageQueue::issue(const Message* msg, kernel::Time t) {
   return true;
 }
 
+
 void MessageQueue::push(const Message* msg) {
   if (!q_->enqueue(msg)) {
     LogMessage lmsg("Attempt to push new message to full queue.", Level::Error);

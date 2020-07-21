@@ -60,6 +60,7 @@ struct CacheAddressHelper {
   addr_t offset(const addr_t& a) const;
   addr_t set(const addr_t& a) const;
   addr_t tag(const addr_t& a) const;
+  addr_t line_id(const addr_t& a) const;
 
  private:
   std::size_t offset_bits_;
