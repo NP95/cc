@@ -31,6 +31,7 @@
 #include "dir.h"
 #include "l1cache.h"
 #include "l2cache.h"
+#include "ccntrl.h"
 #include "noc.h"
 #include "sim.h"
 #include "utility.h"
@@ -169,14 +170,18 @@ void L2CacheModelProtocol::issue_msg(L2CommandList& cl, MessageQueue* mq,
   cl.push_back(L2CommandBuilder::from_action(action));
 }
 
-void CCProtocol::issue_msg(CCContext& c, MessageQueue* mq,
+CCProtocol::CCProtocol(kernel::Kernel* k, const std::string& name)
+    : Module(k, name) {}
+
+void CCProtocol::issue_msg(CCCommandList& cl, MessageQueue* mq,
                            const Message* msg) const {
-  c.actions().push_back(new EmitMessageAction(mq, msg));
+  CoherenceAction* action = new EmitMessageAction(mq, msg);
+  cl.push_back(CCCommandBuilder::from_action(action));
 }
 
-void CCProtocol::issue_emit_to_noc(CCContext& c, const Message* msg,
-                                   Agent* dest) const {
-  CC* cc = c.cc();
+void CCProtocol::issue_emit_to_noc(CCContext& ctxt, CCCommandList& cl,
+                                   const Message* msg, Agent* dest) const {
+  CCModel* cc = ctxt.cc();
   // Encapsulate message in NOC transport protocol.
   NocMsg* nocmsg = new NocMsg;
   nocmsg->set_t(msg->t());
@@ -184,7 +189,9 @@ void CCProtocol::issue_emit_to_noc(CCContext& c, const Message* msg,
   nocmsg->set_origin(cc);
   nocmsg->set_dest(dest);
   // Issue Message Emit action.
-  c.actions().push_back(new EmitMessageAction(cc->cc_noc__msg_q(), nocmsg));
+  CoherenceAction* action = new EmitMessageAction(cc->cc_noc__msg_q(), nocmsg);
+  cl.push_back(CCCommandBuilder::from_action(action));
+      
 }
 
 void DirProtocol::issue_emit_to_noc(DirActionList& al, const Message* msg,

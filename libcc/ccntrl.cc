@@ -33,27 +33,76 @@
 #include "noc.h"
 #include "primitives.h"
 #include "protocol.h"
+#include "utility.h"
 
 namespace cc {
 
-const char* to_string(CCWait w) {
-  switch (w) {
-    case CCWait::Invalid:
-      return "Invalid";
-    case CCWait::MsgArrival:
-      return "MsgArrival";
-    case CCWait::NextEpochIfHasRequestOrWait:
-      return "NextEpochIfHasRequestOrWait";
-    default:
-      return "Unknown";
+const char* to_string(CCOpcode opcode) {
+  switch (opcode) {
+#define __declare_to_string(__name)             \
+    case CCOpcode::__name:                      \
+      return #__name;
+    CCOPCODE_LIST(__declare_to_string)
+#undef __declare_to_string
+    default: return "Invalid";
   }
 }
 
+CCCommand::~CCCommand() {
+  switch (opcode()) {
+    case CCOpcode::InvokeCoherenceAction:
+      oprands.coh.action->release();
+      break;
+    default:
+      break;
+  }
+}
+
+std::string CCCommand::to_string() const {
+  std::stringstream ss;
+  {
+    KVListRenderer r(ss);
+    r.add_field("opcode", cc::to_string(opcode()));
+    switch (opcode()) {
+      case CCOpcode::InvokeCoherenceAction: {
+        r.add_field("action", oprands.coh.action->to_string());
+      } break;
+      default: {
+      } break;
+    }
+  }
+  return ss.str();
+}
+
+CCCommand* CCCommandBuilder::from_opcode(CCOpcode opcode) {
+  return new CCCommand(opcode);
+}
+
+CCCommand* CCCommandBuilder::from_action(CoherenceAction* action) {
+  CCCommand* cmd = new CCCommand(CCOpcode::InvokeCoherenceAction);
+  cmd->oprands.coh.action = action;
+  return cmd;
+}
+
+CCContext::~CCContext() {
+  if (owns_line_) {
+    line_->release();
+  }
+}
+
+CCCommandList::~CCCommandList() {
+  for (CCCommand* cmd : cmds_) {
+    cmd->release();
+  }
+}
+
+void CCCommandList::push_back(CCCommand* cmd) { cmds_.push_back(cmd); }
+
 //
 //
-class CC::NocIngressProcess : public kernel::Process {
+class CCModel::NocIngressProcess : public kernel::Process {
  public:
-  NocIngressProcess(kernel::Kernel* k, const std::string& name, CC* cc)
+  NocIngressProcess(kernel::Kernel* k, const std::string& name, CCModel* cc)
       : Process(k, name), cc_(cc) {}
 
   // Initialization
@@ -105,197 +154,212 @@ class CC::NocIngressProcess : public kernel::Process {
   }
 
  private:
-  CC* cc_ = nullptr;
+  CCModel* cc_ = nullptr;
 };
 
 //
 //
-class TAddrFinder {
+class CCCommandInterpreter {
+  struct State {
+  };
  public:
-  TAddrFinder(CCTTable::iterator begin, CCTTable::iterator end)
-      : begin_(begin), end_(end) {}
+  CCCommandInterpreter() = default;
 
-  // Search the table for a transaction to the current line. Return true
-  // if a corresponding transaction has been found.
-  bool has_transaction(line_id_t line_id) {
-    // TODO
-    return false;
+  void set_cc(CCModel* model) { model_ = model; }
+  void set_process(kernel::Process* process) { process_ = process; }
+
+  void execute(CCContext& ctxt, const CCCommand* c) {
+    switch (c->opcode()) {
+      default: {
+      } break;
+#define __declare_dispatcher(__name)            \
+        case CCOpcode::__name:                  \
+          execute##__name(ctxt, c);             \
+          break;
+        CCOPCODE_LIST(__declare_dispatcher)
+#undef __declare_dispatcher
+     }
+  }
+ private:
+
+  void executeTableInstall(CCContext& ctxt, const CCCommand* cmd) {
+    CCTTable* tt = model_->tt();
+    CCTState* st = new CCTState();
+    st->set_line(ctxt.line());
+    tt->install(ctxt.msg()->t(), st);
   }
 
- private:
-  CCTTable::iterator begin_, end_;
+  void executeTableUninstall(CCContext& ctxt, const CCCommand* cmd) {
+    CCTTable* tt = model_->tt();
+    if (auto it = tt->find(ctxt.msg()->t()); it != tt->end()) {
+      tt->remove(it);
+    } else {
+      throw std::runtime_error("Table entry for transaction does not exist.");
+    }
+  }
+  
+  void executeInvokeCoherenceAction(CCContext& ctxt, const CCCommand* cmd) {
+    CoherenceAction* action = cmd->action();
+    action->execute();
+  }
+
+  void executeMsgConsume(CCContext& ctxt, const CCCommand* cmd) {
+    // Dequeue and release the head message of the currently
+    // addressed Message Queue.
+    const Message* msg = ctxt.mq()->dequeue();
+    msg->release();
+    ctxt.t().advance();
+  }
+
+  void executeWaitOnMsg(CCContext& ctxt, const CCCommand* cmd) {
+    // Set wait state of current process; await the arrival of a
+    // new message.
+    MQArb* arb = model_->arb();
+    process_->wait_on(arb->request_arrival_event());
+  }
+
+  void executeWaitNextEpochOrWait(CCContext& ctxt, const CCCommand* cmd) {
+    MQArb* arb = model_->arb();
+    MQArbTmt t = arb->tournament();
+    if (t.has_requester()) {
+      // Wait some delay
+      process_->wait_for(kernel::Time{10, 0});
+    } else {
+      // No further commands, block process until something
+      // arrives.
+      process_->wait_on(arb->request_arrival_event());
+    }
+  }
+  
+  //
+  State state_;
+  //
+  kernel::Process* process_ = nullptr;
+  //
+  CCModel* model_ = nullptr;
+  
 };
 
 //
 //
-class CC::RdisProcess : public kernel::Process {
+class CCModel::RdisProcess : public kernel::Process {
+  using cb = CCCommandBuilder;
  public:
-  RdisProcess(kernel::Kernel* k, const std::string& name, CC* cc)
-      : Process(k, name), cc_(cc) {}
+  RdisProcess(kernel::Kernel* k, const std::string& name, CCModel* model)
+      : Process(k, name), model_(model) {}
 
  private:
   // Initialization
   void init() override {
-    CCContext c;
-    c.set_wait(CCWait::MsgArrival);
-    wait_on_context(c);
+    CCContext ctxt;
+    CCCommandList cl;
+    cl.push_back(cb::from_opcode(CCOpcode::WaitOnMsg));
+    execute(ctxt, cl);
   }
 
   // Evaluation
   void eval() override {
-    MQArb* arb = cc_->arb();
-    MQArbTmt t = arb->tournament();
-
-    CCContext c;
-    c.set_cc(cc_);
-    c.set_t(t);
+    CCCommandList cl;
+    CCContext ctxt;
+    ctxt.set_cc(model_);
+    MQArb* arb = model_->arb();
+    ctxt.set_t(arb->tournament());
 
     // Check if requests are present, if not block until a new message
     // arrives at the arbiter. Process should ideally not wake in the
     // absence of requesters.
-    if (!t.has_requester()) {
-      c.set_wait(CCWait::MsgArrival);
-      wait_on_context(c);
+    if (!ctxt.t().has_requester()) {
+      cl.push_back(cb::from_opcode(CCOpcode::WaitOnMsg));
+      execute(ctxt, cl);
       return;
     }
+    // Fetch nominated message queue
+    ctxt.set_mq(ctxt.t().winner());
 
-    // Fetch nominated message.
-    const Message* msg = t.winner()->peek();
-    c.set_mq(t.winner());
-    c.set_msg(msg);
-
-    switch (c.msg()->cls()) {
+    // Dispatch to appropriate message class
+    switch (ctxt.msg()->cls()) {
       case MessageClass::AceCmd: {
-        eval_msg(c, static_cast<const AceCmdMsg*>(c.msg()));
+        process_acecmd(ctxt, cl);
       } break;
       case MessageClass::CohEnd: {
-        CCTState* st = lookup_tt(c.msg()->t());
-        c.set_st(st);
-        eval_msg(c, static_cast<const CohEndMsg*>(c.msg()));
+        process_cohend(ctxt, cl);
       } break;
       default: {
-        using cc::to_string;
         LogMessage lmsg("Invalid message class received: ");
-        lmsg.append(to_string(c.msg()->cls()));
+        lmsg.append(cc::to_string(ctxt.msg()->cls()));
         lmsg.level(Level::Error);
         log(lmsg);
       } break;
     }
-    // If command commits, execute compute action list.
-    if (c.commits()) {
-      execute(c);
+
+    if (can_execute(cl)) {
+      execute(ctxt, cl);
     }
-    // Apply context's wait condition to processes wait-state.
-    wait_on_context(c);
   }
 
-  void eval_msg(CCContext& c, const AceCmdMsg* msg) {
-    CCTTable* tt = cc_->table();
-    TAddrFinder af(tt->begin(), tt->end());
-    if (tt->full() || af.has_transaction(msg->addr())) {
-      // Transaction table is either full, or there is already
-      // a transaction in flight for the current line.
-      c.mq()->set_blocked(true);
-      return;
-    }
-    // Otherwise, install a new transaction entry table and proceed
-    const CCProtocol* protocol = cc_->protocol();
-    protocol->install(c);
+  void process_acecmd(CCContext& ctxt, CCCommandList& cl) const {
+    const CCProtocol* protocol = model_->protocol();
+
+    ctxt.set_line(protocol->construct_line());
+    ctxt.set_owns_line(true);
+    protocol->apply(ctxt, cl);
   }
 
-  CCTState* lookup_tt(Transaction* t) {
-    CCTTable* tt = cc_->table();
-    CCTTable::iterator it = tt->find(t);
-    if (it == tt->end()) {
-      LogMessage msg("Cannot find entry in transaction table.");
+  void process_cohend(CCContext& ctxt, CCCommandList& cl) const {
+    const CCTState* st = lookup_state_or_fail(ctxt.msg()->t()); 
+    ctxt.set_line(st->line());
+    const CCProtocol* protocol = model_->protocol();
+    protocol->apply(ctxt, cl);
+  }
+
+  bool can_execute(const CCCommandList& cl) const {
+    return true;
+  }
+
+  void execute(CCContext& ctxt, const CCCommandList& cl) {
+    try {
+      CCCommandInterpreter interpreter;
+      interpreter.set_cc(model_);
+      interpreter.set_process(this);
+      for (const CCCommand* cmd : cl) {
+        LogMessage lm("Executing opcode: ");
+        lm.append(to_string(cmd->opcode()));
+        lm.level(Level::Debug);
+        log(lm);
+
+        interpreter.execute(ctxt, cmd);
+      }
+    } catch (const std::runtime_error& ex) {
+      LogMessage lm("Interpreter encountered an error: ");
+      lm.append(ex.what());
+      lm.level(Level::Fatal);
+      log(lm);
+    }
+  }
+
+  CCTState* lookup_state_or_fail(Transaction* t) const {
+    CCTTable* tt = model_->tt();
+    CCTTable::iterator it;
+    if (it = tt->find(t); it == tt->end()) {
+      // Expect to find a entry in the transaction table. If an entry
+      // is not present bail.
+      LogMessage msg("Transaction not found in table.");
       msg.level(Level::Fatal);
       log(msg);
-      return nullptr;
     }
     return it->second;
   }
 
-  void eval_msg(CCContext& c, const CohEndMsg* msg) {
-    const CCProtocol* protocol = cc_->protocol();
-    protocol->apply(c);
-  }
-
-  void execute(CCContext& c) {
-    // Current action (command issue to L2 or consequent eviction)
-    // commits, therefore install entry in the transaction table.
-    for (CoherenceAction* a : c.actions()) {
-      a->execute();
-    }
-    update_ttable(c);
-    MQArbTmt t = c.t();
-    if (c.dequeue()) {
-      t.winner()->dequeue();
-      t.advance();
-    }
-  }
-
-  void update_ttable(CCContext& c) {
-    CCTTable* tt = cc_->table();
-    Transaction* t = c.msg()->t();
-    if (c.ttadd()) {
-      // Install new entry in transaction table.
-      CCTState* st = new CCTState;
-      st->set_msg(c.msg());
-      st->set_line(c.line());
-      c.set_owns_line(false);
-      tt->install(t, st);
-    } else if (c.ttdel()) {
-      // Delete entry from table.
-      CCTTable::iterator it = tt->find(t);
-      if (it == tt->end()) {
-        LogMessage msg("Transaction not present in transaction table!");
-        msg.level(Level::Fatal);
-        log(msg);
-      }
-      CCTState* st = it->second;
-      for (MessageQueue* mq : st->bmqs()) mq->set_blocked(false);
-      st->release();
-      tt->remove(it);
-    }
-  }
-
-  void wait_on_context(const CCContext& c) {
-    switch (c.wait()) {
-      case CCWait::MsgArrival: {
-        MQArb* arb = cc_->arb();
-        wait_on(arb->request_arrival_event());
-      } break;
-      case CCWait::NextEpochIfHasRequestOrWait: {
-        MQArb* arb = cc_->arb();
-        MQArbTmt t = arb->tournament();
-        if (t.has_requester()) {
-          // Wait some delay
-          wait_for(kernel::Time{10, 0});
-        } else {
-          // No further commands, block process until something
-          // arrives.
-          wait_on(arb->request_arrival_event());
-        }
-      } break;
-      default: {
-        LogMessage msg("Invalid wait condition: ");
-        msg.append(to_string(c.wait()));
-        msg.level(Level::Fatal);
-        log(msg);
-      } break;
-    }
-  }
-
   // Cache controller instance.
-  CC* cc_ = nullptr;
+  CCModel* model_ = nullptr;
 };
 
-CC::CC(kernel::Kernel* k, const CCConfig& config)
+CCModel::CCModel(kernel::Kernel* k, const CCConfig& config)
     : Agent(k, config.name), config_(config) {
   build();
 }
 
-CC::~CC() {
+CCModel::~CCModel() {
   delete l2_cc__cmd_q_;
   delete noc_cc__msg_q_;
   delete dir_cc__rsp_q_;
@@ -307,7 +371,7 @@ CC::~CC() {
   delete protocol_;
 }
 
-void CC::build() {
+void CCModel::build() {
   // Construct L2 to CC command queue
   l2_cc__cmd_q_ = new MessageQueue(k(), "l2_cc__cmd_q", 3);
   add_child_module(l2_cc__cmd_q_);
@@ -333,12 +397,13 @@ void CC::build() {
   tt_ = new CCTTable(k(), "tt", 16);
   add_child_module(tt_);
   // Create protocol instance
-  protocol_ = config_.pbuilder->create_cc();
+  protocol_ = config_.pbuilder->create_cc(k());
+  add_child_module(protocol_);
 }
 
 //
 //
-void CC::elab() {
+void CCModel::elab() {
   // Add ingress queues to arbitrator.
   arb_->add_requester(l2_cc__cmd_q_);
   arb_->add_requester(dir_cc__rsp_q_);
@@ -347,7 +412,7 @@ void CC::elab() {
 
 //
 //
-void CC::drc() {
+void CCModel::drc() {
   if (dm() == nullptr) {
     // The Dir Mapper object computes the host directory for a
     // given address. In a single directory system, this is a basic
@@ -361,7 +426,7 @@ void CC::drc() {
 
 //
 //
-MessageQueue* CC::lookup_rdis_mq(MessageClass cls) const {
+MessageQueue* CCModel::lookup_rdis_mq(MessageClass cls) const {
   switch (cls) {
     case MessageClass::Dt:
       return cc__dt_q_;

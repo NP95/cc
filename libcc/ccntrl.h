@@ -40,7 +40,79 @@ class MessageQueue;
 class L2CacheModel;
 class CCLineState;
 class CCProtocol;
-class CC;
+class CCModel;
+
+#define CCOPCODE_LIST(__func)                   \
+  __func(TableInstall)                          \
+  __func(TableUninstall)                        \
+  __func(InvokeCoherenceAction)                 \
+  __func(MsgConsume)                            \
+  __func(WaitOnMsg)                             \
+  __func(WaitNextEpochOrWait)
+
+enum class CCOpcode {
+#define __declare_opcode(__name) __name,
+  CCOPCODE_LIST(__declare_opcode)
+#undef __declare_opcode
+};
+
+const char* to_string(CCOpcode opcode);
+
+//
+//
+class CCCommand {
+  friend class CCCommandBuilder;
+
+ public:
+  CCCommand(CCOpcode opcode) : opcode_(opcode) {}
+  virtual void release() const { delete this; }
+
+  std::string to_string() const;
+
+  CCOpcode opcode() const { return opcode_; }
+  CoherenceAction* action() const { return oprands.coh.action; }
+
+ private:
+  virtual ~CCCommand();
+  //
+  union {
+    struct {
+      CoherenceAction* action;
+    } coh;
+  } oprands;
+  //
+  CCOpcode opcode_;
+};
+
+//
+//
+class CCCommandBuilder {
+ public:
+  static CCCommand* from_opcode(CCOpcode opcode);
+
+  static CCCommand* from_action(CoherenceAction* action);
+};
+
+
+//
+//
+class CCCommandList {
+  using vector_type = std::vector<CCCommand*>;
+
+ public:
+  using const_iterator = vector_type::const_iterator;
+
+  CCCommandList() = default;
+  ~CCCommandList();
+
+  const_iterator begin() const { return cmds_.begin(); }
+  const_iterator end() const { return cmds_.end(); }
+
+  void push_back(CCCommand* cmd);
+
+ private:
+  std::vector<CCCommand*> cmds_;
+};
 
 //
 //
@@ -77,101 +149,55 @@ class CCTState {
 //
 using CCTTable = Table<Transaction*, CCTState*>;
 
-//
-//
-enum class CCWait {
-  Invalid,
-  //
-  MsgArrival,
-  //
-  NextEpochIfHasRequestOrWait
-};
-
-//
-const char* to_string(CCWait w);
 
 //
 //
 class CCContext {
  public:
   CCContext() = default;
+  ~CCContext();
 
   //
-  bool owns_line() const { return owns_line_; }
-  bool stalled() const { return stalled_; }
-  bool dequeue() const { return dequeue_; }
-  bool commits() const { return commits_; }
-  bool ttadd() const { return ttadd_; }
-  bool ttdel() const { return ttdel_; }
-  const Message* msg() const { return msg_; }
-  MessageQueue* mq() const { return mq_; }
   MQArbTmt t() const { return t_; }
-  CoherenceActionList& actions() { return al_; }
-  const CoherenceActionList& actions() const { return al_; }
-  CC* cc() const { return cc_; }
-  CCWait wait() const { return wait_; }
+  const Message* msg() const { return mq_->peek(); }
+  MessageQueue* mq() const { return mq_; }
+  CCModel* cc() const { return cc_; }
+  bool owns_line() const { return owns_line_; }
   CCLineState* line() const { return line_; }
-  CCTState* st() const { return st_; }
 
   //
-  void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
-  void set_stalled(bool stalled) { stalled_ = stalled; }
-  void set_dequeue(bool dequeue) { dequeue_ = dequeue; }
-  void set_commits(bool commits) { commits_ = commits; }
-  void set_ttadd(bool ttadd) { ttadd_ = ttadd; }
-  void set_ttdel(bool ttdel) { ttdel_ = ttdel; }
-  void set_msg(const Message* msg) { msg_ = msg; }
-  void set_mq(MessageQueue* mq) { mq_ = mq; }
   void set_t(MQArbTmt t) { t_ = t; }
-  void set_wait(CCWait wait) { wait_ = wait; }
+  void set_mq(MessageQueue* mq) { mq_ = mq; }
+  void set_cc(CCModel* cc) { cc_ = cc; }
+  void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
   void set_line(CCLineState* line) { line_ = line; }
-  void set_cc(CC* cc) { cc_ = cc; }
-  void set_st(CCTState* st) { st_ = st; }
 
  private:
-  // Current message is stalled (cannot execute) for some protocol or
-  // flow control related issue.
-  bool stalled_ = false;
-  // Dequeue message from associated message queue upon execution.
-  bool dequeue_ = false;
-  // Do commit context to L1 state and issue actions.
-  bool commits_ = false;
-  // Context owns the current line (on an install line) and therefore
-  // must delete the line upon destruction.
-  bool owns_line_ = false;
-  // Transaction table ADD
-  bool ttadd_ = false;
-  // Transaction table DELete
-  bool ttdel_ = false;
-  // Current arbitration tournament.
+  // Current Message Queue arbiter tournament.
   MQArbTmt t_;
   //
-  CC* cc_ = nullptr;
+  bool owns_line_ = false;
   //
   CCLineState* line_ = nullptr;
-  //
-  CCTState* st_ = nullptr;
-  // Message being processed.
-  const Message* msg_ = nullptr;
   // Current Message Queue
   MessageQueue* mq_ = nullptr;
-  //
-  CoherenceActionList al_;
-  // Wait condition.
-  CCWait wait_ = CCWait::Invalid;
+  // L2 cache instance
+  CCModel* cc_ = nullptr;
 };
+
 
 //
 //
-class CC : public Agent {
+class CCModel : public Agent {
   friend class CpuCluster;
+  friend class CCCommandInterpreter;
 
   class RdisProcess;
   class NocIngressProcess;
 
  public:
-  CC(kernel::Kernel* k, const CCConfig& config);
-  ~CC();
+  CCModel(kernel::Kernel* k, const CCConfig& config);
+  ~CCModel();
 
   // Obtain cache controller configuration.
   const CCConfig& config() const { return config_; }
@@ -210,6 +236,8 @@ class CC : public Agent {
   void set_cc_noc__msg_q(MessageQueue* mq) { cc_noc__msg_q_ = mq; }
   /// Set CC -> L2 response queue
   void set_cc_l2__rsp_q(MessageQueue* mq) { cc_l2__rsp_q_ = mq; }
+  // Transaction table
+  CCTTable* tt() const { return tt_; }
 
   // Design Rule Check (DRC)
   void drc();

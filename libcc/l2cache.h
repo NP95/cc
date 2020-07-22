@@ -43,12 +43,10 @@ namespace cc {
 class L1CacheModel;
 class L2CacheModel;
 class MessageQueue;
-template <typename>
-class Arbiter;
 class L2LineState;
 template <typename>
 class CacheModel;
-class CC;
+class CCModel;
 class L2TState;
 
 //
@@ -303,7 +301,7 @@ class L2CacheModel : public Agent {
   //
   void set_l1cache_n(std::size_t n);
   // Set parent cache controlle
-  void set_cc(CC* cc) { cc_ = cc; }
+  void set_cc(CCModel* cc) { cc_ = cc; }
   // Set L2 -> CC command queue.
   void set_l2_cc__cmd_q(MessageQueue* mq) { l2_cc__cmd_q_ = mq; }
   // L2 -> L1 response queue.
@@ -334,7 +332,7 @@ class L2CacheModel : public Agent {
   // Cache Instance
   CacheModel<L2LineState*>* cache_ = nullptr;
   // Cache Controller instance
-  CC* cc_ = nullptr;
+  CCModel* cc_ = nullptr;
   // L1 cache protocol
   L2CacheModelProtocol* protocol_ = nullptr;
   // Main process of execution.

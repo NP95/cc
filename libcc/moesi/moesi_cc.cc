@@ -165,72 +165,73 @@ struct DtToL2Action : public CoherenceAction {
 //
 //
 class MOESICCProtocol : public CCProtocol {
+  using cb = CCCommandBuilder;
  public:
-  MOESICCProtocol() = default;
+  MOESICCProtocol(kernel::Kernel* k) : CCProtocol(k, "moesicc") {}
 
   //
   //
-  void install(CCContext& c) const override {
-    LineState* line = new LineState;
-    c.set_line(line);
-    c.set_owns_line(true);
-    apply(c);
+  CCLineState* construct_line() const override {
+    return new CCLineState;
   }
 
   //
   //
-  void apply(CCContext& c) const override {
-    switch (c.msg()->cls()) {
+  void apply(CCContext& ctxt, CCCommandList& cl) const override {
+    switch (ctxt.msg()->cls()) {
       case MessageClass::AceCmd: {
-        eval_msg(c, static_cast<const AceCmdMsg*>(c.msg()));
+        eval_msg(ctxt, cl, static_cast<const AceCmdMsg*>(ctxt.msg()));
       } break;
       case MessageClass::CohEnd: {
-        eval_msg(c, static_cast<const CohCmdMsg*>(c.msg()));
+        eval_msg(ctxt, cl, static_cast<const CohCmdMsg*>(ctxt.msg()));
       } break;
       default: {
       } break;
     }
   }
 
-  void eval_msg(CCContext& c, const AceCmdMsg* msg) const {
+  void eval_msg(CCContext& ctxt, CCCommandList& cl, const AceCmdMsg* msg) const {
     switch (msg->opcode()) {
       case AceCmdOpcode::ReadShared: {
-        const DirMapper* dm = c.cc()->dm();
+        const DirMapper* dm = ctxt.cc()->dm();
         
         CohSrtMsg* cohsrt = new CohSrtMsg;
         cohsrt->set_t(msg->t());
-        cohsrt->set_origin(c.cc());
-        issue_emit_to_noc(c, cohsrt, dm->lookup(msg->addr()));
+        cohsrt->set_origin(ctxt.cc());
+        issue_emit_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
 
         CohCmdMsg* cohcmd = new CohCmdMsg;
         cohcmd->set_t(msg->t());
         cohcmd->set_opcode(msg->opcode());
-        cohcmd->set_origin(c.cc());
+        cohcmd->set_origin(ctxt.cc());
         cohcmd->set_addr(msg->addr());
-        issue_emit_to_noc(c, cohcmd, dm->lookup(msg->addr()));
+        issue_emit_to_noc(ctxt, cl, cohcmd, dm->lookup(msg->addr()));
 
-        // Message is inserted into TT
-        c.set_dequeue(true);
-        c.set_commits(true);
-        c.set_ttadd(true);
-        c.set_wait(CCWait::NextEpochIfHasRequestOrWait);
+        // ACE command advances to active state; install entry within
+        // transaction table.
+        cl.push_back(cb::from_opcode(CCOpcode::TableInstall));
+        //
+        cl.push_back(cb::from_opcode(CCOpcode::MsgConsume));
+        // Advance to next
+        cl.push_back(cb::from_opcode(CCOpcode::WaitNextEpochOrWait));
       } break;
       default: {
       } break;
     }
   }
 
-  void eval_msg(CCContext& c, const CohCmdMsg* msg) const {
+  void eval_msg(CCContext& ctxt, CCCommandList& cl, const CohCmdMsg* msg) const {
     AceCmdRspMsg* rmsg = new AceCmdRspMsg;
     rmsg->set_t(msg->t());
+    L2CacheModel* l2cache = ctxt.cc()->l2c();
+    issue_msg(cl, l2cache->cc_l2__rsp_q(), rmsg);
 
-    L2CacheModel* l2cache = c.cc()->l2c();
-    issue_msg(c, l2cache->cc_l2__rsp_q(), rmsg);
-
-    c.set_dequeue(true);
-    c.set_commits(true);
-    c.set_ttdel(true);
-    c.set_wait(CCWait::NextEpochIfHasRequestOrWait);
+    // Transaction is now complete; delete entry from transaction table.
+    cl.push_back(cb::from_opcode(CCOpcode::TableUninstall));
+    //
+    cl.push_back(cb::from_opcode(CCOpcode::MsgConsume));
+    // Advance to next
+    cl.push_back(cb::from_opcode(CCOpcode::WaitNextEpochOrWait));
   }
   
 };
@@ -241,6 +242,8 @@ namespace cc::moesi {
 
 //
 //
-CCProtocol* build_cc_protocol() { return new MOESICCProtocol{}; }
+CCProtocol* build_cc_protocol(kernel::Kernel* k) {
+  return new MOESICCProtocol(k);
+}
 
 } // namespace cc::moesi

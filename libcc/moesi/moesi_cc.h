@@ -33,9 +33,11 @@ namespace cc {
 // Forwards:
 class CCProtocol;
 
+namespace kernel { class Kernel; }
+
 namespace moesi {
 
-CCProtocol* build_cc_protocol();
+CCProtocol* build_cc_protocol(kernel::Kernel* k);
 
 } // namespace moesi
 

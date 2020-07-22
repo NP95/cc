@@ -44,7 +44,7 @@ CpuCluster::CpuCluster(kernel::Kernel* k, const CpuClusterConfig& config,
 //
 void CpuCluster::build() {
   // Construct cache controller.
-  cc_ = new CC(k(), config_.cc_config);
+  cc_ = new CCModel(k(), config_.cc_config);
   add_child_module(cc_);
 
   // Construct L2 cache instance.

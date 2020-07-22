@@ -40,13 +40,14 @@
 namespace cc {
 
 // Message Forwards:
-class L1CacheModel;
 class L1CommandList;
 class L1CacheContext;
 
-class L2CacheModel;
 class L2CommandList;
 class L2CacheContext;
+
+class CCCommandList;
+class CCContext;
 
 class CC;
 class CCContext;
@@ -332,6 +333,9 @@ class DirProtocol {
 class CCLineState {
  public:
   CCLineState() = default;
+  virtual void release() const { delete this; }
+
+ protected:
   virtual ~CCLineState() = default;
 };
 
@@ -343,27 +347,27 @@ using CCActionList = std::vector<CoherenceAction*>;
 
 //
 //
-class CCProtocol {
+class CCProtocol : public kernel::Module {
  public:
-  CCProtocol() = default;
+  CCProtocol(kernel::Kernel* k, const std::string& name);
   virtual ~CCProtocol() = default;
 
   //
   //
-  virtual void install(CCContext& c) const = 0;
+  virtual CCLineState* construct_line() const = 0;
 
   //
   //
-  virtual void apply(CCContext& c) const = 0;
+  virtual void apply(CCContext& ctxt, CCCommandList& cl) const = 0;
 
  protected:
   //
-  virtual void issue_msg(CCContext& c, MessageQueue* mq,
+  virtual void issue_msg(CCCommandList& lc, MessageQueue* mq,
                          const Message* msg) const;
 
   //
-  virtual void issue_emit_to_noc(CCContext& c, const Message* msg,
-                                 Agent* dest) const;
+  virtual void issue_emit_to_noc(CCContext& ctxt, CCCommandList& lc,
+                                 const Message* msg, Agent* dest) const;
 };
 
 //
@@ -382,7 +386,7 @@ class ProtocolBuilder {
   virtual DirProtocol* create_dir() = 0;
 
   // Create an instance of a Cache Controller protocol.
-  virtual CCProtocol* create_cc() = 0;
+  virtual CCProtocol* create_cc(kernel::Kernel*) = 0;
 };
 
 //

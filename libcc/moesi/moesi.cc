@@ -53,8 +53,8 @@ class MOESIProtocolBuilder : public ProtocolBuilder {
     return moesi::build_dir_protocol();
   }
 
-  CCProtocol* create_cc() override {
-    return moesi::build_cc_protocol();
+  CCProtocol* create_cc(kernel::Kernel* k) override {
+    return moesi::build_cc_protocol(k);
   }
 };
 
