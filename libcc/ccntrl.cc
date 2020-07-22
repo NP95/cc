@@ -322,8 +322,8 @@ class CCModel::RdisProcess : public kernel::Process {
       interpreter.set_cc(model_);
       interpreter.set_process(this);
       for (const CCCommand* cmd : cl) {
-        LogMessage lm("Executing opcode: ");
-        lm.append(to_string(cmd->opcode()));
+        LogMessage lm("Executing command: ");
+        lm.append(cmd->to_string());
         lm.level(Level::Debug);
         log(lm);
 

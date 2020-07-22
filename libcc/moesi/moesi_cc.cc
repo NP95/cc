@@ -33,6 +33,7 @@
 #include "l2cache.h"
 #include "noc.h"
 #include "mem.h"
+#include "utility.h"
 
 namespace {
 
@@ -90,6 +91,9 @@ const char* to_string(State state) {
     case State::I: return "I";
     case State::IS_D: return "IS_D";
     case State::S: return "S";
+    case State::E: return "E";
+    case State::O: return "O";
+    case State::M: return "M";
     default: return "Invalid";
   }
 }
@@ -113,9 +117,9 @@ bool is_stable(State state) {
 
 //
 //
-class LineState : public CCLineState {
+class Line : public CCLineState {
  public:
-  LineState() = default;
+  Line() = default;
 
   //
   State state() const { return state_; }
@@ -126,22 +130,6 @@ class LineState : public CCLineState {
  private:
   // Current line state
   State state_ = State::I;
-};
-
-
-//
-//
-struct UpdateStateAction : public CoherenceAction {
-  UpdateStateAction(LineState* line, State state)
-      : line_(line), state_(state)
-  {}
-  bool execute() override {
-    line_->set_state(state_);
-    return true;
-  }
- private:
-  LineState* line_ = nullptr;
-  State state_;
 };
 
 //
@@ -172,7 +160,7 @@ class MOESICCProtocol : public CCProtocol {
   //
   //
   CCLineState* construct_line() const override {
-    return new CCLineState;
+    return new Line;
   }
 
   //
@@ -210,10 +198,12 @@ class MOESICCProtocol : public CCProtocol {
         // ACE command advances to active state; install entry within
         // transaction table.
         cl.push_back(cb::from_opcode(CCOpcode::TableInstall));
-        //
+        // Consume ACE command
         cl.push_back(cb::from_opcode(CCOpcode::MsgConsume));
         // Advance to next
         cl.push_back(cb::from_opcode(CCOpcode::WaitNextEpochOrWait));
+        // Update state
+        issue_update_state(ctxt, cl, State::IS_D);
       } break;
       default: {
       } break;
@@ -232,6 +222,37 @@ class MOESICCProtocol : public CCProtocol {
     cl.push_back(cb::from_opcode(CCOpcode::MsgConsume));
     // Advance to next
     cl.push_back(cb::from_opcode(CCOpcode::WaitNextEpochOrWait));
+  }
+
+
+  void issue_update_state(CCContext& ctxt, CCCommandList& cl, State state) const {
+    struct UpdateStateAction : public CoherenceAction {
+      UpdateStateAction(Line* line, State state)
+          : line_(line), state_(state)
+      {}
+      std::string to_string() const override {
+        using cc::to_string;
+
+        std::stringstream ss;
+        {
+          KVListRenderer r(ss);
+          r.add_field("action", "update state");
+          r.add_field("current", to_string(line_->state()));
+          r.add_field("next", to_string(state_));
+        }
+        return ss.str();
+      }
+      bool execute() override {
+        line_->set_state(state_);
+        return true;
+      }
+     private:
+      Line* line_ = nullptr;
+      State state_;
+    };
+    Line* line = static_cast<Line*>(ctxt.line());
+    CoherenceAction* action = new UpdateStateAction(line, state);
+    cl.push_back(cb::from_action(action));
   }
   
 };

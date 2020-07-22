@@ -419,11 +419,14 @@ L2CacheModel::L2CacheModel(kernel::Kernel* k, const L2CacheModelConfig& config)
 }
 
 L2CacheModel::~L2CacheModel() {
-  delete cc_l2__rsp_q_;
   delete arb_;
   delete main_;
   delete cache_;
   delete protocol_;
+  delete cc_l2__rsp_q_;
+  for (MessageQueue* mq : l1_l2__cmd_qs_) {
+    delete mq;
+  }
 }
 
 void L2CacheModel::add_l1c(L1CacheModel* l1c) {
@@ -469,7 +472,8 @@ void L2CacheModel::set_l1cache_n(std::size_t n) { l2_l1__rsp_qs_.resize(n); }
 
 void L2CacheModel::drc() {
   if (protocol_ == nullptr) {
-    // No protocol is defined.
+    LogMessage msg("Protocol has not been bound.", Level::Fatal);
+    log(msg);
   }
 
   if (l1cs_.empty()) {

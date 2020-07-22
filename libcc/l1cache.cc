@@ -482,10 +482,12 @@ void L1CacheModel::drc() {
     log(msg);
   }
   if (cpu_ == nullptr) {
-    // Error: CPU has not been bound.
+    LogMessage msg("CPU has not been bound.", Level::Fatal);
+    log(msg);
   }
   if (l2c_ == nullptr) {
-    // Error: L2C has not been bound.
+    LogMessage msg("L2 has not been bound.", Level::Fatal);
+    log(msg);
   }
 }
 
