@@ -89,29 +89,195 @@ std::string L2CmdRspMsg::to_string() const {
   return ss.str();
 }
 
-const char* to_string(L2Wait w) {
-  switch (w) {
-    case L2Wait::Invalid:
-      return "Invalid";
-    case L2Wait::MsgArrival:
-      return "MsgArrival";
-    case L2Wait::NextEpochIfHasRequestOrWait:
-      return "NextEpochIfHasRequestOrWait";
-    default:
-      return "Unknown";
+L2CacheContext::~L2CacheContext() {
+  if (owns_line_) {
+    // line_->release();
+    delete line_;
   }
 }
 
-L2CacheContext::~L2CacheContext() {
-  for (CoherenceAction* a : al_) {
-    a->release();
+const char* to_string(L2Opcode opcode) {
+  switch (opcode) {
+#define __declare_to_string(__name)             \
+    case L2Opcode::__name:                      \
+      return #__name;
+    L2OPCODE_LIST(__declare_to_string)
+#undef __declare_to_string
+    default: return "Invalid";
   }
 }
+
+L2Command::~L2Command() {
+  switch (opcode()) {
+    case L2Opcode::InvokeCoherenceAction:
+      oprands.coh.action->release();
+      break;
+    default:
+      break;
+  }
+}
+
+std::string L2Command::to_string() const {
+  std::stringstream ss;
+  {
+    KVListRenderer r(ss);
+    r.add_field("opcode", cc::to_string(opcode()));
+    switch (opcode()) {
+      case L2Opcode::InvokeCoherenceAction: {
+        r.add_field("action", oprands.coh.action->to_string());
+      } break;
+      default: {
+      } break;
+    }
+  }
+  return ss.str();
+}
+
+L2Command* L2CommandBuilder::from_opcode(L2Opcode opcode) {
+  return new L2Command(opcode);
+}
+
+L2Command* L2CommandBuilder::from_action(CoherenceAction* action) {
+  L2Command* cmd = new L2Command(L2Opcode::InvokeCoherenceAction);
+  cmd->oprands.coh.action = action;
+  return cmd;
+}
+
+L2CommandList::~L2CommandList() {
+  for (L2Command* cmd : cmds_) {
+    cmd->release();
+  }
+}
+
+void L2CommandList::push_back(L2Command* cmd) { cmds_.push_back(cmd); }
+
+class L2CommandInterpreter {
+
+  struct State {
+    // Iterator into current transaction table entry.
+    L2TTable::iterator table_it;
+    // Address of current command.
+    addr_t addr;
+  };
+  
+ public:
+  L2CommandInterpreter() = default;
+
+  void set_l2cache(L2CacheModel* model) { model_ = model; }
+  void set_process(kernel::Process* process) { process_ = process; }
+
+  void execute(L2CacheContext& ctxt, const L2Command* c) {
+    switch (c->opcode()) {
+      default: {
+      } break;
+#define __declare_dispatcher(__name) \
+  case L2Opcode::__name:             \
+    execute##__name(ctxt, c);        \
+    break;
+        L2OPCODE_LIST(__declare_dispatcher)
+#undef __declare_dispatcher
+    }
+  }
+ private:
+
+  void executeTableInstall(L2CacheContext& ctxt, const L2Command* cmd) const {
+    L2TTable* tt = model_->tt();
+    L2TState* st = new L2TState();
+    st->set_line(ctxt.line());
+    tt->install(ctxt.msg()->t(), st);
+  }
+  
+  void executeTableGetCurrentState(L2CacheContext& ctxt, const L2Command* cmd) {
+    // Lookup the Transaction Table for the current transaction
+    // and set the table pointer for subsequent operations.
+    L2TTable* tt = model_->tt();
+    state_.table_it = tt->find(ctxt.msg()->t());
+    if (state_.table_it == tt->end()) {
+      throw std::runtime_error(
+          "Transaction not present in the transaction table");
+    }
+  }
+  
+  void executeTableMqAddToBlockedList(L2CacheContext& ctxt, const L2Command* cmd) const {
+    // Add the currently address Message Queue to the set of
+    // queues blocked on the current transaction.
+    L2TState* st = state_.table_it->second;
+    st->add_blocked_mq(ctxt.mq());
+  }
+  
+  void executeMqSetBlocked(L2CacheContext& ctxt, const L2Command* cmd) const {
+    // Set the blocked status of the current Message Queue.
+    ctxt.mq()->set_blocked(true);
+  }
+  
+  void executeMsgL1CmdExtractAddr(L2CacheContext& ctxt, const L2Command* cmd) {
+    // Extract address field from command message.
+    state_.addr = static_cast<const L2CmdMsg*>(ctxt.msg())->addr();
+  }
+
+  void executeMsgConsume(L2CacheContext& ctxt, const L2Command* cmd) const {
+    // Dequeue and release the head message of the currently
+    // addressed Message Queue.
+    const Message* msg = ctxt.mq()->dequeue();
+    msg->release();
+    ctxt.t().advance();
+  }  
+  
+  void executeInstallLine(L2CacheContext& ctxt, const L2Command* cmd) const {
+    // Install line within the current context into the cache at
+    // an appropriate location. Expects that any prior evictions
+    // to thg destination set have already taken place.
+    L2Cache* cache = model_->cache();
+    const CacheAddressHelper ah = cache->ah();
+    L2CacheSet set = cache->set(ah.set(state_.addr));
+    L2Cache::Evictor evictor;
+    if (const std::pair<L2CacheLineIt, bool> p =
+        evictor.nominate(set.begin(), set.end());
+        !p.second) {
+      set.install(p.first, ah.tag(state_.addr), ctxt.line());
+      ctxt.set_owns_line(false);
+    } else {
+      throw std::runtime_error("Cannot install line as set is full.");
+    }
+  }
+  
+  void executeInvokeCoherenceAction(L2CacheContext& ctxt, const L2Command* cmd) const {
+    CoherenceAction* action = cmd->action();
+    action->execute();
+  }
+  
+  void executeWaitOnMsg(L2CacheContext& ctxt, const L2Command* cmd) const {
+    // Set wait state of current process; await the arrival of a
+    // new message.
+    MQArb* arb = model_->arb();
+    process_->wait_on(arb->request_arrival_event());
+  }
+  
+  void executeWaitNextEpochOrWait(L2CacheContext& ctxt, const L2Command* cmd) const {
+    MQArb* arb = model_->arb();
+    MQArbTmt t = arb->tournament();
+    if (t.has_requester()) {
+      // Wait some delay
+      process_->wait_for(kernel::Time{10, 0});
+    } else {
+      // No further commands, block process until something
+      // arrives.
+      process_->wait_on(arb->request_arrival_event());
+    }
+  }
+  
+  //
+  State state_;
+  //
+  kernel::Process* process_ = nullptr;
+  //
+  L2CacheModel* model_ = nullptr;
+};
 
 //
 //
 class L2CacheModel::MainProcess : public kernel::Process {
-  using CacheLineIt = CacheModel<L2LineState*>::LineIterator;
+  using cb = L2CommandBuilder;
 
  public:
   MainProcess(kernel::Kernel* k, const std::string& name, L2CacheModel* model)
@@ -121,48 +287,57 @@ class L2CacheModel::MainProcess : public kernel::Process {
   // Initialization:
   void init() override {
     L2CacheContext c;
-    c.set_wait(L2Wait::MsgArrival);
-    wait_on_context(c);
+    L2CommandList cl;
+    cl.push_back(cb::from_opcode(L2Opcode::WaitOnMsg));
+    execute(c, cl);
   }
 
   // Evaluation:
   void eval() override {
     MQArb* arb = model_->arb();
-    MQArbTmt t = arb->tournament();
 
     // Construct and initialize current processing context.
-    L2CacheContext c;
-    c.set_l2cache(model_);
-    c.set_t(t);
+    L2CommandList cl;
+    L2CacheContext ctxt;
+    ctxt.set_t(arb->tournament());
+    ctxt.set_l2cache(model_);
 
-    // Fetch nominated message.
-    const Message* msg = t.winner()->peek();
-    c.set_mq(t.winner());
-    c.set_msg(msg);
+    // Check if requests are present, if not block until a new message
+    // arrives at the arbiter. Process should ideally not wake in the
+    // absence of requesters.
+    if (!ctxt.t().has_requester()) {
+      cl.push_back(cb::from_opcode(L2Opcode::WaitOnMsg));
+      execute(ctxt, cl);
+      return;
+    }
+
+    // Fetch nominated message queue
+    ctxt.set_mq(ctxt.t().winner());
 
     // Dispatch to appropriate message class
-    switch (c.msg()->cls()) {
+    switch (ctxt.msg()->cls()) {
       case MessageClass::L2Cmd: {
-        eval_msg(c, static_cast<const L2CmdMsg*>(c.msg()));
+        process_l2cmd(ctxt, cl);
       } break;
-      case MessageClass::AceCmdRspR: {
-        L2TState* st = lookup_tt(c.msg()->t());
-        c.set_st(st);
-        c.set_line(st->line());
-        eval_msg(c, static_cast<const AceCmdRspRMsg*>(c.msg()));
+      case MessageClass::AceCmdRsp: {
+        process_acecmdrsp(ctxt, cl);
       } break;
       default: {
-      } break;
+        LogMessage lmsg("Invalid message class received: ");
+        lmsg.append(cc::to_string(ctxt.msg()->cls()));
+        lmsg.level(Level::Error);
+        log(lmsg);
+    } break;
     }
-    // If context commits, apply set of state updates.
-    if (c.commits()) {
-      execute(c);
+
+    if (can_execute(cl)) {
+      execute(ctxt, cl);
     }
-    // Apply context's wait condition to processes wait-state.
-    wait_on_context(c);
   }
 
-  void eval_msg(L2CacheContext& c, const L2CmdMsg* cmd) const {
+ private:
+  void process_l2cmd(L2CacheContext& ctxt, L2CommandList& cl) const {
+    const L2CmdMsg* cmd = static_cast<const L2CmdMsg*>(ctxt.msg());
     L2Cache* cache = model_->cache();
     const CacheAddressHelper ah = cache->ah();
     const L2CacheModelProtocol* protocol = model_->protocol();
@@ -176,117 +351,64 @@ class L2CacheModel::MainProcess : public kernel::Process {
       // evicted.
       L2Cache::Evictor evictor;
       if (const std::pair<L2CacheLineIt, bool> p =
-              evictor.nominate(set.begin(), set.end());
+          evictor.nominate(set.begin(), set.end());
           p.second) {
         // Eviction required before command can complete.
-        c.set_it(p.first);
-        protocol->evict(c);
-        check_resources(c);
+        // TODO
       } else {
         // Eviction not required for the command to complete.
-        c.set_it(p.first);
-        protocol->install(c);
-        check_resources(c);
-        if (c.commits()) {
-          set.install(c.it(), ah.tag(cmd->addr()), c.line());
-          // Line ownership passed to cache.
-          c.set_owns_line(false);
-        }
+        ctxt.set_line(protocol->construct_line());
+        ctxt.set_owns_line(true);
+        protocol->apply(ctxt, cl);
       }
     } else {
       // Line is present in the cache, apply state update.
-      c.set_line(it->t());
-      protocol->apply(c);
-      check_resources(c);
+      ctxt.set_line(it->t());
+      protocol->apply(ctxt, cl);
     }
   }
 
-  void eval_msg(L2CacheContext& c, const AceCmdRspRMsg* rsp) const {
-    const L2CacheModelProtocol* protocol = model_->protocol();
-    protocol->apply(c);
-  }
-
-  L2TState* lookup_tt(Transaction* t) {
+  void process_acecmdrsp(L2CacheContext& ctxt, L2CommandList& cl) const {
+    Transaction* t = ctxt.msg()->t();
     L2TTable* tt = model_->tt();
-    L2TTable::iterator it = tt->find(t);
-    if (it == tt->end()) {
-      LogMessage msg("Cannot find entry in transaction table.");
-      msg.level(Level::Fatal);
-      log(msg);
-      return nullptr;
-    }
-    return it->second;
-  }
-
-  void check_resources(L2CacheContext& c) const {}
-
-  void execute(const L2CacheContext& c) const {
-    for (CoherenceAction* a : c.actions()) {
-      a->execute();
-    }
-    update_ttable(c);
-    MQArbTmt t = c.t();
-    if (c.dequeue()) {
-      t.winner()->dequeue();
-      t.advance();
+    if (auto it = tt->find(t); it != tt->end()) {
+      const L2CacheModelProtocol* protocol = model_->protocol();
+      const L2TState* st = it->second;
+      ctxt.set_line(st->line());
+      protocol->apply(ctxt, cl);
+    } else {
+      LogMessage lm("Cannot find transaction table entry for ");
+      lm.append(to_string(t));
+      lm.level(Level::Fatal);
+      log(lm);
     }
   }
 
-  void update_ttable(const L2CacheContext& c) const {
-    L2TTable* tt = model_->tt();
-    Transaction* trn = c.msg()->t();
-    if (c.ttadd()) {
-      // Create new state.
-      L2TState* st = new L2TState;
-      st->set_line(c.line());
+  bool can_execute(const L2CommandList& cl) const {
+    return true;
+  }
 
-      if (c.stalled()) {
-        c.mq()->set_blocked(true);
-        st->add_bmq(c.mq());
+  void execute(L2CacheContext& ctxt, const L2CommandList& cl) {
+    try {
+      L2CommandInterpreter interpreter;
+      interpreter.set_l2cache(model_);
+      interpreter.set_process(this);
+      for (const L2Command* cmd : cl) {
+        LogMessage lm("Executing opcode: ");
+        lm.append(to_string(cmd->opcode()));
+        lm.level(Level::Debug);
+        log(lm);
+
+        interpreter.execute(ctxt, cmd);
       }
-      // Install context into table.
-      tt->install(trn, st);
-    } else if (c.ttdel()) {
-      // Delete entry from table.
-      L2TTable::iterator it = tt->find(trn);
-      if (it == tt->end()) {
-        LogMessage msg("Transaction not present in transaction table!");
-        msg.level(Level::Fatal);
-        log(msg);
-      }
-      L2TState* st = it->second;
-      for (MessageQueue* mq : st->bmqs()) mq->set_blocked(false);
-      st->release();
-      tt->remove(it);
+    } catch (const std::runtime_error& ex) {
+      LogMessage lm("Interpreter encountered an error: ");
+      lm.append(ex.what());
+      lm.level(Level::Fatal);
+      log(lm);
     }
   }
 
-  void wait_on_context(const L2CacheContext& c) {
-    switch (c.wait()) {
-      case L2Wait::MsgArrival: {
-        MQArb* arb = model_->arb();
-        wait_on(arb->request_arrival_event());
-      } break;
-      case L2Wait::NextEpochIfHasRequestOrWait: {
-        MQArb* arb = model_->arb();
-        MQArbTmt t = arb->tournament();
-        if (t.has_requester()) {
-          // Wait some delay
-          wait_for(kernel::Time{10, 0});
-        } else {
-          // No further commands, block process until something
-          // arrives.
-          wait_on(arb->request_arrival_event());
-        }
-      } break;
-      default: {
-        LogMessage msg("Invalid wait condition.");
-        msg.append(to_string(c.wait()));
-        msg.level(Level::Fatal);
-        log(msg);
-      } break;
-    }
-  }
   // Pointer to parent L2.
   L2CacheModel* model_ = nullptr;
 };
@@ -331,7 +453,8 @@ void L2CacheModel::build() {
   // Cache model
   cache_ = new L2Cache(config_.cconfig);
   // Setup protocol
-  protocol_ = config_.pbuilder->create_l2();
+  protocol_ = config_.pbuilder->create_l2(k());
+  add_child_module(protocol_);
 }
 
 void L2CacheModel::elab() {
@@ -340,7 +463,6 @@ void L2CacheModel::elab() {
   for (MessageQueue* msgq : l1_l2__cmd_qs_) {
     arb_->add_requester(msgq);
   }
-  protocol_->set_l2cache(this);
 }
 
 void L2CacheModel::set_l1cache_n(std::size_t n) { l2_l1__rsp_qs_.resize(n); }

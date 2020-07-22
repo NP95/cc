@@ -40,12 +40,14 @@
 namespace cc {
 
 // Message Forwards:
+class L1CacheModel;
 class L1CommandList;
 class L1CacheContext;
 
-class L1CacheModel;
-class L2CacheContext;
 class L2CacheModel;
+class L2CommandList;
+class L2CacheContext;
+
 class CC;
 class CCContext;
 class DirModel;
@@ -183,10 +185,11 @@ enum class L1UpdateStatus { CanCommit, IsBlocked };
 //
 class CoherenceAction {
  public:
-  virtual ~CoherenceAction() = default;
-
+  virtual std::string to_string() const = 0;
   virtual bool execute() = 0;
   virtual void release() { delete this; }
+ protected:
+  virtual ~CoherenceAction() = default;
 };
 
 using CoherenceActionList = std::vector<CoherenceAction*>;
@@ -195,7 +198,7 @@ using CoherenceActionList = std::vector<CoherenceAction*>;
 //
 class L1CacheModelProtocol : public kernel::Module {
  public:
-  L1CacheModelProtocol(kernel::Kernel* k);
+  L1CacheModelProtocol(kernel::Kernel* k, const std::string& name);
   virtual ~L1CacheModelProtocol() = default;
 
   //
@@ -233,35 +236,26 @@ class L2LineState {
 
 //
 //
-class L2CacheModelProtocol {
+class L2CacheModelProtocol : public kernel::Module {
  public:
-  L2CacheModelProtocol() = default;
+  L2CacheModelProtocol(kernel::Kernel* k, const std::string& name);
   virtual ~L2CacheModelProtocol() = default;
 
   //
-  L2CacheModel* l2cache() const { return l2cache_; }
-
   //
-  void set_l2cache(L2CacheModel* l2cache) { l2cache_ = l2cache; }
-
-  //
-  //
-  virtual void install(L2CacheContext& c) const = 0;
+  virtual L2LineState* construct_line() const = 0;
 
   //
   //
-  virtual void apply(L2CacheContext& c) const = 0;
+  virtual void apply(L2CacheContext& ctxt, L2CommandList& cl) const = 0;
 
   //
   //
-  virtual void evict(L2CacheContext& c) const = 0;
+  virtual void evict(L2CacheContext& ctxt, L2CommandList& cl) const = 0;
 
  protected:
-  virtual void issue_msg(CoherenceActionList& al, MessageQueue* mq,
+  virtual void issue_msg(L2CommandList& cl, MessageQueue* mq,
                          const Message* msg) const;
-
- private:
-  L2CacheModel* l2cache_ = nullptr;
 };
 
 //
@@ -382,7 +376,7 @@ class ProtocolBuilder {
   virtual L1CacheModelProtocol* create_l1(kernel::Kernel*) = 0;
 
   // Create an instance of the L2 protocol
-  virtual L2CacheModelProtocol* create_l2() = 0;
+  virtual L2CacheModelProtocol* create_l2(kernel::Kernel*) = 0;
 
   // Create an instance of the Dir protocol
   virtual DirProtocol* create_dir() = 0;

@@ -114,94 +114,82 @@ using L2CacheSet = L2Cache::Set;
 // Cache Line Iterator type.
 using L2CacheLineIt = L2Cache::LineIterator;
 
-//
-//
-enum class L2Wait {
-  // Invalid wait condition; indicates unset.
-  Invalid,
-  // Await the arrival of a message at the ingress arbiter.
-  MsgArrival,
-  // If further requests, wait for next epoch, otherwise block until
-  // new messages arrive.
-  NextEpochIfHasRequestOrWait
+#define L2OPCODE_LIST(__func)                   \
+  __func(TableInstall)                          \
+  __func(TableGetCurrentState)                  \
+  __func(TableMqAddToBlockedList)               \
+  __func(MqSetBlocked)                          \
+  __func(MsgL1CmdExtractAddr)                   \
+  __func(MsgConsume)                            \
+  __func(InstallLine)                           \
+  __func(InvokeCoherenceAction)                 \
+  __func(WaitOnMsg)                             \
+  __func(WaitNextEpochOrWait)
+
+enum class L2Opcode {
+#define __declare_opcode(__name) __name,
+  L2OPCODE_LIST(__declare_opcode)
+#undef __declare_opcode
 };
 
 //
-const char* to_string(L2Wait w);
+//
+const char* to_string(L2Opcode opcode);
 
 //
 //
-class L2CacheContext {
+class L2Command {
+  friend class L2CommandBuilder;
+
  public:
-  L2CacheContext() = default;
-  ~L2CacheContext();
+  L2Command(L2Opcode opcode) : opcode_(opcode) {}
+  virtual void release() const { delete this; }
 
-  // Getters:
-  L2CacheModel* l2cache() const { return l2cache_; }
-  bool owns_line() const { return owns_line_; }
-  bool stalled() const { return stalled_; }
-  bool commits() const { return commits_; }
-  bool dequeue() const { return dequeue_; }
-  bool ttadd() const { return ttadd_; }
-  bool ttdel() const { return ttdel_; }
-  const Message* msg() const { return msg_; }
-  MessageQueue* mq() const { return mq_; }
-  CoherenceActionList& actions() { return al_; }
-  const CoherenceActionList& actions() const { return al_; }
-  MQArbTmt t() const { return t_; }
-  L2CacheLineIt it() const { return it_; }
-  L2LineState* line() const { return line_; }
-  L2TState* st() const { return st_; }
-  L2Wait wait() const { return wait_; }
+  std::string to_string() const;
 
-  // Setters:
-  void set_l2cache(L2CacheModel* l2cache) { l2cache_ = l2cache; }
-  void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
-  void set_stalled(bool stalled) { stalled_ = stalled; }
-  void set_commits(bool commits) { commits_ = commits; }
-  void set_dequeue(bool dequeue) { dequeue_ = dequeue; }
-  void set_ttadd(bool ttadd) { ttadd_ = ttadd; }
-  void set_ttdel(bool ttdel) { ttdel_ = ttdel; }
-  void set_msg(const Message* msg) { msg_ = msg; }
-  void set_mq(MessageQueue* mq) { mq_ = mq; }
-  void set_t(MQArbTmt t) { t_ = t; }
-  void set_it(L2CacheLineIt it) { it_ = it; }
-  void set_line(L2LineState* line) { line_ = line; }
-  void set_st(L2TState* st) { st_ = st; }
-  void set_wait(L2Wait wait) { wait_ = wait; }
+  L2Opcode opcode() const { return opcode_; }
+  CoherenceAction* action() const { return oprands.coh.action; }
 
  private:
+  virtual ~L2Command();
   //
-  L2CacheModel* l2cache_ = nullptr;
-  // Message owning queue is stalled/
-  bool stalled_ = false;
-  // Dequeue message from associated message queue upon execution.
-  bool dequeue_ = false;
-  // Context commits to machine state.
-  bool commits_ = false;
-  // Context owns the current line (on an install line) and therefore
-  // must delete the line upon destruction.
-  bool owns_line_ = false;
-  // Transaction table ADD
-  bool ttadd_ = false;
-  // Transaction table DELete
-  bool ttdel_ = false;
-  // Current cache line
-  L2LineState* line_ = nullptr;
-  // Message being processed.
-  const Message* msg_ = nullptr;
-  // Current Message Queue
-  MessageQueue* mq_ = nullptr;
+  union {
+    struct {
+      CoherenceAction* action;
+    } coh;
+  } oprands;
   //
-  L2TState* st_ = nullptr;
-  // Current arbitration tournament.
-  MQArbTmt t_;
-  // Current line in cache.
-  L2CacheLineIt it_;
-  // Condition on which the process is to be re-evaluated.
-  L2Wait wait_ = L2Wait::Invalid;
-  // Coherence actions.
-  CoherenceActionList al_;
+  L2Opcode opcode_;
+};
+
+//
+//
+class L2CommandBuilder {
+ public:
+  static L2Command* from_opcode(L2Opcode opcode);
+
+  static L2Command* from_action(CoherenceAction* action);
+};
+
+
+//
+//
+class L2CommandList {
+  using vector_type = std::vector<L2Command*>;
+
+ public:
+  using const_iterator = vector_type::const_iterator;
+
+  L2CommandList() = default;
+  ~L2CommandList();
+
+  const_iterator begin() const { return cmds_.begin(); }
+  const_iterator end() const { return cmds_.end(); }
+
+  void push_back(L2Command* cmd);
+
+ private:
+  std::vector<L2Command*> cmds_;
 };
 
 //
@@ -222,7 +210,7 @@ class L2TState {
   // Set current cache line
   void set_line(L2LineState* line) { line_ = line; }
   // Add Blocked Message Queue
-  void add_bmq(MessageQueue* mq) { bmqs_.push_back(mq); }
+  void add_blocked_mq(MessageQueue* mq) { bmqs_.push_back(mq); }
 
  private:
   // Cache line on which current transaction is executing. (Can
@@ -239,10 +227,46 @@ using L2TTable = Table<Transaction*, L2TState*>;
 
 //
 //
+class L2CacheContext {
+ public:
+  L2CacheContext() = default;
+  ~L2CacheContext();
+
+  //
+  MQArbTmt t() const { return t_; }
+  const Message* msg() const { return mq_->peek(); }
+  MessageQueue* mq() const { return mq_; }
+  L2CacheModel* l2cache() const { return l2cache_; }
+  bool owns_line() const { return owns_line_; }
+  L2LineState* line() const { return line_; }
+
+  //
+  void set_t(MQArbTmt t) { t_ = t; }
+  void set_mq(MessageQueue* mq) { mq_ = mq; }
+  void set_l2cache(L2CacheModel* l2cache) { l2cache_ = l2cache; }
+  void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
+  void set_line(L2LineState* line) { line_ = line; }
+
+ private:
+  // Current Message Queue arbiter tournament.
+  MQArbTmt t_;
+  //
+  bool owns_line_ = false;
+  //
+  L2LineState* line_ = nullptr;
+  // Current Message Queue
+  MessageQueue* mq_ = nullptr;
+  // L2 cache instance
+  L2CacheModel* l2cache_ = nullptr;
+};
+
+//
+//
 class L2CacheModel : public Agent {
   class MainProcess;
-  friend class CpuCluster;
 
+  friend class CpuCluster;
+  friend class L2CommandInterpreter;
  public:
   L2CacheModel(kernel::Kernel* k, const L2CacheModelConfig& config);
   virtual ~L2CacheModel();

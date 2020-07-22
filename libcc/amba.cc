@@ -94,11 +94,11 @@ std::string AceCmdMsg::to_string() const {
 
 //
 //
-AceCmdRspRMsg::AceCmdRspRMsg() : Message(MessageClass::AceCmdRspR) {}
+AceCmdRspMsg::AceCmdRspMsg() : Message(MessageClass::AceCmdRsp) {}
 
 //
 //
-std::string AceCmdRspRMsg::to_string() const {
+std::string AceCmdRspMsg::to_string() const {
   using cc::to_string;
 
   std::stringstream ss;
@@ -107,23 +107,6 @@ std::string AceCmdRspRMsg::to_string() const {
     render_msg_fields(r);
     r.add_field("pass_dirty", to_string(pass_dirty()));
     r.add_field("is_shared", to_string(is_shared()));
-  }
-  return ss.str();
-}
-
-//
-//
-AceCmdRspBMsg::AceCmdRspBMsg() : Message(MessageClass::AceCmdRspB) {}
-
-//
-//
-std::string AceCmdRspBMsg::to_string() const {
-  using cc::to_string;
-
-  std::stringstream ss;
-  {
-    KVListRenderer r(ss);
-    render_msg_fields(r);
   }
   return ss.str();
 }

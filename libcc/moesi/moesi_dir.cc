@@ -32,6 +32,7 @@
 #include "llc.h"
 #include "noc.h"
 #include "mem.h"
+#include "utility.h"
 #include <set>
 
 namespace {
@@ -143,22 +144,6 @@ class LineState : public DirLineState {
   Agent* owner_ = nullptr;
   // Current set of sharers
   sharer_set sharers_;
-};
-
-
-//
-//
-struct UpdateStateAction : public CoherenceAction {
-  UpdateStateAction(LineState* line, State state)
-      : line_(line), state_(state)
-  {}
-  bool execute() override {
-    line_->set_state(state_);
-    return true;
-  }
- private:
-  LineState* line_ = nullptr;
-  State state_;
 };
   
 
@@ -278,6 +263,30 @@ class MOESIDirProtocol : public DirProtocol {
   //
   //
   void issue_update_state(DirActionList& al, LineState* line, State state) const {
+    struct UpdateStateAction : public CoherenceAction {
+      UpdateStateAction(LineState* line, State state)
+          : line_(line), state_(state)
+      {}
+      std::string to_string() const override {
+        using cc::to_string;
+        
+        std::stringstream ss;
+        {
+          KVListRenderer r(ss);
+          r.add_field("action", "update state");
+          r.add_field("current", to_string(line_->state()));
+          r.add_field("next", to_string(state_));
+        }
+        return ss.str();
+      }
+      bool execute() override {
+        line_->set_state(state_);
+        return true;
+      }
+     private:
+      LineState* line_ = nullptr;
+      State state_;
+    };
     al.push_back(new UpdateStateAction(line, state));
   }
 
@@ -289,6 +298,17 @@ class MOESIDirProtocol : public DirProtocol {
       SetOwnerAction(LineState* line, Agent* owner)
           : line_(line), owner_(owner)
       {}
+      std::string to_string() const override {
+        using cc::to_string;
+        
+        std::stringstream ss;
+        {
+          KVListRenderer r(ss);
+          r.add_field("action", "set owner");
+          r.add_field("owner", owner_->path());
+        }
+        return ss.str();
+      }
       bool execute() override {
         line_->set_owner(owner_);
         return true;

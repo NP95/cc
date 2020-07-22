@@ -84,9 +84,9 @@ class AceCmdMsg : public Message {
 
 //
 //
-class AceCmdRspRMsg : public Message {
+class AceCmdRspMsg : public Message {
  public:
-  AceCmdRspRMsg();
+  AceCmdRspMsg();
 
   //
   std::string to_string() const override;
@@ -104,18 +104,6 @@ class AceCmdRspRMsg : public Message {
  private:
   bool pass_dirty_ = false;
   bool is_shared_ = false;
-};
-
-//
-//
-class AceCmdRspBMsg : public Message {
- public:
-  AceCmdRspBMsg();
-
-  //
-  std::string to_string() const override;
-
- private:
 };
 
 //

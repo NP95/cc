@@ -29,6 +29,7 @@
 #include "l1cache.h"
 #include "l2cache.h"
 #include "kernel.h"
+#include "utility.h"
 
 namespace {
 
@@ -56,9 +57,9 @@ const char* to_string(State state) {
     case State::I: return "I";
     case State::IS: return "IS";
     case State::S: return "S";
+    case State::SE: return "SE";
     case State::IE: return "IE";
     case State::E: return "E";
-    case State::EM: return "EM";
     case State::M: return "M";
     case State::MI: return "MI";
     default: return "Invalid";
@@ -105,7 +106,7 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
   
  public:
   MOESIL1CacheProtocol(kernel::Kernel* k) :
-      L1CacheModelProtocol(k)
+      L1CacheModelProtocol(k, "moesil2")
   {}
 
   //
@@ -282,7 +283,7 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
         // Advance to next
         cl.push_back(cb::from_opcode(L1Opcode::WaitNextEpochOrWait));
       } break;
-      case State::ES: {
+      case State::SE: {
         //
       } break;
       default: {
@@ -297,6 +298,18 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
       UpdateStateAction(MOESIL1LineState* line, State state)
           : line_(line), state_(state)
       {}
+      std::string to_string() const override {
+        using cc::to_string;
+        
+        std::stringstream ss;
+        {
+          KVListRenderer r(ss);
+          r.add_field("action", "update state");
+          r.add_field("current", to_string(line_->state()));
+          r.add_field("next", to_string(state_));
+        }
+        return ss.str();
+      }
       bool execute() override {
         line_->set_state(state_);
         return true;

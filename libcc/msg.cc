@@ -51,10 +51,8 @@ const char* to_string(MessageClass cls) {
       return "L2CmdRsp";
     case MessageClass::AceCmd:
       return "AceCmd";
-    case MessageClass::AceCmdRspR:
-      return "AceCmdRspR";
-    case MessageClass::AceCmdRspB:
-      return "AceCmdRspB";
+    case MessageClass::AceCmdRsp:
+      return "AceCmdRsp";
     case MessageClass::AceSnoop:
       return "AceSnoop";
     case MessageClass::AceSnoopRsp:

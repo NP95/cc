@@ -30,6 +30,7 @@
 #include "l1cache.h"
 #include "l2cache.h"
 #include "amba.h"
+#include "utility.h"
 
 namespace {
 
@@ -126,48 +127,53 @@ struct EmitMessageAction : public CoherenceAction {
 //
 //
 class MOESIL2CacheProtocol : public L2CacheModelProtocol {
+  using cb = L2CommandBuilder;
+
  public:
-  MOESIL2CacheProtocol() = default;
+  MOESIL2CacheProtocol(kernel::Kernel* k)
+      : L2CacheModelProtocol(k, "moesil2")
+  {}
 
   //
   //
-  void install(L2CacheContext& c) const {
-    MOESIL2LineState* line = new MOESIL2LineState;
-    c.set_line(line);
-    c.set_owns_line(true);
-    apply(c);
+  L2LineState* construct_line() const override {
+    MOESIL2LineState* line = new MOESIL2LineState();
+    return line;
   }
 
   //
   //
-  void apply(L2CacheContext& c) const {
-    MOESIL2LineState* line = static_cast<MOESIL2LineState*>(c.line());
-    switch (c.msg()->cls()) {
+  void apply(L2CacheContext& ctxt, L2CommandList& cl) const override {
+    MOESIL2LineState* line = static_cast<MOESIL2LineState*>(ctxt.line());
+    switch(ctxt.msg()->cls()) {
       case MessageClass::L2Cmd: {
-        apply(c, line, static_cast<const L2CmdMsg*>(c.msg()));
+        // CPU -> L1 command:
+        apply(ctxt, cl, line, static_cast<const L2CmdMsg*>(ctxt.msg()));
       } break;
-      case MessageClass::AceCmdRspR: {
-        apply(c, line, static_cast<const AceCmdRspRMsg*>(c.msg()));
+      case MessageClass::AceCmdRsp: {
+        apply(ctxt, cl, line, static_cast<const AceCmdRspMsg*>(ctxt.msg()));
       } break;
       default: {
-        // Invalid message class.
+        // Unknown message class; error
       } break;
     }
   }
 
   //
   //
-  void evict(L2CacheContext& c) const {
+  void evict(L2CacheContext& ctxt, L2CommandList& cl) const override {
     // TODO
   }
 
 
  private:
-  void apply(L2CacheContext& c, MOESIL2LineState* line, const L2CmdMsg* cmd) const {
+  void apply(L2CacheContext& ctxt, L2CommandList& cl, MOESIL2LineState* line,
+             const L2CmdMsg* cmd) const {
     switch (line->state()) {
       case State::I: {
         AceCmdMsg* msg = new AceCmdMsg;
         msg->set_t(cmd->t());
+        msg->set_addr(cmd->addr());
         switch (cmd->opcode()) {
           case L2CmdOpcode::L1GetS: {
             // State I; requesting GetS (ie. Shared); issue ReadShared
@@ -178,32 +184,39 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
             msg->set_opcode(AceCmdOpcode::ReadUnique);
           } break;
         }
-        issue_msg(c.actions(), c.l2cache()->l2_cc__cmd_q(), msg);
+        // Issue ACE command to the cache controller.
+        issue_msg(cl, ctxt.l2cache()->l2_cc__cmd_q(), msg);
         // Update state
-        issue_update_state(c, line, State::IS);
-        // Update context
-        c.set_stalled(true);
-        c.set_commits(true);
-        // Starts new transaction, therefore install new table entry.
-        c.set_ttadd(true);
-        // Set wait condition
-        c.set_wait(L2Wait::NextEpochIfHasRequestOrWait);
+        issue_update_state(cl, line, State::IS);
+        // Message is stalled on lookup transaction.
+        // Install new entry in transaction table as the transaction
+        // has now started and commands are inflight. The transaction
+        // itself is not complete at this point.
+        cl.push_back(cb::from_opcode(L2Opcode::TableInstall));
+        cl.push_back(cb::from_opcode(L2Opcode::TableGetCurrentState));
+        // Source Message Queue is blocked until the current
+        // transaction (lookup to L2) has completed.
+        cl.push_back(cb::from_opcode(L2Opcode::TableMqAddToBlockedList));
+        // Set blocked status in Message Queue to rescind requestor
+        // status.
+        cl.push_back(cb::from_opcode(L2Opcode::MqSetBlocked));
+        cl.push_back(cb::from_opcode(L2Opcode::MsgL1CmdExtractAddr));
+        // Install new cache line.
+        cl.push_back(cb::from_opcode(L2Opcode::InstallLine));
+        // Advance to next
+        cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpochOrWait));
       } break;
       case State::S: {
         switch (cmd->opcode()) {
           case L2CmdOpcode::L1GetS: {
-            // L1 -> L2 GetS command when presently in the S state; command
-            // succeeds; forward data to requesting L1 in the S state.
+            // L1 requests a line which is already in the S-state.
             L2CmdRspMsg* msg = new L2CmdRspMsg;
             msg->set_t(cmd->t());
-            issue_msg(c.actions(), cmd->l1cache()->l2_l1__rsp_q(), msg);
-            c.set_commits(true);
-            c.set_dequeue(true);
-            // Transaction completes; delete transaction table entry.
-            // c.set_ttdel(true);
-            c.set_wait(L2Wait::NextEpochIfHasRequestOrWait);
-          } break;
-          case L2CmdOpcode::L1GetE: {
+            issue_msg(cl, cmd->l1cache()->l2_l1__rsp_q(), msg);
+            // Consume L1Cmd as it can complete successfully.
+            cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
+            // Advance to next
+            cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpochOrWait));
           } break;
           default: {
           } break;
@@ -214,21 +227,20 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
     }
   }
 
-  void apply(L2CacheContext& c, MOESIL2LineState* line, const AceCmdRspRMsg* msg) const {
+  void apply(L2CacheContext& ctxt, L2CommandList& cl,
+             MOESIL2LineState* line, const AceCmdRspMsg* msg) const {
     switch (line->state()) {
       case State::IS: {
         L2CmdRspMsg* rsp = new L2CmdRspMsg;
         rsp->set_t(msg->t());
-
         // Always sending to the zeroth L1
-        L2CacheModel* l2cache = c.l2cache();
-        issue_msg(c.actions(), l2cache->l2_l1__rsp_q(0), rsp);
-
-        issue_update_state(c, line, State::S);
-
-        c.set_commits(true);
-        c.set_dequeue(true);
-        c.set_wait(L2Wait::NextEpochIfHasRequestOrWait);
+        L2CacheModel* l2cache = ctxt.l2cache();
+        issue_msg(cl, l2cache->l2_l1__rsp_q(0), rsp);
+        issue_update_state(cl, line, State::S);
+        // Consume L1Cmd as it can complete successfully.
+        cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
+        // Advance to next
+        cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpochOrWait));
       } break;
       default: {
       } break;
@@ -236,9 +248,33 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
   }
 
   void issue_update_state(
-      L2CacheContext& c, MOESIL2LineState* line, State state) const {
-    std::vector<CoherenceAction*>& a = c.actions();
-    a.push_back(new UpdateStateAction(line, state));
+      L2CommandList& cl, MOESIL2LineState* line, State state) const {
+    struct UpdateStateAction : public CoherenceAction {
+      UpdateStateAction(MOESIL2LineState* line, State state)
+          : line_(line), state_(state)
+      {}
+      std::string to_string() const override {
+        using cc::to_string;
+
+        std::stringstream ss;
+        {
+          KVListRenderer r(ss);
+          r.add_field("action", "update state");
+          r.add_field("current", to_string(line_->state()));
+          r.add_field("next", to_string(state_));
+        }
+        return ss.str();
+      }
+      bool execute() override {
+        line_->set_state(state_);
+        return true;
+      }
+     private:
+      MOESIL2LineState* line_ = nullptr;
+      State state_;
+    };
+    CoherenceAction* action = new UpdateStateAction(line, state);
+    cl.push_back(cb::from_action(action));
   }
 };
 
@@ -246,6 +282,8 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
 
 namespace cc::moesi {
 
-L2CacheModelProtocol* build_l2_protocol() { return new MOESIL2CacheProtocol{}; }
+L2CacheModelProtocol* build_l2_protocol(kernel::Kernel* k) {
+  return new MOESIL2CacheProtocol(k);
+}
 
 } // namespace cc::moesi;

@@ -97,9 +97,27 @@ const char* to_string(L1Opcode opcode) {
 
 L1CacheContext::~L1CacheContext() {
   if (owns_line()) {
+    // line_->release();
     delete line_;
   }
 }
+
+std::string L1Command::to_string() const {
+  std::stringstream ss;
+  {
+    KVListRenderer r(ss);
+    r.add_field("opcode", cc::to_string(opcode()));
+    switch (opcode()) {
+      case L1Opcode::InvokeCoherenceAction: {
+        r.add_field("action", oprands.coh.action->to_string());
+      } break;
+      default: {
+      } break;
+    }
+  }
+  return ss.str();
+}
+
 
 L1Command::~L1Command() {
   switch (opcode()) {
@@ -131,8 +149,9 @@ void L1CommandList::push_back(L1Command* cmd) { cmds_.push_back(cmd); }
 
 class L1CommandInterpreter {
   struct State {
+    // Iterator into current transaction table entry.
     L1TTable::iterator table_it;
-
+    // Address of current command.
     addr_t addr;
   };
 
@@ -250,7 +269,7 @@ class L1CommandInterpreter {
     L1CacheSet set = cache->set(ah.set(state_.addr));
     L1Cache::Evictor evictor;
     if (const std::pair<L1CacheLineIt, bool> p =
-            evictor.nominate(set.begin(), set.end());
+        evictor.nominate(set.begin(), set.end());
         !p.second) {
       set.install(p.first, ah.tag(state_.addr), ctxt.line());
       ctxt.set_owns_line(false);
@@ -385,16 +404,13 @@ class L1CacheModel::MainProcess : public kernel::Process {
   bool can_execute(L1CommandList& cl) const { return true; }
 
   void execute(L1CacheContext& ctxt, const L1CommandList& cl) {
-    L1TTable::iterator table_it;
-    addr_t addr;
-
     try {
       L1CommandInterpreter interpreter;
       interpreter.set_l1cache(model_);
       interpreter.set_process(this);
       for (const L1Command* cmd : cl) {
-        LogMessage lm("Executing opcode: ");
-        lm.append(to_string(cmd->opcode()));
+        LogMessage lm("Executing cmd: ");
+        lm.append(cmd->to_string());
         lm.level(Level::Debug);
         log(lm);
 

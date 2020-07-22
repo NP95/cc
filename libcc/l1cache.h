@@ -119,14 +119,15 @@ class L1Command {
 
  public:
   L1Command(L1Opcode opcode) : opcode_(opcode) {}
-  virtual ~L1Command();
-
   virtual void release() const { delete this; }
+
+  std::string to_string() const;
 
   L1Opcode opcode() const { return opcode_; }
   CoherenceAction* action() const { return oprands.coh.action; }
 
  private:
+  virtual ~L1Command();
   //
   union {
     struct {
@@ -156,6 +157,8 @@ class L1CommandList {
 
   L1CommandList() = default;
   ~L1CommandList();
+
+  
 
   const_iterator begin() const { return cmds_.begin(); }
   const_iterator end() const { return cmds_.end(); }

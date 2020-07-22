@@ -44,8 +44,8 @@ class MOESIProtocolBuilder : public ProtocolBuilder {
   }
 
   // Create an instance of the L2 protocol
-  L2CacheModelProtocol* create_l2() override {
-    return moesi::build_l2_protocol();
+  L2CacheModelProtocol* create_l2(kernel::Kernel* k) override {
+    return moesi::build_l2_protocol(k);
   }
 
   // Create and instance of the Directory protocol

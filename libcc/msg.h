@@ -122,10 +122,7 @@ enum class MessageClass {
   AceCmd,
 
   // CC -> L2
-  AceCmdRspR,
-
-  // CC -> L2
-  AceCmdRspB,
+  AceCmdRsp,
 
   // ------------------------------------------------------------------------ //
   // Ace "Snoop" message encapsulating snoop requests and respones

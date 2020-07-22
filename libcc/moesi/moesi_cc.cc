@@ -221,7 +221,7 @@ class MOESICCProtocol : public CCProtocol {
   }
 
   void eval_msg(CCContext& c, const CohCmdMsg* msg) const {
-    AceCmdRspRMsg* rmsg = new AceCmdRspRMsg;
+    AceCmdRspMsg* rmsg = new AceCmdRspMsg;
     rmsg->set_t(msg->t());
 
     L2CacheModel* l2cache = c.cc()->l2c();

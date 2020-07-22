@@ -30,6 +30,7 @@
 #include "ccntrl.h"
 #include "dir.h"
 #include "l1cache.h"
+#include "l2cache.h"
 #include "noc.h"
 #include "sim.h"
 #include "utility.h"
@@ -134,15 +135,24 @@ ProtocolBuilder* ProtocolBuilderRegistry::build(const std::string& name) {
 struct EmitMessageAction : public CoherenceAction {
   EmitMessageAction(MessageQueue* mq, const Message* msg)
       : mq_(mq), msg_(msg) {}
+  std::string to_string() const override {
+    std::stringstream ss;
+    {
+      KVListRenderer r(ss);
+      r.add_field("action", "emit message");
+      r.add_field("mq", mq_->path());
+      r.add_field("msg", msg_->to_string());
+    }
+    return ss.str();
+  }
   bool execute() override { return mq_->issue(msg_); }
-
  private:
   MessageQueue* mq_ = nullptr;
   const Message* msg_ = nullptr;
 };
 
-L1CacheModelProtocol::L1CacheModelProtocol(kernel::Kernel* k)
-    : Module(k, "l1protocol") {}
+L1CacheModelProtocol::L1CacheModelProtocol(kernel::Kernel* k, const std::string& name)
+    : Module(k, name) {}
 
 void L1CacheModelProtocol::issue_msg(L1CommandList& cl, MessageQueue* mq,
                                      const Message* msg) const {
@@ -150,9 +160,13 @@ void L1CacheModelProtocol::issue_msg(L1CommandList& cl, MessageQueue* mq,
   cl.push_back(L1CommandBuilder::from_action(action));
 }
 
-void L2CacheModelProtocol::issue_msg(CoherenceActionList& al, MessageQueue* mq,
+L2CacheModelProtocol::L2CacheModelProtocol(kernel::Kernel* k, const std::string& name)
+    : Module(k, name) {}
+
+void L2CacheModelProtocol::issue_msg(L2CommandList& cl, MessageQueue* mq,
                                      const Message* msg) const {
-  al.push_back(new EmitMessageAction(mq, msg));
+  CoherenceAction* action = new EmitMessageAction(mq, msg);
+  cl.push_back(L2CommandBuilder::from_action(action));
 }
 
 void CCProtocol::issue_msg(CCContext& c, MessageQueue* mq,
