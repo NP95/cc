@@ -103,10 +103,10 @@ void DirCommandList::push_back(DirCommand* cmd) { cmds_.push_back(cmd); }
 
 //
 //
-class DirModel::NocIngressProcess : public kernel::Process {
+class DirModel::NocIngressProcess : public AgentProcess {
  public:
   NocIngressProcess(kernel::Kernel* k, const std::string& name, DirModel* model)
-      : kernel::Process(k, name), model_(model) {}
+      : AgentProcess(k, name), model_(model) {}
 
   // Initialization
   void init() override {
@@ -171,7 +171,7 @@ class DirCommandInterpreter {
   DirCommandInterpreter() = default;
 
   void set_dir(DirModel* model) { model_ = model; }
-  void set_process(kernel::Process* process) { process_ = process; }
+  void set_process(AgentProcess* process) { process_ = process; }
 
   void execute(DirContext& ctxt, const DirCommand* cmd) {
     switch (cmd->opcode()) {
@@ -245,18 +245,18 @@ class DirCommandInterpreter {
   //
   State state_;
   //
-  kernel::Process* process_ = nullptr;
+  AgentProcess* process_ = nullptr;
   //
   DirModel* model_ = nullptr;
 };
 
 //
 //
-class DirModel::RdisProcess : public kernel::Process {
+class DirModel::RdisProcess : public AgentProcess {
   using cb = DirCommandBuilder;
  public:
   RdisProcess(kernel::Kernel* k, const std::string& name, DirModel* model)
-      : kernel::Process(k, name), model_(model) {}
+      : AgentProcess(k, name), model_(model) {}
 
  private:
   // Initialization

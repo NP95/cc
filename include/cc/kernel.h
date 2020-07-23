@@ -306,6 +306,12 @@ class Process : public Loggable {
 
   // Suspend/Re-evaluate process upon the notification of event.
   virtual void wait_on(Event& event);
+
+  //
+  virtual void invoke_init();
+
+  //
+  virtual void invoke_eval();
 };
 
 //

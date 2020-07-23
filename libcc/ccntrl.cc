@@ -100,10 +100,10 @@ void CCCommandList::push_back(CCCommand* cmd) { cmds_.push_back(cmd); }
 
 //
 //
-class CCModel::NocIngressProcess : public kernel::Process {
+class CCModel::NocIngressProcess : public AgentProcess {
  public:
   NocIngressProcess(kernel::Kernel* k, const std::string& name, CCModel* cc)
-      : Process(k, name), cc_(cc) {}
+      : AgentProcess(k, name), cc_(cc) {}
 
   // Initialization
   void init() override {
@@ -166,7 +166,7 @@ class CCCommandInterpreter {
   CCCommandInterpreter() = default;
 
   void set_cc(CCModel* model) { model_ = model; }
-  void set_process(kernel::Process* process) { process_ = process; }
+  void set_process(AgentProcess* process) { process_ = process; }
 
   void execute(CCContext& ctxt, const CCCommand* c) {
     switch (c->opcode()) {
@@ -235,18 +235,18 @@ class CCCommandInterpreter {
   //
   State state_;
   //
-  kernel::Process* process_ = nullptr;
+  AgentProcess* process_ = nullptr;
   //
   CCModel* model_ = nullptr;
 };
 
 //
 //
-class CCModel::RdisProcess : public kernel::Process {
+class CCModel::RdisProcess : public AgentProcess {
   using cb = CCCommandBuilder;
  public:
   RdisProcess(kernel::Kernel* k, const std::string& name, CCModel* model)
-      : Process(k, name), model_(model) {}
+      : AgentProcess(k, name), model_(model) {}
 
  private:
   // Initialization
@@ -284,6 +284,9 @@ class CCModel::RdisProcess : public kernel::Process {
       case MessageClass::CohEnd: {
         process_cohend(ctxt, cl);
       } break;
+      case MessageClass::Dt: {
+        process_dt(ctxt, cl);
+      } break;
       default: {
         LogMessage lmsg("Invalid message class received: ");
         lmsg.append(cc::to_string(ctxt.msg()->cls()));
@@ -311,6 +314,12 @@ class CCModel::RdisProcess : public kernel::Process {
     const CCProtocol* protocol = model_->protocol();
     protocol->apply(ctxt, cl);
   }
+
+  void process_dt(CCContext& ctxt, CCCommandList& cl) const {
+    const CCTState* st = lookup_state_or_fail(ctxt.msg()->t()); 
+    const CCProtocol* protocol = model_->protocol();
+    protocol->apply(ctxt, cl);
+  }  
 
   bool can_execute(const CCCommandList& cl) const {
     return true;

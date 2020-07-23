@@ -164,7 +164,7 @@ class L2CommandInterpreter {
   L2CommandInterpreter() = default;
 
   void set_l2cache(L2CacheModel* model) { model_ = model; }
-  void set_process(kernel::Process* process) { process_ = process; }
+  void set_process(AgentProcess* process) { process_ = process; }
 
   void execute(L2CacheContext& ctxt, const L2Command* c) {
     switch (c->opcode()) {
@@ -269,18 +269,18 @@ class L2CommandInterpreter {
   //
   State state_;
   //
-  kernel::Process* process_ = nullptr;
+  AgentProcess* process_ = nullptr;
   //
   L2CacheModel* model_ = nullptr;
 };
 
 //
 //
-class L2CacheModel::MainProcess : public kernel::Process {
+class L2CacheModel::MainProcess : public AgentProcess {
   using cb = L2CommandBuilder;
  public:
   MainProcess(kernel::Kernel* k, const std::string& name, L2CacheModel* model)
-      : kernel::Process(k, name), model_(model) {}
+      : AgentProcess(k, name), model_(model) {}
 
  private:
   // Initialization:

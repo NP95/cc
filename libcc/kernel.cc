@@ -162,7 +162,7 @@ void Kernel::invoke_drc() {
 void Kernel::invoke_init() {
   set_phase(Phase::Init);
   struct InvokeInitVisitor : ObjectVisitor {
-    void visit(Process* o) override { o->init(); }
+    void visit(Process* o) override { o->invoke_init(); }
   };
   InvokeInitVisitor visitor;
   visitor.iterate(top());
@@ -287,7 +287,7 @@ void Event::add_waitee(Process* p) {
     EvalProcessAction(Kernel* k, Process* p)
         : Action(k, "EvalProcessAction"), p_(p) {}
     bool eval() override {
-      p_->eval();
+      p_->invoke_eval();
       // Discard after evaluation.
       return true;
     }
@@ -367,6 +367,16 @@ void Process::wait_until(Time t) {
 }
 
 void Process::wait_on(Event& event) { event.add_waitee(this); }
+
+//
+void Process::invoke_init() {
+  init();
+}
+
+//
+void Process::invoke_eval() {
+  eval();
+}
 
 Module::Module(Kernel* k, const std::string& name) : ProcessHost(k, name) {}
 

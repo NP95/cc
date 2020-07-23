@@ -172,6 +172,9 @@ class MOESIDirProtocol : public DirProtocol {
         apply(ctxt, cl, static_cast<const LLCCmdRspMsg*>(ctxt.msg()));
       } break;
       default: {
+        LogMessage msg("Invalid message class received!");
+        msg.level(Level::Fatal);
+        log(msg);
       } break;
     }
   }
@@ -215,9 +218,9 @@ class MOESIDirProtocol : public DirProtocol {
     switch (line->state()) {
       case State::IE: {
         // Send data
-        //DtMsg* dt = new DtMsg;
-        //dt->set_t(msg->t());
-        //issue_emit_to_noc(ctxt, cl, dt, line->owner());
+        DtMsg* dt = new DtMsg;
+        dt->set_t(msg->t());
+        issue_emit_to_noc(ctxt, cl, dt, line->owner());
         // Send CohEnd
         CohEndMsg* end = new CohEndMsg;
         end->set_t(msg->t());

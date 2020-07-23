@@ -93,8 +93,26 @@ using MQArbTmt = MQArb::Tournament;
 // ERROR OUT WHENEVER WAIT NEXT SET AFTER EVAL.
 //
 class AgentProcess : public kernel::Process {
+  using base_type = kernel::Process;
  public:
   AgentProcess(kernel::Kernel* k, const std::string& name);
+
+  // Suspend/Re-evaulate process after delay.
+  void wait_for(kernel::Time t) override;
+
+  // Suspend/Re-evaulate process at time.
+  void wait_until(kernel::Time t) override;
+
+  // Suspend/Re-evaluate process upon the notification of event.
+  void wait_on(kernel::Event& event) override;
+
+ private:
+
+  void invoke_init() override final;
+
+  void invoke_eval() override final;
+  
+  bool wait_set_ = false;
 };
 
 //
@@ -103,8 +121,6 @@ class Agent : public kernel::Module {
  public:
   Agent(kernel::Kernel* k, const std::string& name);
 };
-
-std::string to_string(const Agent* agent);
 
 //
 //

@@ -129,8 +129,47 @@ void MessageQueue::build(std::size_t n) {
   add_child_module(q_);
 }
 
-Agent::Agent(kernel::Kernel* k, const std::string& name) : Module(k, name) {}
+AgentProcess::AgentProcess(kernel::Kernel* k, const std::string& name)
+    : Process(k, name) {}
 
-std::string to_string(const Agent* agent) { return agent->path(); }
+// Suspend/Re-evaulate process after delay.
+void AgentProcess::wait_for(kernel::Time t) {
+  wait_set_ = true;
+  base_type::wait_for(t);
+}
+
+// Suspend/Re-evaulate process at time.
+void AgentProcess::wait_until(kernel::Time t) {
+  wait_set_ = true;
+  base_type::wait_until(t);
+}
+
+// Suspend/Re-evaluate process upon the notification of event.
+void AgentProcess::wait_on(kernel::Event& event) {
+  wait_set_ = true;
+  base_type::wait_on(event);
+}
+
+void AgentProcess::invoke_init() {
+  wait_set_ = false;
+  init();
+  if (!wait_set_) {
+    LogMessage msg("Wait condition not set; process terminates.");
+    msg.level(Level::Fatal);
+    log(msg);
+  }
+}
+
+void AgentProcess::invoke_eval() {
+  wait_set_ = false;
+  eval();
+  if (!wait_set_) {
+    LogMessage msg("Wait condition not set; process terminates.");
+    msg.level(Level::Fatal);
+    log(msg);
+  }
+}
+
+Agent::Agent(kernel::Kernel* k, const std::string& name) : Module(k, name) {}
 
 }  // namespace cc

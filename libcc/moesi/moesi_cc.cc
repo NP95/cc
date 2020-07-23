@@ -149,7 +149,6 @@ struct DtToL2Action : public CoherenceAction {
   const DtMsg* dt_ = nullptr;
 };
 
-
 //
 //
 class MOESICCProtocol : public CCProtocol {
@@ -166,14 +165,22 @@ class MOESICCProtocol : public CCProtocol {
   //
   //
   void apply(CCContext& ctxt, CCCommandList& cl) const override {
-    switch (ctxt.msg()->cls()) {
+    const MessageClass cls = ctxt.msg()->cls();
+    switch (cls) {
       case MessageClass::AceCmd: {
         eval_msg(ctxt, cl, static_cast<const AceCmdMsg*>(ctxt.msg()));
       } break;
       case MessageClass::CohEnd: {
         eval_msg(ctxt, cl, static_cast<const CohCmdMsg*>(ctxt.msg()));
       } break;
+      case MessageClass::Dt: {
+        eval_msg(ctxt, cl, static_cast<const DtMsg*>(ctxt.msg()));
+      } break;
       default: {
+        LogMessage msg("Invalid message class received: ");
+        msg.append(cc::to_string(cls));
+        msg.level(Level::Fatal);
+        log(msg);
       } break;
     }
   }
@@ -218,12 +225,18 @@ class MOESICCProtocol : public CCProtocol {
 
     // Transaction is now complete; delete entry from transaction table.
     cl.push_back(cb::from_opcode(CCOpcode::TableUninstall));
-    //
+    // Consume message
     cl.push_back(cb::from_opcode(CCOpcode::MsgConsume));
     // Advance to next
     cl.push_back(cb::from_opcode(CCOpcode::WaitNextEpochOrWait));
   }
 
+  void eval_msg(CCContext& ctxt, CCCommandList& cl, const DtMsg* msg) const {
+    // Consume message
+    cl.push_back(cb::from_opcode(CCOpcode::MsgConsume));
+    // Advance to next
+    cl.push_back(cb::from_opcode(CCOpcode::WaitNextEpochOrWait));
+  }
 
   void issue_update_state(CCContext& ctxt, CCCommandList& cl, State state) const {
     struct UpdateStateAction : public CoherenceAction {

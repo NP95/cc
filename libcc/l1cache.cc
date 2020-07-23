@@ -161,7 +161,7 @@ class L1CommandInterpreter {
   L1CommandInterpreter() = default;
 
   void set_l1cache(L1CacheModel* model) { model_ = model; }
-  void set_process(kernel::Process* process) { process_ = process; }
+  void set_process(AgentProcess* process) { process_ = process; }
 
   void execute(L1CacheContext& ctxt, const L1Command* c) {
     switch (c->opcode()) {
@@ -289,19 +289,19 @@ class L1CommandInterpreter {
   //
   State state_;
   //
-  kernel::Process* process_ = nullptr;
+  AgentProcess* process_ = nullptr;
   //
   L1CacheModel* model_ = nullptr;
 };
 
 //
 //
-class L1CacheModel::MainProcess : public kernel::Process {
+class L1CacheModel::MainProcess : public AgentProcess {
   using cb = L1CommandBuilder;
 
  public:
   MainProcess(kernel::Kernel* k, const std::string& name, L1CacheModel* model)
-      : kernel::Process(k, name), model_(model) {}
+      : AgentProcess(k, name), model_(model) {}
 
  private:
   // Initialization
