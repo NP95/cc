@@ -178,7 +178,7 @@ class CCCommandInterpreter {
           break;
         CCOPCODE_LIST(__declare_dispatcher)
 #undef __declare_dispatcher
-     }
+      }
   }
  private:
 
@@ -191,8 +191,9 @@ class CCCommandInterpreter {
 
   void executeTableUninstall(CCContext& ctxt, const CCCommand* cmd) {
     CCTTable* tt = model_->tt();
-    if (auto it = tt->find(ctxt.msg()->t()); it != tt->end()) {
-      tt->remove(it);
+    Transaction* t = ctxt.msg()->t();
+    if (auto it = tt->find(t); it != tt->end()) {
+      tt->remove(t);
     } else {
       throw std::runtime_error("Table entry for transaction does not exist.");
     }
@@ -237,7 +238,6 @@ class CCCommandInterpreter {
   kernel::Process* process_ = nullptr;
   //
   CCModel* model_ = nullptr;
-  
 };
 
 //

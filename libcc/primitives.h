@@ -276,8 +276,15 @@ class Table : public kernel::Module {
   using const_iterator = typename table_type::const_iterator;
 
   Table(kernel::Kernel* k, const std::string& name, std::size_t n)
-      : Module(k, name), n_(n) {}
-  virtual ~Table() = default;
+      : Module(k, name), n_(n) {
+    non_empty_event_ = new kernel::Event(k, "non_empty_event");
+  }
+
+  virtual ~Table() {
+    delete non_empty_event_;
+  }
+
+  kernel::Event* non_empty_event() const { return non_empty_event_; }
 
   // Accessors:
   std::size_t n() const { return n_; }
@@ -297,13 +304,23 @@ class Table : public kernel::Module {
   virtual void install(K k, V v) { m_.insert_or_assign(k, v); }
 
   //
-  virtual void remove(iterator it) { m_.erase(it); }
+  virtual void remove(K k) {
+    const bool was_full = full();
+    if (auto it = m_.find(k); it != m_.end()) {
+      m_.erase(it);
+      if (was_full) {
+        non_empty_event_->notify();
+      }
+    }
+  }
 
  private:
   // Table size.
   std::size_t n_;
   // Table state.
   table_type m_;
+  //
+  kernel::Event* non_empty_event_;
 };
 
 }  // namespace cc

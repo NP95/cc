@@ -128,7 +128,6 @@ struct EmitMessageAction : public CoherenceAction {
 //
 class MOESIL2CacheProtocol : public L2CacheModelProtocol {
   using cb = L2CommandBuilder;
-
  public:
   MOESIL2CacheProtocol(kernel::Kernel* k)
       : L2CacheModelProtocol(k, "moesil2")

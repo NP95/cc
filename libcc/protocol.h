@@ -49,9 +49,9 @@ class L2CacheContext;
 class CCCommandList;
 class CCContext;
 
-class CC;
-class CCContext;
-class DirModel;
+class DirCommandList;
+class DirContext;
+
 class MessageQueue;
 class Agent;
 
@@ -264,7 +264,7 @@ class L2CacheModelProtocol : public kernel::Module {
 class DirLineState {
  public:
   DirLineState() {}
-  virtual ~DirLineState() = default;
+  virtual void release() { delete this; }
 
   // Flag indiciating if the line is currently residing in a stable
   // state.
@@ -273,6 +273,9 @@ class DirLineState {
   // Flag indiciating if the line is currently evictable (not in a
   // transient state).
   virtual bool is_evictable() const { return is_stable(); }
+
+ protected:
+  virtual ~DirLineState() = default;
 };
 
 using DirActionList = std::vector<CoherenceAction*>;
@@ -296,36 +299,27 @@ class DirCoherenceContext {
 
 //
 //
-class DirProtocol {
+class DirProtocol : public kernel::Module {
  public:
-  DirProtocol() = default;
+  DirProtocol(kernel::Kernel* k, const std::string& name);
   virtual ~DirProtocol() = default;
 
   //
-  DirModel* dir() const { return dir_; }
-
   //
-  void set_dir(DirModel* dir) { dir_ = dir; }
-
-  //
-  //
-  virtual DirLineState* construct_line() const = 0;
+  virtual DirLineState* construct_line() const  = 0;
 
   //
   //
-  virtual std::pair<bool, DirActionList> apply(
-      const DirCoherenceContext& context) const = 0;
+  virtual void apply(DirContext& ctxt, DirCommandList& cl) const = 0;
 
  protected:
   //
-  virtual void issue_emit_to_noc(DirActionList& al, const Message* msg,
-                                 Agent* dest) const;
+  virtual void issue_msg(DirCommandList& lc, MessageQueue* mq,
+                         const Message* msg) const;
 
   //
-  virtual void issue_protocol_violation(DirActionList& al) const;
-
- private:
-  DirModel* dir_ = nullptr;
+  virtual void issue_emit_to_noc(DirContext& ctxt, DirCommandList& lc,
+                                 const Message* msg, Agent* dest) const;
 };
 
 //
@@ -383,7 +377,7 @@ class ProtocolBuilder {
   virtual L2CacheModelProtocol* create_l2(kernel::Kernel*) = 0;
 
   // Create an instance of the Dir protocol
-  virtual DirProtocol* create_dir() = 0;
+  virtual DirProtocol* create_dir(kernel::Kernel*) = 0;
 
   // Create an instance of a Cache Controller protocol.
   virtual CCProtocol* create_cc(kernel::Kernel*) = 0;

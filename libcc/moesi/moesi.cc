@@ -49,8 +49,8 @@ class MOESIProtocolBuilder : public ProtocolBuilder {
   }
 
   // Create and instance of the Directory protocol
-  DirProtocol* create_dir() override {
-    return moesi::build_dir_protocol();
+  DirProtocol* create_dir(kernel::Kernel* k) override {
+    return moesi::build_dir_protocol(k);
   }
 
   CCProtocol* create_cc(kernel::Kernel* k) override {

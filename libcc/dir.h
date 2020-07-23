@@ -40,17 +40,155 @@ namespace cc {
 
 // Forwards
 class LLCModel;
+class DirModel;
 class DirLineState;
 class MessageQueue;
+class CoherenceList;
+class CoherenceAction;
+
+#define DIROPCODE_LIST(__func)                  \
+  __func(TableInstall)                          \
+  __func(TableLookup)                           \
+  __func(TableInstallLine)                      \
+  __func(MsgConsume)                            \
+  __func(MqSetBlockedOnTable)                   \
+  __func(InvokeCoherenceAction)                 \
+  __func(WaitOnMsg)                             \
+  __func(WaitOnMsgOrNextEpoch)
+
+
+enum class DirOpcode {
+#define __declare_opcode(__name) __name,
+  DIROPCODE_LIST(__declare_opcode)
+#undef __declare_opcode
+};
+
+const char* to_string(DirOpcode opcode);
+
+//
+//
+class DirCommand {
+  friend class DirCommandBuilder;
+
+ public:
+  DirCommand(DirOpcode opcode) : opcode_(opcode) {}
+  virtual void release() const { delete this; }
+
+  std::string to_string() const;
+
+  DirOpcode opcode() const { return opcode_; }
+  CoherenceAction* action() const { return oprands.coh.action; }
+
+ private:
+  virtual ~DirCommand();
+  //
+  union {
+    struct {
+      CoherenceAction* action;
+    } coh;
+  } oprands;
+  //
+  DirOpcode opcode_;
+};
+
+//
+//
+class DirCommandBuilder {
+ public:
+  static DirCommand* from_opcode(DirOpcode opcode);
+
+  static DirCommand* from_action(CoherenceAction* action);
+};
+
+
+//
+//
+class DirCommandList {
+  using vector_type = std::vector<DirCommand*>;
+
+ public:
+  using const_iterator = vector_type::const_iterator;
+
+  DirCommandList() = default;
+  ~DirCommandList();
+
+  const_iterator begin() const { return cmds_.begin(); }
+  const_iterator end() const { return cmds_.end(); }
+
+  void push_back(DirCommand* cmd);
+
+ private:
+  std::vector<DirCommand*> cmds_;
+};
+
+//
+//
+class DirTState {
+ public:
+  DirTState() = default;
+  // Destruct/Return to pool
+  void release() { delete this; }
+
+  DirLineState* line() const { return line_; }
+
+  void set_line(DirLineState* line) { line_ = line; }
+
+ protected:
+  virtual ~DirTState() = default;
+
+ private:
+  DirLineState* line_ = nullptr;
+};
+
+//
+//
+using DirTTable = Table<Transaction*, DirTState*>;
+
+
+//
+//
+class DirContext {
+ public:
+  DirContext() = default;
+  ~DirContext();
+
+  //
+  MQArbTmt t() const { return t_; }
+  const Message* msg() const { return mq_->peek(); }
+  MessageQueue* mq() const { return mq_; }
+  bool owns_line() const { return owns_line_; }
+  DirLineState* line() const { return line_; }
+  DirModel* dir() const { return dir_; }
+
+  //
+  void set_t(MQArbTmt t) { t_ = t; }
+  void set_mq(MessageQueue* mq) { mq_ = mq; }
+  void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
+  void set_line(DirLineState* line) { line_ = line; }
+  void set_dir(DirModel* dir) { dir_ = dir; }
+
+ private:
+  // Current Message Queue arbiter tournament.
+  MQArbTmt t_;
+  //
+  bool owns_line_ = false;
+  //
+  DirLineState* line_ = nullptr;
+  // Current Message Queue
+  MessageQueue* mq_ = nullptr;
+  // L2 cache instance
+  DirModel* dir_ = nullptr;
+};
+
 
 //
 //
 class DirModel : public Agent {
   friend class SocTop;
+  friend class DirCommandInterpreter;
 
   class RdisProcess;
   class NocIngressProcess;
-
  public:
   DirModel(kernel::Kernel* k, const DirModelConfig& config);
   ~DirModel();
@@ -60,38 +198,40 @@ class DirModel : public Agent {
   // accessors:
   // LLC owned by current directory
   LLCModel* llc() const { return llc_; }
-  // noc -> dir message queue
+  // NOC -> DIR message queue
   MessageQueue* noc_dir__msg_q() const { return noc_dir__msg_q_; }
-  // dir -> noc message queue
+  // DIR -> NOC message queue
   MessageQueue* dir_noc__msg_q() const { return dir_noc__msg_q_; }
-  // coherence protocol
+  // Coherence protocol
   DirProtocol* protocol() const { return protocol_; }
+  // Transaction table.
+  DirTTable* tt() const { return tt_; }
 
  protected:
-  // build
+  // Build
   void build();
   //
   void set_llc(LLCModel* llc) { llc_ = llc; }
-  // elaboration
+  // Elaboration
   void elab() override;
   //
   void set_dir_noc__msg_q(MessageQueue* mq) { dir_noc__msg_q_ = mq; }
 
-  // design rule check (drc)
+  // Design Rule Check (DRC)
   void drc() override;
 
   // accessor(s)
 
-  // directory arbiter instance.
+  // Directory arbiter instance.
   MQArb* arb() const { return arb_; }
-  // point to module cache instance.
+  // Point to module cache instance.
   CacheModel<DirLineState*>* cache() const { return cache_; }
 
-  // lookup rdis process message queue for traffic class.
+  // Lookup RDIS process message queue for traffic class.
   MessageQueue* lookup_rdis_mq(MessageClass cls) const;
 
  private:
-  // queue selection arbiter
+  // Queue selection arbiter
   MQArb* arb_ = nullptr;
   // NOC -> DIR message queue (owned by directory)
   MessageQueue* noc_dir__msg_q_ = nullptr;
@@ -107,6 +247,8 @@ class DirModel : public Agent {
   RdisProcess* rdis_proc_ = nullptr;
   // Last Level Cache instance (where applicable).
   LLCModel* llc_ = nullptr;
+  // Transaction table
+  DirTTable* tt_ = nullptr;
   // Cache Instance
   CacheModel<DirLineState*>* cache_ = nullptr;
   // Coherence protocol

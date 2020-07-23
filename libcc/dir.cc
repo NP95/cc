@@ -35,9 +35,71 @@
 #include "noc.h"
 #include "primitives.h"
 #include "protocol.h"
+#include "msg.h"
 #include "utility.h"
 
 namespace cc {
+
+const char* to_string(DirOpcode opcode) {
+  switch (opcode) {
+#define __declare_to_string(__name)              \
+    case DirOpcode::__name:                      \
+      return #__name;
+    DIROPCODE_LIST(__declare_to_string)
+#undef __declare_to_string
+    default: return "Invalid";
+  }
+}
+
+DirCommand::~DirCommand() {
+  switch (opcode()) {
+    case DirOpcode::InvokeCoherenceAction:
+      oprands.coh.action->release();
+      break;
+    default:
+      break;
+  }
+}
+
+std::string DirCommand::to_string() const {
+  std::stringstream ss;
+  {
+    KVListRenderer r(ss);
+    r.add_field("opcode", cc::to_string(opcode()));
+    switch (opcode()) {
+      case DirOpcode::InvokeCoherenceAction: {
+        r.add_field("action", oprands.coh.action->to_string());
+      } break;
+      default: {
+      } break;
+    }
+  }
+  return ss.str();
+}
+
+DirCommand* DirCommandBuilder::from_opcode(DirOpcode opcode) {
+  return new DirCommand(opcode);
+}
+
+DirCommand* DirCommandBuilder::from_action(CoherenceAction* action) {
+  DirCommand* cmd = new DirCommand(DirOpcode::InvokeCoherenceAction);
+  cmd->oprands.coh.action = action;
+  return cmd;
+}
+
+DirContext::~DirContext() {
+  if (owns_line_) {
+    line_->release();
+  }
+}
+
+DirCommandList::~DirCommandList() {
+  for (DirCommand* cmd : cmds_) {
+    cmd->release();
+  }
+}
+
+void DirCommandList::push_back(DirCommand* cmd) { cmds_.push_back(cmd); }
 
 //
 //
@@ -98,108 +160,244 @@ class DirModel::NocIngressProcess : public kernel::Process {
   DirModel* model_ = nullptr;
 };
 
-class DirModel::RdisProcess : public kernel::Process {
-  using CacheLineIt = CacheModel<DirLineState*>::LineIterator;
+//
+//
+class DirCommandInterpreter {
+  struct State {
+    // Transaction Table state
+    DirTState* st;
+  };
+ public:
+  DirCommandInterpreter() = default;
 
-  enum class State { Idle, ProcessMessage, ExecuteActions };
+  void set_dir(DirModel* model) { model_ = model; }
+  void set_process(kernel::Process* process) { process_ = process; }
 
-  static const char* to_string(State s) {
-    switch (s) {
-      case State::Idle:
-        return "Idle";
-      case State::ProcessMessage:
-        return "ProcessMessage";
-      case State::ExecuteActions:
-        return "ExecuteActions";
-      default:
-        return "Invalid";
+  void execute(DirContext& ctxt, const DirCommand* cmd) {
+    switch (cmd->opcode()) {
+      default: {
+      } break;
+#define __declare_dispatcher(__name)            \
+        case DirOpcode::__name:                 \
+          execute##__name(ctxt, cmd);           \
+          break;
+        DIROPCODE_LIST(__declare_dispatcher)
+#undef __declare_dispatcher
+    }
+  }
+ private:
+  void executeTableInstall(DirContext& ctxt, const DirCommand* cmd) {
+    state_.st = new DirTState;
+    DirTTable* tt = model_->tt();
+    tt->install(ctxt.msg()->t(), state_.st);
+  }
+  
+  void executeTableLookup(DirContext& ctxt, const DirCommand* cmd) {
+    DirTTable* tt = model_->tt();
+    if (auto it = tt->find(ctxt.msg()->t()); it != tt->end()) {
+      state_.st = it->second;
+    } else {
+      throw std::runtime_error("Cannot find transaction table entry.");
     }
   }
 
+  void executeTableInstallLine(DirContext& ctxt, const DirCommand* cmd) {
+    state_.st->set_line(ctxt.line());
+    ctxt.set_owns_line(false);
+  }
+
+  void executeMsgConsume(DirContext& ctxt, const DirCommand* cmd) {
+    // Dequeue and release the head message of the currently
+    // addressed Message Queue.
+    const Message* msg = ctxt.mq()->dequeue();
+    msg->release();
+    ctxt.t().advance();
+  }
+
+  void executeInvokeCoherenceAction(DirContext& ctxt, const DirCommand* cmd) {
+    CoherenceAction* action = cmd->action();
+    action->execute();
+  }
+
+  void executeMqSetBlockedOnTable(DirContext& ctxt, const DirCommand* cmd) {
+    DirTTable* tt = model_->tt();
+    ctxt.mq()->set_blocked_until(tt->non_empty_event());
+  }  
+  
+  void executeWaitOnMsg(DirContext& ctxt, const DirCommand* cmd) const {
+    // Set wait state of current process; await the arrival of a
+    // new message.
+    MQArb* arb = model_->arb();
+    process_->wait_on(arb->request_arrival_event());
+  }
+
+  void executeWaitOnMsgOrNextEpoch(DirContext& ctxt, const DirCommand* cmd) const {
+    MQArb* arb = model_->arb();
+    MQArbTmt t = arb->tournament();
+    if (t.has_requester()) {
+      process_->wait_for(kernel::Time{10, 0});
+    } else {
+      // Otherwise, block process until a new message arrives.
+      executeWaitOnMsg(ctxt, cmd);
+    }
+  }
+  
+  //
+  State state_;
+  //
+  kernel::Process* process_ = nullptr;
+  //
+  DirModel* model_ = nullptr;
+};
+
+//
+//
+class DirModel::RdisProcess : public kernel::Process {
+  using cb = DirCommandBuilder;
  public:
   RdisProcess(kernel::Kernel* k, const std::string& name, DirModel* model)
-      : kernel::Process(k, name), model_(model) {
-    state_ = State::Idle;
-  }
-
-  State state() const { return state_; }
-  void set_state(State state) {
-#ifdef VERBOSE_LOGGING
-    if (state_ != state) {
-      LogMessage msg("State transition: ");
-      msg.level(Level::Debug);
-      msg.append(to_string(state_));
-      msg.append(" -> ");
-      msg.append(to_string(state));
-      log(msg);
-    }
-#endif
-    state_ = state;
-  }
+      : kernel::Process(k, name), model_(model) {}
 
  private:
   // Initialization
   void init() override {
-    set_state(State::Idle);
-    MQArb* arb = model_->arb();
-    // Await the arrival of a new message at the ingress message
-    // queues.
-    wait_on(arb->request_arrival_event());
+    DirContext ctxt;
+    DirCommandList cl;
+    cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsg));
+    execute(ctxt, cl);
   }
 
   // Evaluation
   void eval() override {
-    // Idle state, awaiting more work.
     MQArb* arb = model_->arb();
-    t_ = arb->tournament();
 
-    // Check for the presence of issue-able messages at the
-    // pipeline front-end.
-    if (t_.has_requester()) {
-      const Message* msg = t_.winner()->dequeue();
+    // Construct and initialize current processing context.
+    DirCommandList cl;
+    DirContext ctxt;
+    ctxt.set_t(arb->tournament());
 
-      switch (msg->cls()) {
-        case MessageClass::CohCmd: {
-          const CohCmdMsg* cmd = static_cast<const CohCmdMsg*>(msg);
+    // Check if requests are present, if not block until a new message
+    // arrives at the arbiter. Process should ideally not wake in the
+    // absence of requesters.
+    if (!ctxt.t().has_requester()) {
+      cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsg));
+      execute(ctxt, cl);
+      return;
+    }
 
-          CohEndMsg* cohend = new CohEndMsg;
-          cohend->set_t(cmd->t());
 
-          NocMsg* nocmsg = new NocMsg;
-          nocmsg->set_payload(cohend);
-          nocmsg->set_origin(model_);
-          nocmsg->set_dest(cmd->origin());
+    // Fetch nominated message queue
+    ctxt.set_mq(ctxt.t().winner());
+    ctxt.set_dir(model_);
 
-          model_->dir_noc__msg_q()->issue(nocmsg);
-        } break;
-        default: {
-        } break;
+    // Dispatch to appropriate message class
+    switch (ctxt.msg()->cls()) {
+      case MessageClass::CohSrt: {
+        process_cohsrt(ctxt, cl);
+      } break;
+      case MessageClass::CohCmd: {
+        process_cohcmd(ctxt, cl);
+      } break;
+      case MessageClass::LLCCmdRsp: {
+        process_llccmdrsp(ctxt, cl);
+      } break;
+      default: {
+        LogMessage lmsg("Invalid message class received: ");
+        lmsg.append(cc::to_string(ctxt.msg()->cls()));
+        lmsg.level(Level::Error);
+        log(lmsg);
+      } break;
+    }
+
+    if (can_execute(cl)) {
+      execute(ctxt, cl);
+    }
+  }
+
+  void process_cohsrt(DirContext& ctxt, DirCommandList& cl) {
+    Transaction* t = ctxt.msg()->t();
+    DirTTable* tt = model_->tt();
+    DirTState* st = lookup_state_or_fatal(t, false);
+    if (st == nullptr) {
+      if (!tt->full()) {
+        // Free entries exist in the transaction table, therefore the
+        // transaction can begin.
+        const DirProtocol* protocol = model_->protocol();
+        protocol->apply(ctxt, cl);
+      } else {
+        // The transaction table is full, therefore the new inbound
+        // command is blocked.
+        cl.push_back(cb::from_opcode(DirOpcode::MqSetBlockedOnTable));
+        cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
       }
-    }
-    wait_on_context();
-  }
-
-  void wait_on_context() {
-    MQArb* arb = model_->arb();
-    MQArbTmt t = arb->tournament();
-    if (t.has_requester()) {
-      // Wait some delay
-      wait_for(kernel::Time{10, 0});
     } else {
-      // No further commands, block process until something
-      // arrives.
-      wait_on(arb->request_arrival_event());
+      // Transaction is already present in the transaction table;
+      // attempting to reinstall the transaction.
+      LogMessage msg("Transation is already present in table.");
+      msg.level(Level::Fatal);
+      log(msg);
     }
   }
 
-  // Current execution context
-  MQArbTmt t_;
-  // Current machine state
-  State state_;
-  // Coherence context
-  DirCoherenceContext context_;
-  // Coherence action list.
-  DirActionList action_list_;
+  void process_cohcmd(DirContext& ctxt, DirCommandList& cl) const {
+    // Lookup transaction table or bail if not found.
+    DirTState* st = lookup_state_or_fatal(ctxt.msg()->t());
+    const DirProtocol* protocol = model_->protocol();
+    ctxt.set_line(protocol->construct_line());
+    ctxt.set_owns_line(true);
+    protocol->apply(ctxt, cl);
+  }
+
+  void process_llccmdrsp(DirContext& ctxt, DirCommandList& cl) const {
+    // Lookup transaction table or bail if not found.
+    DirTState* st = lookup_state_or_fatal(ctxt.msg()->t());
+    const DirProtocol* protocol = model_->protocol();
+    ctxt.set_line(st->line());
+    protocol->apply(ctxt, cl);
+  }
+
+  bool can_execute(const DirCommandList& cl) const {
+    return true;
+  }
+
+  void execute(DirContext& ctxt, const DirCommandList& cl) {
+    try {
+      DirCommandInterpreter interpreter;
+      interpreter.set_dir(model_);
+      interpreter.set_process(this);
+      for (const DirCommand* cmd : cl) {
+        LogMessage lm("Executing command: ");
+        lm.append(cmd->to_string());
+        lm.level(Level::Debug);
+        log(lm);
+
+        interpreter.execute(ctxt, cmd);
+      }
+    } catch (const std::runtime_error& ex) {
+      LogMessage lm("Interpreter encountered an error: ");
+      lm.append(ex.what());
+      lm.level(Level::Fatal);
+      log(lm);
+    }
+  }
+
+
+  DirTState* lookup_state_or_fatal(
+      Transaction* t, bool allow_fatal = true) const {
+    DirTTable* tt = model_->tt();
+    DirTState* st = nullptr;
+    if (auto it = tt->find(t); it != tt->end()) {
+      st = it->second;
+    } else if (allow_fatal) {
+      // Expect to find a entry in the transaction table. If an entry
+      // is not present bail.
+      LogMessage msg("Transaction not found in table.");
+      msg.level(Level::Fatal);
+      log(msg);
+    }
+    return st;
+  }
+
   // Pointer to parent directory instance.
   DirModel* model_ = nullptr;
 };
@@ -214,6 +412,7 @@ DirModel::~DirModel() {
   delete cpu_dir__cmd_q_;
   delete llc_dir__rsp_q_;
   delete arb_;
+  delete cache_;
   delete noci_proc_;
   delete rdis_proc_;
   delete protocol_;
@@ -235,6 +434,9 @@ void DirModel::build() {
   // Dir state cache
   CacheModelConfig cfg;
   cache_ = new CacheModel<DirLineState*>(cfg);
+  // Construct transaction table.
+  tt_ = new DirTTable(k(), "tt", 16);
+  add_child_module(tt_);
   // Construct NOC ingress thread.
   noci_proc_ = new NocIngressProcess(k(), "noci", this);
   add_child_process(noci_proc_);
@@ -242,7 +444,8 @@ void DirModel::build() {
   rdis_proc_ = new RdisProcess(k(), "rdis", this);
   add_child_process(rdis_proc_);
   // Setup protocol
-  protocol_ = config_.pbuilder->create_dir();
+  protocol_ = config_.pbuilder->create_dir(k());
+  add_child_module(protocol_);
 }
 
 //
@@ -251,7 +454,6 @@ void DirModel::elab() {
   // Register message queue end-points
   arb_->add_requester(cpu_dir__cmd_q_);
   arb_->add_requester(llc_dir__rsp_q_);
-  protocol_->set_dir(this);
 }
 
 //

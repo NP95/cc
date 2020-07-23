@@ -194,20 +194,28 @@ void CCProtocol::issue_emit_to_noc(CCContext& ctxt, CCCommandList& cl,
       
 }
 
-void DirProtocol::issue_emit_to_noc(DirActionList& al, const Message* msg,
-                                    Agent* dest) const {
+DirProtocol::DirProtocol(kernel::Kernel* k, const std::string& name)
+    : Module(k, name) {}
+
+void DirProtocol::issue_msg(DirCommandList& cl, MessageQueue* mq,
+                           const Message* msg) const {
+  CoherenceAction* action = new EmitMessageAction(mq, msg);
+  cl.push_back(DirCommandBuilder::from_action(action));
+}
+
+void DirProtocol::issue_emit_to_noc(DirContext& ctxt, DirCommandList& cl,
+                                   const Message* msg, Agent* dest) const {
   // Encapsulate message in NOC transport protocol.
   NocMsg* nocmsg = new NocMsg;
   nocmsg->set_t(msg->t());
   nocmsg->set_payload(msg);
-  nocmsg->set_origin(dir_);
+  nocmsg->set_origin(ctxt.dir());
   nocmsg->set_dest(dest);
   // Issue Message Emit action.
-  al.push_back(new EmitMessageAction(dir_->dir_noc__msg_q(), nocmsg));
-}
-
-void DirProtocol::issue_protocol_violation(DirActionList& al) const {
-  // TODO
+  CoherenceAction* action =
+      new EmitMessageAction(ctxt.dir()->dir_noc__msg_q(), nocmsg);
+  cl.push_back(DirCommandBuilder::from_action(action));
+      
 }
 
 }  // namespace cc

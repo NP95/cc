@@ -49,6 +49,9 @@ class MessageQueue : public kernel::Module {
 
   bool issue(const Message* msg, kernel::Time t = kernel::Time{});
 
+  //
+  void set_blocked_until(kernel::Event* event);
+  
   // Set blocked status of requestor.
   void set_blocked(bool blocked) { blocked_ = blocked; }
 
@@ -87,6 +90,13 @@ class MQArb : public Arbiter<MessageQueue> {
 //
 using MQArbTmt = MQArb::Tournament;
 
+// ERROR OUT WHENEVER WAIT NEXT SET AFTER EVAL.
+//
+class AgentProcess : public kernel::Process {
+ public:
+  AgentProcess(kernel::Kernel* k, const std::string& name);
+};
+
 //
 //
 class Agent : public kernel::Module {
@@ -110,36 +120,6 @@ class TransactionTable : public Table<const Transaction*, STATE> {
 
   TransactionTable(kernel::Kernel* k, const std::string& name, std::size_t n)
       : Table<const Transaction*, STATE>(k, name, n) {}
-
-  //
-  const_iterator find_line_id(line_id_t line_id) const {
-    const_iterator it = base_type::begin();
-    while (it != base_type::end()) {
-      if (it->first->line_id() == line_id) break;
-      ++it;
-    }
-    return it;
-  }
-
-  //
-  void install(const Transaction* t, const STATE& state) {
-    base_type::install(t, state);
-  }
-
-  //
-  bool remove(const Transaction* t) {
-    bool ret = false;
-    iterator it = base_type::find(t);
-    if (it != base_type::end()) {
-      remove_child_module(it->second);
-      base_type::erase(it);
-      ret = true;
-    }
-    return false;
-  }
-
-  //
-  void remove(iterator it) override { base_type::remove(it); }
 };
 
 }  // namespace cc

@@ -333,15 +333,18 @@ class Event : public ProcessHost {
   Event(Kernel* k, const std::string& name);
 
   // Has awaiting processes.x
-  bool has_awaitees() const { return !ps_.empty(); }
+  bool has_awaitees() const { return !as_.empty(); }
 
   // Wait awaitees
   void notify();
 
- private:
-  void add_waitee(Process* p) { ps_.push_back(p); }
+  // Add 'action' to be evaluated upon event notification.
+  void add_notify_action(Action* a) { as_.push_back(a); }
 
-  std::vector<Process*> ps_;
+ private:
+  void add_waitee(Process* p);
+
+  std::vector<Action*> as_;
 };
 
 // Event subtype to model the composition of an "or-list" of events.

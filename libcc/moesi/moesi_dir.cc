@@ -99,8 +99,6 @@ bool is_stable(State state) {
 //
 //
 class LineState : public DirLineState {
-  using sharer_set = std::set<Agent*>;
-  
  public:
   LineState() = default;
 
@@ -128,8 +126,7 @@ class LineState : public DirLineState {
   // Add agent to the set of sharers, return false if
   // already in the sharing set.
   bool add_sharer(Agent* agent) {
-    const std::pair<sharer_set::iterator, bool> it =
-        sharers_.insert(agent);
+    auto it = sharers_.insert(agent);
     return it.second;
   }
   // Set state of line.
@@ -143,130 +140,106 @@ class LineState : public DirLineState {
   // Owning agent.
   Agent* owner_ = nullptr;
   // Current set of sharers
-  sharer_set sharers_;
+  std::set<Agent*> sharers_;
 };
   
 
 //
 //
 class MOESIDirProtocol : public DirProtocol {
+  using cb = DirCommandBuilder;
  public:
-  MOESIDirProtocol() {}
+  MOESIDirProtocol(kernel::Kernel* k) : DirProtocol(k, "moesidir") {}
 
   //
   //
   DirLineState* construct_line() const override {
     LineState* line = new LineState;
-    line->set_state(State::I);
     return line;
   }
 
   //
   //
-  std::pair<bool, DirActionList> apply(
-      const DirCoherenceContext& context) const override{ 
-    bool commits = true;
-    DirActionList al;
-    LineState* line = static_cast<LineState*>(context.line());
-    switch (context.msg()->cls()) {
+  void apply(DirContext& ctxt, DirCommandList& cl) const override {
+    switch (ctxt.msg()->cls()) {
       case MessageClass::CohSrt: {
-        const CohSrtMsg* msg = static_cast<const CohSrtMsg*>(context.msg());
-        commits = apply(al, line, msg);
+        apply(ctxt, cl, static_cast<const CohSrtMsg*>(ctxt.msg()));
       } break;
       case MessageClass::CohCmd: {
-        const CohCmdMsg* msg = static_cast<const CohCmdMsg*>(context.msg());
-        commits = apply(al, line, msg);
+        apply(ctxt, cl, static_cast<const CohCmdMsg*>(ctxt.msg()));
       } break;
       case MessageClass::LLCCmdRsp: {
-        const LLCCmdRspMsg* msg = static_cast<const LLCCmdRspMsg*>(context.msg());
-        commits = apply(al, line, msg);
+        apply(ctxt, cl, static_cast<const LLCCmdRspMsg*>(ctxt.msg()));
       } break;
       default: {
       } break;
     }
-    return std::make_pair(commits, al);
   }
 
-  //
-  //
-  bool apply(DirActionList& al, LineState* line, const CohSrtMsg* srt) const {
-    bool commits = true;
+  void apply(DirContext& ctxt, DirCommandList& cl, const CohSrtMsg* msg) const {
+    cl.push_back(cb::from_opcode(DirOpcode::TableInstall));
+    cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
+    cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
+  }
+
+  void apply(DirContext& ctxt, DirCommandList& cl, const CohCmdMsg* msg) const {
+    LineState* line = static_cast<LineState*>(ctxt.line());
     switch (line->state()) {
       case State::I: {
+        // Line is not present in the directory
+        LLCCmdMsg* cmd = new LLCCmdMsg;
+        cmd->set_t(msg->t());
+        cmd->set_opcode(LLCCmdOpcode::Fill);
+        cmd->set_addr(msg->addr());
+        //
+        issue_emit_to_noc(ctxt, cl, cmd, ctxt.dir()->llc());
+        // Originator becomes owner.
+        issue_set_owner_action(ctxt, cl, msg->origin());
+        // Update state
+        issue_update_state(ctxt, cl, State::IE);
+
+        cl.push_back(cb::from_opcode(DirOpcode::TableLookup));
+        cl.push_back(cb::from_opcode(DirOpcode::TableInstallLine));
+        cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
+        cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
       } break;
       default: {
       } break;
     }
-    return commits;
   }
 
   //
   //
-  bool apply(DirActionList& al, LineState* line, const CohCmdMsg* cmd) const {
-    bool commits = true;
-    switch (line->state()) {
-      case State::I: {
-        switch (cmd->opcode()){
-          case AceCmdOpcode::ReadShared: {
-            // Line is not present in the directory
-            LLCCmdMsg* msg = new LLCCmdMsg;
-            msg->set_t(cmd->t());
-            msg->set_opcode(LLCCmdOpcode::Fill);
-            msg->set_addr(msg->addr());
-            DirModel* d = dir();
-            issue_emit_to_noc(al, msg, d->llc());
-            // Originator becomes owner.
-            issue_set_owner_action(al, line, cmd->origin());
-            // Update state
-            issue_update_state(al, line, State::IE);
-          } break;
-          default: {
-            // TODO
-          } break;
-        }
-      } break;
-      default: {
-      } break;
-    }
-    return commits;
-  }
-
-  //
-  //
-  bool apply(DirActionList& al, LineState* line, const LLCCmdRspMsg* cmd) const {
-    bool commits = true;
+  void apply(DirContext& ctxt, DirCommandList& cl, const LLCCmdRspMsg* msg) const {
+    LineState* line = static_cast<LineState*>(ctxt.line());
     switch (line->state()) {
       case State::IE: {
-        {
-          // Send data
-          DtMsg* msg = new DtMsg;
-          msg->set_t(cmd->t());
-          issue_emit_to_noc(al, msg, line->owner());
-        }
-
-        {
-          // Send CohEnd
-          CohEndMsg* msg = new CohEndMsg;
-          msg->set_t(cmd->t());
-          issue_emit_to_noc(al, msg, line->owner());
-        }
-        
+        // Send data
+        //DtMsg* dt = new DtMsg;
+        //dt->set_t(msg->t());
+        //issue_emit_to_noc(ctxt, cl, dt, line->owner());
+        // Send CohEnd
+        CohEndMsg* end = new CohEndMsg;
+        end->set_t(msg->t());
+        issue_emit_to_noc(ctxt, cl, end, line->owner());
         // Update state:
-        issue_update_state(al, line, State::E);
+        issue_update_state(ctxt, cl, State::E);
+
+        cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
+        cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
       } break;
       default: {
       } break;
     }
-    return commits;
   }
 
   //
   //
-  void issue_update_state(DirActionList& al, LineState* line, State state) const {
+  void issue_update_state(
+      DirContext& ctxt, DirCommandList& cl, State state) const {
     struct UpdateStateAction : public CoherenceAction {
       UpdateStateAction(LineState* line, State state)
-          : line_(line), state_(state)
-      {}
+          : line_(line), state_(state) {}
       std::string to_string() const override {
         using cc::to_string;
         
@@ -287,13 +260,14 @@ class MOESIDirProtocol : public DirProtocol {
       LineState* line_ = nullptr;
       State state_;
     };
-    al.push_back(new UpdateStateAction(line, state));
+    LineState* line = static_cast<LineState*>(ctxt.line());
+    cl.push_back(cb::from_action(new UpdateStateAction(line, state)));
   }
 
   //
   //
   void issue_set_owner_action(
-      DirActionList& al, LineState* line, Agent* agent) const {
+      DirContext& ctxt, DirCommandList& cl, Agent* agent) const { 
     struct SetOwnerAction : public CoherenceAction {
       SetOwnerAction(LineState* line, Agent* owner)
           : line_(line), owner_(owner)
@@ -317,15 +291,17 @@ class MOESIDirProtocol : public DirProtocol {
       LineState* line_ = nullptr;
       Agent* owner_ = nullptr;
     };
-    al.push_back(new SetOwnerAction(line, agent));
+    LineState* line = static_cast<LineState*>(ctxt.line());
+    cl.push_back(cb::from_action(new SetOwnerAction(line, agent)));
   }
-
 };
 
 }
 
 namespace cc::moesi {
 
-DirProtocol* build_dir_protocol() { return new MOESIDirProtocol{}; }
+DirProtocol* build_dir_protocol(kernel::Kernel* k) {
+  return new MOESIDirProtocol(k);
+}
 
 } // namespace cc::moesi

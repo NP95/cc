@@ -282,7 +282,7 @@ void ProcessHost::add_child_process(Process* p) {
 
 Event::Event(Kernel* k, const std::string& name) : ProcessHost(k, name) {}
 
-void Event::notify() {
+void Event::add_waitee(Process* p) {
   struct EvalProcessAction : Action {
     EvalProcessAction(Kernel* k, Process* p)
         : Action(k, "EvalProcessAction"), p_(p) {}
@@ -293,12 +293,16 @@ void Event::notify() {
     }
     Process* p_ = nullptr;
   };
+  as_.push_back(new EvalProcessAction(k(), p));
+}
+
+void Event::notify() {
   const Time current_time{k()->time()};
   const Time time{current_time.time, current_time.delta + 1};
-  for (Process* p : ps_) {
-    k()->add_action(time, new EvalProcessAction(k(), p));
+  for (Action* a : as_) {
+    k()->add_action(time, a);
   }
-  ps_.clear();
+  as_.clear();
 }
 
 EventOr::EventOr(Kernel* k, const std::string& name) : Event(k, name) {}

@@ -149,8 +149,10 @@ void L1CommandList::push_back(L1Command* cmd) { cmds_.push_back(cmd); }
 
 class L1CommandInterpreter {
   struct State {
-    // Iterator into current transaction table entry.
-    L1TTable::iterator table_it;
+    // Current transaction
+    const Transaction* t;
+    // Transaction state
+    L1TState* ts;
     // Address of current command.
     addr_t addr;
   };
@@ -175,31 +177,33 @@ class L1CommandInterpreter {
   }
 
  private:
-  void executeTableInstall(L1CacheContext& ctxt, const L1Command* cmd) const {
+  void executeTableInstall(L1CacheContext& ctxt, const L1Command* cmd) {
     L1TTable* tt = model_->tt();
-    L1TState* st = new L1TState();
-    st->set_line(ctxt.line());
-    tt->install(ctxt.msg()->t(), st);
+    state_.t = ctxt.msg()->t();
+    state_.ts = new L1TState();
+    state_.ts->set_line(ctxt.line());
+    tt->install(state_.t, state_.ts);
   }
 
   void executeTableGetCurrentState(L1CacheContext& ctxt, const L1Command* cmd) {
     // Lookup the Transaction Table for the current transaction
     // and set the table pointer for subsequent operations.
     L1TTable* tt = model_->tt();
-    state_.table_it = tt->find(ctxt.msg()->t());
-    if (state_.table_it == tt->end()) {
+    auto it = tt->find(ctxt.msg()->t());
+    if (it == tt->end()) {
       throw std::runtime_error(
           "Transaction not present in the transaction table");
     }
+    state_.t = it->first;
+    state_.ts = it->second;
   }
 
   void executeTableRemove(L1CacheContext& ctxt, const L1Command* cmd) const {
     // Remove the current Transsaction context from the
     // Transaction Table.
-    L1TState* st = state_.table_it->second;
-    st->release();
+    state_.ts->release();
     L1TTable* tt = model_->tt();
-    tt->remove(state_.table_it);
+    tt->remove(state_.t);
   }
 
   void executeTableMqUnblockAll(L1CacheContext& ctxt,
@@ -207,8 +211,7 @@ class L1CommandInterpreter {
     // For the current table context, unblock all messages
     // queues that are currently blocked awaiting completion of
     // the current transaction.
-    const L1TState* st = state_.table_it->second;
-    for (MessageQueue* mq : st->mq()) {
+    for (MessageQueue* mq : state_.ts->mq()) {
       mq->set_blocked(false);
     }
   }
@@ -217,8 +220,7 @@ class L1CommandInterpreter {
                                       const L1Command* cmd) const {
     // Add the currently address Message Queue to the set of
     // queues blocked on the current transaction.
-    L1TState* st = state_.table_it->second;
-    st->add_blocked_mq(ctxt.mq());
+    state_.ts->add_blocked_mq(ctxt.mq());
   }
 
   void executeWaitOnMsg(L1CacheContext& ctxt, const L1Command* cmd) const {

@@ -278,7 +278,6 @@ class L2CommandInterpreter {
 //
 class L2CacheModel::MainProcess : public kernel::Process {
   using cb = L2CommandBuilder;
-
  public:
   MainProcess(kernel::Kernel* k, const std::string& name, L2CacheModel* model)
       : kernel::Process(k, name), model_(model) {}
@@ -327,7 +326,7 @@ class L2CacheModel::MainProcess : public kernel::Process {
         lmsg.append(cc::to_string(ctxt.msg()->cls()));
         lmsg.level(Level::Error);
         log(lmsg);
-    } break;
+      } break;
     }
 
     if (can_execute(cl)) {

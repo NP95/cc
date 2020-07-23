@@ -70,6 +70,21 @@ bool MessageQueue::issue(const Message* msg, kernel::Time t) {
   return true;
 }
 
+void MessageQueue::set_blocked_until(kernel::Event* event) {
+  struct UnblockAction : kernel::Action {
+    UnblockAction(kernel::Kernel* k, MessageQueue* mq)
+        : Action(k, "unblock_action"), mq_(mq)
+    {}
+    bool eval() override {
+      mq_->set_blocked(false);
+      return true;
+    }
+   private:
+    MessageQueue* mq_ = nullptr;
+  };
+  event->add_notify_action(new UnblockAction(k(), this));
+}
+
 void MessageQueue::push(const Message* msg) {
   if (!q_->enqueue(msg)) {
     LogMessage lmsg("Attempt to push new message to full queue.", Level::Error);
