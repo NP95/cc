@@ -182,7 +182,7 @@ TEST(Kernel, EventOr) {
       }
      private:
       void init() override {
-        wait_on(*eor_);
+        wait_on(eor_);
       }
       void eval() override {
         // Check for extraneous notifications.
@@ -190,7 +190,7 @@ TEST(Kernel, EventOr) {
         const LogMessage msg{"Notified!", Level::Debug};
         log(msg);
         n_--;
-        wait_on(*eor_);
+        wait_on(eor_);
       }
       cc::kernel::EventOr* eor_;
       int n_;

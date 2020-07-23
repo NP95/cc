@@ -34,21 +34,26 @@ namespace cc {
 
 MessageQueue::MessageQueue(kernel::Kernel* k, const std::string& name,
                            std::size_t n)
-    : kernel::Module(k, name) {
+    : Agent(k, name) {
   build(n);
 }
 
-bool MessageQueue::issue(const Message* msg, kernel::Time t) {
+MessageQueue::~MessageQueue() { delete q_; }
+
+bool MessageQueue::issue(const Message* msg, epoch_t epoch) {
   struct EnqueueAction : kernel::Action {
-    EnqueueAction(kernel::Kernel* k, MessageQueue* mq, const Message* msg)
-        : Action(k, "enqueue_action"), mq_(mq), msg_(msg) {}
+    EnqueueAction(kernel::Kernel* k, Queue<const Message*>* q, const Message* msg)
+        : Action(k, "enqueue_action"), q_(q), msg_(msg) {}
     bool eval() override {
-      mq_->push(msg_);
+      if (!q_->enqueue(msg_)) {
+        LogMessage lm("Attempt to push new message to full queue.");
+        lm.level(Level::Fatal);
+        log(lm);
+      }
       return true;
     }
-
    private:
-    MessageQueue* mq_ = nullptr;
+    Queue<const Message*>* q_ = nullptr;
     const Message* msg_;
   };
 
@@ -64,8 +69,10 @@ bool MessageQueue::issue(const Message* msg, kernel::Time t) {
   log(lmsg);
   //#endif
   // Issue action:
+  kernel::Time t;
   const kernel::Time execute_time = k()->time() + t;
-  k()->add_action(execute_time, new EnqueueAction(k(), this, msg));
+  --credits_;
+  k()->add_action(execute_time, new EnqueueAction(k(), q_, msg));
 
   return true;
 }
@@ -83,13 +90,6 @@ void MessageQueue::set_blocked_until(kernel::Event* event) {
     MessageQueue* mq_ = nullptr;
   };
   event->add_notify_action(new UnblockAction(k(), this));
-}
-
-void MessageQueue::push(const Message* msg) {
-  if (!q_->enqueue(msg)) {
-    LogMessage lmsg("Attempt to push new message to full queue.", Level::Error);
-    log(lmsg);
-  }
 }
 
 bool MessageQueue::has_req() const { return !blocked() && !q_->empty(); }
@@ -111,6 +111,14 @@ const Message* MessageQueue::dequeue() {
     return nullptr;
   }
 
+  if (credits_ >= n()) {
+    LogMessage lm("Credit overflow", Level::Error);
+    log(lm);
+  }
+
+  // Return credits
+  credits_++;
+
   //#if 0
   LogMessage lm("Dequeue message: ");
   lm.append(msg->to_string());
@@ -120,13 +128,11 @@ const Message* MessageQueue::dequeue() {
   return msg;
 }
 
-kernel::Event& MessageQueue::request_arrival_event() {
-  return q_->non_empty_event();
-}
-
 void MessageQueue::build(std::size_t n) {
   q_ = new Queue<const Message*>(k(), "queue", n);
   add_child_module(q_);
+
+  credits_ = n;
 }
 
 AgentProcess::AgentProcess(kernel::Kernel* k, const std::string& name)
@@ -145,7 +151,7 @@ void AgentProcess::wait_until(kernel::Time t) {
 }
 
 // Suspend/Re-evaluate process upon the notification of event.
-void AgentProcess::wait_on(kernel::Event& event) {
+void AgentProcess::wait_on(kernel::Event* event) {
   wait_set_ = true;
   base_type::wait_on(event);
 }

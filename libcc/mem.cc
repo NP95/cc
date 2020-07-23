@@ -108,7 +108,7 @@ class MemCntrlModel::NocIngressProcess : public kernel::Process {
   // Initialization
   void init() override {
     MessageQueue* mq = model_->noc_mem__msg_q();
-    wait_on(mq->request_arrival_event());
+    wait_on(mq->non_empty_event());
   }
 
   // Elaboration
@@ -136,7 +136,7 @@ class MemCntrlModel::NocIngressProcess : public kernel::Process {
 
     // Forward message message to destination queue and discard
     // encapsulation/transport message.
-    iss_mq->push(msg->payload());
+    iss_mq->issue(msg->payload());
     msg->release();
 
     // Set conditions for subsequent re-evaluations.
@@ -146,7 +146,7 @@ class MemCntrlModel::NocIngressProcess : public kernel::Process {
       wait_for(kernel::Time{10, 0});
     } else {
       // Not further work; await until noc ingress queue becomes non-full.
-      wait_on(noc_mq->request_arrival_event());
+      wait_on(noc_mq->non_empty_event());
     }
   }
 

@@ -37,61 +37,6 @@ class Transaction;
 
 //
 //
-class MessageQueue : public kernel::Module {
- public:
-  MessageQueue(kernel::Kernel* k, const std::string& name, std::size_t n);
-
-  // Queue depth.
-  std::size_t n() const { return q_->n(); }
-
-  bool empty() const { return q_->empty(); }
-  bool full() const { return q_->full(); }
-
-  bool issue(const Message* msg, kernel::Time t = kernel::Time{});
-
-  //
-  void set_blocked_until(kernel::Event* event);
-  
-  // Set blocked status of requestor.
-  void set_blocked(bool blocked) { blocked_ = blocked; }
-
-  // Flag indicating that the current agent is blocked.
-  bool blocked() const { return blocked_; }
-
-  // Endpoint Interface:
-  void push(const Message* msg);
-
-  // Requester Interface:
-  bool has_req() const;
-  const Message* peek() const;
-  const Message* dequeue();
-
-  kernel::Event& request_arrival_event();
-  kernel::Event& non_empty_event() { return q_->non_empty_event(); }
-  kernel::Event& non_full_event() { return q_->non_full_event(); }
-
- private:
-  // Construct module
-  void build(std::size_t n);
-  // Queue primitive.
-  Queue<const Message*>* q_ = nullptr;
-  // Flag indicating that the current requestor is blocked.
-  bool blocked_ = false;
-};
-
-//
-//
-class MQArb : public Arbiter<MessageQueue> {
- public:
-  MQArb(kernel::Kernel* k, const std::string& name) : Arbiter(k, name) {}
-};
-
-//
-//
-using MQArbTmt = MQArb::Tournament;
-
-// ERROR OUT WHENEVER WAIT NEXT SET AFTER EVAL.
-//
 class AgentProcess : public kernel::Process {
   using base_type = kernel::Process;
  public:
@@ -104,7 +49,7 @@ class AgentProcess : public kernel::Process {
   void wait_until(kernel::Time t) override;
 
   // Suspend/Re-evaluate process upon the notification of event.
-  void wait_on(kernel::Event& event) override;
+  void wait_on(kernel::Event* event) override;
 
  private:
 
@@ -121,6 +66,71 @@ class Agent : public kernel::Module {
  public:
   Agent(kernel::Kernel* k, const std::string& name);
 };
+
+//
+//
+class MessageQueue : public Agent {
+ public:
+  MessageQueue(kernel::Kernel* k, const std::string& name, std::size_t n);
+  ~MessageQueue();
+
+  // Queue depth.
+  std::size_t n() const { return q_->n(); }
+
+  std::size_t credits() { return credits_; }
+
+  bool empty() const { return q_->empty(); }
+  bool full() const { return credits_ == 0; }
+  // Flag indicating that the current agent is blocked.
+  bool blocked() const { return blocked_; }
+  bool has_req() const;
+  
+
+  // Event notified when Message Queue transitions from empty to
+  // non-empty state.
+  kernel::Event* non_empty_event() const { return q_->non_empty_event(); }
+
+  // Event notified when Message Queue transitions from full to
+  // non-full state.
+  kernel::Event* non_full_event() const { return q_->non_full_event(); }
+
+
+  // Issue message to queue after 'epoch' agent epochs.
+  bool issue(const Message* msg, epoch_t epoch = 0);
+
+  // Peek head message, nullptr on empty.
+  const Message* peek() const;
+  // Dequeue head message from queue.
+  const Message* dequeue();
+  
+  // Set blocked status of Message Queue until notified by event.
+  void set_blocked_until(kernel::Event* event);
+
+  // Deprecate
+  // Set blocked status of requestor.
+  void set_blocked(bool blocked) { blocked_ = blocked; }
+
+ private:
+  // Construct module
+  void build(std::size_t n);
+  // Queue primitive.
+  Queue<const Message*>* q_ = nullptr;
+  // Flag indicating that the current requestor is blocked.
+  bool blocked_ = false;
+  // Queue credit count.
+  std::size_t credits_;
+};
+
+//
+//
+class MQArb : public Arbiter<MessageQueue> {
+ public:
+  MQArb(kernel::Kernel* k, const std::string& name) : Arbiter(k, name) {}
+};
+
+//
+//
+using MQArbTmt = MQArb::Tournament;
 
 //
 //

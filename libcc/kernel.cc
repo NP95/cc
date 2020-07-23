@@ -322,10 +322,10 @@ void EventOr::finalize() {
     // Pointer to underlying event object.
     Event* e() const { return e_; }
 
-    void init() override { wait_on(*e()); }
+    void init() override { wait_on(e()); }
     void eval() override {
       parent_->notify();
-      wait_on(*e());
+      wait_on(e());
     }
 
    private:
@@ -366,7 +366,7 @@ void Process::wait_until(Time t) {
   k()->add_action(t, new WaitUntilAction(k(), this));
 }
 
-void Process::wait_on(Event& event) { event.add_waitee(this); }
+void Process::wait_on(Event* event) { event->add_waitee(this); }
 
 //
 void Process::invoke_init() {

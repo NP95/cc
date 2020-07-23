@@ -32,10 +32,7 @@
 namespace cc {
 
 Clock::Clock(kernel::Kernel* k, const std::string& name, int ticks, int period)
-    : Module(k, name),
-      ticks_(ticks),
-      period_(period),
-      rising_edge_event_(k, "rising_edge_event") {
+    : Module(k, name), ticks_(ticks), period_(period) {
   struct ClockProcess : kernel::Process {
     ClockProcess(kernel::Kernel* k, Clock* clk)
         : Process(k, "ClockProcess"), clk_(clk) {
@@ -49,7 +46,7 @@ Clock::Clock(kernel::Kernel* k, const std::string& name, int ticks, int period)
     }
     void eval() override {
       // Notify
-      clk_->rising_edge_event().notify();
+      clk_->rising_edge_event()->notify();
       if (--ticks_ != 0) {
         // Schedule next
         kernel::Time time = k()->time();
@@ -60,8 +57,16 @@ Clock::Clock(kernel::Kernel* k, const std::string& name, int ticks, int period)
     Clock* clk_;
     int ticks_;
   };
+  //
+  rising_edge_event_ = new kernel::Event(k, "rising_edge_event");
+  //
   p_ = new ClockProcess(k, this);
   add_child_process(p_);
+}
+
+Clock::~Clock() {
+  delete rising_edge_event_;
+  delete p_;
 }
 
 }  // namespace cc

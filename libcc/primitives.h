@@ -43,15 +43,16 @@ class Message;
 class Clock : public kernel::Module {
  public:
   Clock(kernel::Kernel* k, const std::string& name, int ticks, int period = 10);
+  ~Clock();
 
   int ticks() const { return ticks_; }
   int period() const { return period_; }
 
-  kernel::Event& rising_edge_event() { return rising_edge_event_; }
-  const kernel::Event& rising_edge_event() const { return rising_edge_event_; }
+  kernel::Event* rising_edge_event() { return rising_edge_event_; }
+  const kernel::Event* rising_edge_event() const { return rising_edge_event_; }
 
  private:
-  kernel::Event rising_edge_event_;
+  kernel::Event* rising_edge_event_;
   kernel::Process* p_;
   int ticks_, period_;
 };
@@ -64,18 +65,24 @@ template <typename T>
 class Queue : public kernel::Module {
  public:
   Queue(kernel::Kernel* k, const std::string& name, std::size_t n)
-      : kernel::Module(k, name),
-        n_(n),
-        enqueue_event_(k, "enqueue_event"),
-        dequeue_event_(k, "dequeue_event"),
-        non_empty_event_(k, "non_empty_event"),
-        non_full_event_(k, "non_full_event") {
+      : kernel::Module(k, name), n_(n) {
     empty_ = true;
     full_ = false;
     wr_ptr_ = 0;
     rd_ptr_ = 0;
     size_ = 0;
     ts_.resize(n);
+
+    enqueue_event_ = new kernel::Event(k, "enqueue_event");
+    dequeue_event_ = new kernel::Event(k, "dequeue_event");
+    non_empty_event_ = new kernel::Event(k, "non_empty_event");
+    non_full_event_ = new kernel::Event(k, "non_full_event");
+  }
+  ~Queue() {
+    delete enqueue_event_;
+    delete dequeue_event_;
+    delete non_empty_event_;
+    delete non_full_event_;
   }
 
   // The capacity of the queue.
@@ -89,13 +96,13 @@ class Queue : public kernel::Module {
   // Flag denoting empty status of the queue.
   bool empty() const { return empty_; }
   // kernel::Event notified on the enqueue of an entry into the queue.
-  kernel::Event& enqueue_event() { return enqueue_event_; }
+  kernel::Event* enqueue_event() { return enqueue_event_; }
   // kernel::Event notified on the dequeue of an entry into the queue.
-  kernel::Event& dequeue_event() { return dequeue_event_; }
+  kernel::Event* dequeue_event() { return dequeue_event_; }
   // kernel::Event notified on the transition to non-empty state.
-  kernel::Event& non_empty_event() { return non_empty_event_; }
+  kernel::Event* non_empty_event() { return non_empty_event_; }
   // kernel::Event notified on the transition out of the full state.
-  kernel::Event& non_full_event() { return non_full_event_; }
+  kernel::Event* non_full_event() { return non_full_event_; }
 
   // Enqueue entry into queue; returns true on success.
   bool enqueue(const T& t) {
@@ -106,12 +113,12 @@ class Queue : public kernel::Module {
 
     // If was empty, not empty after an enqueue therefore notify,
     // awaitees waiting for the queue become non-empty.
-    if (empty()) non_empty_event_.notify();
+    if (empty()) non_empty_event_->notify();
 
     empty_ = false;
     full_ = (++size_ == n_);
 
-    enqueue_event_.notify();
+    enqueue_event_->notify();
     return true;
   }
 
@@ -130,13 +137,13 @@ class Queue : public kernel::Module {
 
     // If was full, not full after dequeue therefore notify non-full
     // event to indicate transition away from full state.
-    if (full()) non_full_event_.notify();
+    if (full()) non_full_event_->notify();
 
     if (++rd_ptr_ == n()) rd_ptr_ = 0;
     empty_ = (--size_ == 0);
     full_ = false;
 
-    dequeue_event_.notify();
+    dequeue_event_->notify();
     return true;
   }
 
@@ -146,10 +153,10 @@ class Queue : public kernel::Module {
   std::size_t n_, size_;
   std::vector<T> ts_;
 
-  kernel::Event enqueue_event_;
-  kernel::Event dequeue_event_;
-  kernel::Event non_empty_event_;
-  kernel::Event non_full_event_;
+  kernel::Event* enqueue_event_ = nullptr;
+  kernel::Event* dequeue_event_ = nullptr;
+  kernel::Event* non_empty_event_ = nullptr;
+  kernel::Event* non_full_event_ = nullptr;
 };
 
 //
@@ -219,7 +226,7 @@ class Arbiter : public kernel::Module {
   // The number of requesting agents.
   std::size_t n() const { return ts_.size(); }
   // Event denoting rising edge to the ready to grant state.
-  kernel::Event& request_arrival_event() { return *request_arrival_event_; }
+  kernel::Event* request_arrival_event() { return request_arrival_event_; }
   // Initiate an arbitration tournament.
   Tournament tournament() {
     const Tournament t = Tournament(this);
@@ -245,7 +252,7 @@ class Arbiter : public kernel::Module {
       // arbiter goes from having no requestors to having non-zero
       // requestors.
       for (T* t : ts_) {
-        request_arrival_event_->add_child_event(&t->request_arrival_event());
+        request_arrival_event_->add_child_event(t->non_empty_event());
       }
       request_arrival_event_->finalize();
     } else {

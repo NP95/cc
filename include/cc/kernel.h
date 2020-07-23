@@ -43,8 +43,8 @@ class Kernel;
 // clang-format off
 #define KERNEL_TYPES(__func)			\
   __func(Module)				\
-  __func(EventOr)				\
-  __func(Event)					\
+  __func(EventOr)                               \
+  __func(Event)                                 \
   __func(ProcessHost)				\
   __func(Process)				\
   __func(Action)				\
@@ -305,7 +305,7 @@ class Process : public Loggable {
   virtual void wait_until(Time t);
 
   // Suspend/Re-evaluate process upon the notification of event.
-  virtual void wait_on(Event& event);
+  virtual void wait_on(Event* event);
 
   //
   virtual void invoke_init();
@@ -333,8 +333,6 @@ class ProcessHost : public Loggable {
 //
 class Event : public ProcessHost {
   friend class Process;
-  DECLARE_VISITEE(Event);
-
  public:
   Event(Kernel* k, const std::string& name);
 

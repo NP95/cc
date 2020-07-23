@@ -41,6 +41,8 @@ using line_id_t = std::uint64_t;
 // protocol)
 using state_t = std::uint8_t;
 
+using epoch_t = std::size_t;
+
 }  // namespace cc
 
 #endif

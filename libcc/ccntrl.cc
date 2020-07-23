@@ -108,7 +108,7 @@ class CCModel::NocIngressProcess : public AgentProcess {
   // Initialization
   void init() override {
     MessageQueue* mq = cc_->noc_cc__msg_q();
-    wait_on(mq->request_arrival_event());
+    wait_on(mq->non_empty_event());
   }
 
   // Evaluation
@@ -139,7 +139,7 @@ class CCModel::NocIngressProcess : public AgentProcess {
 
     // Forward message message to destination queue and discard
     // encapsulation/transport message.
-    iss_mq->push(msg);
+    iss_mq->issue(msg);
     nocmsg->release();
 
     // Set conditions for subsequent re-evaluations.
@@ -149,7 +149,7 @@ class CCModel::NocIngressProcess : public AgentProcess {
       wait_for(kernel::Time{10, 0});
     } else {
       // Not further work; await until noc ingress queue becomes non-full.
-      wait_on(noc_mq->request_arrival_event());
+      wait_on(noc_mq->non_empty_event());
     }
   }
 
