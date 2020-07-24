@@ -128,7 +128,8 @@ class SocTop : public kernel::TopModule {
       // NOC -> CC message queue
       port->set_egress(cpuc->noc_cc__msg_q());
       // CC -> NOC message queue
-      cpuc->set_cc_noc__msg_q(port->ingress());
+      MessageQueue* ingress_mq = port->ingress();
+      cpuc->set_cc_noc__msg_q(ingress_mq->construct_proxy());
     }
     for (DirModel* dm : dms_) {
       NocPort* port = noc_->get_agent_port(dm);

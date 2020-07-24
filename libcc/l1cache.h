@@ -254,9 +254,9 @@ class L1CacheModel : public Agent {
   // CPU -> l1 command queue
   MessageQueue* cpu_l1__cmd_q() const { return cpu_l1__cmd_q_; }
   // L1 -> CPU response queue
-  MessageQueue* l1_cpu__rsp_q() const { return l1_cpu__rsp_q_; }
+  MessageQueueProxy* l1_cpu__rsp_q() const { return l1_cpu__rsp_q_; }
   // L1 -> L2 command queue
-  MessageQueue* l1_l2__cmd_q() const { return l1_l2__cmd_q_; }
+  MessageQueueProxy* l1_l2__cmd_q() const { return l1_l2__cmd_q_; }
   // L2 -> L1 response queeu
   MessageQueue* l2_l1__rsp_q() const { return l2_l1__rsp_q_; }
 
@@ -285,9 +285,11 @@ class L1CacheModel : public Agent {
   // Set CPU (Elaboration-Phase)
   void set_cpu(Cpu* cpu) { cpu_ = cpu; }
   // Set L1 -> L2 Command Queue
-  void set_l1_l2__cmd_q(MessageQueue* mq) { l1_l2__cmd_q_ = mq; }
+  void set_l1_l2__cmd_q(MessageQueueProxy* mq);
+  //
+  void set_l2_l1__cmd_q(MessageQueue* mq) { l2_l1__cmd_q_ = mq; }
   // Set L1 -> CPU Response Queue
-  void set_l1_cpu__rsp_q(MessageQueue* mq) { l1_cpu__rsp_q_ = mq; }
+  void set_l1_cpu__rsp_q(MessageQueueProxy* mq);
 
   // Design Rule Check (DRC) Phase
   virtual void drc() override;
@@ -300,13 +302,13 @@ class L1CacheModel : public Agent {
   // CPU -> L1 Command Queue (L1 owned)
   MessageQueue* cpu_l1__cmd_q_ = nullptr;
   // L1 -> L2 Command Queue (L2 owned)
-  MessageQueue* l1_l2__cmd_q_ = nullptr;
+  MessageQueueProxy* l1_l2__cmd_q_ = nullptr;
   // L2 -> L1 Response Queue (L1 owned)
   MessageQueue* l2_l1__rsp_q_ = nullptr;
   // L2 -> L1 Command Queue (L1 owned)
   MessageQueue* l2_l1__cmd_q_ = nullptr;
   // L1 -> CPU Response Queue (CPU owned)
-  MessageQueue* l1_cpu__rsp_q_ = nullptr;
+  MessageQueueProxy* l1_cpu__rsp_q_ = nullptr;
   // Message servicing arbiter.
   MQArb* arb_ = nullptr;
   // Transaction table.

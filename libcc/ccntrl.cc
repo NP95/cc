@@ -378,6 +378,8 @@ CCModel::~CCModel() {
   delete noci_proc_;
   delete tt_;
   delete protocol_;
+  delete cc_l2__rsp_q_;
+  delete cc_noc__msg_q_;
 }
 
 void CCModel::build() {
@@ -417,6 +419,18 @@ void CCModel::elab() {
   arb_->add_requester(l2_cc__cmd_q_);
   arb_->add_requester(dir_cc__rsp_q_);
   arb_->add_requester(cc__dt_q_);
+}
+
+// Set CC -> NOC message queue
+void CCModel::set_cc_noc__msg_q(MessageQueueProxy* mq) {
+  cc_noc__msg_q_ = mq;
+  add_child_module(cc_noc__msg_q_);
+}
+
+// Set CC -> L2 response queue
+void CCModel::set_cc_l2__rsp_q(MessageQueueProxy* mq) {
+  cc_l2__rsp_q_ = mq;
+  add_child_module(cc_l2__rsp_q_);
 }
 
 //

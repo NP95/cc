@@ -204,11 +204,11 @@ class CCModel : public Agent {
   // L2 -> Controller (Transaction) Command Queue (owning)
   MessageQueue* l2_cc__cmd_q() const { return l2_cc__cmd_q_; }
   // CC -> L2 Queue
-  MessageQueue* cc_l2__rsp_q() const { return cc_l2__rsp_q_; }
+  MessageQueueProxy* cc_l2__rsp_q() const { return cc_l2__rsp_q_; }
   // NOC -> CC Ingress Queue
   MessageQueue* noc_cc__msg_q() const { return noc_cc__msg_q_; }
   // CC -> NOC Egress Queue
-  MessageQueue* cc_noc__msg_q() const { return cc_noc__msg_q_; }
+  MessageQueueProxy* cc_noc__msg_q() const { return cc_noc__msg_q_; }
   // Directory Mapper instance.
   DirMapper* dm() const { return dm_; }
   // L2 cache model
@@ -233,9 +233,9 @@ class CCModel : public Agent {
   // Set directory mapper.
   void set_dm(DirMapper* dm) { dm_ = dm; }
   // Set CC -> NOC message queue
-  void set_cc_noc__msg_q(MessageQueue* mq) { cc_noc__msg_q_ = mq; }
+  void set_cc_noc__msg_q(MessageQueueProxy* mq);
   /// Set CC -> L2 response queue
-  void set_cc_l2__rsp_q(MessageQueue* mq) { cc_l2__rsp_q_ = mq; }
+  void set_cc_l2__rsp_q(MessageQueueProxy* mq);
   // Transaction table
   CCTTable* tt() const { return tt_; }
 
@@ -251,11 +251,11 @@ class CCModel : public Agent {
   // L2 -> Controller (Transaction) Command Queue (owning)
   MessageQueue* l2_cc__cmd_q_ = nullptr;
   // CC -> L2 response queue
-  MessageQueue* cc_l2__rsp_q_ = nullptr;
+  MessageQueueProxy* cc_l2__rsp_q_ = nullptr;
   // NOC -> CC Ingress Queue
   MessageQueue* noc_cc__msg_q_ = nullptr;
   // CC -> NOC Egress Queue
-  MessageQueue* cc_noc__msg_q_ = nullptr;
+  MessageQueueProxy* cc_noc__msg_q_ = nullptr;
   // DIR -> CC Ingress Queue
   MessageQueue* dir_cc__rsp_q_ = nullptr;
   // {LLC, CC} -> CC Data (dt) queue

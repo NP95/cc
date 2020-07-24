@@ -81,10 +81,12 @@ void CpuCluster::elab() {
   // (L2 -> CC) Bind L2 cache to parent Cache Controller
   l2c_->set_cc(cc_);
   l2c_->set_l1cache_n(cpus_.size());
-  l2c_->set_l2_cc__cmd_q(cc_->l2_cc__cmd_q());
+  MessageQueue* l2_cc__cmd_q = cc_->l2_cc__cmd_q();
+  l2c_->set_l2_cc__cmd_q(l2_cc__cmd_q->construct_proxy());
   // (CC -> L2) Bind Cache Controller to L2 instance.
   cc_->set_l2c(l2c_);
-  cc_->set_cc_l2__rsp_q(l2c_->cc_l2__rsp_q());
+  MessageQueue* cc_l2__rsp_q = l2c_->cc_l2__rsp_q();
+  cc_->set_cc_l2__rsp_q(cc_l2__rsp_q->construct_proxy());
 
   // Bind L1 caches to parent L2.
   for (std::size_t i = 0; i < l1cs_.size(); i++) {
@@ -92,9 +94,11 @@ void CpuCluster::elab() {
     // L1 -> L2
     l1c->set_l2c(l2c_);
     // L1 -> L2 command queue
-    l1c->set_l1_l2__cmd_q(l2c_->l1_l2__cmd_q(i));
+    MessageQueue* l1_l2__cmd_q_mq = l2c_->l1_l2__cmd_q(i);
+    l1c->set_l1_l2__cmd_q(l1_l2__cmd_q_mq->construct_proxy());
     // L2 -> L1 response queue
-    l2c_->set_l2_l1__rsp_q(i, l1c->l2_l1__rsp_q());
+    MessageQueue* l2_l1__rsp_q = l1c->l2_l1__rsp_q();
+    l2c_->set_l2_l1__rsp_q(i, l2_l1__rsp_q->construct_proxy());
   }
 
   // Bind CPU to parent L1.
@@ -107,7 +111,8 @@ void CpuCluster::elab() {
     // (L1 -> CPU)
     l1c->set_cpu(cpu);
     // L1 -> CPU response queue
-    l1c->set_l1_cpu__rsp_q(cpu->l1_cpu__rsp_q());
+    MessageQueue* l1_cpu__rsp_q = cpu->l1_cpu__rsp_q();
+    l1c->set_l1_cpu__rsp_q(l1_cpu__rsp_q->construct_proxy());
   }
 }
 
@@ -137,9 +142,11 @@ void CpuCluster::drc() {
   }
 }
 
-MessageQueue* CpuCluster::noc_cc__msg_q() const { return cc_->noc_cc__msg_q(); }
+MessageQueue* CpuCluster::noc_cc__msg_q() const {
+  return cc_->noc_cc__msg_q();
+}
 
-void CpuCluster::set_cc_noc__msg_q(MessageQueue* mq) {
+void CpuCluster::set_cc_noc__msg_q(MessageQueueProxy* mq) {
   cc_->set_cc_noc__msg_q(mq);
 }
 

@@ -426,6 +426,10 @@ L2CacheModel::~L2CacheModel() {
   for (MessageQueue* mq : l1_l2__cmd_qs_) {
     delete mq;
   }
+  delete l2_cc__cmd_q_;
+  for (MessageQueueProxy* mq : l2_l1__rsp_qs_) {
+    delete mq;
+  }
 }
 
 void L2CacheModel::add_l1c(L1CacheModel* l1c) {
@@ -468,6 +472,16 @@ void L2CacheModel::elab() {
 }
 
 void L2CacheModel::set_l1cache_n(std::size_t n) { l2_l1__rsp_qs_.resize(n); }
+
+void L2CacheModel::set_l2_cc__cmd_q(MessageQueueProxy* mq) {
+  l2_cc__cmd_q_ = mq;
+  add_child_module(l2_cc__cmd_q_);
+}
+
+void L2CacheModel::set_l2_l1__rsp_q(std::size_t n, MessageQueueProxy* mq) {
+  l2_l1__rsp_qs_[n] = mq;
+  add_child_module(l2_l1__rsp_qs_[n]);
+}
 
 void L2CacheModel::drc() {
   if (protocol_ == nullptr) {

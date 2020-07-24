@@ -438,6 +438,8 @@ L1CacheModel::L1CacheModel(kernel::Kernel* k, const L1CacheModelConfig& config)
 L1CacheModel::~L1CacheModel() {
   delete cpu_l1__cmd_q_;
   delete l2_l1__rsp_q_;
+  delete l1_l2__cmd_q_;
+  delete l1_cpu__rsp_q_;
   delete arb_;
   delete tt_;
   delete main_;
@@ -465,6 +467,16 @@ void L1CacheModel::build() {
   // Set up protocol
   protocol_ = config_.pbuilder->create_l1(k());
   add_child_module(protocol_);
+}
+
+void L1CacheModel::set_l1_l2__cmd_q(MessageQueueProxy* mq) {
+  l1_l2__cmd_q_ = mq;
+  add_child_module(l1_l2__cmd_q_);
+}
+
+void L1CacheModel::set_l1_cpu__rsp_q(MessageQueueProxy* mq) {
+  l1_cpu__rsp_q_ = mq;
+  add_child_module(l1_cpu__rsp_q_);
 }
 
 void L1CacheModel::elab() {

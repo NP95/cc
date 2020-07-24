@@ -274,9 +274,9 @@ class L2CacheModel : public Agent {
   // L1 Cache Command Queue (n)
   MessageQueue* l1_l2__cmd_q(std::size_t n) const { return l1_l2__cmd_qs_[n]; }
   // L2 -> L1 response queue
-  MessageQueue* l2_l1__rsp_q(std::size_t n) const { return l2_l1__rsp_qs_[n]; }
+  MessageQueueProxy* l2_l1__rsp_q(std::size_t n) const { return l2_l1__rsp_qs_[n]; }
   // L2 -> CC command queue
-  MessageQueue* l2_cc__cmd_q() const { return l2_cc__cmd_q_; }
+  MessageQueueProxy* l2_cc__cmd_q() const { return l2_cc__cmd_q_; }
   // CC -> L2 response queue
   MessageQueue* cc_l2__rsp_q() const { return cc_l2__rsp_q_; }
 
@@ -303,11 +303,9 @@ class L2CacheModel : public Agent {
   // Set parent cache controlle
   void set_cc(CCModel* cc) { cc_ = cc; }
   // Set L2 -> CC command queue.
-  void set_l2_cc__cmd_q(MessageQueue* mq) { l2_cc__cmd_q_ = mq; }
+  void set_l2_cc__cmd_q(MessageQueueProxy* mq);
   // L2 -> L1 response queue.
-  void set_l2_l1__rsp_q(std::size_t n, MessageQueue* mq) {
-    l2_l1__rsp_qs_[n] = mq;
-  }
+  void set_l2_l1__rsp_q(std::size_t n, MessageQueueProxy* mq);
 
   // Design Rule Check (DRC) callback
   virtual void drc() override;
@@ -320,9 +318,9 @@ class L2CacheModel : public Agent {
   // L1 -> L2 Command Request
   std::vector<MessageQueue*> l1_l2__cmd_qs_;
   // L2 -> L1 Response queue
-  std::vector<MessageQueue*> l2_l1__rsp_qs_;
+  std::vector<MessageQueueProxy*> l2_l1__rsp_qs_;
   // L2 -> CC Command Queue
-  MessageQueue* l2_cc__cmd_q_ = nullptr;
+  MessageQueueProxy* l2_cc__cmd_q_ = nullptr;
   // CC -> L2 Response Queue
   MessageQueue* cc_l2__rsp_q_ = nullptr;
   // Queue selection arbiter

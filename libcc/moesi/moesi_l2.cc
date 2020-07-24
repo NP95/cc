@@ -211,7 +211,8 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
             // L1 requests a line which is already in the S-state.
             L2CmdRspMsg* msg = new L2CmdRspMsg;
             msg->set_t(cmd->t());
-            issue_msg(cl, cmd->l1cache()->l2_l1__rsp_q(), msg);
+            L2CacheModel* l2cache = ctxt.l2cache();
+            issue_msg(cl, l2cache->l2_l1__rsp_q(0), msg);
             // Consume L1Cmd as it can complete successfully.
             cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
             // Advance to next

@@ -133,6 +133,25 @@ ProtocolBuilder* ProtocolBuilderRegistry::build(const std::string& name) {
 
 //
 //
+struct EmitMessageActionProxy : public CoherenceAction {
+  EmitMessageActionProxy(MessageQueueProxy* mq, const Message* msg)
+      : mq_(mq), msg_(msg) {}
+  std::string to_string() const override {
+    std::stringstream ss;
+    {
+      KVListRenderer r(ss);
+      r.add_field("action", "emit message");
+      r.add_field("mq", mq_->path());
+      r.add_field("msg", msg_->to_string());
+    }
+    return ss.str();
+  }
+  bool execute() override { return mq_->issue(msg_); }
+ private:
+  MessageQueueProxy* mq_ = nullptr;
+  const Message* msg_ = nullptr;
+};
+
 struct EmitMessageAction : public CoherenceAction {
   EmitMessageAction(MessageQueue* mq, const Message* msg)
       : mq_(mq), msg_(msg) {}
@@ -155,27 +174,29 @@ struct EmitMessageAction : public CoherenceAction {
 L1CacheModelProtocol::L1CacheModelProtocol(kernel::Kernel* k, const std::string& name)
     : Module(k, name) {}
 
-void L1CacheModelProtocol::issue_msg(L1CommandList& cl, MessageQueue* mq,
+void L1CacheModelProtocol::issue_msg(L1CommandList& cl, MessageQueueProxy* mq,
                                      const Message* msg) const {
-  CoherenceAction* action = new EmitMessageAction(mq, msg);
+
+
+  CoherenceAction* action = new EmitMessageActionProxy(mq, msg);
   cl.push_back(L1CommandBuilder::from_action(action));
 }
 
 L2CacheModelProtocol::L2CacheModelProtocol(kernel::Kernel* k, const std::string& name)
     : Module(k, name) {}
 
-void L2CacheModelProtocol::issue_msg(L2CommandList& cl, MessageQueue* mq,
+void L2CacheModelProtocol::issue_msg(L2CommandList& cl, MessageQueueProxy* mq,
                                      const Message* msg) const {
-  CoherenceAction* action = new EmitMessageAction(mq, msg);
+  CoherenceAction* action = new EmitMessageActionProxy(mq, msg);
   cl.push_back(L2CommandBuilder::from_action(action));
 }
 
 CCProtocol::CCProtocol(kernel::Kernel* k, const std::string& name)
     : Module(k, name) {}
 
-void CCProtocol::issue_msg(CCCommandList& cl, MessageQueue* mq,
+void CCProtocol::issue_msg(CCCommandList& cl, MessageQueueProxy* mq,
                            const Message* msg) const {
-  CoherenceAction* action = new EmitMessageAction(mq, msg);
+  CoherenceAction* action = new EmitMessageActionProxy(mq, msg);
   cl.push_back(CCCommandBuilder::from_action(action));
 }
 
@@ -189,7 +210,7 @@ void CCProtocol::issue_emit_to_noc(CCContext& ctxt, CCCommandList& cl,
   nocmsg->set_origin(cc);
   nocmsg->set_dest(dest);
   // Issue Message Emit action.
-  CoherenceAction* action = new EmitMessageAction(cc->cc_noc__msg_q(), nocmsg);
+  CoherenceAction* action = new EmitMessageActionProxy(cc->cc_noc__msg_q(), nocmsg);
   cl.push_back(CCCommandBuilder::from_action(action));
       
 }

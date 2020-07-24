@@ -220,8 +220,7 @@ class MOESICCProtocol : public CCProtocol {
   void eval_msg(CCContext& ctxt, CCCommandList& cl, const CohCmdMsg* msg) const {
     AceCmdRspMsg* rmsg = new AceCmdRspMsg;
     rmsg->set_t(msg->t());
-    L2CacheModel* l2cache = ctxt.cc()->l2c();
-    issue_msg(cl, l2cache->cc_l2__rsp_q(), rmsg);
+    issue_msg(cl, ctxt.cc()->cc_l2__rsp_q(), rmsg);
 
     // Transaction is now complete; delete entry from transaction table.
     cl.push_back(cb::from_opcode(CCOpcode::TableUninstall));
