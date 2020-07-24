@@ -72,13 +72,12 @@ class MessageQueueProxy;
 //
 //
 class MessageQueue : public Agent {
+  friend class MessageQueueProxy;
  public:
   MessageQueue(kernel::Kernel* k, const std::string& name, std::size_t n);
   ~MessageQueue();
 
-
   MessageQueueProxy* construct_proxy();
-
   
   // Queue depth.
   std::size_t n() const { return q_->n(); }
@@ -100,10 +99,6 @@ class MessageQueue : public Agent {
   // non-full state.
   kernel::Event* non_full_event() const { return q_->non_full_event(); }
 
-
-  // Issue message to queue after 'epoch' agent epochs.
-  bool issue(const Message* msg, epoch_t epoch = 0);
-
   // Peek head message, nullptr on empty.
   const Message* peek() const;
   // Dequeue head message from queue.
@@ -119,6 +114,8 @@ class MessageQueue : public Agent {
  private:
   // Construct module
   void build(std::size_t n);
+  // Issue message to queue after 'epoch' agent epochs.
+  bool issue(const Message* msg, epoch_t epoch = 0);
   // Queue primitive.
   Queue<const Message*>* q_ = nullptr;
   // Flag indicating that the current requestor is blocked.

@@ -206,7 +206,6 @@ class CCModel : public Agent {
   MessageQueueProxy* cc_l2__rsp_q() const { return cc_l2__rsp_q_; }
   // NOC -> CC Ingress Queue
   MessageQueue* endpoint() const;
-  //MessageQueue* noc_cc__msg_q() const { return noc_cc__msg_q_; }
   // CC -> NOC Egress Queue
   MessageQueueProxy* cc_noc__msg_q() const { return cc_noc__msg_q_; }
   // Directory Mapper instance.
@@ -249,8 +248,6 @@ class CCModel : public Agent {
   MessageQueue* l2_cc__cmd_q_ = nullptr;
   // CC -> L2 response queue
   MessageQueueProxy* cc_l2__rsp_q_ = nullptr;
-  // NOC -> CC Ingress Queue
-  //MessageQueue* noc_cc__msg_q_ = nullptr;
   // CC -> NOC Egress Queue
   MessageQueueProxy* cc_noc__msg_q_ = nullptr;
   // DIR -> CC Ingress Queue

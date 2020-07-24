@@ -204,7 +204,7 @@ class LLCModel::RdisProcess : public kernel::Process {
         nocmsg->set_dest(model_->mc());
         nocmsg->set_payload(memcmd);
 
-        MessageQueue* mq = model_->llc_noc__msg_q();
+        MessageQueueProxy* mq = model_->llc_noc__msg_q();
         mq->issue(nocmsg);
       } break;
       case LLCCmdOpcode::Evict: {
@@ -230,7 +230,7 @@ class LLCModel::RdisProcess : public kernel::Process {
         nocmsg->set_dest(model_->dir());
         nocmsg->set_payload(llcrsp);
 
-        MessageQueue* mq = model_->llc_noc__msg_q();
+        MessageQueueProxy* mq = model_->llc_noc__msg_q();
         mq->issue(nocmsg);
       } break;
       case MemRspOpcode::WriteOkay: {
@@ -291,6 +291,7 @@ LLCModel::~LLCModel() {
   delete rdis_proc_;
   delete noc_endpoint_;
   for (MessageQueueProxy* p : endpoints_) { delete p; }
+  delete llc_noc__msg_q_;
 }
 
 void LLCModel::build() {
@@ -337,6 +338,11 @@ void LLCModel::drc() {
 
 MessageQueue* LLCModel::endpoint() const {
   return noc_endpoint_->ingress_mq();
+}
+
+void LLCModel::set_llc_noc__msg_q(MessageQueueProxy* mq) {
+  llc_noc__msg_q_ = mq;
+  add_child_module(llc_noc__msg_q_);
 }
 
 }  // namespace cc

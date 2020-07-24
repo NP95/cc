@@ -161,7 +161,7 @@ class NocModel::MainProcess : public kernel::Process {
 
         // Issue message to destination agent ingress queue.
         // const Message* payload = nocmsg->payload();
-        MessageQueue* egress = port->egress();
+        MessageQueueProxy* egress = port->egress();
         egress->issue(nocmsg);
 
         // Message has now been issued to destination. Destroy
@@ -202,7 +202,10 @@ NocPort::NocPort(kernel::Kernel* k, const std::string& name) : Module(k, name) {
   build();
 }
 
-NocPort::~NocPort() { delete ingress_; }
+NocPort::~NocPort() {
+  delete ingress_;
+  delete egress_;
+}
 
 void NocPort::build() {
   // Construct owned ingress queue; egress is owned by the agent itself.

@@ -74,17 +74,17 @@ class NocPort : public kernel::Module {
   MessageQueue* ingress() const { return ingress_; }
 
   // Owned by agent
-  MessageQueue* egress() const { return egress_; }
+  MessageQueueProxy* egress() const { return egress_; }
 
  private:
   // Build phase:
   void build();
 
   // Elaboration phase:
-  void set_egress(MessageQueue* egress) { egress_ = egress; }
+  void set_egress(MessageQueueProxy* egress) { egress_ = egress; }
 
   MessageQueue* ingress_ = nullptr;
-  MessageQueue* egress_ = nullptr;
+  MessageQueueProxy* egress_ = nullptr;
 };
 
 //

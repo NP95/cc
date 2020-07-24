@@ -135,7 +135,7 @@ class MemCntrlModel::RequestDispatcherProcess : public kernel::Process {
           nocmsg->set_dest(cmdmsg->dest());
           nocmsg->set_t(cmdmsg->t());
           // Issue to NOC
-          MessageQueue* mem_noc__msg_q = model_->mem_noc__msg_q();
+          MessageQueueProxy* mem_noc__msg_q = model_->mem_noc__msg_q();
           mem_noc__msg_q->issue(nocmsg);
 
           cmdmsg->release();
@@ -206,6 +206,7 @@ MemCntrlModel::~MemCntrlModel() {
   }
   delete noc_endpoint_;
   for (MessageQueueProxy* p : endpoints_) { delete p; }
+  delete mem_noc__msg_q_;
 }
 
 void MemCntrlModel::build() {
@@ -238,6 +239,11 @@ void MemCntrlModel::elab() {
     noc_endpoint_->register_agent(pp.first, proxy);
     endpoints_.push_back(proxy);
   }
+}
+
+void MemCntrlModel::set_mem_noc__msg_q(MessageQueueProxy* mq) {
+  mem_noc__msg_q_ = mq;
+  add_child_module(mem_noc__msg_q_);
 }
 
 void MemCntrlModel::drc() {

@@ -201,7 +201,7 @@ class DirModel : public Agent {
   // NOC -> DIR message queue
   MessageQueue* endpoint();
   // DIR -> NOC message queue
-  MessageQueue* dir_noc__msg_q() const { return dir_noc__msg_q_; }
+  MessageQueueProxy* dir_noc__msg_q() const { return dir_noc__msg_q_; }
   // Coherence protocol
   DirProtocol* protocol() const { return protocol_; }
   // Transaction table.
@@ -215,7 +215,7 @@ class DirModel : public Agent {
   // Elaboration
   void elab() override;
   //
-  void set_dir_noc__msg_q(MessageQueue* mq) { dir_noc__msg_q_ = mq; }
+  void set_dir_noc__msg_q(MessageQueueProxy* mq);
 
   // Design Rule Check (DRC)
   void drc() override;
@@ -234,7 +234,7 @@ class DirModel : public Agent {
   // Queue selection arbiter
   MQArb* arb_ = nullptr;
   // DIR -> NOC message queue (owned by NOC)
-  MessageQueue* dir_noc__msg_q_ = nullptr;
+  MessageQueueProxy* dir_noc__msg_q_ = nullptr;
   // CPU -> DIR command queue (owned by DIR)
   MessageQueue* cpu_dir__cmd_q_ = nullptr;
   // LLC -> DIR response queue (owned by DIR)

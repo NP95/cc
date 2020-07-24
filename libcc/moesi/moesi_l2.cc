@@ -112,20 +112,6 @@ struct UpdateStateAction : public CoherenceAction {
 
 //
 //
-struct EmitMessageAction : public CoherenceAction {
-  EmitMessageAction(MessageQueue* mq, const Message* msg)
-      : mq_(mq), msg_(msg)
-  {}
-  bool execute() override {
-    return mq_->issue(msg_);
-  }
- private:
-  MessageQueue* mq_ = nullptr;
-  const Message* msg_ = nullptr;
-};
-
-//
-//
 class MOESIL2CacheProtocol : public L2CacheModelProtocol {
   using cb = L2CommandBuilder;
  public:

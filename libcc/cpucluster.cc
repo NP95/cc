@@ -107,7 +107,8 @@ void CpuCluster::elab() {
     L1CacheModel* l1c = l1cs_[i];
     // (CPU -> L1)
     cpu->set_l1c(l1c);
-    cpu->set_cpu_l1__cmd_q(l1c->cpu_l1__cmd_q());
+    MessageQueue* cpu_l1__cmd_q = l1c->cpu_l1__cmd_q();
+    cpu->set_cpu_l1__cmd_q(cpu_l1__cmd_q->construct_proxy());
     // (L1 -> CPU)
     l1c->set_cpu(cpu);
     // L1 -> CPU response queue

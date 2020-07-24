@@ -315,7 +315,7 @@ class DirProtocol : public kernel::Module {
 
  protected:
   //
-  virtual void issue_msg(DirCommandList& lc, MessageQueue* mq,
+  virtual void issue_msg(DirCommandList& lc, MessageQueueProxy* mq,
                          const Message* msg) const;
 
   //

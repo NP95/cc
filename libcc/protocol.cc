@@ -151,7 +151,7 @@ struct EmitMessageActionProxy : public CoherenceAction {
   MessageQueueProxy* mq_ = nullptr;
   const Message* msg_ = nullptr;
 };
-
+/*
 struct EmitMessageAction : public CoherenceAction {
   EmitMessageAction(MessageQueue* mq, const Message* msg)
       : mq_(mq), msg_(msg) {}
@@ -170,7 +170,7 @@ struct EmitMessageAction : public CoherenceAction {
   MessageQueue* mq_ = nullptr;
   const Message* msg_ = nullptr;
 };
-
+*/
 L1CacheModelProtocol::L1CacheModelProtocol(kernel::Kernel* k, const std::string& name)
     : Module(k, name) {}
 
@@ -212,15 +212,14 @@ void CCProtocol::issue_emit_to_noc(CCContext& ctxt, CCCommandList& cl,
   // Issue Message Emit action.
   CoherenceAction* action = new EmitMessageActionProxy(cc->cc_noc__msg_q(), nocmsg);
   cl.push_back(CCCommandBuilder::from_action(action));
-      
 }
 
 DirProtocol::DirProtocol(kernel::Kernel* k, const std::string& name)
     : Module(k, name) {}
 
-void DirProtocol::issue_msg(DirCommandList& cl, MessageQueue* mq,
+void DirProtocol::issue_msg(DirCommandList& cl, MessageQueueProxy* mq,
                            const Message* msg) const {
-  CoherenceAction* action = new EmitMessageAction(mq, msg);
+  CoherenceAction* action = new EmitMessageActionProxy(mq, msg);
   cl.push_back(DirCommandBuilder::from_action(action));
 }
 
@@ -234,7 +233,7 @@ void DirProtocol::issue_emit_to_noc(DirContext& ctxt, DirCommandList& cl,
   nocmsg->set_dest(dest);
   // Issue Message Emit action.
   CoherenceAction* action =
-      new EmitMessageAction(ctxt.dir()->dir_noc__msg_q(), nocmsg);
+      new EmitMessageActionProxy(ctxt.dir()->dir_noc__msg_q(), nocmsg);
   cl.push_back(DirCommandBuilder::from_action(action));
       
 }

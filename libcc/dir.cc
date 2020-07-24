@@ -387,6 +387,7 @@ DirModel::~DirModel() {
   delete rdis_proc_;
   delete protocol_;
   for (MessageQueueProxy* p : endpoints_) { delete p; }
+  delete dir_noc__msg_q_;
 }
 
 void DirModel::build() {
@@ -433,6 +434,11 @@ void DirModel::elab() {
   p = llc_dir__rsp_q_->construct_proxy();
   noc_endpoint_->register_endpoint(MessageClass::LLCCmdRsp, p);
   endpoints_.push_back(p);
+}
+
+void DirModel::set_dir_noc__msg_q(MessageQueueProxy* mq) {
+  dir_noc__msg_q_ = mq;
+  add_child_module(dir_noc__msg_q_);
 }
 
 //

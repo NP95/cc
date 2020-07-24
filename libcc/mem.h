@@ -119,7 +119,7 @@ class MemCntrlModel : public Agent {
   MessageQueue* endpoint() const;
   
   // MEM -> NOC
-  MessageQueue* mem_noc__msg_q() const { return mem_noc__msg_q_; }
+  MessageQueueProxy* mem_noc__msg_q() const { return mem_noc__msg_q_; }
 
  protected:
   // Build
@@ -132,7 +132,7 @@ class MemCntrlModel : public Agent {
   // Elaboration
   void elab() override;
   //
-  void set_mem_noc__msg_q(MessageQueue* mq) { mem_noc__msg_q_ = mq; }
+  void set_mem_noc__msg_q(MessageQueueProxy* mq);
 
   // Design Rule Check (DRC)
   void drc() override;
@@ -146,7 +146,7 @@ class MemCntrlModel : public Agent {
   // NOC -> MEM message queue (owned by directory)
   MessageQueue* noc_mem__msg_q_ = nullptr;
   // MEM -> NOC message queue (owned by noc)
-  MessageQueue* mem_noc__msg_q_ = nullptr;
+  MessageQueueProxy* mem_noc__msg_q_ = nullptr;
   // NOC endpoint
   MemNocEndpoint* noc_endpoint_ = nullptr;
   // NOC endpoint proxies.

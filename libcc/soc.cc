@@ -126,17 +126,19 @@ class SocTop : public kernel::TopModule {
         log(msg);
       }
       // NOC -> CC message queue
-      port->set_egress(cpuc->noc_cc__msg_q());
+      MessageQueue* noc_cc__msg_q = cpuc->noc_cc__msg_q();
+      port->set_egress(noc_cc__msg_q->construct_proxy());
       // CC -> NOC message queue
       MessageQueue* ingress_mq = port->ingress();
       cpuc->set_cc_noc__msg_q(ingress_mq->construct_proxy());
     }
     for (DirModel* dm : dms_) {
-      NocPort* port = noc_->get_agent_port(dm);
+      NocPort* dm_port = noc_->get_agent_port(dm);
       // NOC -> DIR message queue
-      port->set_egress(dm->endpoint());
+      dm_port->set_egress(dm->endpoint()->construct_proxy());
       // DIR -> NOC message queue
-      dm->set_dir_noc__msg_q(port->ingress());
+      MessageQueue* dm_port_ingress = dm_port->ingress();
+      dm->set_dir_noc__msg_q(dm_port_ingress->construct_proxy());
 
       const DirModelConfig& cfg = dm->config();
       if (!cfg.is_null_filter) {
@@ -146,19 +148,20 @@ class SocTop : public kernel::TopModule {
         // Bind directory
         llc->set_dir(dm);
         // Bind associated LLC to NOC
-        NocPort* port = noc_->get_agent_port(llc);
+        NocPort* llc_port = noc_->get_agent_port(llc);
         // NOC -> LLC
-        port->set_egress(llc->endpoint());
+        llc_port->set_egress(llc->endpoint()->construct_proxy());
         // LLC -> NOC
-        llc->set_llc_noc__msg_q(port->ingress());
+        MessageQueue* llc_port_ingress = llc_port->ingress();
+        llc->set_llc_noc__msg_q(llc_port_ingress->construct_proxy());
       }
     }
     for (MemCntrlModel* mm : mms_) {
       NocPort* port = noc_->get_agent_port(mm);
       // NOC -> MEM
-      port->set_egress(mm->endpoint());
+      port->set_egress(mm->endpoint()->construct_proxy());
       // MEM -> NOC
-      mm->set_mem_noc__msg_q(port->ingress());
+      mm->set_mem_noc__msg_q(port->ingress()->construct_proxy());
     }
     // Construct directory mapper
     dm_ = new SingleDirMapper(*dms_.begin());
