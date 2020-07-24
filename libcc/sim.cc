@@ -40,6 +40,10 @@ MessageQueue::MessageQueue(kernel::Kernel* k, const std::string& name,
 
 MessageQueue::~MessageQueue() { delete q_; }
 
+MessageQueueProxy* MessageQueue::construct_proxy() {
+  return new MessageQueueProxy(this);
+}
+
 bool MessageQueue::issue(const Message* msg, epoch_t epoch) {
   struct EnqueueAction : kernel::Action {
     EnqueueAction(kernel::Kernel* k, Queue<const Message*>* q, const Message* msg)
@@ -133,6 +137,25 @@ void MessageQueue::build(std::size_t n) {
   add_child_module(q_);
 
   credits_ = n;
+}
+
+MessageQueueProxy::MessageQueueProxy(MessageQueue* mq)
+    : Agent(mq->k(), "proxy"), mq_(mq) {
+  credits_ = mq->n();
+}
+
+bool MessageQueueProxy::issue(const Message* msg, epoch_t epoch) {
+  bool success = false;
+  if (credits_ > 0) {
+    credits_--;
+    mq_->issue(msg, epoch);
+    success = true;
+  } else {
+    LogMessage l("Attempt to issue when credits are exhausted.");
+    l.level(Level::Fatal);
+    log(l);
+  }
+  return success;
 }
 
 AgentProcess::AgentProcess(kernel::Kernel* k, const std::string& name)

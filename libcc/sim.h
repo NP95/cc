@@ -67,6 +67,8 @@ class Agent : public kernel::Module {
   Agent(kernel::Kernel* k, const std::string& name);
 };
 
+class MessageQueueProxy;
+
 //
 //
 class MessageQueue : public Agent {
@@ -74,6 +76,10 @@ class MessageQueue : public Agent {
   MessageQueue(kernel::Kernel* k, const std::string& name, std::size_t n);
   ~MessageQueue();
 
+
+  MessageQueueProxy* construct_proxy();
+
+  
   // Queue depth.
   std::size_t n() const { return q_->n(); }
 
@@ -118,6 +124,28 @@ class MessageQueue : public Agent {
   // Flag indicating that the current requestor is blocked.
   bool blocked_ = false;
   // Queue credit count.
+  std::size_t credits_;
+};
+
+//
+//
+class MessageQueueProxy : public Agent {
+  friend class MessageQueue;
+
+  MessageQueueProxy(MessageQueue* mq);
+ public:
+  // Target Message Queue is full.
+  bool full() const { return credits_ == 0; }
+  // Total credits available in Message Queue
+  std::size_t credits() const { return credits_; }
+  // Return credit to proxy.
+  void add_credit() { credits_++; }
+  // Issue message to target
+  bool issue(const Message* msg, epoch_t epoch = 0);
+ private:
+  // Associated Message Queue
+  MessageQueue* mq_ = nullptr;
+  // Credit counter.
   std::size_t credits_;
 };
 
