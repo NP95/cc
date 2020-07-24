@@ -385,6 +385,7 @@ DirModel::~DirModel() {
   delete protocol_;
   for (MessageQueueProxy* p : endpoints_) { delete p; }
   delete dir_noc__msg_q_;
+  delete tt_;
 }
 
 void DirModel::build() {

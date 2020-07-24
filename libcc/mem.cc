@@ -131,8 +131,6 @@ class MemCntrlModel::RequestDispatcherProcess : public kernel::Process {
           // Issue to NOC
           MessageQueueProxy* mem_noc__msg_q = model_->mem_noc__msg_q();
           mem_noc__msg_q->issue(nocmsg);
-
-          cmdmsg->release();
         } break;
         default: {
           LogMessage lmsg("Invalid message opcode received: ");
@@ -146,6 +144,9 @@ class MemCntrlModel::RequestDispatcherProcess : public kernel::Process {
       lm.append(cmdmsg->to_string());
       lm.level(Level::Debug);
       log(lm);
+
+      // Discard message
+      cmdmsg->release();
     } else {
       wait_on(rdis_arb->request_arrival_event());
     }

@@ -27,6 +27,7 @@
 
 #include "driver.h"
 #include "builder.h"
+#include "cc/cfgs.h"
 #include "cc/stimulus.h"
 
 #include "nlohmann/json.hpp"
@@ -75,11 +76,9 @@ class SocConfigBuilderJson {
     is >> jtop_;
   }
 
-  SocConfig build() {
-    SocConfig soc;
+  void build(SocConfig& soc) {
     build(soc, jtop_);
     post(soc);
-    return soc;
   }
 
  private:
@@ -253,6 +252,7 @@ class SocConfigBuilderJson {
     for (DirModelConfig& c : cfg.dcfgs) {
       post(c);
     }
+    cfg.pbuilder = pb_;
   }
 
   void post(CpuClusterConfig& cfg) {
@@ -278,7 +278,6 @@ class SocConfigBuilderJson {
   void post(DirModelConfig& c) {
     c.pbuilder = pb_;
   }
-  
   //
   ProtocolBuilder* pb_ = nullptr;
   // Input configuration stream.
@@ -291,10 +290,9 @@ class SocConfigBuilderJson {
 #undef CHECK  
 };
 
-
-SocConfig build_soc_config(std::istream& is) {
+void build_soc_config(std::istream& is, SocConfig& cfg) {
   SocConfigBuilderJson builder(is);
-  return builder.build();
+  builder.build(cfg);
 }
 
 } // namespace cc

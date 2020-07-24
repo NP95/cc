@@ -29,11 +29,12 @@
 #define CC_DRIVER_BUILDER_H
 
 #include "cc/soc.h"
-#include "cc/cfgs.h"
 #include <exception>
 #include <istream>
 
 namespace cc {
+
+class SocConfig;
 
 class BuilderException : public std::invalid_argument {
  public:
@@ -52,7 +53,7 @@ class BuilderException : public std::invalid_argument {
   std::size_t line_;
 };
 
-SocConfig build_soc_config(std::istream& is);
+void build_soc_config(std::istream& is, SocConfig& cfg);
 
 } // namespace cc
 

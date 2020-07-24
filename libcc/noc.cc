@@ -276,6 +276,7 @@ NocEndpoint::NocEndpoint(kernel::Kernel* k, const std::string& name)
 }
 
 NocEndpoint::~NocEndpoint() {
+  delete ingress_mq_;
   delete main_;
   // proxies are not owned by the end-point as they may be duplicated.
 }
@@ -290,6 +291,14 @@ void NocEndpoint::build() {
 NocModel::NocModel(kernel::Kernel* k, const NocModelConfig& config)
     : Agent(k, config.name), config_(config) {
   build();
+}
+
+NocModel::~NocModel() {
+  delete arb_;
+  delete main_;
+  for (auto pp : ports_) {
+    delete pp.second;
+  }
 }
 
 NocPort* NocModel::get_agent_port(Agent* agent) {

@@ -221,7 +221,7 @@ class Arbiter : public kernel::Module {
       : kernel::Module(k, name) {
     build();
   }
-  virtual ~Arbiter() = default;
+  virtual ~Arbiter() { delete request_arrival_event_; }
 
   // The number of requesting agents.
   std::size_t n() const { return ts_.size(); }

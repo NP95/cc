@@ -280,6 +280,7 @@ class Event : public Loggable {
   friend class Process;
  public:
   Event(Kernel* k, const std::string& name);
+  ~Event();
 
   // Has awaiting processes.x
   bool has_awaitees() const { return !as_.empty(); }
@@ -301,7 +302,6 @@ class Event : public Loggable {
 class EventOr : public Event {
  public:
   EventOr(Kernel* k, const std::string& name);
-  ~EventOr();
 
   // Add child event.
   void add_child_event(Event* child) { childs_.push_back(child); }
@@ -309,7 +309,6 @@ class EventOr : public Event {
 
  private:
   std::vector<Event*> childs_;
-  std::vector<const Action*> fwdas_;
 };
 
 //

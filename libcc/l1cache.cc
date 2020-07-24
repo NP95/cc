@@ -435,6 +435,7 @@ L1CacheModel::~L1CacheModel() {
   delete tt_;
   delete main_;
   delete cache_;
+  delete protocol_;
 }
 
 void L1CacheModel::build() {

@@ -38,7 +38,9 @@ MessageQueue::MessageQueue(kernel::Kernel* k, const std::string& name,
   build(n);
 }
 
-MessageQueue::~MessageQueue() { delete q_; }
+MessageQueue::~MessageQueue() {
+  delete q_;
+}
 
 MessageQueueProxy* MessageQueue::construct_proxy() {
   return new MessageQueueProxy(this);

@@ -45,6 +45,7 @@ class CpuCluster : public Agent {
  public:
   CpuCluster(kernel::Kernel* k, const CpuClusterConfig& cfg,
              Stimulus* stimulus);
+  ~CpuCluster();
 
   //
   const CpuClusterConfig& config() const { return config_; }

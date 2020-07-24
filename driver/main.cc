@@ -35,12 +35,10 @@ int main(int argc, const char** argv) {
   cc::SocConfig cfg;
   try {
     std::ifstream is(argv[1]);
-    cfg = cc::build_soc_config(is);
+    cc::build_soc_config(is, cfg);
   } catch (const cc::BuilderException& ex) {
     std::cerr << "Failed to parse configuration file: "
-              << ex.what()
-              << " at: "
-              << ex.file() << ":" << ex.line()
+              << ex.what() << " at: " << ex.file() << ":" << ex.line()
               << "\n";
     return 1;
   }

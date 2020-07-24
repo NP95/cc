@@ -31,6 +31,7 @@
 #include <cstddef>
 #include <string>
 #include <vector>
+#include <memory>
 
 namespace cc {
 
@@ -198,6 +199,7 @@ struct StimulusConfig {
 //
 //
 struct SocConfig {
+  ~SocConfig();
   // Toplevel name
   std::string name = "top";
   // Coherence protocol
@@ -210,6 +212,8 @@ struct SocConfig {
   StimulusConfig scfg;
   // NOC/Interconnect configuration.
   NocModelConfig noccfg;
+  // Protocol Builder
+  ProtocolBuilder* pbuilder;
 };
 
 }  // namespace cc

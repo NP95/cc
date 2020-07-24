@@ -26,6 +26,7 @@
 ## ========================================================================= ##
 
 add_library(cc SHARED
+  cfgs.cc
   kernel.cc
   primitives.cc
   cache.cc

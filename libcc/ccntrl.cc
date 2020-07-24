@@ -51,8 +51,7 @@ const char* to_string(CCOpcode opcode) {
 CCCommand::~CCCommand() {
   switch (opcode()) {
     case CCOpcode::InvokeCoherenceAction:
-      // DON'T DELETE TWICE!
-      //oprands.coh.action->release();
+      oprands.coh.action->release();
       break;
     default:
       break;

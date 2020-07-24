@@ -43,8 +43,8 @@ namespace cc {
 class SocTop : public kernel::TopModule {
  public:
   SocTop(kernel::Kernel* k, const SocConfig& cfg)
-      : TopModule(k, cfg.name), config_(cfg) {
-    build();
+      : TopModule(k, cfg.name) {
+    build(cfg);
   }
 
   ~SocTop() {
@@ -56,20 +56,25 @@ class SocTop : public kernel::TopModule {
     for (DirModel* dm : dms_) {
       delete dm;
     }
+    for (LLCModel* llc : llcs_) {
+	delete llc;
+    }
+    for (MemCntrlModel* mm : mms_) {
+      delete mm;
+    }
+    delete dm_;
     delete noc_;
     delete stimulus_;
   }
 
-  const SocConfig& config() const { return config_; }
-
  private:
-  void build() {
+  void build(const SocConfig& cfg) {
     // Construct stimulus (as module)
-    stimulus_ = stimulus_builder(k(), config_.scfg);
+    stimulus_ = stimulus_builder(k(), cfg.scfg);
     add_child_module(stimulus_);
 
     // Construct interconnect:
-    noc_ = new NocModel(k(), config_.noccfg);
+    noc_ = new NocModel(k(), cfg.noccfg);
     add_child_module(noc_);
 
     // Construct memory controller (s)
@@ -79,7 +84,7 @@ class SocTop : public kernel::TopModule {
     mms_.push_back(mm);
 
     // Construct child CPU clusters
-    for (const CpuClusterConfig& cccfg : config_.ccls) {
+    for (const CpuClusterConfig& cccfg : cfg.ccls) {
       CpuCluster* cpuc = new CpuCluster(k(), cccfg, stimulus_);
       // NOC end point is the coherence controller within the CPU
       // cluster; not the CPU cluster itself.
@@ -89,7 +94,7 @@ class SocTop : public kernel::TopModule {
     }
 
     // Construct child directories
-    for (const DirModelConfig& dcfg : config_.dcfgs) {
+    for (const DirModelConfig& dcfg : cfg.dcfgs) {
       DirModel* dm = new DirModel(k(), dcfg);
       noc_->register_agent(dm);
       add_child_module(dm);
@@ -196,13 +201,14 @@ class SocTop : public kernel::TopModule {
   std::vector<MemCntrlModel*> mms_;
   // Stimulus "module" instance.
   Stimulus* stimulus_;
-  // Soc configuration
-  SocConfig config_;
 };
 
 Soc::Soc(const SocConfig& cfg) { build(cfg); }
 
-Soc::~Soc() { delete kernel_; }
+Soc::~Soc() {
+  delete kernel_;
+  delete top_;
+}
 
 void Soc::initialize() {
   kernel_->invoke_elab();

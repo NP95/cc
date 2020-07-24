@@ -80,7 +80,6 @@ std::string L2CmdRspMsg::to_string() const {
   std::stringstream ss;
   KVListRenderer r;
   r.add_field("cls", to_string(cls()));
-  r.add_field("opcode", to_string(opcode()));
   return r.to_string();
 }
 
@@ -422,6 +421,7 @@ L2CacheModel::~L2CacheModel() {
   for (MessageQueueProxy* mq : l2_l1__rsp_qs_) {
     delete mq;
   }
+  delete tt_;
 }
 
 void L2CacheModel::add_l1c(L1CacheModel* l1c) {

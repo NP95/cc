@@ -41,6 +41,17 @@ CpuCluster::CpuCluster(kernel::Kernel* k, const CpuClusterConfig& config,
   build();
 }
 
+CpuCluster::~CpuCluster() {
+  delete cc_;
+  delete l2c_;
+  for (L1CacheModel* l1c : l1cs_) {
+    delete l1c;
+  }
+  for (Cpu* cpu : cpus_) {
+    delete cpu;
+  }
+}
+
 //
 void CpuCluster::build() {
   // Construct cache controller.

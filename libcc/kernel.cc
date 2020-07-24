@@ -282,6 +282,12 @@ void ProcessHost::add_child_process(Process* p) {
 
 Event::Event(Kernel* k, const std::string& name) : Loggable(k, name) {}
 
+Event::~Event() {
+  for (Action* action : as_) {
+    delete action;
+  }
+}
+
 void Event::add_waitee(Process* p) {
   struct EvalProcessAction : Action {
     EvalProcessAction(Kernel* k, Process* p)
@@ -306,12 +312,6 @@ void Event::notify() {
 }
 
 EventOr::EventOr(Kernel* k, const std::string& name) : Event(k, name) {}
-
-EventOr::~EventOr() {
-  for (const Action* a : fwdas_) {
-    delete a;
-  }
-}
 
 void EventOr::finalize() {
   // Forwarding process awaits the notification of one of the
@@ -341,8 +341,8 @@ void EventOr::finalize() {
     const std::string process_name = name() + ".fwd." + e->name();
     EventNotifyForwardAction* fwda =
         new EventNotifyForwardAction(k(), process_name, this, e);
+    // Pass ownership of action to underlying Event instance.
     e->add_notify_action(fwda);
-    fwdas_.push_back(fwda);
   }
 }
 

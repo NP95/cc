@@ -165,6 +165,7 @@ Cpu::~Cpu() {
     delete pp_;
     delete cp_;
   }
+  delete stimulus_;
   delete l1_cpu__rsp_q_;
   delete cpu_l1__cmd_q_;
 }

@@ -123,6 +123,7 @@ class NocModel : public Agent {
 
  public:
   NocModel(kernel::Kernel* k, const NocModelConfig& config);
+  ~NocModel();
 
   const NocModelConfig& config() const { return config_; }
 
