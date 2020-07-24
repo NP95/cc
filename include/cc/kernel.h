@@ -43,8 +43,6 @@ class Kernel;
 // clang-format off
 #define KERNEL_TYPES(__func)			\
   __func(Module)				\
-  __func(EventOr)                               \
-  __func(Event)                                 \
   __func(ProcessHost)				\
   __func(Process)				\
   __func(Action)				\
@@ -278,6 +276,44 @@ class Action : public Loggable {
 
 //
 //
+class Event : public Loggable {
+  friend class Process;
+ public:
+  Event(Kernel* k, const std::string& name);
+
+  // Has awaiting processes.x
+  bool has_awaitees() const { return !as_.empty(); }
+
+  // Wait awaiteeseventor
+  void notify();
+
+  // Add 'action' to be evaluated upon event notification.
+  void add_notify_action(Action* a) { as_.push_back(a); }
+
+ private:
+  void add_waitee(Process* p);
+  //
+  std::vector<Action*> as_;
+};
+
+// Event subtype to model the composition of an "or-list" of events.
+//
+class EventOr : public Event {
+ public:
+  EventOr(Kernel* k, const std::string& name);
+  ~EventOr();
+
+  // Add child event.
+  void add_child_event(Event* child) { childs_.push_back(child); }
+  void finalize();
+
+ private:
+  std::vector<Event*> childs_;
+  std::vector<const Action*> fwdas_;
+};
+
+//
+//
 class Process : public Loggable {
   friend class Module;
   DECLARE_VISITEE(Process);
@@ -327,45 +363,6 @@ class ProcessHost : public Loggable {
 
  private:
   std::vector<Process*> ps_;
-};
-
-//
-//
-class Event : public ProcessHost {
-  friend class Process;
- public:
-  Event(Kernel* k, const std::string& name);
-
-  // Has awaiting processes.x
-  bool has_awaitees() const { return !as_.empty(); }
-
-  // Wait awaitees
-  void notify();
-
-  // Add 'action' to be evaluated upon event notification.
-  void add_notify_action(Action* a) { as_.push_back(a); }
-
- private:
-  void add_waitee(Process* p);
-
-  std::vector<Action*> as_;
-};
-
-// Event subtype to model the composition of an "or-list" of events.
-//
-class EventOr : public Event {
-  DECLARE_VISITEE(EventOr);
-
- public:
-  EventOr(Kernel* k, const std::string& name);
-
-  // Add child event.
-  void add_child_event(Event* child) { childs_.push_back(child); }
-  void finalize();
-
- private:
-  std::vector<Event*> childs_;
-  std::vector<Process*> fwdps_;
 };
 
 //
