@@ -209,6 +209,11 @@ class MOESIDirProtocol : public DirProtocol {
       default: {
       } break;
     }
+
+    // Issue command message response (returns credit).
+    CohCmdRspMsg* rsp = new CohCmdRspMsg;
+    rsp->set_t(msg->t());
+    issue_emit_to_noc(ctxt, cl, rsp, msg->origin());
   }
 
   //
@@ -246,14 +251,11 @@ class MOESIDirProtocol : public DirProtocol {
       std::string to_string() const override {
         using cc::to_string;
         
-        std::stringstream ss;
-        {
-          KVListRenderer r(ss);
-          r.add_field("action", "update state");
-          r.add_field("current", to_string(line_->state()));
-          r.add_field("next", to_string(state_));
-        }
-        return ss.str();
+        KVListRenderer r;
+        r.add_field("action", "update state");
+        r.add_field("current", to_string(line_->state()));
+        r.add_field("next", to_string(state_));
+        return r.to_string();
       }
       bool execute() override {
         line_->set_state(state_);
@@ -278,13 +280,10 @@ class MOESIDirProtocol : public DirProtocol {
       std::string to_string() const override {
         using cc::to_string;
         
-        std::stringstream ss;
-        {
-          KVListRenderer r(ss);
-          r.add_field("action", "set owner");
-          r.add_field("owner", owner_->path());
-        }
-        return ss.str();
+        KVListRenderer r;
+        r.add_field("action", "set owner");
+        r.add_field("owner", owner_->path());
+        return r.to_string();
       }
       bool execute() override {
         line_->set_owner(owner_);

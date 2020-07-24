@@ -301,14 +301,11 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
       std::string to_string() const override {
         using cc::to_string;
         
-        std::stringstream ss;
-        {
-          KVListRenderer r(ss);
-          r.add_field("action", "update state");
-          r.add_field("current", to_string(line_->state()));
-          r.add_field("next", to_string(state_));
-        }
-        return ss.str();
+        KVListRenderer r;
+        r.add_field("action", "update state");
+        r.add_field("current", to_string(line_->state()));
+        r.add_field("next", to_string(state_));
+        return r.to_string();
       }
       bool execute() override {
         line_->set_state(state_);

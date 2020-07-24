@@ -55,16 +55,13 @@ LLCCmdMsg::LLCCmdMsg() : Message(MessageClass::LLCCmd) {}
 std::string LLCCmdMsg::to_string() const {
   using cc::to_string;
 
-  std::stringstream ss;
-  {
-    Hexer h;
-    KVListRenderer r(ss);
-    render_msg_fields(r);
-    r.add_field("cls", to_string(cls()));
-    r.add_field("opcode", to_string(opcode()));
-    r.add_field("addr", h.to_hex(addr()));
-  }
-  return ss.str();
+  Hexer h;
+  KVListRenderer r;
+  render_msg_fields(r);
+  r.add_field("cls", to_string(cls()));
+  r.add_field("opcode", to_string(opcode()));
+  r.add_field("addr", h.to_hex(addr()));
+  return r.to_string();
 }
 
 const char* to_string(LLCRspOpcode opcode) {
@@ -83,15 +80,12 @@ LLCCmdRspMsg::LLCCmdRspMsg() : Message(MessageClass::LLCCmdRsp) {}
 std::string LLCCmdRspMsg::to_string() const {
   using cc::to_string;
 
-  std::stringstream ss;
-  {
-    Hexer h;
-    KVListRenderer r(ss);
-    render_msg_fields(r);
-    r.add_field("cls", to_string(cls()));
-    r.add_field("opcode", to_string(opcode()));
-  }
-  return ss.str();
+  Hexer h;
+  KVListRenderer r;
+  render_msg_fields(r);
+  r.add_field("cls", to_string(cls()));
+  r.add_field("opcode", to_string(opcode()));
+  return r.to_string();
 }
 
 //

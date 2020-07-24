@@ -39,81 +39,56 @@
 namespace cc {
 
 std::string CohSrtMsg::to_string() const {
-  std::stringstream ss;
-  {
-    KVListRenderer r(ss);
-    render_msg_fields(r);
-  }
-  return ss.str();
+  KVListRenderer r;
+  render_msg_fields(r);
+  return r.to_string();
 }
 
 std::string CohEndMsg::to_string() const {
-  std::stringstream ss;
-  {
-    KVListRenderer r(ss);
-    render_msg_fields(r);
-  }
-  return ss.str();
+  KVListRenderer r;
+  render_msg_fields(r);
+  return r.to_string();
 }
 
 std::string CohCmdMsg::to_string() const {
   using cc::to_string;
-
-  std::stringstream ss;
-  {
-    Hexer h;
-    KVListRenderer r(ss);
-    render_msg_fields(r);
-    r.add_field("opcode", to_string(opcode()));
-    r.add_field("addr", h.to_hex(addr()));
-    r.add_field("origin", origin()->path());
-  }
-  return ss.str();
+  Hexer h;
+  KVListRenderer r;
+  render_msg_fields(r);
+  r.add_field("opcode", to_string(opcode()));
+  r.add_field("addr", h.to_hex(addr()));
+  r.add_field("origin", origin()->path());
+  return r.to_string();
 }
 
 std::string CohCmdRspMsg::to_string() const {
-  std::stringstream ss;
-  {
-    KVListRenderer r(ss);
-    render_msg_fields(r);
-  }
-  return ss.str();
+  KVListRenderer r;
+  render_msg_fields(r);
+  return r.to_string();
 }
 
 std::string CohFwdMsg::to_string() const {
-  std::stringstream ss;
-  {
-    KVListRenderer r(ss);
-    render_msg_fields(r);
-  }
-  return ss.str();
+  KVListRenderer r;
+  render_msg_fields(r);
+  return r.to_string();
 }
 
 std::string CohFwdRspMsg::to_string() const {
-  std::stringstream ss;
-  {
-    KVListRenderer r(ss);
-    render_msg_fields(r);
-  }
-  return ss.str();
+  KVListRenderer r;
+  render_msg_fields(r);
+  return r.to_string();
 }
 
 std::string CohInvMsg::to_string() const {
-  std::stringstream ss;
-  {
-    KVListRenderer r(ss);
-    render_msg_fields(r);
-  }
-  return ss.str();
+  KVListRenderer r;
+  render_msg_fields(r);
+  return r.to_string();
 }
 
 std::string CohInvRspMsg::to_string() const {
-  std::stringstream ss;
-  {
-    KVListRenderer r(ss);
-    render_msg_fields(r);
-  }
-  return ss.str();
+  KVListRenderer r;
+  render_msg_fields(r);
+  return r.to_string();
 }
 
 using pbr = ProtocolBuilderRegistry;
@@ -137,14 +112,11 @@ struct EmitMessageActionProxy : public CoherenceAction {
   EmitMessageActionProxy(MessageQueueProxy* mq, const Message* msg)
       : mq_(mq), msg_(msg) {}
   std::string to_string() const override {
-    std::stringstream ss;
-    {
-      KVListRenderer r(ss);
-      r.add_field("action", "emit message");
-      r.add_field("mq", mq_->path());
-      r.add_field("msg", msg_->to_string());
-    }
-    return ss.str();
+    KVListRenderer r;
+    r.add_field("action", "emit message");
+    r.add_field("mq", mq_->path());
+    r.add_field("msg", msg_->to_string());
+    return r.to_string();
   }
   bool execute() override { return mq_->issue(msg_); }
  private:
@@ -235,7 +207,6 @@ void DirProtocol::issue_emit_to_noc(DirContext& ctxt, DirCommandList& cl,
   CoherenceAction* action =
       new EmitMessageActionProxy(ctxt.dir()->dir_noc__msg_q(), nocmsg);
   cl.push_back(DirCommandBuilder::from_action(action));
-      
 }
 
 }  // namespace cc

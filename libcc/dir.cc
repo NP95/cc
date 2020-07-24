@@ -62,19 +62,16 @@ DirCommand::~DirCommand() {
 }
 
 std::string DirCommand::to_string() const {
-  std::stringstream ss;
-  {
-    KVListRenderer r(ss);
-    r.add_field("opcode", cc::to_string(opcode()));
-    switch (opcode()) {
-      case DirOpcode::InvokeCoherenceAction: {
-        r.add_field("action", oprands.coh.action->to_string());
-      } break;
-      default: {
-      } break;
-    }
+  KVListRenderer r;
+  r.add_field("opcode", cc::to_string(opcode()));
+  switch (opcode()) {
+    case DirOpcode::InvokeCoherenceAction: {
+      r.add_field("action", oprands.coh.action->to_string());
+    } break;
+    default: {
+    } break;
   }
-  return ss.str();
+  return r.to_string();
 }
 
 DirCommand* DirCommandBuilder::from_opcode(DirOpcode opcode) {
@@ -450,25 +447,7 @@ void DirModel::drc() {
   }
 }
 
-//
-//
-MessageQueue* DirModel::lookup_rdis_mq(MessageClass cls) const {
-  switch (cls) {
-    case MessageClass::CohSrt:
-      return cpu_dir__cmd_q_;
-    case MessageClass::CohCmd:
-      return cpu_dir__cmd_q_;
-    case MessageClass::LLCCmdRsp:
-      return llc_dir__rsp_q_;
-    default:
-      return nullptr;
-  }
-}
 
-
-MessageQueue* DirModel::endpoint() {
-  return noc_endpoint_->ingress_mq();
-}
-
+MessageQueue* DirModel::endpoint() { return noc_endpoint_->ingress_mq(); }
 
 }  // namespace cc

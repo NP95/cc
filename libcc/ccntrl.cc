@@ -51,7 +51,8 @@ const char* to_string(CCOpcode opcode) {
 CCCommand::~CCCommand() {
   switch (opcode()) {
     case CCOpcode::InvokeCoherenceAction:
-      oprands.coh.action->release();
+      // DON'T DELETE TWICE!
+      //oprands.coh.action->release();
       break;
     default:
       break;
@@ -59,19 +60,16 @@ CCCommand::~CCCommand() {
 }
 
 std::string CCCommand::to_string() const {
-  std::stringstream ss;
-  {
-    KVListRenderer r(ss);
-    r.add_field("opcode", cc::to_string(opcode()));
-    switch (opcode()) {
-      case CCOpcode::InvokeCoherenceAction: {
-        r.add_field("action", oprands.coh.action->to_string());
-      } break;
-      default: {
-      } break;
-    }
+  KVListRenderer r;
+  r.add_field("opcode", cc::to_string(opcode()));
+  switch (opcode()) {
+    case CCOpcode::InvokeCoherenceAction: {
+      r.add_field("action", oprands.coh.action->to_string());
+    } break;
+    default: {
+    } break;
   }
-  return ss.str();
+  return r.to_string();
 }
 
 CCCommand* CCCommandBuilder::from_opcode(CCOpcode opcode) {
@@ -128,6 +126,8 @@ class CCCommandInterpreter {
     CCTState* st = new CCTState();
     st->set_line(ctxt.line());
     tt->install(ctxt.msg()->t(), st);
+    ctxt.set_owns_line(false);
+    
   }
 
   void executeTableUninstall(CCContext& ctxt, const CCCommand* cmd) {
@@ -225,6 +225,9 @@ class CCModel::RdisProcess : public AgentProcess {
       case MessageClass::CohEnd: {
         process_cohend(ctxt, cl);
       } break;
+      case MessageClass::CohCmdRsp: {
+        process_cohcmdrsp(ctxt, cl);
+      } break;
       case MessageClass::Dt: {
         process_dt(ctxt, cl);
       } break;
@@ -250,6 +253,13 @@ class CCModel::RdisProcess : public AgentProcess {
   }
 
   void process_cohend(CCContext& ctxt, CCCommandList& cl) const {
+    const CCTState* st = lookup_state_or_fail(ctxt.msg()->t()); 
+    ctxt.set_line(st->line());
+    const CCProtocol* protocol = model_->protocol();
+    protocol->apply(ctxt, cl);
+  }
+
+  void process_cohcmdrsp(CCContext& ctxt, CCCommandList& cl) const {
     const CCTState* st = lookup_state_or_fail(ctxt.msg()->t()); 
     ctxt.set_line(st->line());
     const CCProtocol* protocol = model_->protocol();

@@ -120,14 +120,19 @@ bool is_stable(State state) {
 class Line : public CCLineState {
  public:
   Line() = default;
+  ~Line() {}
 
   //
   State state() const { return state_; }
+  bool awaiting_cmdmsg_rsp() const { return awaiting_cmdmsg_rsp_; }
 
   //
   void set_state(State state) { state_ = state; }
+  void set_awaiting_cmdmsg_rsp(bool b) { awaiting_cmdmsg_rsp_ = b; }
 
  private:
+  //
+  bool awaiting_cmdmsg_rsp_ = false;
   // Current line state
   State state_ = State::I;
 };
@@ -149,10 +154,76 @@ struct DtToL2Action : public CoherenceAction {
   const DtMsg* dt_ = nullptr;
 };
 
+enum class LineUpdate {
+  SetAwaitingCmdMsgRsp,
+  ClrAwaitingCmdMsgRsp,
+  State,
+  Invalid
+};
+
+const char* to_string(LineUpdate update) {
+  switch (update) {
+    case LineUpdate::SetAwaitingCmdMsgRsp:
+      return "SetAwaitingCmdMsgRsp";
+    case LineUpdate::ClrAwaitingCmdMsgRsp:
+      return "ClrAwaitingCmdMsgRsp";
+    case LineUpdate::State:
+      return "State";
+    case LineUpdate::Invalid:
+    default:
+      return "Invalid";
+  }
+}
+
+struct LineUpdateAction : public CoherenceAction {
+  LineUpdateAction(Line* line, LineUpdate update)
+      : line_(line), update_(update)
+  {}
+  std::string to_string() const override {
+    using cc::to_string;
+    KVListRenderer r;
+    r.add_field("update", to_string(update_));
+    switch (update_) {
+      case LineUpdate::State: {
+        r.add_field("action", "update state");
+        r.add_field("current", to_string(line_->state()));
+        r.add_field("next", to_string(state_));
+      } break;
+      default: {
+      } break;
+    }
+    return r.to_string();
+  }
+  void set_state(State state) { state_ = state; }
+  bool execute() override {
+    switch (update_) {
+      case LineUpdate::SetAwaitingCmdMsgRsp: {
+        line_->set_awaiting_cmdmsg_rsp(true);
+      } break;
+      case LineUpdate::ClrAwaitingCmdMsgRsp: {
+        // LINE is wrong at this point?
+        line_->set_awaiting_cmdmsg_rsp(false);
+      } break;
+      case LineUpdate::State: {
+        line_->set_state(state_);
+      } break;
+      default: {
+      } break;
+    }
+    // Discard !!!! WROGN!
+    return true;
+  }
+ private:
+  State state_;
+  Line* line_ = nullptr;
+  LineUpdate update_ = LineUpdate::Invalid;
+};
+
 //
 //
 class MOESICCProtocol : public CCProtocol {
   using cb = CCCommandBuilder;
+  
  public:
   MOESICCProtocol(kernel::Kernel* k) : CCProtocol(k, "moesicc") {}
 
@@ -173,6 +244,9 @@ class MOESICCProtocol : public CCProtocol {
       case MessageClass::CohEnd: {
         eval_msg(ctxt, cl, static_cast<const CohCmdMsg*>(ctxt.msg()));
       } break;
+      case MessageClass::CohCmdRsp: {
+        eval_msg(ctxt, cl, static_cast<const CohCmdRspMsg*>(ctxt.msg()));
+      } break;
       case MessageClass::Dt: {
         eval_msg(ctxt, cl, static_cast<const DtMsg*>(ctxt.msg()));
       } break;
@@ -183,6 +257,14 @@ class MOESICCProtocol : public CCProtocol {
         log(msg);
       } break;
     }
+  }
+
+  void eval_msg(CCContext& ctxt, CCCommandList& cl, const CohCmdRspMsg* msg) const {
+    // Clear waiting bit.
+    issue_field_update(ctxt, cl, LineUpdate::ClrAwaitingCmdMsgRsp);
+    cl.push_back(cb::from_opcode(CCOpcode::MsgConsume));
+    // Advance to next
+    cl.push_back(cb::from_opcode(CCOpcode::WaitNextEpochOrWait));
   }
 
   void eval_msg(CCContext& ctxt, CCCommandList& cl, const AceCmdMsg* msg) const {
@@ -201,6 +283,7 @@ class MOESICCProtocol : public CCProtocol {
         cohcmd->set_origin(ctxt.cc());
         cohcmd->set_addr(msg->addr());
         issue_emit_to_noc(ctxt, cl, cohcmd, dm->lookup(msg->addr()));
+        issue_field_update(ctxt, cl, LineUpdate::SetAwaitingCmdMsgRsp);
 
         // ACE command advances to active state; install entry within
         // transaction table.
@@ -237,36 +320,20 @@ class MOESICCProtocol : public CCProtocol {
     cl.push_back(cb::from_opcode(CCOpcode::WaitNextEpochOrWait));
   }
 
-  void issue_update_state(CCContext& ctxt, CCCommandList& cl, State state) const {
-    struct UpdateStateAction : public CoherenceAction {
-      UpdateStateAction(Line* line, State state)
-          : line_(line), state_(state)
-      {}
-      std::string to_string() const override {
-        using cc::to_string;
 
-        std::stringstream ss;
-        {
-          KVListRenderer r(ss);
-          r.add_field("action", "update state");
-          r.add_field("current", to_string(line_->state()));
-          r.add_field("next", to_string(state_));
-        }
-        return ss.str();
-      }
-      bool execute() override {
-        line_->set_state(state_);
-        return true;
-      }
-     private:
-      Line* line_ = nullptr;
-      State state_;
-    };
+  void issue_field_update(
+      CCContext& ctxt,  CCCommandList& cl, LineUpdate update) const {
     Line* line = static_cast<Line*>(ctxt.line());
-    CoherenceAction* action = new UpdateStateAction(line, state);
+    LineUpdateAction* action = new LineUpdateAction(line, update);
     cl.push_back(cb::from_action(action));
   }
-  
+
+  void issue_update_state(CCContext& ctxt, CCCommandList& cl, State state) const {
+    Line* line = static_cast<Line*>(ctxt.line());
+    LineUpdateAction* action = new LineUpdateAction(line, LineUpdate::State);
+    action->set_state(state);
+    cl.push_back(cb::from_action(action));
+  }
 };
 
 } // namespace
@@ -275,8 +342,6 @@ namespace cc::moesi {
 
 //
 //
-CCProtocol* build_cc_protocol(kernel::Kernel* k) {
-  return new MOESICCProtocol(k);
-}
+CCProtocol* build_cc_protocol(kernel::Kernel* k) { return new MOESICCProtocol(k); }
 
 } // namespace cc::moesi

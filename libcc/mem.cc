@@ -67,14 +67,11 @@ MemCmdMsg::MemCmdMsg() : Message(MessageClass::MemCmd) {}
 std::string MemCmdMsg::to_string() const {
   using cc::to_string;
 
-  std::stringstream ss;
-  {
-    KVListRenderer r(ss);
-    render_msg_fields(r);
-    r.add_field("opcode", to_string(opcode()));
-    r.add_field("dest", dest()->path());
-  }
-  return ss.str();
+  KVListRenderer r;
+  render_msg_fields(r);
+  r.add_field("opcode", to_string(opcode()));
+  r.add_field("dest", dest()->path());
+  return r.to_string();
 }
 
 //
@@ -86,14 +83,11 @@ MemRspMsg::MemRspMsg() : Message(MessageClass::MemRsp) {}
 std::string MemRspMsg::to_string() const {
   using cc::to_string;
 
-  std::stringstream ss;
-  {
-    KVListRenderer r(ss);
-    render_msg_fields(r);
-    r.add_field("cls", to_string(cls()));
-    r.add_field("opcode", to_string(opcode()));
-  }
-  return ss.str();
+  KVListRenderer r;
+  render_msg_fields(r);
+  r.add_field("cls", to_string(cls()));
+  r.add_field("opcode", to_string(opcode()));
+  return r.to_string();
 }
 
 //
@@ -150,15 +144,12 @@ class MemCntrlModel::RequestDispatcherProcess : public kernel::Process {
 
       LogMessage lm("Execute message: ");
       lm.append(cmdmsg->to_string());
-      lm.level(Level::Info);
+      lm.level(Level::Debug);
       log(lm);
     } else {
       wait_on(rdis_arb->request_arrival_event());
     }
   }
-
-  // Finalization
-  void fini() override {}
 
   //
   MemCntrlModel* model_ = nullptr;

@@ -28,27 +28,21 @@
 #include "utility.h"
 
 #include <algorithm>
+#include <sstream>
 
 namespace cc {
 
-KVListRenderer::KVListRenderer(std::ostream& os) : os_(os) {}
 
-KVListRenderer::~KVListRenderer() {
-  initialize();
+std::string KVListRenderer::to_string() const {
+  std::stringstream ss;
+  ss << "'{";
   for (std::size_t i = 0; i < kvs_.size(); i++) {
     const kv_type& kv = kvs_[i];
-    if (i != 0) os_ << ", ";
-    render(kv);
+    if (i != 0) ss << ", ";
+    ss << kv.first << ":" << kv.second;  
   }
-  finalize();
-}
-
-void KVListRenderer::initialize() { os_ << "'{"; }
-
-void KVListRenderer::finalize() { os_ << "}"; }
-
-void KVListRenderer::render(const kv_type& kv) {
-  os_ << kv.first << ":" << kv.second;
+  ss << "}";
+  return ss.str();
 }
 
 void KVListRenderer::add_field(const std::string& key,

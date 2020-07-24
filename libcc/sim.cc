@@ -140,7 +140,7 @@ void MessageQueue::build(std::size_t n) {
 }
 
 MessageQueueProxy::MessageQueueProxy(MessageQueue* mq)
-    : Agent(mq->k(), "proxy"), mq_(mq) {
+    : Agent(mq->k(), mq->path() + "_proxy"), mq_(mq) {
   credits_ = mq->n();
 }
 

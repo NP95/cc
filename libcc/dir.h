@@ -227,9 +227,6 @@ class DirModel : public Agent {
   // Point to module cache instance.
   CacheModel<DirLineState*>* cache() const { return cache_; }
 
-  // Lookup RDIS process message queue for traffic class.
-  MessageQueue* lookup_rdis_mq(MessageClass cls) const;
-
  private:
   // Queue selection arbiter
   MQArb* arb_ = nullptr;

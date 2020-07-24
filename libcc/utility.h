@@ -67,21 +67,17 @@ class KVListRenderer {
   using kv_type = std::pair<std::string, std::string>;
 
  public:
-  KVListRenderer(std::ostream& os);
-  ~KVListRenderer();
+  KVListRenderer() = default;
+
+  //
+  std::string to_string() const;
 
   //
   void add_field(const std::string& key, const std::string& value);
 
  private:
-  void initialize();
-  void finalize();
-  void render(const kv_type& kv);
-
   // Key/Value pairs
   std::vector<kv_type> kvs_;
-  // Output stream
-  std::ostream& os_;
 };
 
 struct Hexer {

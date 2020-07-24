@@ -41,13 +41,10 @@ NocMsg::NocMsg() : Message(MessageClass::Noc) {}
 std::string NocMsg::to_string() const {
   using cc::to_string;
 
-  std::stringstream ss;
-  {
-    KVListRenderer r(ss);
-    r.add_field("cls", to_string(cls()));
-    r.add_field("payload", payload()->to_string());
-  }
-  return ss.str();
+  KVListRenderer r;
+  r.add_field("cls", to_string(cls()));
+  r.add_field("payload", payload()->to_string());
+  return r.to_string();
 }
 
 //
@@ -209,7 +206,7 @@ NocPort::~NocPort() {
 
 void NocPort::build() {
   // Construct owned ingress queue; egress is owned by the agent itself.
-  ingress_ = new MessageQueue(k(), "ingress", 3);
+  ingress_ = new MessageQueue(k(), "ingress", 10);
   add_child_module(ingress_);
 }
 
@@ -284,7 +281,7 @@ NocEndpoint::~NocEndpoint() {
 }
 
 void NocEndpoint::build() {
-  ingress_mq_ = new MessageQueue(k(), "ingress_mq", 3);
+  ingress_mq_ = new MessageQueue(k(), "ingress_mq", 10);
   add_child_module(ingress_mq_);
   main_ = new MainProcess(k(), "main", this);
   add_child_process(main_);

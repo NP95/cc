@@ -102,12 +102,9 @@ Transaction::Transaction() {
 std::string Transaction::to_string() const {
   using std::to_string;
 
-  std::stringstream ss;
-  {
-    KVListRenderer r(ss);
-    r.add_field("tid", to_string(tid()));
-  }
-  return ss.str();
+  KVListRenderer r;
+  r.add_field("tid", to_string(tid()));
+  return r.to_string();
 }
 
 Message::Message(MessageClass cls) : cls_(cls) {

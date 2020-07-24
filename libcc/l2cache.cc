@@ -47,15 +47,12 @@ L2CmdMsg::L2CmdMsg() : Message(MessageClass::L2Cmd) {}
 std::string L2CmdMsg::to_string() const {
   using cc::to_string;
 
-  std::stringstream ss;
-  {
-    KVListRenderer r(ss);
-    render_msg_fields(r);
-    r.add_field("opcode", to_string(opcode()));
-    Hexer h;
-    r.add_field("addr", h.to_hex(addr()));
-  }
-  return ss.str();
+  KVListRenderer r;
+  render_msg_fields(r);
+  r.add_field("opcode", to_string(opcode()));
+  Hexer h;
+  r.add_field("addr", h.to_hex(addr()));
+  return r.to_string();
 }
 
 //
@@ -81,12 +78,10 @@ std::string L2CmdRspMsg::to_string() const {
   using cc::to_string;
 
   std::stringstream ss;
-  {
-    KVListRenderer r(ss);
-    r.add_field("cls", to_string(cls()));
-    r.add_field("opcode", to_string(opcode()));
-  }
-  return ss.str();
+  KVListRenderer r;
+  r.add_field("cls", to_string(cls()));
+  r.add_field("opcode", to_string(opcode()));
+  return r.to_string();
 }
 
 L2CacheContext::~L2CacheContext() {
@@ -118,19 +113,16 @@ L2Command::~L2Command() {
 }
 
 std::string L2Command::to_string() const {
-  std::stringstream ss;
-  {
-    KVListRenderer r(ss);
-    r.add_field("opcode", cc::to_string(opcode()));
-    switch (opcode()) {
-      case L2Opcode::InvokeCoherenceAction: {
-        r.add_field("action", oprands.coh.action->to_string());
-      } break;
-      default: {
-      } break;
-    }
+  KVListRenderer r;
+  r.add_field("opcode", cc::to_string(opcode()));
+  switch (opcode()) {
+    case L2Opcode::InvokeCoherenceAction: {
+      r.add_field("action", oprands.coh.action->to_string());
+    } break;
+    default: {
+    } break;
   }
-  return ss.str();
+  return r.to_string();
 }
 
 L2Command* L2CommandBuilder::from_opcode(L2Opcode opcode) {

@@ -81,15 +81,12 @@ AceCmdMsg::AceCmdMsg() : Message(MessageClass::AceCmd) {}
 std::string AceCmdMsg::to_string() const {
   using cc::to_string;
 
-  std::stringstream ss;
-  {
-    KVListRenderer r(ss);
-    render_msg_fields(r);
-    r.add_field("opcode", to_string(opcode()));
-    Hexer h;
-    r.add_field("addr", h.to_hex(addr()));
-  }
-  return ss.str();
+  KVListRenderer r;
+  render_msg_fields(r);
+  r.add_field("opcode", to_string(opcode()));
+  Hexer h;
+  r.add_field("addr", h.to_hex(addr()));
+  return r.to_string();
 }
 
 //
@@ -101,14 +98,11 @@ AceCmdRspMsg::AceCmdRspMsg() : Message(MessageClass::AceCmdRsp) {}
 std::string AceCmdRspMsg::to_string() const {
   using cc::to_string;
 
-  std::stringstream ss;
-  {
-    KVListRenderer r(ss);
-    render_msg_fields(r);
-    r.add_field("pass_dirty", to_string(pass_dirty()));
-    r.add_field("is_shared", to_string(is_shared()));
-  }
-  return ss.str();
+  KVListRenderer r;
+  render_msg_fields(r);
+  r.add_field("pass_dirty", to_string(pass_dirty()));
+  r.add_field("is_shared", to_string(is_shared()));
+  return r.to_string();
 }
 
 //
@@ -151,17 +145,14 @@ AceSnpRspMsg::AceSnpRspMsg() : Message(MessageClass::AceSnoopRsp) {}
 std::string AceSnpRspMsg::to_string() const {
   using cc::to_string;
 
-  std::stringstream ss;
-  {
-    KVListRenderer r(ss);
-    render_msg_fields(r);
-    r.add_field("data_transfer", to_string(data_transfer()));
-    r.add_field("error", to_string(error()));
-    r.add_field("pass_dirty", to_string(pass_dirty()));
-    r.add_field("is_shared", to_string(is_shared()));
-    r.add_field("was_unique", to_string(was_unique()));
-  }
-  return ss.str();
+  KVListRenderer r;
+  render_msg_fields(r);
+  r.add_field("data_transfer", to_string(data_transfer()));
+  r.add_field("error", to_string(error()));
+  r.add_field("pass_dirty", to_string(pass_dirty()));
+  r.add_field("is_shared", to_string(is_shared()));
+  r.add_field("was_unique", to_string(was_unique()));
+  return r.to_string();
 }
 
 }  // namespace cc
