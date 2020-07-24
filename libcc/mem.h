@@ -35,6 +35,8 @@
 
 namespace cc {
 
+class MemNocEndpoint;
+
 //
 //
 enum class MemCmdOpcode { Read, Write };
@@ -105,7 +107,6 @@ class DtRspMsg : public Message {
 // Memory Controller Model
 //
 class MemCntrlModel : public Agent {
-  class NocIngressProcess;
   class RequestDispatcherProcess;
 
   friend class SocTop;
@@ -115,9 +116,8 @@ class MemCntrlModel : public Agent {
   ~MemCntrlModel();
 
   // Accessors:
-
-  // NOC -> MEM
-  MessageQueue* noc_mem__msg_q() const { return noc_mem__msg_q_; }
+  MessageQueue* endpoint() const;
+  
   // MEM -> NOC
   MessageQueue* mem_noc__msg_q() const { return mem_noc__msg_q_; }
 
@@ -142,17 +142,15 @@ class MemCntrlModel : public Agent {
   // RDIS aribter
   MQArb* rdis_arb() const { return rdis_arb_; }
 
-  MessageQueue* lookup_rdis_mq(Agent* agent);
-
  private:
   // NOC -> MEM message queue (owned by directory)
   MessageQueue* noc_mem__msg_q_ = nullptr;
   // MEM -> NOC message queue (owned by noc)
   MessageQueue* mem_noc__msg_q_ = nullptr;
-
-  // NOC Ingress Queue thread
-  NocIngressProcess* noci_proc_ = nullptr;
-
+  // NOC endpoint
+  MemNocEndpoint* noc_endpoint_ = nullptr;
+  // NOC endpoint proxies.
+  std::vector<MessageQueueProxy*> endpoints_;
   // Request Dispatcher process
   RequestDispatcherProcess* rdis_proc_ = nullptr;
   // Request Dispatcher arbitrator

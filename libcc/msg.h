@@ -36,15 +36,7 @@
 namespace cc {
 
 class KVListRenderer;
-
-// Forwards:
-namespace kernel {
-
-template <typename>
 class Agent;
-template <typename>
-class RequesterIntf;
-}  // namespace kernel
 
 //
 //
@@ -238,7 +230,7 @@ class Message {
 
   Transaction* t() const { return t_; }
   MessageClass cls() const { return cls_; }
-  kernel::Agent<const Message*>* agent() const { return origin_; }
+  Agent* origin() const { return origin_; }
   msg_id_t mid() const { return mid_; }
 
   virtual std::string to_string_short() const {
@@ -248,7 +240,7 @@ class Message {
     return "Some message";
   }  // TO abstract
 
-  void set_origin(kernel::Agent<const Message*>* origin) { origin_ = origin; }
+  void set_origin(Agent* origin) { origin_ = origin; }
   void set_t(Transaction* t) { t_ = t; }
   void set_cls(MessageClass cls) { cls_ = cls; }
 
@@ -267,7 +259,7 @@ class Message {
   // Message type
   MessageClass cls_ = MessageClass::Invalid;
   // Originating agent.
-  kernel::Agent<const Message*>* origin_;
+  Agent* origin_ = nullptr;
 };
 
 }  // namespace cc

@@ -40,6 +40,7 @@ class MemCntrlModel;
 class DirModel;
 class Message;
 class MessageQueue;
+class LLCNocEndpoint;
 
 //
 //
@@ -105,7 +106,6 @@ class LLCCmdRspMsg : public Message {
 //
 class LLCModel : public Agent {
   class RdisProcess;
-  class NocIngressProcess;
 
   friend class SocTop;
 
@@ -118,7 +118,7 @@ class LLCModel : public Agent {
 
   // Accessors:
   // NOC -> LLC message queue
-  MessageQueue* noc_llc__msg_q() const { return noc_llc__msg_q_; }
+  MessageQueue* endpoint() const;
   // LLC -> NOC message queue
   MessageQueue* llc_noc__msg_q() const { return llc_noc__msg_q_; }
   // Home memory controller
@@ -151,8 +151,6 @@ class LLCModel : public Agent {
  private:
   // LLC -> NOC command queue (NOC owned)
   MessageQueue* llc_noc__msg_q_ = nullptr;
-  // NOC -> LLC response queue (LLC owned)
-  MessageQueue* noc_llc__msg_q_ = nullptr;
   // DIR -> LLC command queue (LLC owned)
   MessageQueue* dir_llc__cmd_q_ = nullptr;
   // MEM -> LLC response queue (LLC owned)
@@ -165,8 +163,10 @@ class LLCModel : public Agent {
   DirModel* dir_ = nullptr;
   // Request distruction process.
   RdisProcess* rdis_proc_ = nullptr;
-  // NOC Ingress process
-  NocIngressProcess* noci_proc_ = nullptr;
+  // NOC endpoint
+  LLCNocEndpoint* noc_endpoint_ = nullptr;
+  // NOC endpoint proxies.
+  std::vector<MessageQueueProxy*> endpoints_;
   // LLC Cache configuration
   LLCModelConfig config_;
 };

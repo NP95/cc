@@ -96,68 +96,6 @@ std::string LLCCmdRspMsg::to_string() const {
 
 //
 //
-class LLCModel::NocIngressProcess : public kernel::Process {
- public:
-  NocIngressProcess(kernel::Kernel* k, const std::string& name, LLCModel* model)
-      : Process(k, name), model_(model) {}
-
- private:
-  // Initialization
-  void init() override {
-    MessageQueue* mq = model_->noc_llc__msg_q();
-    wait_on(mq->non_empty_event());
-  }
-
-  // Elaboration
-  void eval() override {
-    using cc::to_string;
-
-    // Upon reception of a NOC message, remove transport layer
-    // encapsulation and issue to the appropriate ingress queue.
-    MessageQueue* noc_mq = model_->noc_llc__msg_q();
-    const NocMsg* nocmsg = static_cast<const NocMsg*>(noc_mq->dequeue());
-
-    // Validate message
-    if (nocmsg->cls() != MessageClass::Noc) {
-      LogMessage lmsg("Received invalid message class: ");
-      lmsg.append(to_string(nocmsg->cls()));
-      lmsg.level(Level::Fatal);
-      log(lmsg);
-    }
-
-    const Message* msg = nocmsg->payload();
-    MessageQueue* iss_mq = model_->lookup_rdis_mq(msg->cls());
-    if (iss_mq == nullptr) {
-      LogMessage lmsg("Message queue not found for class: ");
-      lmsg.append(to_string(msg->cls()));
-      lmsg.level(Level::Fatal);
-      log(lmsg);
-    }
-
-    // Forward message message to destination queue and discard
-    // encapsulation/transport message.
-    iss_mq->issue(msg);
-    nocmsg->release();
-
-    // Set conditions for subsequent re-evaluations.
-    if (!noc_mq->empty()) {
-      // TODO:Cleanup
-      // Wait some delay
-      wait_for(kernel::Time{10, 0});
-    } else {
-      // Not further work; await until noc ingress queue becomes non-full.
-      wait_on(noc_mq->non_empty_event());
-    }
-  }
-
-  // Finalization
-  void fini() override {}
-
-  LLCModel* model_ = nullptr;
-};
-
-//
-//
 class LLCModel::RdisProcess : public kernel::Process {
   enum class State { Idle, ProcessMessage, ExecuteActions };
 
@@ -256,6 +194,7 @@ class LLCModel::RdisProcess : public kernel::Process {
       case LLCCmdOpcode::Fill: {
         // Message to LLC
         MemCmdMsg* memcmd = new MemCmdMsg;
+        memcmd->set_origin(model_);
         memcmd->set_opcode(MemCmdOpcode::Read);
         memcmd->set_dest(model_);
         memcmd->set_t(msg->t());
@@ -311,24 +250,50 @@ class LLCModel::RdisProcess : public kernel::Process {
   LLCModel* model_ = nullptr;
 };
 
+//
+//
+class LLCNocEndpoint : public NocEndpoint {
+ public:
+  LLCNocEndpoint(kernel::Kernel* k, const std::string& name)
+      : NocEndpoint(k, name)
+  {}
+  //
+  void register_endpoint(MessageClass cls, MessageQueueProxy* p) {
+    endpoints_.insert(std::make_pair(cls, p));
+  }
+  //
+  MessageQueueProxy* lookup_mq(const Message* msg) const override {
+    if (auto it = endpoints_.find(msg->cls()); it != endpoints_.end()) {
+      return it->second;
+    } else {
+      LogMessage lm("End point not register for class: ");
+      lm.append(cc::to_string(msg->cls()));
+      lm.level(Level::Fatal);
+      log(lm);
+    }
+    return nullptr;
+  }
+
+ private:
+  //
+  std::map<MessageClass, MessageQueueProxy*> endpoints_;
+};
+
 LLCModel::LLCModel(kernel::Kernel* k, const LLCModelConfig& config)
     : Agent(k, config.name), config_(config) {
   build();
 }
 
 LLCModel::~LLCModel() {
-  delete noc_llc__msg_q_;
   delete dir_llc__cmd_q_;
   delete mem_llc__rsp_q_;
   delete arb_;
   delete rdis_proc_;
-  delete noci_proc_;
+  delete noc_endpoint_;
+  for (MessageQueueProxy* p : endpoints_) { delete p; }
 }
 
 void LLCModel::build() {
-  // NOC -> LLC message queue:
-  noc_llc__msg_q_ = new MessageQueue(k(), "noc_llc__msg_q", 3);
-  add_child_module(noc_llc__msg_q_);
   // DIR -> LLC command queue
   dir_llc__cmd_q_ = new MessageQueue(k(), "dir_llc__cmd_q", 3);
   add_child_module(dir_llc__cmd_q_);
@@ -341,14 +306,25 @@ void LLCModel::build() {
   // Construct main thread
   rdis_proc_ = new RdisProcess(k(), "main", this);
   add_child_process(rdis_proc_);
-  // NOC Ingress process.
-  noci_proc_ = new NocIngressProcess(k(), "noci", this);
-  add_child_process(noci_proc_);
+  // NOC endpoint
+  noc_endpoint_ = new LLCNocEndpoint(k(), "noc_ep");
+  add_child_module(noc_endpoint_);
 }
 
 void LLCModel::elab() {
   arb_->add_requester(dir_llc__cmd_q_);
   arb_->add_requester(mem_llc__rsp_q_);
+
+  MessageQueueProxy* p = nullptr;
+
+  //
+  p = dir_llc__cmd_q_->construct_proxy();
+  noc_endpoint_->register_endpoint(MessageClass::LLCCmd, p);
+  endpoints_.push_back(p);
+  //
+  p = mem_llc__rsp_q_->construct_proxy();
+  noc_endpoint_->register_endpoint(MessageClass::MemRsp, p);
+  endpoints_.push_back(p);
 }
 
 void LLCModel::drc() {
@@ -359,15 +335,8 @@ void LLCModel::drc() {
   }
 }
 
-MessageQueue* LLCModel::lookup_rdis_mq(MessageClass cls) const {
-  switch (cls) {
-    case MessageClass::LLCCmd:
-      return dir_llc__cmd_q_;
-    case MessageClass::MemRsp:
-      return mem_llc__rsp_q_;
-    default:
-      return nullptr;
-  }
+MessageQueue* LLCModel::endpoint() const {
+  return noc_endpoint_->ingress_mq();
 }
 
 }  // namespace cc

@@ -210,6 +210,83 @@ void NocPort::build() {
   add_child_module(ingress_);
 }
 
+
+class NocEndpoint::MainProcess : public AgentProcess {
+ public:
+  MainProcess(kernel::Kernel* k, const std::string& name, NocEndpoint* ep)
+      : AgentProcess(k, name), ep_(ep)
+  {}
+
+ private:
+
+  // Initialization
+  void init() override {
+    MessageQueue* mq = ep_->ingress_mq();
+    wait_on(mq->non_empty_event());
+  }
+
+  // Evaluation
+  void eval() override {
+    // Upon reception of a NOC message, remove transport layer
+    // encapsulation and issue to the appropriate ingress queue.
+    MessageQueue* mq = ep_->ingress_mq();
+    const NocMsg* nocmsg = static_cast<const NocMsg*>(mq->dequeue());
+
+    // Validate message
+    if (nocmsg->cls() != MessageClass::Noc) {
+      LogMessage lmsg("Received invalid message class: ");
+      lmsg.append(to_string(nocmsg->cls()));
+      lmsg.level(Level::Fatal);
+      log(lmsg);
+    }
+
+    const Message* msg = nocmsg->payload();
+
+    MessageQueueProxy* proxy = ep_->lookup_mq(msg);
+    if (proxy == nullptr) {
+      LogMessage lmsg("Message queue not found for class: ");
+      lmsg.append(cc::to_string(msg->cls()));
+      lmsg.level(Level::Fatal);
+      log(lmsg);
+    }
+
+    // Forward message message to destination queue and discard
+    // encapsulation/transport message.
+    proxy->issue(msg);
+    nocmsg->release();
+
+    // Set conditions for subsequent re-evaluations.
+    if (!mq->empty()) {
+      // TODO:Cleanup
+      // Wait some delay
+      wait_for(kernel::Time{10, 0});
+    } else {
+      // Not further work; await until noc ingress queue becomes non-full.
+      wait_on(mq->non_empty_event());
+    }
+  }
+
+  NocEndpoint* ep_ = nullptr;
+};
+
+
+NocEndpoint::NocEndpoint(kernel::Kernel* k, const std::string& name)
+    : Agent(k, name) {
+  build();
+}
+
+NocEndpoint::~NocEndpoint() {
+  delete main_;
+  // proxies are not owned by the end-point as they may be duplicated.
+}
+
+void NocEndpoint::build() {
+  ingress_mq_ = new MessageQueue(k(), "ingress_mq", 3);
+  add_child_module(ingress_mq_);
+  main_ = new MainProcess(k(), "main", this);
+  add_child_process(main_);
+}
+
 NocModel::NocModel(kernel::Kernel* k, const NocModelConfig& config)
     : Agent(k, config.name), config_(config) {
   build();

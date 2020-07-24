@@ -134,7 +134,7 @@ class SocTop : public kernel::TopModule {
     for (DirModel* dm : dms_) {
       NocPort* port = noc_->get_agent_port(dm);
       // NOC -> DIR message queue
-      port->set_egress(dm->noc_dir__msg_q());
+      port->set_egress(dm->endpoint());
       // DIR -> NOC message queue
       dm->set_dir_noc__msg_q(port->ingress());
 
@@ -148,7 +148,7 @@ class SocTop : public kernel::TopModule {
         // Bind associated LLC to NOC
         NocPort* port = noc_->get_agent_port(llc);
         // NOC -> LLC
-        port->set_egress(llc->noc_llc__msg_q());
+        port->set_egress(llc->endpoint());
         // LLC -> NOC
         llc->set_llc_noc__msg_q(port->ingress());
       }
@@ -156,7 +156,7 @@ class SocTop : public kernel::TopModule {
     for (MemCntrlModel* mm : mms_) {
       NocPort* port = noc_->get_agent_port(mm);
       // NOC -> MEM
-      port->set_egress(mm->noc_mem__msg_q());
+      port->set_egress(mm->endpoint());
       // MEM -> NOC
       mm->set_mem_noc__msg_q(port->ingress());
     }

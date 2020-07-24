@@ -103,65 +103,6 @@ void DirCommandList::push_back(DirCommand* cmd) { cmds_.push_back(cmd); }
 
 //
 //
-class DirModel::NocIngressProcess : public AgentProcess {
- public:
-  NocIngressProcess(kernel::Kernel* k, const std::string& name, DirModel* model)
-      : AgentProcess(k, name), model_(model) {}
-
-  // Initialization
-  void init() override {
-    MessageQueue* mq = model_->noc_dir__msg_q();
-    wait_on(mq->non_empty_event());
-  }
-
-  // Evaluation
-  void eval() override {
-    using cc::to_string;
-
-    // Upon reception of a NOC message, remove transport layer
-    // encapsulation and issue to the appropriate ingress queue.
-    MessageQueue* noc_mq = model_->noc_dir__msg_q();
-    const NocMsg* nocmsg = static_cast<const NocMsg*>(noc_mq->dequeue());
-
-    // Validate message
-    if (nocmsg->cls() != MessageClass::Noc) {
-      LogMessage lmsg("Received invalid message class: ");
-      lmsg.append(to_string(nocmsg->cls()));
-      lmsg.level(Level::Fatal);
-      log(lmsg);
-    }
-
-    const Message* msg = nocmsg->payload();
-    MessageQueue* iss_mq = model_->lookup_rdis_mq(msg->cls());
-    if (iss_mq == nullptr) {
-      LogMessage lmsg("Message queue not found for class: ");
-      lmsg.append(to_string(msg->cls()));
-      lmsg.level(Level::Fatal);
-      log(lmsg);
-    }
-
-    // Forward message message to destination queue and discard
-    // encapsulation/transport message.
-    iss_mq->issue(msg);
-    nocmsg->release();
-
-    // Set conditions for subsequent re-evaluations.
-    if (!noc_mq->empty()) {
-      // TODO:Cleanup
-      // Wait some delay
-      wait_for(kernel::Time{10, 0});
-    } else {
-      // Not further work; await until noc ingress queue becomes non-full.
-      wait_on(noc_mq->non_empty_event());
-    }
-  }
-
- private:
-  DirModel* model_ = nullptr;
-};
-
-//
-//
 class DirCommandInterpreter {
   struct State {
     // Transaction Table state
@@ -402,27 +343,54 @@ class DirModel::RdisProcess : public AgentProcess {
   DirModel* model_ = nullptr;
 };
 
+//
+//
+class DirNocEndpoint : public NocEndpoint {
+ public:
+  //
+  DirNocEndpoint(kernel::Kernel* k, const std::string& name)
+      : NocEndpoint(k, name)
+  {}
+  //
+  void register_endpoint(MessageClass cls, MessageQueueProxy* p) {
+    endpoints_.insert(std::make_pair(cls, p));
+  }
+
+  MessageQueueProxy* lookup_mq(const Message* msg) const override {
+    if (auto it = endpoints_.find(msg->cls()); it != endpoints_.end()) {
+      return it->second;
+    } else {
+      LogMessage lm("End point not register for class: ");
+      lm.append(cc::to_string(msg->cls()));
+      lm.level(Level::Fatal);
+      log(lm);
+    }
+    return nullptr;
+  }
+
+ private:
+  //
+  std::map<MessageClass, MessageQueueProxy*> endpoints_;
+};
+
 DirModel::DirModel(kernel::Kernel* k, const DirModelConfig& config)
     : Agent(k, config.name), config_(config) {
   build();
 }
 
 DirModel::~DirModel() {
-  delete noc_dir__msg_q_;
   delete cpu_dir__cmd_q_;
   delete llc_dir__rsp_q_;
   delete arb_;
   delete cache_;
-  delete noci_proc_;
+  delete noc_endpoint_;
   delete rdis_proc_;
   delete protocol_;
+  for (MessageQueueProxy* p : endpoints_) { delete p; }
 }
 
 void DirModel::build() {
-  // NOC -> DIR message queue
-  noc_dir__msg_q_ = new MessageQueue(k(), "noc_dir__msg_q", 3);
-  add_child_module(noc_dir__msg_q_);
-  // NOC -> DIR command queue
+  // CPU -> DIR command queue
   cpu_dir__cmd_q_ = new MessageQueue(k(), "cpu_dir__cmd_q", 3);
   add_child_module(cpu_dir__cmd_q_);
   // LLC -> DIR command queue
@@ -437,9 +405,9 @@ void DirModel::build() {
   // Construct transaction table.
   tt_ = new DirTTable(k(), "tt", 16);
   add_child_module(tt_);
-  // Construct NOC ingress thread.
-  noci_proc_ = new NocIngressProcess(k(), "noci", this);
-  add_child_process(noci_proc_);
+  // Construct NOC ingress module.
+  noc_endpoint_ = new DirNocEndpoint(k(), "noc_ep");
+  add_child_module(noc_endpoint_);
   // Construct request dispatcher thread
   rdis_proc_ = new RdisProcess(k(), "rdis", this);
   add_child_process(rdis_proc_);
@@ -454,6 +422,17 @@ void DirModel::elab() {
   // Register message queue end-points
   arb_->add_requester(cpu_dir__cmd_q_);
   arb_->add_requester(llc_dir__rsp_q_);
+
+  MessageQueueProxy* p = nullptr;
+
+  p = cpu_dir__cmd_q_->construct_proxy();
+  noc_endpoint_->register_endpoint(MessageClass::CohSrt, p);
+  noc_endpoint_->register_endpoint(MessageClass::CohCmd, p);
+  endpoints_.push_back(p);
+
+  p = llc_dir__rsp_q_->construct_proxy();
+  noc_endpoint_->register_endpoint(MessageClass::LLCCmdRsp, p);
+  endpoints_.push_back(p);
 }
 
 //
@@ -479,5 +458,11 @@ MessageQueue* DirModel::lookup_rdis_mq(MessageClass cls) const {
       return nullptr;
   }
 }
+
+
+MessageQueue* DirModel::endpoint() {
+  return noc_endpoint_->ingress_mq();
+}
+
 
 }  // namespace cc

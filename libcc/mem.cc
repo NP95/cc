@@ -98,67 +98,6 @@ std::string MemRspMsg::to_string() const {
 
 //
 //
-class MemCntrlModel::NocIngressProcess : public kernel::Process {
- public:
-  NocIngressProcess(kernel::Kernel* k, const std::string& name,
-                    MemCntrlModel* model)
-      : kernel::Process(k, name), model_(model) {}
-
- private:
-  // Initialization
-  void init() override {
-    MessageQueue* mq = model_->noc_mem__msg_q();
-    wait_on(mq->non_empty_event());
-  }
-
-  // Elaboration
-  void eval() override {
-    // Upon reception of a NOC message, remove transport layer
-    // encapsulation and issue to the appropriate ingress queue.
-    MessageQueue* noc_mq = model_->noc_mem__msg_q();
-    const NocMsg* msg = static_cast<const NocMsg*>(noc_mq->dequeue());
-
-    // Validate message
-    if (msg->cls() != MessageClass::Noc) {
-      LogMessage lmsg("Received invalid message class: ");
-      lmsg.append(to_string(msg->cls()));
-      lmsg.level(Level::Fatal);
-      log(lmsg);
-    }
-
-    MessageQueue* iss_mq = model_->lookup_rdis_mq(msg->origin());
-    if (iss_mq == nullptr) {
-      LogMessage lmsg("Message queue not found for agent: ");
-      lmsg.append(msg->dest()->path());
-      lmsg.level(Level::Fatal);
-      log(lmsg);
-    }
-
-    // Forward message message to destination queue and discard
-    // encapsulation/transport message.
-    iss_mq->issue(msg->payload());
-    msg->release();
-
-    // Set conditions for subsequent re-evaluations.
-    if (!noc_mq->empty()) {
-      // TODO:Cleanup
-      // Wait some delay
-      wait_for(kernel::Time{10, 0});
-    } else {
-      // Not further work; await until noc ingress queue becomes non-full.
-      wait_on(noc_mq->non_empty_event());
-    }
-  }
-
-  // Finalization
-  void fini() override {}
-
-  // Pointer to owning Mem instance.
-  MemCntrlModel* model_ = nullptr;
-};
-
-//
-//
 class MemCntrlModel::RequestDispatcherProcess : public kernel::Process {
  public:
   RequestDispatcherProcess(kernel::Kernel* k, const std::string& name,
@@ -225,13 +164,39 @@ class MemCntrlModel::RequestDispatcherProcess : public kernel::Process {
   MemCntrlModel* model_ = nullptr;
 };
 
+//
+//
+class MemNocEndpoint : public NocEndpoint {
+ public:
+  //
+  MemNocEndpoint(kernel::Kernel* k, const std::string& name)
+      : NocEndpoint(k, name)
+  {}
+  //
+  void register_agent(Agent* agent, MessageQueueProxy* proxy) {
+    endpoints_.insert(std::make_pair(agent, proxy));
+  }
+  //
+  MessageQueueProxy* lookup_mq(const Message* msg) const override {
+    if (auto it = endpoints_.find(msg->origin()); it != endpoints_.end()) {
+      return it->second;
+    } else {
+      LogMessage lm("End point not register for origin: ");
+      lm.append(msg->origin()->path());
+      lm.level(Level::Fatal);
+      log(lm);
+    }
+    return nullptr;
+  }
+
+ private:
+  //
+  std::map<Agent*, MessageQueueProxy*> endpoints_;
+};
+
 MemCntrlModel::MemCntrlModel(kernel::Kernel* k) : Agent(k, "mem") { build(); }
 
 MemCntrlModel::~MemCntrlModel() {
-  // Delete queues.
-  delete noc_mem__msg_q_;
-  // Cleanup NOC ingress thread.
-  delete noci_proc_;
   // Cleanup request dispatcher thread.
   delete rdis_proc_;
   delete rdis_arb_;
@@ -239,17 +204,14 @@ MemCntrlModel::~MemCntrlModel() {
     MessageQueue* mq = pp.second;
     delete mq;
   }
+  delete noc_endpoint_;
+  for (MessageQueueProxy* p : endpoints_) { delete p; }
 }
 
 void MemCntrlModel::build() {
-  // NOC -> Mem message queue:
-  noc_mem__msg_q_ = new MessageQueue(k(), "noc_mem__msg_q", 3);
-  add_child_module(noc_mem__msg_q_);
-
-  // NOC ingress process:
-  noci_proc_ = new NocIngressProcess(k(), "noci", this);
-  add_child_process(noci_proc_);
-
+  // NOC endpoint
+  noc_endpoint_ = new MemNocEndpoint(k(), "noc_ep");
+  add_child_module(noc_endpoint_);
   // Request dispatcher process:
   rdis_proc_ = new RequestDispatcherProcess(k(), "rdis", this);
   add_child_process(rdis_proc_);
@@ -270,6 +232,12 @@ void MemCntrlModel::elab() {
     MessageQueue* mq = pp.second;
     rdis_arb_->add_requester(mq);
   }
+
+  for (const std::pair<Agent*, MessageQueue*> pp : rdis_mq_) {
+    MessageQueueProxy* proxy = pp.second->construct_proxy();
+    noc_endpoint_->register_agent(pp.first, proxy);
+    endpoints_.push_back(proxy);
+  }
 }
 
 void MemCntrlModel::drc() {
@@ -280,13 +248,8 @@ void MemCntrlModel::drc() {
   }
 }
 
-MessageQueue* MemCntrlModel::lookup_rdis_mq(Agent* agent) {
-  MessageQueue* mq = nullptr;
-  std::map<Agent*, MessageQueue*>::iterator it = rdis_mq_.find(agent);
-  if (it != rdis_mq_.end()) {
-    mq = it->second;
-  }
-  return mq;
+MessageQueue* MemCntrlModel::endpoint() const {
+  return noc_endpoint_->ingress_mq();
 }
 
 }  // namespace cc

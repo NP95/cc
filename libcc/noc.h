@@ -89,6 +89,33 @@ class NocPort : public kernel::Module {
 
 //
 //
+class NocEndpoint : public Agent {
+  class MainProcess;
+ public:
+  NocEndpoint(kernel::Kernel* k, const std::string& name);
+  virtual ~NocEndpoint();
+
+  //
+  MessageQueue* ingress_mq() const { return ingress_mq_; }
+
+ protected:
+  //
+  virtual MessageQueueProxy* lookup_mq(const Message* msg) const = 0;
+ private:
+  //
+  void build();
+  //
+  MainProcess* main_ = nullptr;
+  //
+  MessageQueue* ingress_mq_ = nullptr;
+};
+
+//
+//
+
+
+//
+//
 class NocModel : public Agent {
   class MainProcess;
 

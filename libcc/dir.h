@@ -45,6 +45,7 @@ class DirLineState;
 class MessageQueue;
 class CoherenceList;
 class CoherenceAction;
+class DirNocEndpoint;
 
 #define DIROPCODE_LIST(__func)                  \
   __func(TableInstall)                          \
@@ -188,7 +189,6 @@ class DirModel : public Agent {
   friend class DirCommandInterpreter;
 
   class RdisProcess;
-  class NocIngressProcess;
  public:
   DirModel(kernel::Kernel* k, const DirModelConfig& config);
   ~DirModel();
@@ -199,7 +199,7 @@ class DirModel : public Agent {
   // LLC owned by current directory
   LLCModel* llc() const { return llc_; }
   // NOC -> DIR message queue
-  MessageQueue* noc_dir__msg_q() const { return noc_dir__msg_q_; }
+  MessageQueue* endpoint();
   // DIR -> NOC message queue
   MessageQueue* dir_noc__msg_q() const { return dir_noc__msg_q_; }
   // Coherence protocol
@@ -233,16 +233,16 @@ class DirModel : public Agent {
  private:
   // Queue selection arbiter
   MQArb* arb_ = nullptr;
-  // NOC -> DIR message queue (owned by directory)
-  MessageQueue* noc_dir__msg_q_ = nullptr;
   // DIR -> NOC message queue (owned by NOC)
   MessageQueue* dir_noc__msg_q_ = nullptr;
   // CPU -> DIR command queue (owned by DIR)
   MessageQueue* cpu_dir__cmd_q_ = nullptr;
   // LLC -> DIR response queue (owned by DIR)
   MessageQueue* llc_dir__rsp_q_ = nullptr;
-  // NOC ingress process
-  NocIngressProcess* noci_proc_ = nullptr;
+  // NOC endpoint
+  DirNocEndpoint* noc_endpoint_ = nullptr;
+  // NOC endpoint proxies.
+  std::vector<MessageQueueProxy*> endpoints_;
   // request dispatcher process
   RdisProcess* rdis_proc_ = nullptr;
   // Last Level Cache instance (where applicable).

@@ -41,6 +41,7 @@ class L2CacheModel;
 class CCLineState;
 class CCProtocol;
 class CCModel;
+class CCNocEndpoint;
 
 #define CCOPCODE_LIST(__func)                   \
   __func(TableInstall)                          \
@@ -193,8 +194,6 @@ class CCModel : public Agent {
   friend class CCCommandInterpreter;
 
   class RdisProcess;
-  class NocIngressProcess;
-
  public:
   CCModel(kernel::Kernel* k, const CCConfig& config);
   ~CCModel();
@@ -206,7 +205,8 @@ class CCModel : public Agent {
   // CC -> L2 Queue
   MessageQueueProxy* cc_l2__rsp_q() const { return cc_l2__rsp_q_; }
   // NOC -> CC Ingress Queue
-  MessageQueue* noc_cc__msg_q() const { return noc_cc__msg_q_; }
+  MessageQueue* endpoint() const;
+  //MessageQueue* noc_cc__msg_q() const { return noc_cc__msg_q_; }
   // CC -> NOC Egress Queue
   MessageQueueProxy* cc_noc__msg_q() const { return cc_noc__msg_q_; }
   // Directory Mapper instance.
@@ -242,9 +242,6 @@ class CCModel : public Agent {
   // Design Rule Check (DRC)
   void drc();
 
-  // lookup rdis process message queue for traffic class.
-  MessageQueue* lookup_rdis_mq(MessageClass cls) const;
-
  private:
   // L2 Cache Model to which this controller is bound.
   L2CacheModel* l2c_ = nullptr;
@@ -253,7 +250,7 @@ class CCModel : public Agent {
   // CC -> L2 response queue
   MessageQueueProxy* cc_l2__rsp_q_ = nullptr;
   // NOC -> CC Ingress Queue
-  MessageQueue* noc_cc__msg_q_ = nullptr;
+  //MessageQueue* noc_cc__msg_q_ = nullptr;
   // CC -> NOC Egress Queue
   MessageQueueProxy* cc_noc__msg_q_ = nullptr;
   // DIR -> CC Ingress Queue
@@ -266,8 +263,10 @@ class CCModel : public Agent {
   DirMapper* dm_ = nullptr;
   // Disatpcher process
   RdisProcess* rdis_proc_ = nullptr;
-  // NOC ingress process
-  NocIngressProcess* noci_proc_ = nullptr;
+  // NOC endpoint
+  CCNocEndpoint* noc_endpoint_ = nullptr;
+  // NOC endpoint proxies.
+  std::vector<MessageQueueProxy*> endpoints_;
   // Transaction table instance.
   CCTTable* tt_ = nullptr;
   // Cache controller protocol instance.
