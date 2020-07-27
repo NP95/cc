@@ -44,8 +44,8 @@ class CCModel;
 class CCNocEndpoint;
 
 #define CCOPCODE_LIST(__func)                   \
-  __func(TableInstall)                          \
-  __func(TableUninstall)                        \
+  __func(StartTransaction)                      \
+  __func(EndTransaction)                        \
   __func(InvokeCoherenceAction)                 \
   __func(MsgConsume)                            \
   __func(WaitOnMsg)                             \
@@ -126,24 +126,11 @@ class CCTState {
 
   //
   CCLineState* line() const { return line_; }
-  // Command responsible for the current transaction.
-  const Message* msg() const { return msg_; }
-  // Set of Message Queues blocked on the current transaction.
-  const std::vector<MessageQueue*>& bmqs() const { return bmqs_; }
-
   //
   void set_line(CCLineState* line) { line_ = line; }
-  //
-  void set_msg(const Message* msg) { msg_ = msg; }
-  // Add Blocked Message Queue
-  void add_bmq(MessageQueue* mq) { bmqs_.push_back(mq); }
 
  private:
   CCLineState* line_ = nullptr;
-  // Set of message queues block on the current transaction.
-  std::vector<MessageQueue*> bmqs_;
-  //
-  const Message* msg_ = nullptr;
 };
 
 //

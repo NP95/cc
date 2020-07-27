@@ -48,10 +48,10 @@ class CoherenceAction;
 class DirNocEndpoint;
 
 #define DIROPCODE_LIST(__func)                  \
-  __func(TableInstall)                          \
-  __func(TableLookup)                           \
-  __func(TableInstallLine)                      \
+  __func(StartTransaction)                      \
+  __func(EndTransaction)                        \
   __func(MsgConsume)                            \
+  __func(MqSetBlockedOnTransaction)             \
   __func(MqSetBlockedOnTable)                   \
   __func(InvokeCoherenceAction)                 \
   __func(WaitOnMsg)                             \
@@ -126,25 +126,44 @@ class DirCommandList {
 //
 class DirTState {
  public:
-  DirTState() = default;
+  DirTState(kernel::Kernel* k);
   // Destruct/Return to pool
-  void release() { delete this; }
+  void release();
+
+  //
+  kernel::Event* transaction_start() const { return transaction_start_; }
+  kernel::Event* transaction_end() const { return transaction_end_; }
 
   DirLineState* line() const { return line_; }
+  addr_t addr() const { return addr_; }
+  Agent* origin() const { return origin_; }
 
   void set_line(DirLineState* line) { line_ = line; }
+  void set_addr(addr_t addr) { addr_ = addr; }
+  void set_origin(Agent* origin) { origin_ = origin; }
 
  protected:
-  virtual ~DirTState() = default;
+  virtual ~DirTState();
 
  private:
+  //
+  kernel::Event* transaction_start_;
+  kernel::Event* transaction_end_;
+  //
   DirLineState* line_ = nullptr;
+  addr_t addr_;
+  // Originating cache controller origin.
+  Agent* origin_ = nullptr;
 };
 
-//
+// Cache data type
+using DirCacheModel = CacheModel<DirLineState*>;
+// Cache Set data type
+using DirCacheSet = DirCacheModel::Set;
+// Cache Line Iterator type.
+using DirCacheLineIt = DirCacheModel::LineIterator;
 //
 using DirTTable = Table<Transaction*, DirTState*>;
-
 
 //
 //
@@ -157,28 +176,28 @@ class DirContext {
   MQArbTmt t() const { return t_; }
   const Message* msg() const { return mq_->peek(); }
   MessageQueue* mq() const { return mq_; }
-  bool owns_line() const { return owns_line_; }
-  DirLineState* line() const { return line_; }
   DirModel* dir() const { return dir_; }
+  DirTState* tstate() const { return tstate_; }
+  bool owns_tstate() const { return owns_tstate_; }
 
   //
   void set_t(MQArbTmt t) { t_ = t; }
   void set_mq(MessageQueue* mq) { mq_ = mq; }
-  void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
-  void set_line(DirLineState* line) { line_ = line; }
   void set_dir(DirModel* dir) { dir_ = dir; }
+  void set_tstate(DirTState* tstate) { tstate_ = tstate; }
+  void set_owns_tstate(bool owns_tstate) { owns_tstate_ = owns_tstate; }
 
  private:
   // Current Message Queue arbiter tournament.
   MQArbTmt t_;
-  //
-  bool owns_line_ = false;
-  //
-  DirLineState* line_ = nullptr;
   // Current Message Queue
   MessageQueue* mq_ = nullptr;
   // L2 cache instance
   DirModel* dir_ = nullptr;
+  //
+  DirTState* tstate_ = nullptr;
+  //
+  bool owns_tstate_ = false;
 };
 
 
@@ -225,7 +244,7 @@ class DirModel : public Agent {
   // Directory arbiter instance.
   MQArb* arb() const { return arb_; }
   // Point to module cache instance.
-  CacheModel<DirLineState*>* cache() const { return cache_; }
+  DirCacheModel* cache() const { return cache_; }
 
  private:
   // Queue selection arbiter
@@ -247,7 +266,7 @@ class DirModel : public Agent {
   // Transaction table
   DirTTable* tt_ = nullptr;
   // Cache Instance
-  CacheModel<DirLineState*>* cache_ = nullptr;
+  DirCacheModel* cache_ = nullptr;
   // Coherence protocol
   DirProtocol* protocol_ = nullptr;
   // Current directory configuration.

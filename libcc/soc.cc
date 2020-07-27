@@ -152,6 +152,7 @@ class SocTop : public kernel::TopModule {
         llc->set_mc(mms_.front());
         // Bind directory
         llc->set_dir(dm);
+        //
         // Bind associated LLC to NOC
         NocPort* llc_port = noc_->get_agent_port(llc);
         // NOC -> LLC
@@ -172,6 +173,13 @@ class SocTop : public kernel::TopModule {
     dm_ = new SingleDirMapper(*dms_.begin());
     for (CpuCluster* cc : ccs_) {
       cc->set_dm(dm_);
+    }
+    // Register CC <-> LLC ports
+    for (DirModel* dm : dms_) {
+      LLCModel* llc = dm->llc();
+      for (CpuCluster* cc : ccs_) {
+        llc->register_cc(cc);
+      }
     }
   }
 

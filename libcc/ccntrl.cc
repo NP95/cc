@@ -120,7 +120,7 @@ class CCCommandInterpreter {
   }
  private:
 
-  void executeTableInstall(CCContext& ctxt, const CCCommand* cmd) {
+  void executeStartTransaction(CCContext& ctxt, const CCCommand* cmd) {
     CCTTable* tt = model_->tt();
     CCTState* st = new CCTState();
     st->set_line(ctxt.line());
@@ -129,7 +129,7 @@ class CCCommandInterpreter {
     
   }
 
-  void executeTableUninstall(CCContext& ctxt, const CCCommand* cmd) {
+  void executeEndTransaction(CCContext& ctxt, const CCCommand* cmd) {
     CCTTable* tt = model_->tt();
     Transaction* t = ctxt.msg()->t();
     if (auto it = tt->find(t); it != tt->end()) {

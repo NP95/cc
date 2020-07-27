@@ -31,6 +31,7 @@
 #include "mem.h"
 #include "msg.h"
 #include "noc.h"
+#include "cpucluster.h"
 #include "utility.h"
 
 namespace cc {
@@ -88,46 +89,51 @@ std::string LLCCmdRspMsg::to_string() const {
   return r.to_string();
 }
 
+enum class State {
+  FillAwaitMemRsp,
+  PutAwaitCCDtRsp,
+  PutAwaitMemDtRsp,
+  Idle
+};
+
+const char* to_string(State state) {
+  switch (state) {
+    case State::FillAwaitMemRsp: return "FillAwaitMemRsp";
+    case State::PutAwaitCCDtRsp: return "PutAwaitCCDtRsp";
+    case State::PutAwaitMemDtRsp: return "PutAwaitMemDtRsp";
+    default: return "Idle";
+  }
+}
+
+//
+//
+class LLCTState {
+ public:
+  LLCTState() = default;
+
+  //
+  State state() const { return state_; }
+  Agent* origin() const { return origin_; }
+
+  //
+  void set_state(State state) { state_ = state; }
+  void set_origin(Agent* origin) { origin_ = origin; }
+
+ private:
+  State state_;
+  Agent* origin_ = nullptr;
+};
+
 //
 //
 class LLCModel::RdisProcess : public kernel::Process {
-  enum class State { Idle, ProcessMessage, ExecuteActions };
-
-  static const char* to_string(State s) {
-    switch (s) {
-      case State::Idle:
-        return "Idle";
-      case State::ProcessMessage:
-        return "ProcessMessage";
-      case State::ExecuteActions:
-        return "ExecuteActions";
-      default:
-        return "Invalid";
-    }
-  }
-
  public:
   RdisProcess(kernel::Kernel* k, const std::string& name, LLCModel* model)
       : kernel::Process(k, name), model_(model) {}
 
-  State state() const { return state_; }
-  void set_state(State state) {
-    if (state_ != state) {
-      LogMessage msg("State transition: ");
-      msg.level(Level::Debug);
-      msg.append(to_string(state_));
-      msg.append(" -> ");
-      msg.append(to_string(state));
-      log(msg);
-    }
-    state_ = state;
-  }
-
  private:
   // Initialization
   void init() override {
-    set_state(State::Idle);
-
     MQArb* arb = model_->arb();
     wait_on(arb->request_arrival_event());
   }
@@ -136,19 +142,19 @@ class LLCModel::RdisProcess : public kernel::Process {
   void eval() override {
     MQArb* arb = model_->arb();
     MQArbTmt t;
-    bool commit = false;
 
     t = arb->tournament();
     if (t.has_requester()) {
-      const Message* msg = t.winner()->peek();
+      const Message* msg = t.winner()->dequeue();
       switch (msg->cls()) {
         case MessageClass::LLCCmd: {
-          const LLCCmdMsg* llccmd = static_cast<const LLCCmdMsg*>(msg);
-          commit = eval_handle_llc_cmd(llccmd);
+          process(static_cast<const LLCCmdMsg*>(msg));
         } break;
         case MessageClass::MemRsp: {
-          const MemRspMsg* memrsp = static_cast<const MemRspMsg*>(msg);
-          commit = eval_handle_mem_rsp(memrsp);
+          process(static_cast<const MemRspMsg*>(msg));
+        } break;
+        case MessageClass::DtRsp: {
+          process(static_cast<const DtRspMsg*>(msg));
         } break;
         default: {
           using cc::to_string;
@@ -159,31 +165,16 @@ class LLCModel::RdisProcess : public kernel::Process {
           log(lm);
         } break;
       }
-      if (commit) {
-        // Discard message and advance arbitration state.
-        const Message* msg = t.winner()->dequeue();
+      msg->release();
+      t.advance();
 
-        LogMessage lm("Execute message: ");
-        lm.append(msg->to_string());
-        lm.level(Level::Info);
-        log(lm);
-
-        t.advance();
-        msg->release();
-      }
-    }
-
-    if (commit) {
-      t = arb->tournament();
-      if (t.has_requester()) {
-      } else {
-        wait_on(arb->request_arrival_event());
-      }
+      wait_for(kernel::Time{10, 0});
+    } else {
+      wait_on(arb->request_arrival_event());
     }
   }
 
-  bool eval_handle_llc_cmd(const LLCCmdMsg* msg) {
-    bool commit = true;
+  void process(const LLCCmdMsg* msg) {
     switch (msg->opcode()) {
       case LLCCmdOpcode::Fill: {
         // Message to LLC
@@ -192,54 +183,119 @@ class LLCModel::RdisProcess : public kernel::Process {
         memcmd->set_opcode(MemCmdOpcode::Read);
         memcmd->set_dest(model_);
         memcmd->set_t(msg->t());
+        issue_emit_to_noc(model_->mc(), memcmd);
 
-        NocMsg* nocmsg = new NocMsg;
-        nocmsg->set_origin(model_);
-        nocmsg->set_dest(model_->mc());
-        nocmsg->set_payload(memcmd);
-
-        MessageQueueProxy* mq = model_->llc_noc__msg_q();
-        mq->issue(nocmsg);
+        LLCTState* tstate = new LLCTState;
+        tstate->set_state(State::FillAwaitMemRsp);
+        install_state_or_fatal(msg->t(), tstate);
       } break;
       case LLCCmdOpcode::Evict: {
       } break;
       case LLCCmdOpcode::PutLine: {
+        // Send data to requesting agent. Assumes prior fill operation
+        // initiated by associated directory.
+        DtMsg* dt = new DtMsg;
+        dt->set_origin(model_);
+        dt->set_t(msg->t());
+        issue_emit_to_noc(msg->agent(), dt);
+
+        LLCTState* tstate = new LLCTState;
+        tstate->set_state(State::PutAwaitCCDtRsp);
+        tstate->set_origin(msg->origin());
+        install_state_or_fatal(msg->t(), tstate);
       } break;
       default: {
       } break;
     }
-    return commit;
   }
 
-  bool eval_handle_mem_rsp(const MemRspMsg* msg) {
-    bool commit = true;
-    switch (msg->opcode()) {
-      case MemRspOpcode::ReadOkay: {
+  void process(const MemRspMsg* msg) {
+    LLCTState* tstate = lookup_state_or_fatal(msg->t());
+    switch (tstate->state()) {
+      case State::FillAwaitMemRsp: {
         LLCCmdRspMsg* llcrsp = new LLCCmdRspMsg;
         llcrsp->set_t(msg->t());
         llcrsp->set_opcode(LLCRspOpcode::Okay);
-
-        NocMsg* nocmsg = new NocMsg;
-        nocmsg->set_origin(model_);
-        nocmsg->set_dest(model_->dir());
-        nocmsg->set_payload(llcrsp);
-
-        MessageQueueProxy* mq = model_->llc_noc__msg_q();
-        mq->issue(nocmsg);
-      } break;
-      case MemRspOpcode::WriteOkay: {
+        issue_emit_to_noc(model_->dir(), llcrsp);
+        // Command complete: Delete transaction table entry.
+        erase_state_or_fatal(msg->t());
       } break;
       default: {
       } break;
     }
-    return commit;
   }
 
-  // Finalization
-  void fini() override {}
+  void process(const DtRspMsg* msg) {
+    LLCTState* tstate = lookup_state_or_fatal(msg->t());
+    switch (tstate->state()) {
+      case State::PutAwaitCCDtRsp: {
+        // Issue Put response to originator directory
+        LLCCmdRspMsg* llcrsp = new LLCCmdRspMsg;
+        llcrsp->set_t(msg->t());
+        llcrsp->set_opcode(LLCRspOpcode::Okay);
+        issue_emit_to_noc(model_->dir(), llcrsp);
+        // Command complete: Delete transaction table entry.
+        erase_state_or_fatal(msg->t());
+      } break;
+      case State::PutAwaitMemDtRsp: {
+        // Issue Put response to originator directory
+        LLCCmdRspMsg* llcrsp = new LLCCmdRspMsg;
+        llcrsp->set_t(msg->t());
+        llcrsp->set_opcode(LLCRspOpcode::Okay);
+        issue_emit_to_noc(model_->dir(), llcrsp);
+        // Command complete: Delete transaction table entry.
+        erase_state_or_fatal(msg->t());
+      } break;
+      default: {
+      } break;
+    }
+  }
 
-  // Current machine state
-  State state_ = State::Idle;
+  void install_state_or_fatal(Transaction* t, LLCTState* tstate) {
+    LLCTTable* tt = model_->tt();
+    if (auto pp = tt->insert(std::make_pair(t, tstate)); !pp.second) {
+      LogMessage msg("Could not install transaction state.");
+      msg.level(Level::Fatal);
+      log(msg);
+    }
+  }
+  LLCTState* lookup_state_or_fatal(Transaction* t) const {
+    LLCTTable* tt = model_->tt();
+    LLCTState* st = nullptr;
+    if (auto it = tt->find(t); it != tt->end()) {
+      st = it->second;
+    } else {
+      // Expect to find a entry in the transaction table. If an entry
+      // is not present bail.
+      LogMessage msg("Transaction not found in table.");
+      msg.level(Level::Fatal);
+      log(msg);
+    }
+    return st;
+  }
+  void erase_state_or_fatal(Transaction* t) {
+    LLCTTable* tt = model_->tt();
+    if (auto it = tt->find(t); it != tt->end()) {
+      delete it->second;
+      tt->erase(it);
+    } else {
+      LogMessage msg("Transaction not found in table.");
+      msg.level(Level::Fatal);
+      log(msg);
+    }
+  }
+
+  void issue_emit_to_noc(Agent* dest, const Message* msg) {
+
+    NocMsg* nocmsg = new NocMsg;
+    nocmsg->set_origin(model_);
+    nocmsg->set_dest(dest);
+    nocmsg->set_payload(msg);
+
+    MessageQueueProxy* mq = model_->llc_noc__msg_q();
+    mq->issue(nocmsg);
+  }
+  
   // Pointer to owning LLC instance.
   LLCModel* model_ = nullptr;
 };
@@ -284,8 +340,10 @@ LLCModel::~LLCModel() {
   delete arb_;
   delete rdis_proc_;
   delete noc_endpoint_;
+  for (MessageQueue* mq : cc_llc__rsp_qs_) { delete mq; }
   for (MessageQueueProxy* p : endpoints_) { delete p; }
   delete llc_noc__msg_q_;
+  delete tt_;
 }
 
 void LLCModel::build() {
@@ -304,11 +362,23 @@ void LLCModel::build() {
   // NOC endpoint
   noc_endpoint_ = new LLCNocEndpoint(k(), "noc_ep");
   add_child_module(noc_endpoint_);
+  // Construct transaction table.
+  tt_ = new LLCTTable;
+}
+
+void LLCModel::register_cc(CpuCluster* cc) {
+  const std::string mq_name = cc->name() + "_mq";
+  MessageQueue* mq = new MessageQueue(k(), mq_name, 3);
+  add_child_module(mq);
+  cc_llc__rsp_qs_.push_back(mq);
 }
 
 void LLCModel::elab() {
   arb_->add_requester(dir_llc__cmd_q_);
   arb_->add_requester(mem_llc__rsp_q_);
+  for (MessageQueue* mq : cc_llc__rsp_qs_) {
+    arb_->add_requester(mq);
+  }
 
   MessageQueueProxy* p = nullptr;
 
@@ -320,6 +390,12 @@ void LLCModel::elab() {
   p = mem_llc__rsp_q_->construct_proxy();
   noc_endpoint_->register_endpoint(MessageClass::MemRsp, p);
   endpoints_.push_back(p);
+
+  for (MessageQueue* mq : cc_llc__rsp_qs_) {
+    p = mq->construct_proxy();
+    noc_endpoint_->register_endpoint(MessageClass::DtRsp, p);
+    endpoints_.push_back(p);
+  }
 }
 
 void LLCModel::drc() {

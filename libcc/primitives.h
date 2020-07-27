@@ -284,14 +284,14 @@ class Table : public kernel::Module {
 
   Table(kernel::Kernel* k, const std::string& name, std::size_t n)
       : Module(k, name), n_(n) {
-    non_empty_event_ = new kernel::Event(k, "non_empty_event");
+    non_full_event_ = new kernel::Event(k, "non_full_event");
   }
 
   virtual ~Table() {
-    delete non_empty_event_;
+    delete non_full_event_;
   }
 
-  kernel::Event* non_empty_event() const { return non_empty_event_; }
+  kernel::Event* non_full_event() const { return non_full_event_; }
 
   // Accessors:
   std::size_t n() const { return n_; }
@@ -316,7 +316,7 @@ class Table : public kernel::Module {
     if (auto it = m_.find(k); it != m_.end()) {
       m_.erase(it);
       if (was_full) {
-        non_empty_event_->notify();
+        non_full_event_->notify();
       }
     }
   }
@@ -327,7 +327,7 @@ class Table : public kernel::Module {
   // Table state.
   table_type m_;
   //
-  kernel::Event* non_empty_event_;
+  kernel::Event* non_full_event_;
 };
 
 }  // namespace cc

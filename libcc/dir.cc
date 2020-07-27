@@ -84,9 +84,14 @@ DirCommand* DirCommandBuilder::from_action(CoherenceAction* action) {
   return cmd;
 }
 
+void DirTState::release() {
+  line_->release();
+  delete this;
+}
+
 DirContext::~DirContext() {
-  if (owns_line_) {
-    line_->release();
+  if (owns_tstate_) {
+    tstate_->release();
   }
 }
 
@@ -98,15 +103,21 @@ DirCommandList::~DirCommandList() {
 
 void DirCommandList::push_back(DirCommand* cmd) { cmds_.push_back(cmd); }
 
+DirTState::DirTState(kernel::Kernel* k) {
+  transaction_start_ = new kernel::Event(k, "transaction_start");
+  transaction_end_ = new kernel::Event(k, "transaction_end");
+}
+
+DirTState::~DirTState() {
+  delete transaction_start_;
+  delete transaction_end_;
+}
+
 //
 //
 class DirCommandInterpreter {
-  struct State {
-    // Transaction Table state
-    DirTState* st;
-  };
  public:
-  DirCommandInterpreter() = default;
+  DirCommandInterpreter(kernel::Kernel* k) : k_(k) {}
 
   void set_dir(DirModel* model) { model_ = model; }
   void set_process(AgentProcess* process) { process_ = process; }
@@ -124,24 +135,38 @@ class DirCommandInterpreter {
     }
   }
  private:
-  void executeTableInstall(DirContext& ctxt, const DirCommand* cmd) {
-    state_.st = new DirTState;
+  void executeStartTransaction(DirContext& ctxt, const DirCommand* cmd) {
+    DirTState* tstate = ctxt.tstate();
+    
+    // Install in the transaction table.
     DirTTable* tt = model_->tt();
-    tt->install(ctxt.msg()->t(), state_.st);
+    tt->install(ctxt.msg()->t(), tstate);
+
+    // Install line in the dache.
+    DirCacheModel* cache = model_->cache();
+    const CacheAddressHelper ah = cache->ah();
+    DirCacheSet set = cache->set(ah.set(tstate->addr()));
+
+    if (DirCacheLineIt it = set.find(ah.tag(tstate->addr())); it == set.end()) {
+      set.install(it, ah.tag(tstate->addr()), tstate->line());
+    } else {
+      throw std::runtime_error(
+          "Cannot install line in directory cache; cache line must first "
+          "be recalled from owning/sharer cache(s).");
+    }
+    ctxt.set_owns_tstate(false);
+    // Transaction starts; notify.
+    tstate->transaction_start()->notify();
   }
   
-  void executeTableLookup(DirContext& ctxt, const DirCommand* cmd) {
+  void executeEndTransaction(DirContext& ctxt, const DirCommand* cmd) {
+    // Notify transaction event event; unblocks message queues
+    // awaiting completion of current transaction.
+    ctxt.tstate()->transaction_end()->notify();
+    // Delete transaction from transaction table.
     DirTTable* tt = model_->tt();
-    if (auto it = tt->find(ctxt.msg()->t()); it != tt->end()) {
-      state_.st = it->second;
-    } else {
-      throw std::runtime_error("Cannot find transaction table entry.");
-    }
-  }
-
-  void executeTableInstallLine(DirContext& ctxt, const DirCommand* cmd) {
-    state_.st->set_line(ctxt.line());
-    ctxt.set_owns_line(false);
+    tt->remove(ctxt.msg()->t());
+    ctxt.tstate()->release();
   }
 
   void executeMsgConsume(DirContext& ctxt, const DirCommand* cmd) {
@@ -156,10 +181,13 @@ class DirCommandInterpreter {
     CoherenceAction* action = cmd->action();
     action->execute();
   }
+  
+  void executeMqSetBlockedOnTransaction(DirContext& ctxt, const DirCommand* cmd) {
+    ctxt.mq()->set_blocked_until(ctxt.tstate()->transaction_end());
+  }
 
   void executeMqSetBlockedOnTable(DirContext& ctxt, const DirCommand* cmd) {
-    DirTTable* tt = model_->tt();
-    ctxt.mq()->set_blocked_until(tt->non_empty_event());
+    ctxt.mq()->set_blocked_until(model_->tt()->non_full_event());
   }  
   
   void executeWaitOnMsg(DirContext& ctxt, const DirCommand* cmd) const {
@@ -179,9 +207,9 @@ class DirCommandInterpreter {
       executeWaitOnMsg(ctxt, cmd);
     }
   }
-  
+
   //
-  State state_;
+  kernel::Kernel* k_ = nullptr;
   //
   AgentProcess* process_ = nullptr;
   //
@@ -231,13 +259,13 @@ class DirModel::RdisProcess : public AgentProcess {
     // Dispatch to appropriate message class
     switch (ctxt.msg()->cls()) {
       case MessageClass::CohSrt: {
-        process_cohsrt(ctxt, cl);
+        process(ctxt, cl, static_cast<const CohSrtMsg*>(ctxt.msg()));
       } break;
       case MessageClass::CohCmd: {
-        process_cohcmd(ctxt, cl);
+        process(ctxt, cl, static_cast<const CohCmdMsg*>(ctxt.msg()));
       } break;
       case MessageClass::LLCCmdRsp: {
-        process_llccmdrsp(ctxt, cl);
+        process(ctxt, cl, static_cast<const LLCCmdRspMsg*>(ctxt.msg()));
       } break;
       default: {
         LogMessage lmsg("Invalid message class received: ");
@@ -252,19 +280,37 @@ class DirModel::RdisProcess : public AgentProcess {
     }
   }
 
-  void process_cohsrt(DirContext& ctxt, DirCommandList& cl) {
-    Transaction* t = ctxt.msg()->t();
+  void process(DirContext& ctxt, DirCommandList& cl, const CohSrtMsg* msg) {
+    Transaction* t = msg->t();
     DirTTable* tt = model_->tt();
-    DirTState* st = lookup_state_or_fatal(t, false);
-    if (st == nullptr) {
-      if (!tt->full()) {
-        // Free entries exist in the transaction table, therefore the
-        // transaction can begin.
+    DirTState* tstate = lookup_state_or_fatal(t, false);
+    if (tstate == nullptr) {
+      // Transaction state is not already installed in the table
+      // (otherwise error). Now, need to consider if the line is
+      // already installed in the directory.
+      tstate = lookup_state_by_addr(msg->addr());
+      if (tstate != nullptr) {
+        // Transaction already in progress for the current line,
+        // command must be blocked until the completion of the current
+        // command.
+        ctxt.set_tstate(tstate);
+        cl.push_back(cb::from_opcode(DirOpcode::MqSetBlockedOnTransaction));
+        cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
+      } else if (!tt->full()) {
+        // Otherwise, if there are free entries in the transaction
+        // table, the transaction can proceed. Issue.
         const DirProtocol* protocol = model_->protocol();
+        tstate = new DirTState(k());
+        tstate->set_line(protocol->construct_line());
+        tstate->set_addr(msg->addr());
+        tstate->set_origin(msg->origin());
+        ctxt.set_tstate(tstate);
+        ctxt.set_owns_tstate(true);
         protocol->apply(ctxt, cl);
       } else {
-        // The transaction table is full, therefore the new inbound
-        // command is blocked.
+        // Otherwise, a transaction is not in progress and the
+        // transaction is full, therefore block Message Queue until
+        // the transaction table becomes non-full.
         cl.push_back(cb::from_opcode(DirOpcode::MqSetBlockedOnTable));
         cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
       }
@@ -277,20 +323,19 @@ class DirModel::RdisProcess : public AgentProcess {
     }
   }
 
-  void process_cohcmd(DirContext& ctxt, DirCommandList& cl) const {
+  void process(DirContext& ctxt, DirCommandList& cl, const CohCmdMsg* msg) const {
     // Lookup transaction table or bail if not found.
-    DirTState* st = lookup_state_or_fatal(ctxt.msg()->t());
     const DirProtocol* protocol = model_->protocol();
-    ctxt.set_line(protocol->construct_line());
-    ctxt.set_owns_line(true);
+    DirTState* tstate = lookup_state_or_fatal(ctxt.msg()->t());
+    ctxt.set_tstate(tstate);
     protocol->apply(ctxt, cl);
   }
 
-  void process_llccmdrsp(DirContext& ctxt, DirCommandList& cl) const {
+  void process(DirContext& ctxt, DirCommandList& cl, const LLCCmdRspMsg* msg) const {
     // Lookup transaction table or bail if not found.
-    DirTState* st = lookup_state_or_fatal(ctxt.msg()->t());
+    DirTState* tstate = lookup_state_or_fatal(ctxt.msg()->t());
+    ctxt.set_tstate(tstate);
     const DirProtocol* protocol = model_->protocol();
-    ctxt.set_line(st->line());
     protocol->apply(ctxt, cl);
   }
 
@@ -300,7 +345,7 @@ class DirModel::RdisProcess : public AgentProcess {
 
   void execute(DirContext& ctxt, const DirCommandList& cl) {
     try {
-      DirCommandInterpreter interpreter;
+      DirCommandInterpreter interpreter(k());
       interpreter.set_dir(model_);
       interpreter.set_process(this);
       for (const DirCommand* cmd : cl) {
@@ -319,7 +364,6 @@ class DirModel::RdisProcess : public AgentProcess {
     }
   }
 
-
   DirTState* lookup_state_or_fatal(
       Transaction* t, bool allow_fatal = true) const {
     DirTTable* tt = model_->tt();
@@ -334,6 +378,15 @@ class DirModel::RdisProcess : public AgentProcess {
       log(msg);
     }
     return st;
+  }
+
+  DirTState* lookup_state_by_addr(addr_t addr) const {
+    for (auto p : *model_->tt()) {
+      DirTState* entry = p.second;
+      if (entry->addr() == addr)
+        return entry;
+    }
+    return nullptr;
   }
 
   // Pointer to parent directory instance.
@@ -400,7 +453,7 @@ void DirModel::build() {
   add_child_module(arb_);
   // Dir state cache
   CacheModelConfig cfg;
-  cache_ = new CacheModel<DirLineState*>(cfg);
+  cache_ = new DirCacheModel(cfg);
   // Construct transaction table.
   tt_ = new DirTTable(k(), "tt", 16);
   add_child_module(tt_);

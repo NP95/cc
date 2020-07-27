@@ -32,6 +32,7 @@
 #include "kernel.h"
 #include "msg.h"
 #include "sim.h"
+#include <map>
 
 namespace cc {
 
@@ -42,6 +43,7 @@ class Message;
 class MessageQueue;
 class MessageQueueProxy;
 class LLCNocEndpoint;
+class CpuCluster;
 
 //
 //
@@ -68,14 +70,17 @@ class LLCCmdMsg : public Message {
   //
   LLCCmdOpcode opcode() const { return opcode_; }
   addr_t addr() const { return addr_; }
+  Agent* agent() const { return agent_; }
 
   //
   void set_opcode(LLCCmdOpcode opcode) { opcode_ = opcode; }
   void set_addr(addr_t addr) { addr_ = addr; }
+  void set_agent(Agent* agent) { agent_ = agent; }
 
  private:
   addr_t addr_;
   LLCCmdOpcode opcode_;
+  Agent* agent_ = nullptr;
 };
 
 //
@@ -102,6 +107,11 @@ class LLCCmdRspMsg : public Message {
  private:
   LLCRspOpcode opcode_;
 };
+
+class LLCTState;
+
+//
+using LLCTTable = std::map<Transaction*, LLCTState*>;
 
 //
 //
@@ -130,6 +140,8 @@ class LLCModel : public Agent {
  protected:
   // Construction/Build
   void build();
+  //
+  void register_cc(CpuCluster* cc);
 
   // Elaboration
   void elab() override;
@@ -139,15 +151,15 @@ class LLCModel : public Agent {
   void set_mc(MemCntrlModel* mc) { mc_ = mc; }
   // Set owner directory.
   void set_dir(DirModel* dir) { dir_ = dir; }
+  
   // Design Rule Check
   void drc() override;
-
   // Accessors:
 
   // Queue arbiter:
   MQArb* arb() const { return arb_; }
-  // lookup rdis process message queue for traffic class.
-  MessageQueue* lookup_rdis_mq(MessageClass cls) const;
+  //
+  LLCTTable* tt() const { return tt_; }
 
  private:
   // LLC -> NOC command queue (NOC owned)
@@ -156,12 +168,16 @@ class LLCModel : public Agent {
   MessageQueue* dir_llc__cmd_q_ = nullptr;
   // MEM -> LLC response queue (LLC owned)
   MessageQueue* mem_llc__rsp_q_ = nullptr;
+  //
+  std::vector<MessageQueue*> cc_llc__rsp_qs_;
   // Queue selector arbiter
   MQArb* arb_ = nullptr;
   // Home memory controller
   MemCntrlModel* mc_ = nullptr;
   // Home directory.
   DirModel* dir_ = nullptr;
+  // Transaction table.
+  LLCTTable* tt_ = nullptr;
   // Request distruction process.
   RdisProcess* rdis_proc_ = nullptr;
   // NOC endpoint

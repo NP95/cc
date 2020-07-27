@@ -137,23 +137,6 @@ class Line : public CCLineState {
   State state_ = State::I;
 };
 
-//
-//
-struct DtToL2Action : public CoherenceAction {
-  DtToL2Action(L2CacheModel* l2c, const DtMsg* dt)
-      : l2c_(l2c), dt_(dt)
-  {}
-
-  bool execute() override {
-    // TBD: No data message queue on L2.
-    return true;
-  }
-
- private:
-  L2CacheModel* l2c_ = nullptr;
-  const DtMsg* dt_ = nullptr;
-};
-
 enum class LineUpdate {
   SetAwaitingCmdMsgRsp,
   ClrAwaitingCmdMsgRsp,
@@ -273,6 +256,7 @@ class MOESICCProtocol : public CCProtocol {
         CohSrtMsg* cohsrt = new CohSrtMsg;
         cohsrt->set_t(msg->t());
         cohsrt->set_origin(ctxt.cc());
+        cohsrt->set_addr(msg->addr());
         issue_emit_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
 
         CohCmdMsg* cohcmd = new CohCmdMsg;
@@ -285,7 +269,7 @@ class MOESICCProtocol : public CCProtocol {
 
         // ACE command advances to active state; install entry within
         // transaction table.
-        cl.push_back(cb::from_opcode(CCOpcode::TableInstall));
+        cl.push_back(cb::from_opcode(CCOpcode::StartTransaction));
         // Consume ACE command
         cl.push_back(cb::from_opcode(CCOpcode::MsgConsume));
         // Advance to next
@@ -304,7 +288,7 @@ class MOESICCProtocol : public CCProtocol {
     issue_msg(cl, ctxt.cc()->cc_l2__rsp_q(), rmsg);
 
     // Transaction is now complete; delete entry from transaction table.
-    cl.push_back(cb::from_opcode(CCOpcode::TableUninstall));
+    cl.push_back(cb::from_opcode(CCOpcode::EndTransaction));
     // Consume message
     cl.push_back(cb::from_opcode(CCOpcode::MsgConsume));
     // Advance to next
@@ -312,6 +296,10 @@ class MOESICCProtocol : public CCProtocol {
   }
 
   void eval_msg(CCContext& ctxt, CCCommandList& cl, const DtMsg* msg) const {
+    // Issue Dt response to LLC
+    DtRspMsg* rsp = new DtRspMsg;
+    rsp->set_t(msg->t());
+    issue_emit_to_noc(ctxt, cl, rsp, msg->origin());
     // Consume message
     cl.push_back(cb::from_opcode(CCOpcode::MsgConsume));
     // Advance to next

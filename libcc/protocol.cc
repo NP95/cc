@@ -174,6 +174,15 @@ void CCProtocol::issue_msg(CCCommandList& cl, MessageQueueProxy* mq,
 
 void CCProtocol::issue_emit_to_noc(CCContext& ctxt, CCCommandList& cl,
                                    const Message* msg, Agent* dest) const {
+  if (dest == nullptr) {
+    LogMessage lm("Destination is not defined.");
+    lm.level(Level::Fatal);
+    log(lm);
+  } else if (msg == nullptr) {
+    LogMessage lm("Message is not defined.");
+    lm.level(Level::Fatal);
+    log(lm);
+  }
   CCModel* cc = ctxt.cc();
   // Encapsulate message in NOC transport protocol.
   NocMsg* nocmsg = new NocMsg;
@@ -197,6 +206,15 @@ void DirProtocol::issue_msg(DirCommandList& cl, MessageQueueProxy* mq,
 
 void DirProtocol::issue_emit_to_noc(DirContext& ctxt, DirCommandList& cl,
                                    const Message* msg, Agent* dest) const {
+  if (dest == nullptr) {
+    LogMessage lm("Destination is not defined.");
+    lm.level(Level::Fatal);
+    log(lm);
+  } else if (msg == nullptr) {
+    LogMessage lm("Message is not defined.");
+    lm.level(Level::Fatal);
+    log(lm);
+  }
   // Encapsulate message in NOC transport protocol.
   NocMsg* nocmsg = new NocMsg;
   nocmsg->set_t(msg->t());
