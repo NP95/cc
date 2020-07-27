@@ -201,7 +201,6 @@ struct LineUpdateAction : public CoherenceAction {
         line_->set_awaiting_cmdmsg_rsp(true);
       } break;
       case LineUpdate::ClrAwaitingCmdMsgRsp: {
-        // LINE is wrong at this point?
         line_->set_awaiting_cmdmsg_rsp(false);
       } break;
       case LineUpdate::State: {
@@ -210,7 +209,6 @@ struct LineUpdateAction : public CoherenceAction {
       default: {
       } break;
     }
-    // Discard !!!! WROGN!
     return true;
   }
  private:
