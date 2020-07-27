@@ -286,7 +286,6 @@ class LLCModel::RdisProcess : public kernel::Process {
   }
 
   void issue_emit_to_noc(Agent* dest, const Message* msg) {
-
     NocMsg* nocmsg = new NocMsg;
     nocmsg->set_origin(model_);
     nocmsg->set_dest(dest);

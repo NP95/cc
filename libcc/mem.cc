@@ -110,27 +110,16 @@ class MemCntrlModel::RequestDispatcherProcess : public kernel::Process {
     MQArb* rdis_arb = model_->rdis_arb();
     MQArbTmt t = rdis_arb->tournament();
     if (t.has_requester()) {
-      MessageQueue* mq = t.winner();
-
-      const MemCmdMsg* cmdmsg = static_cast<const MemCmdMsg*>(mq->dequeue());
+      const MemCmdMsg* cmdmsg =
+          static_cast<const MemCmdMsg*>(t.winner()->dequeue());
+      MemRspMsg* rspmsg = new MemRspMsg;
+      rspmsg->set_t(cmdmsg->t());
       switch (cmdmsg->opcode()) {
-        case MemCmdOpcode::Write:
         case MemCmdOpcode::Read: {
-          const bool is_read = (cmdmsg->opcode() == MemCmdOpcode::Read);
-          MemRspMsg* rspmsg = new MemRspMsg;
-          rspmsg->set_opcode(is_read ? MemRspOpcode::ReadOkay
-                                     : MemRspOpcode::WriteOkay);
-          rspmsg->set_t(cmdmsg->t());
-
-          // Memory read command
-          NocMsg* nocmsg = new NocMsg();
-          nocmsg->set_payload(rspmsg);
-          nocmsg->set_origin(model_);
-          nocmsg->set_dest(cmdmsg->dest());
-          nocmsg->set_t(cmdmsg->t());
-          // Issue to NOC
-          MessageQueueProxy* mem_noc__msg_q = model_->mem_noc__msg_q();
-          mem_noc__msg_q->issue(nocmsg);
+          rspmsg->set_opcode(MemRspOpcode::ReadOkay);
+        } break;
+        case MemCmdOpcode::Write: {
+          rspmsg->set_opcode(MemRspOpcode::WriteOkay);
         } break;
         default: {
           LogMessage lmsg("Invalid message opcode received: ");
@@ -139,6 +128,7 @@ class MemCntrlModel::RequestDispatcherProcess : public kernel::Process {
           log(lmsg);
         } break;
       }
+      issue_emit_to_noc(cmdmsg->origin(), rspmsg);
 
       LogMessage lm("Execute message: ");
       lm.append(cmdmsg->to_string());
@@ -147,9 +137,20 @@ class MemCntrlModel::RequestDispatcherProcess : public kernel::Process {
 
       // Discard message
       cmdmsg->release();
+      t.advance();
     } else {
       wait_on(rdis_arb->request_arrival_event());
     }
+  }
+
+  void issue_emit_to_noc(Agent* dest, const Message* msg) {
+    NocMsg* nocmsg = new NocMsg();
+    nocmsg->set_payload(msg);
+    nocmsg->set_origin(model_);
+    nocmsg->set_dest(dest);
+    // Issue to NOC
+    MessageQueueProxy* mq = model_->mem_noc__msg_q();
+    mq->issue(nocmsg);
   }
 
   //
