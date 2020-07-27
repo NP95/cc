@@ -281,9 +281,7 @@ class DirModel::RdisProcess : public AgentProcess {
   }
 
   void process(DirContext& ctxt, DirCommandList& cl, const CohSrtMsg* msg) {
-    Transaction* t = msg->t();
-    DirTTable* tt = model_->tt();
-    DirTState* tstate = lookup_state_or_fatal(t, false);
+    DirTState* tstate = lookup_state_or_fatal(msg->t(), false);
     if (tstate == nullptr) {
       // Transaction state is not already installed in the table
       // (otherwise error). Now, need to consider if the line is
@@ -296,7 +294,7 @@ class DirModel::RdisProcess : public AgentProcess {
         ctxt.set_tstate(tstate);
         cl.push_back(cb::from_opcode(DirOpcode::MqSetBlockedOnTransaction));
         cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
-      } else if (!tt->full()) {
+      } else if (DirTTable* tt = model_->tt(); !tt->full()) {
         // Otherwise, if there are free entries in the transaction
         // table, the transaction can proceed. Issue.
         const DirProtocol* protocol = model_->protocol();
