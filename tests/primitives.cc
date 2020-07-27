@@ -143,13 +143,14 @@ TEST(Primitives, QueueDequeueImmediately) {
   // Top-level module for simulation.
   struct Top : public cc::kernel::Module {
     Top(cc::kernel::Kernel* k) : cc::kernel::Module(k, "top") {
+      set_top();
       // Queue channel.
       q_ = new cc::Queue<cc::kernel::Time>(k, "Queue", 16);
       add_child(q_);
       // Enqueue Process
       ep_ = new EnqueueProcess(k, q_, 20);
       add_child_process(ep_);
-      // Dequeu process
+      // Dequeue process
       dp_ = new DequeueProcess(k, q_, 20);
       add_child_process(dp_);
     }
@@ -258,6 +259,7 @@ TEST(Primitives, QueueBurst) {
   // Top-level module for simulation.
   struct Top : public cc::kernel::Module {
     Top(cc::kernel::Kernel* k) : cc::kernel::Module(k, "top") {
+      set_top();
       // Queue channel.
       q_ = new cc::Queue<int>(k, "Queue", 16);
       add_child(q_);
