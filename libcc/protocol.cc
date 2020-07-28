@@ -195,6 +195,25 @@ void CCProtocol::issue_emit_to_noc(CCContext& ctxt, CCCommandList& cl,
   cl.push_back(CCCommandBuilder::from_action(action));
 }
 
+void CCProtocol::issue_invalid_state_transition(
+    CCCommandList& cl, const std::string& desc) const {
+  struct InvalidStateTransition : CoherenceAction {
+    InvalidStateTransition(const std::string& desc) : desc_(desc) {}
+    std::string to_string() const override {
+      const std::string msg = "Invalid state transition: " + desc_;
+      return msg;
+    }
+    bool execute() override {
+      throw std::runtime_error(to_string());
+      return true;
+    }
+   private:
+    std::string desc_;
+  };
+  InvalidStateTransition* action = new InvalidStateTransition(desc);
+  cl.push_back(CCCommandBuilder::from_action(action));
+}
+
 DirProtocol::DirProtocol(kernel::Kernel* k, const std::string& name)
     : Module(k, name) {}
 

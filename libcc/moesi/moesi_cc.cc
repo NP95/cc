@@ -56,7 +56,10 @@ enum class State {
   //
   //    E:   On receipt of data (owning).
   //
-  IS_D,
+  IS,
+
+  
+  IE,
 
 
   // Shared State
@@ -89,7 +92,8 @@ enum class State {
 const char* to_string(State state) {
   switch (state) {
     case State::I: return "I";
-    case State::IS_D: return "IS_D";
+    case State::IS: return "IS";
+    case State::IE: return "IE";
     case State::S: return "S";
     case State::E: return "E";
     case State::O: return "O";
@@ -275,9 +279,39 @@ class MOESICCProtocol : public CCProtocol {
         // Advance to next
         cl.push_back(cb::from_opcode(CCOpcode::WaitNextEpochOrWait));
         // Update state
-        issue_update_state(ctxt, cl, State::IS_D);
+        issue_update_state(ctxt, cl, State::IS);
+      } break;
+      case AceCmdOpcode::ReadUnique: {
+        const DirMapper* dm = ctxt.cc()->dm();
+        
+        CohSrtMsg* cohsrt = new CohSrtMsg;
+        cohsrt->set_t(msg->t());
+        cohsrt->set_origin(ctxt.cc());
+        cohsrt->set_addr(msg->addr());
+        issue_emit_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
+
+        CohCmdMsg* cohcmd = new CohCmdMsg;
+        cohcmd->set_t(msg->t());
+        cohcmd->set_opcode(msg->opcode());
+        cohcmd->set_origin(ctxt.cc());
+        cohcmd->set_addr(msg->addr());
+        issue_emit_to_noc(ctxt, cl, cohcmd, dm->lookup(msg->addr()));
+        issue_field_update(ctxt, cl, LineUpdate::SetAwaitingCmdMsgRsp);
+
+        // ACE command advances to active state; install entry within
+        // transaction table.
+        cl.push_back(cb::from_opcode(CCOpcode::StartTransaction));
+        // Consume ACE command
+        cl.push_back(cb::from_opcode(CCOpcode::MsgConsume));
+        // Advance to next
+        cl.push_back(cb::from_opcode(CCOpcode::WaitNextEpochOrWait));
+        // Update state
+        issue_update_state(ctxt, cl, State::IE);
       } break;
       default: {
+        std::string name = "Unable to handle ACE command: ";
+        name += to_string(msg->opcode());
+        issue_invalid_state_transition(cl, name);
       } break;
     }
   }

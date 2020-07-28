@@ -97,12 +97,15 @@ class L2CmdRspMsg : public Message {
 
   //
   L2RspOpcode opcode() const { return opcode_; }
+  bool is_shared() const { return is_shared_; }
 
   //
   void set_opcode(L2RspOpcode opcode) { opcode_ = opcode; }
+  void set_is_shared(bool is_shared) { is_shared_ = is_shared; }
 
  private:
   L2RspOpcode opcode_;
+  bool is_shared_ = false;
 };
 
 // Cache data type

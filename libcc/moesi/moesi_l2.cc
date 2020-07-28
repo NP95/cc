@@ -41,6 +41,7 @@ using namespace cc;
 enum class State {
   I,
   IS,
+  IE,
   S,
   E,
   M,
@@ -53,6 +54,7 @@ const char* to_string(State state) {
   switch (state) {
     case State::I: return "I";
     case State::IS: return "IS";
+    case State::IE: return "IE";
     case State::S: return "S";
     case State::E: return "E";
     case State::M: return "M";
@@ -163,16 +165,18 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
           case L2CmdOpcode::L1GetS: {
             // State I; requesting GetS (ie. Shared); issue ReadShared
             msg->set_opcode(AceCmdOpcode::ReadShared);
+            // Update state
+            issue_update_state(cl, line, State::IS);
           } break;
           case L2CmdOpcode::L1GetE: {
             // State I; requesting GetE (i.e. Exclusive); issue ReadShared
             msg->set_opcode(AceCmdOpcode::ReadUnique);
+            // Update state
+            issue_update_state(cl, line, State::IE);
           } break;
         }
         // Issue ACE command to the cache controller.
         issue_msg(cl, ctxt.l2cache()->l2_cc__cmd_q(), msg);
-        // Update state
-        issue_update_state(cl, line, State::IS);
         // Message is stalled on lookup transaction.
         // Install new entry in transaction table as the transaction
         // has now started and commands are inflight. The transaction
@@ -222,7 +226,34 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
         // Always sending to the zeroth L1
         L2CacheModel* l2cache = ctxt.l2cache();
         issue_msg(cl, l2cache->l2_l1__rsp_q(0), rsp);
-        issue_update_state(cl, line, State::S);
+        // Compute final line state
+        const bool is_shared = msg->is_shared();
+        const bool pass_dirty = msg->pass_dirty();
+        if (is_shared && pass_dirty) {
+          rsp->set_is_shared(false);
+          issue_update_state(cl, line, State::O);
+        } else if (!is_shared && !pass_dirty) {
+          rsp->set_is_shared(false);
+          issue_update_state(cl, line, State::E);
+        } else {
+          rsp->set_is_shared(true);
+          issue_update_state(cl, line, State::S);
+        }
+        // Consume L1Cmd as it can complete successfully.
+        cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
+        // Advance to next
+        cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpochOrWait));
+      } break;
+      case State::IE: {
+        // Transition to Exclusive state
+        L2CmdRspMsg* rsp = new L2CmdRspMsg;
+        rsp->set_t(msg->t());
+        // Always sending to the zeroth L1
+        L2CacheModel* l2cache = ctxt.l2cache();
+        issue_msg(cl, l2cache->l2_l1__rsp_q(0), rsp);
+        // Compute final line state
+        rsp->set_is_shared(false);
+        issue_update_state(cl, line, State::E);
         // Consume L1Cmd as it can complete successfully.
         cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
         // Advance to next

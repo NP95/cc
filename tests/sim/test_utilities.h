@@ -60,12 +60,21 @@ class LineChecker {
   }
 
   bool line_is_readable() const {
-      auto ah = cache_->ah();
-      auto set = cache_->set(ah.set(addr_));
-      auto it = set.find(ah.tag(addr_));
-      if (it == set.end()) return false;
-      const cc::L1LineState* line = it->t();
-      return line->is_readable();
+    auto ah = cache_->ah();
+    auto set = cache_->set(ah.set(addr_));
+    auto it = set.find(ah.tag(addr_));
+    if (it == set.end()) return false;
+    const cc::L1LineState* line = it->t();
+    return line->is_readable();
+  }
+
+  bool line_is_writeable() const {
+    auto ah = cache_->ah();
+    auto set = cache_->set(ah.set(addr_));
+    auto it = set.find(ah.tag(addr_));
+    if (it == set.end()) return false;
+    const cc::L1LineState* line = it->t();
+    return line->is_writeable();
   }
 
  private:

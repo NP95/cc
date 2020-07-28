@@ -66,6 +66,7 @@ class SocModel {
   cc::Stimulus* stimulus_ = nullptr;
 };
 
+/*
 TEST(Basic, SimpleRead) {
   cc::kernel::Kernel k;
   cc::SocConfig cfg;
@@ -103,6 +104,43 @@ TEST(Basic, SimpleRead) {
   // (ideally the line should be in a writeable state as it should be
   // exclusive at this point, but this is not something that we
   // specifically enforce).
+}
+*/
+TEST(Basic, SimpleWrite) {
+  cc::kernel::Kernel k;
+  cc::SocConfig cfg;
+
+  // Build simple test configuration.
+  test::build_config(cfg, 1, 1, 1);
+
+  // Test program:
+  //
+  //  1) Advance 200 time-units.
+  //
+  //  2) Issue a load instruction from CPU 0 to address 0x0.
+  //
+  const std::vector<const char*> trace{
+    "+200",
+    "C:0,ST,0"
+  };
+  cfg.scfg = test::build_stimulus(trace);
+  SocModel soc(&k, cfg);
+  soc.run();
+
+  // Lookup L1 cache model instance where we expect to find the line.
+  const cc::L1CacheModel* l1cache =
+      soc.get_object_as<cc::L1CacheModel*>("top.cluster.l1cache");
+
+  test::LineChecker checker(l1cache->cache(), 0);
+
+  // Validate that cache has line installed.
+  EXPECT_TRUE(checker.has_line());
+
+  // Validate that cache line is in a readable state.
+  EXPECT_TRUE(checker.line_is_readable());
+
+  // Validate that cache line is in a writeable state.
+  EXPECT_TRUE(checker.line_is_writeable());
 }
 
 int main(int argc, char** argv) {

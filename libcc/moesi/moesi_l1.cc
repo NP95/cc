@@ -184,17 +184,21 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
         l2cmdmsg->set_addr(msg->addr());
         switch (msg->opcode()) {
           case L1CacheOpcode::CpuLoad: {
+            // Update state I -> IS
+            issue_update_state(cl, line, State::IS);
+            // Issue GetS
             l2cmdmsg->set_opcode(L2CmdOpcode::L1GetS);
           } break;
           case L1CacheOpcode::CpuStore: {
+            // Update state I -> IE
+            issue_update_state(cl, line, State::IE);
+            // Issue GetS
             l2cmdmsg->set_opcode(L2CmdOpcode::L1GetE);
           } break;
         }
         l2cmdmsg->set_l1cache(c.l1cache());
         // Issue L2 command
         issue_msg(cl, c.l1cache()->l1_l2__cmd_q(), l2cmdmsg);
-        // Update state I -> IS
-        issue_update_state(cl, line, State::IS);
         // Message is stalled on lookup transaction.
         // Install new entry in transaction table as the transaction
         // has now started and commands are inflight. The transaction
@@ -304,7 +308,20 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
     switch (line->state()) {
       case State::IS: {
         // Update state
-        issue_update_state(cl, line, State::S);
+        issue_update_state(cl, line, msg->is_shared() ? State::S : State::E);
+          
+        // Update transaction table; wake all blocked Message Queues
+        // and delete context.
+        cl.push_back(cb::from_opcode(L1Opcode::TableGetCurrentState));
+        cl.push_back(cb::from_opcode(L1Opcode::TableMqUnblockAll));
+        // Consume committed message.
+        cl.push_back(cb::from_opcode(L1Opcode::MsgConsume));
+        // Advance to next
+        cl.push_back(cb::from_opcode(L1Opcode::WaitNextEpochOrWait));
+      } break;
+      case State::IE: {
+        // Update state
+        issue_update_state(cl, line, State::E);
         // Update transaction table; wake all blocked Message Queues
         // and delete context.
         cl.push_back(cb::from_opcode(L1Opcode::TableGetCurrentState));
