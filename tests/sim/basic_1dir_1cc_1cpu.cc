@@ -67,6 +67,10 @@ class SocModel {
 };
 
 
+// Perform a single load to L1 (the only L1 in the system). The line
+// should arrived in either the shared or the exclusive state. The
+// load instruction should not consequently commit to the machine
+// state.
 TEST(Basic, SimpleRead) {
   cc::kernel::Kernel k;
   cc::SocConfig cfg;
@@ -106,6 +110,12 @@ TEST(Basic, SimpleRead) {
   // specifically enforce).
 }
 
+
+// Perform a single write to L1 (the only L1 in the system). The line
+// should arrive back at the L1 in the exclusive state and then after
+// commit of the store command be promoted to the modified state. Once
+// complete, the line should reside in the cache and be both readable
+// and writeable.
 TEST(Basic, SimpleWrite) {
   cc::kernel::Kernel k;
   cc::SocConfig cfg;
