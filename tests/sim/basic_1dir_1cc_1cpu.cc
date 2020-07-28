@@ -66,7 +66,7 @@ class SocModel {
   cc::Stimulus* stimulus_ = nullptr;
 };
 
-/*
+
 TEST(Basic, SimpleRead) {
   cc::kernel::Kernel k;
   cc::SocConfig cfg;
@@ -105,7 +105,7 @@ TEST(Basic, SimpleRead) {
   // exclusive at this point, but this is not something that we
   // specifically enforce).
 }
-*/
+
 TEST(Basic, SimpleWrite) {
   cc::kernel::Kernel k;
   cc::SocConfig cfg;
