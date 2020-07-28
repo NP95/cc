@@ -101,7 +101,7 @@ TEST(Basic, SimpleRead) {
 
   // Line may or may not be in a writeable state at this point
   // (ideally the line should be in a writeable state as it should be
-  // exclusive at thsi point, but this is not something that we
+  // exclusive at this point, but this is not something that we
   // specifically enforce).
 }
 
