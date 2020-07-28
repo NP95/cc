@@ -194,6 +194,8 @@ struct StimulusConfig {
   std::string filename;
   // Index to cpu instance mapping.
   std::vector<std::string> cpaths;
+  //
+  std::istream* is = nullptr;
 };
 
 //

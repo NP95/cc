@@ -32,6 +32,7 @@
 
 #include "nlohmann/json.hpp"
 using json = nlohmann::json;
+#include <fstream>
 
 namespace cc {
 
@@ -197,7 +198,8 @@ class SocConfigBuilderJson {
     // Parse type related options
     if (c.type == "trace"){
       // Set .filename
-      CHECK_AND_SET(filename);
+      CHECK(filename);
+      c.is = new std::ifstream(c.filename);
       // Set .cpath
       for (const auto& path : j["cpath"]) {
         c.cpaths.push_back(path);

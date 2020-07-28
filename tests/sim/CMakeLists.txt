@@ -25,7 +25,12 @@
 ## POSSIBILITY OF SUCH DAMAGE.
 ##========================================================================== //
 
-macro (create_test testname testfile)
+add_library(utilities STATIC test_utilities.cc)
+target_include_directories(utilities PRIVATE
+    ${CMAKE_SOURCE_DIR}/libcc
+    )  
+
+macro (create_sim_test testname testfile)
   add_executable(test_${testname} ${testfile})
   target_include_directories(test_${testname} PRIVATE
     ${CMAKE_SOURCE_DIR}/libcc
@@ -37,13 +42,9 @@ macro (create_test testname testfile)
     gtest_main
     gtest
     pthread
+    utilities
     )
   add_test(NAME ${testname} COMMAND test_${testname})
 endmacro ()
 
-create_test(utility utility.cc)
-create_test(kernel kernel.cc)
-create_test(primitives primitives.cc)
-create_test(cache cache.cc)
-
-add_subdirectory(sim)
+create_sim_test(basic_1dir_1cc_1cpu basic_1dir_1cc_1cpu.cc)

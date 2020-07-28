@@ -251,6 +251,8 @@ class L1CacheModel : public Agent {
 
   // Return current L1 configuration.
   const L1CacheModelConfig& config() const { return config_; }
+  // Accessors:
+  CacheModel<L1LineState*>* cache() const { return cache_; }
   // CPU -> l1 command queue
   MessageQueue* cpu_l1__cmd_q() const { return cpu_l1__cmd_q_; }
   // L1 -> CPU response queue
@@ -268,8 +270,6 @@ class L1CacheModel : public Agent {
   Cpu* cpu() const { return cpu_; }
   // Pointer to owning L2Cache
   L2CacheModel* l2c() const { return l2c_; }
-  // Accessors:
-  CacheModel<L1LineState*>* cache() const { return cache_; }
   // Protocol
   L1CacheModelProtocol* protocol() const { return protocol_; }
   // Transaction table.

@@ -166,25 +166,39 @@ class Object {
   Object(Kernel* k, const std::string& name);
   virtual ~Object();
 
-  //
+  // Current kernel instance.
   Kernel* k() const { return k_; }
+  // Flag indicating is current object is the root of the object tree.
   bool is_top() const { return parent_ == nullptr; }
+  // Object path in object model
   std::string path() const;
+  // Object name
   std::string name() const { return name_; }
 
-  //
+  // Set current object as object top.
   void set_top();
+  // Set parent object.
   void set_parent(Object* o) { parent_ = o; }
+  // Add child object.
   void add_child(Object* c);
+  //
+  Object* find_path(const std::string& path);
 
  protected:
   void iterate_children(ObjectVisitor* visitor);
 
  private:
+  Object* find_path(std::vector<std::string>& path);
+
+  // Kernel
   Kernel* k_ = nullptr;
+  // Parent object
   Object* parent_ = nullptr;
+  // Children objects
   std::vector<Object*> children_;
+  // Path (lazily constructed)
   mutable std::string path_;
+  // Objec name
   std::string name_;
 };
 

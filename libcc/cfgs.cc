@@ -31,7 +31,7 @@
 namespace cc {
 
 SocConfig::~SocConfig() {
-  delete pbuilder;
+  //delete pbuilder;
 }
 
 } // namespace cc

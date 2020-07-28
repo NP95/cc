@@ -92,12 +92,12 @@ TraceStimulus::TraceStimulus(kernel::Kernel* k, const StimulusConfig& config)
   build();
 }
 
-TraceStimulus::~TraceStimulus() { delete is_; }
+TraceStimulus::~TraceStimulus() {
+  delete is_;
+}
 
 void TraceStimulus::build() {
-  const StimulusConfig& c = config();
-  std::cout << c.filename << "\n";
-  is_ = new std::ifstream(c.filename);
+  is_ = config().is;
 }
 
 void TraceStimulus::elab() { parse_tracefile(); }

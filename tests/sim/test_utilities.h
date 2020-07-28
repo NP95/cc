@@ -25,35 +25,57 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "utility.h"
+#ifndef CC_TESTS_SIM_TEST_UTILITIES_H
+#define CC_TESTS_SIM_TEST_UTILITIES_H
 
-#include "gtest/gtest.h"
-#include <string>
+#include "cc/cfgs.h"
+#include "cc/soc.h"
+#include "cache.h"
+#include "protocol.h"
 #include <vector>
+#include <string>
+#include <fstream>
 
-TEST(Utility, Log2Ceil) {
-  EXPECT_EQ(cc::log2ceil(0), 0);
-  EXPECT_EQ(cc::log2ceil(7), 3);
-  EXPECT_EQ(cc::log2ceil(120), 7);
-  EXPECT_EQ(cc::log2ceil(255), 8);
-}
+namespace test {
 
-TEST(Utility, Mask) {
-  EXPECT_EQ(cc::mask<std::uint32_t>(0), 0);
-  EXPECT_EQ(cc::mask<std::uint32_t>(1), 1);
-  EXPECT_EQ(cc::mask<std::uint32_t>(2), 3);
-}
+//
+cc::StimulusConfig build_stimulus(const std::vector<const char*>& trace);
 
-TEST(Utility, Split) {
-  std::string s = "a.b.c.d.e";
-  std::vector<std::string> expected{"a", "b", "c", "d", "e"};
-  std::vector<std::string> actual;
+//
+void build_config(cc::SocConfig& cfg, std::size_t dir_n, std::size_t cc_n,
+                  std::size_t cpu_n);
 
-  cc::split(std::back_inserter(actual), s);
-  EXPECT_EQ(actual, expected);
-}
+//
+template<typename LINE>
+class LineChecker {
+ public:
+  LineChecker(const cc::CacheModel<LINE>* cache, cc::addr_t addr)
+      : cache_(cache), addr_(addr) {
+  }
 
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
+  bool has_line() const {
+    auto ah = cache_->ah();
+    auto set = cache_->set(ah.set(addr_));
+    return (set.find(ah.tag(addr_)) != set.end());
+  }
+
+  bool line_is_readable() const {
+      auto ah = cache_->ah();
+      auto set = cache_->set(ah.set(addr_));
+      auto it = set.find(ah.tag(addr_));
+      if (it == set.end()) return false;
+      const cc::L1LineState* line = it->t();
+      return line->is_readable();
+  }
+
+ private:
+  
+  cc::addr_t addr_;
+  const cc::CacheModel<LINE>* cache_ = nullptr;
+};
+    
+
+} // namespace test
+
+
+#endif

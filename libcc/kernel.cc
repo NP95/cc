@@ -26,6 +26,7 @@
 //========================================================================== //
 
 #include "kernel.h"
+#include "utility.h"
 
 #include <algorithm>
 #include <exception>
@@ -95,6 +96,34 @@ void Object::iterate_children(ObjectVisitor* visitor) {
     o->accept(visitor);
   }
 }
+
+Object* Object::find_path(const std::string& path) {
+  std::vector<std::string> path_split;
+  split(std::back_inserter(path_split), path);
+  std::reverse(path_split.begin(), path_split.end());
+  if (path_split.back() == name()) {
+    // Recurse through children.
+    path_split.pop_back();
+    return find_path(path_split);
+  }
+  return nullptr;
+}
+
+Object* Object::find_path(std::vector<std::string>& path) {
+  Object* ret = nullptr;
+  const std::string back_name = path.back();
+  for (Object* object : children_) {
+    if (back_name == object->name()) {
+      if (path.size() == 1) return object;
+        
+      path.pop_back();
+      ret = object->find_path(path);
+      break;
+    }
+  }
+  return ret;
+}
+
 
 LogContext::LogContext(std::ostream* os) : os_(os) {}
 

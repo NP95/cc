@@ -35,7 +35,7 @@
 
 #include "amba.h"
 #include "msg.h"
-#include "types.h"
+#include "cc/types.h"
 
 namespace cc {
 
@@ -177,6 +177,16 @@ class L1LineState {
   // Flag indiciating if the line is currently residing in a stable
   // state.
   virtual bool is_stable() const = 0;
+
+  // Flag indicating that the line is currently residing in a readable
+  // state.
+  //
+  virtual bool is_readable() const = 0;
+
+  // Flag indicating that the line is currently residing in a writeable
+  // state.
+  //
+  virtual bool is_writeable() const = 0;
 
   // Flag indiciating if the line is currently evictable (not in a
   // transient state).

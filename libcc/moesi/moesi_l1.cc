@@ -91,8 +91,39 @@ class MOESIL1LineState : public L1LineState {
   void set_state(State state) { state_ = state; }
 
   // Stable state status.
-  bool is_stable() const {
-    return true;
+  bool is_stable() const override {
+    switch (state()) {
+      case State::I:
+      case State::S:
+      case State::E:
+      case State::M:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  // Return true if line is in a state which allows reading.
+  bool is_readable() const override {
+    switch (state()) {
+      case State::S:
+      case State::E:
+      case State::M:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  // Return true if the line is in a state which allows writing.
+  bool is_writeable() const override {
+    switch (state()) {
+      case State::E:
+      case State::M:
+        return true;
+      default:
+        return false;
+    }
   }
 
  private:

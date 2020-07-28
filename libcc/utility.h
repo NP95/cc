@@ -80,6 +80,20 @@ class KVListRenderer {
   std::vector<kv_type> kvs_;
 };
 
+template<typename IT>
+void split(IT it, const std::string& name, const char* sep = ".") {
+  std::string::size_type i = 0, j = 0;
+  do {
+    j = name.find(sep, i);
+    if (j == std::string::npos) {
+      *it++ = name.substr(i);
+    } else {
+      *it++ = name.substr(i, j - i);
+      i = j + 1;
+    }
+  } while (j != std::string::npos);
+}
+
 struct Hexer {
   explicit Hexer() = default;
 

@@ -28,15 +28,52 @@
 #ifndef CC_INCLUDE_CC_SOC_H
 #define CC_INCLUDE_CC_SOC_H
 
+#include "kernel.h"
 #include <string>
 
 namespace cc {
 
-namespace kernel { class Kernel; }
-
 class SocConfig;
 class SocTop;
 class ProtocolBuilder;
+class DirMapper;
+class NocModel;
+class DirModel;
+class LLCModel;
+class CpuCluster;
+class MemCntrlModel;
+class Stimulus;
+
+//
+//
+class SocTop : public kernel::TopModule {
+ public:
+  SocTop(kernel::Kernel* k, const SocConfig& cfg);
+
+  ~SocTop();
+
+ private:
+  void build(const SocConfig& cfg);
+
+  void elab() override;
+
+  void drc() override;
+
+  // Directory Mapper instance
+  DirMapper* dm_;
+  // NOC/Interconnect instance
+  NocModel* noc_ = nullptr;
+  // Directory model instance
+  std::vector<DirModel*> dms_;
+  // LLC Models 1-to-1 relationship with non-Null Filter directories.
+  std::vector<LLCModel*> llcs_;
+  // CPU Cluster instances
+  std::vector<CpuCluster*> ccs_;
+  // Memory Controller instances.
+  std::vector<MemCntrlModel*> mms_;
+  // Stimulus "module" instance.
+  Stimulus* stimulus_;
+};
 
 class Soc {
  public:

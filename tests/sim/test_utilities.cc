@@ -25,35 +25,56 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "utility.h"
+#include "test_utilities.h"
 
-#include "gtest/gtest.h"
-#include <string>
-#include <vector>
+namespace test {
 
-TEST(Utility, Log2Ceil) {
-  EXPECT_EQ(cc::log2ceil(0), 0);
-  EXPECT_EQ(cc::log2ceil(7), 3);
-  EXPECT_EQ(cc::log2ceil(120), 7);
-  EXPECT_EQ(cc::log2ceil(255), 8);
+cc::StimulusConfig build_stimulus(const std::vector<const char*>& trace) {
+  cc::StimulusConfig cfg;
+  std::string s;
+  for (const char* line : trace) {
+    s += line;
+    s += "\n";
+  }
+  cfg.is = new std::istringstream(s);
+  cfg.cpaths = {
+    "top.cluster.cpu"
+  };
+  return cfg;
 }
 
-TEST(Utility, Mask) {
-  EXPECT_EQ(cc::mask<std::uint32_t>(0), 0);
-  EXPECT_EQ(cc::mask<std::uint32_t>(1), 1);
-  EXPECT_EQ(cc::mask<std::uint32_t>(2), 3);
+void build_config(cc::SocConfig& cfg, std::size_t dir_n,
+                  std::size_t cc_n, std::size_t cpu_n) {
+  cc::ProtocolBuilder* pb = cc::construct_protocol_builder("moesi");
+
+  for (std::size_t i = 0; i < cc_n; i++) {
+    cc::CpuClusterConfig cpuc_cfg;
+
+    cc::CCConfig cc_cfg;
+    cc_cfg.pbuilder = pb;
+    cpuc_cfg.cc_config = cc_cfg;
+
+    cc::L2CacheModelConfig l2c_config;
+    l2c_config.pbuilder = pb;
+    cpuc_cfg.l2c_config = l2c_config;
+
+    cc::L1CacheModelConfig l1c_config;
+    l1c_config.pbuilder = pb;
+    cpuc_cfg.l1c_configs.push_back(l1c_config);
+
+    cc::CpuConfig cpu_config;
+    cpuc_cfg.cpu_configs.push_back(cpu_config);
+
+    cfg.ccls.push_back(cpuc_cfg);
+  }
+
+  for (std::size_t i = 0; i < dir_n; i++) {
+    cc::DirModelConfig dcfg;
+    dcfg.pbuilder = pb;
+
+    cfg.dcfgs.push_back(dcfg);
+  }
 }
 
-TEST(Utility, Split) {
-  std::string s = "a.b.c.d.e";
-  std::vector<std::string> expected{"a", "b", "c", "d", "e"};
-  std::vector<std::string> actual;
 
-  cc::split(std::back_inserter(actual), s);
-  EXPECT_EQ(actual, expected);
-}
-
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
+} // namespace test
