@@ -109,7 +109,7 @@ class CCCommandList {
   const_iterator begin() const { return cmds_.begin(); }
   const_iterator end() const { return cmds_.end(); }
 
-  void push_back(CCCommand* cmd);
+  void push_back(CCCommand* cmd) { cmds_.push_back(cmd); }
 
  private:
   std::vector<CCCommand*> cmds_;
@@ -173,14 +173,147 @@ class CCContext {
   CCModel* cc_ = nullptr;
 };
 
+//
+//
+enum class CCSnpOpcode {
+  TransactionStart,
+  TransactionEnd,
+  InvokeCoherenceAction,
+  WaitOnMsg,
+  Invalid
+};
+
+const char* to_string(CCSnpOpcode opcode);
+
+//
+//
+class CCSnpCommand {
+  friend class CCSnpCommandBuilder;
+ public:
+  CCSnpCommand() = default;
+  virtual void release() const { delete this; }
+
+  std::string to_string() const;
+
+  //
+  CCSnpOpcode opcode() const { return opcode_; }
+  CoherenceAction* action() const { return oprands.coh.action; }
+
+  //
+  void set_opcode(CCSnpOpcode opcode) { opcode_ = opcode; }
+  void set_action(CoherenceAction* action) { oprands.coh.action = action; }
+
+ private:
+  virtual ~CCSnpCommand();
+  
+  //
+  union {
+    struct {
+      CoherenceAction* action;
+    } coh;
+  } oprands;
+  //
+  CCSnpOpcode opcode_;
+};
+
+//
+//
+class CCSnpCommandList {
+  using vector_type = std::vector<CCSnpCommand*>;
+
+ public:
+  using const_iterator = vector_type::const_iterator;
+
+  CCSnpCommandList() = default;
+  ~CCSnpCommandList();
+
+  const_iterator begin() const { return cmds_.begin(); }
+  const_iterator end() const { return cmds_.end(); }
+
+  void push_back(CCSnpCommand* cmd) { cmds_.push_back(cmd); }
+
+ private:
+  std::vector<CCSnpCommand*> cmds_;
+};
+
+//
+//
+class CCSnpCommandBuilder {
+ public:
+  static CCSnpCommand* from_opcode(CCSnpOpcode opcode);
+
+  static CCSnpCommand* from_action(CoherenceAction* action);
+};
+
+//
+//
+class CCSnpTState {
+ public:
+  CCSnpTState() = default;
+  //
+  void release() { delete this; }
+
+  //
+  CCSnpLineState* line() const { return line_; }
+  bool owns_line() const { return owns_line_; }
+  
+  //
+  void set_line(CCSnpLineState* line) { line_ = line; }
+  void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
+
+ private:
+  CCSnpLineState* line_ = nullptr;
+  bool owns_line_ = false;
+};
+
+//
+//
+using CCSnpTTable = Table<Transaction*, CCSnpTState*>;
+
+//
+//
+class CCSnpContext {
+ public:
+  CCSnpContext() = default;
+
+  //
+  MQArbTmt t() const { return t_; }
+  CCModel* cc() const { return cc_; }
+  MessageQueue* mq() const { return mq_; }
+  const Message* msg() const { return mq_->peek(); }
+  CCSnpTState* tstate() const { return tstate_; }
+  bool owns_tstate() const { return owns_tstate_; }
+  
+  //
+  void set_t(MQArbTmt t) { t_ = t; }
+  void set_cc(CCModel* cc) { cc_ = cc; }
+  void set_mq(MessageQueue* mq) { mq_ = mq; }
+  void set_tstate(CCSnpTState* tstate) { tstate_ = tstate; }
+  void set_owns_tstate(bool owns_tstate) { owns_tstate_ = owns_tstate; }
+ private:
+  // Current Message Queue arbiter tournament.
+  MQArbTmt t_;
+  // Current Message Queue
+  MessageQueue* mq_ = nullptr;
+  // L2 cache instance
+  CCModel* cc_ = nullptr;
+  //
+  CCSnpTState* tstate_ = nullptr;
+  // Flag indiciating that current context owns the tstate and must
+  // release the state upon destruction.
+  bool owns_tstate_ = false;
+};
+
 
 //
 //
 class CCModel : public Agent {
   friend class CpuCluster;
   friend class CCCommandInterpreter;
+  friend class CCSnpCommandInterpreter;
 
   class RdisProcess;
+  class SnpProcess;
  public:
   CCModel(kernel::Kernel* k, const CCConfig& config);
   ~CCModel();
@@ -204,6 +337,8 @@ class CCModel : public Agent {
   // Accessors:
   // Pointer to module arbiter instance:
   MQArb* arb() const { return arb_; }
+  //
+  MQArb* snp_arb() const { return snp_arb_; }
   // Protocol instance
   CCProtocol* protocol() const { return protocol_; }
   // Transaction table.
@@ -224,6 +359,8 @@ class CCModel : public Agent {
   void set_cc_l2__rsp_q(MessageQueueProxy* mq);
   // Transaction table
   CCTTable* tt() const { return tt_; }
+  //
+  CCSnpTTable* snp_tt() const { return snp_tt_; }
 
   // Design Rule Check (DRC)
   void drc();
@@ -239,10 +376,16 @@ class CCModel : public Agent {
   MessageQueueProxy* cc_noc__msg_q_ = nullptr;
   // DIR -> CC Ingress Queue
   MessageQueue* dir_cc__rsp_q_ = nullptr;
+  // DIR -> CC Command Queue (snoops)
+  MessageQueue* dir_cc__snpcmd_q_ = nullptr;
+  //
+  MessageQueue* l2_cc__snprsp_q_ = nullptr;
   // {LLC, CC} -> CC Data (dt) queue
   MessageQueue* cc__dt_q_ = nullptr;
   // Queue selection arbiter
   MQArb* arb_ = nullptr;
+  // Snoop Queue Selection Arbiter instance
+  MQArb* snp_arb_ = nullptr;
   // Directory Mapper instance
   DirMapper* dm_ = nullptr;
   // Disatpcher process
@@ -253,6 +396,8 @@ class CCModel : public Agent {
   std::vector<MessageQueueProxy*> endpoints_;
   // Transaction table instance.
   CCTTable* tt_ = nullptr;
+  // Snoop Transaction table instance.
+  CCSnpTTable* snp_tt_ = nullptr;
   // Cache controller protocol instance.
   CCProtocol* protocol_ = nullptr;
   // Cache controller configuration.

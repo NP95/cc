@@ -49,6 +49,9 @@ class L2CacheContext;
 class CCCommandList;
 class CCContext;
 
+class CCSnpCommandList;
+class CCSnpContext;
+
 class DirCommandList;
 class DirContext;
 
@@ -126,9 +129,9 @@ class CohCmdRspMsg : public Message {
 
 //
 //
-class CohFwdMsg : public Message {
+class CohSnpMsg : public Message {
  public:
-  CohFwdMsg() : Message(MessageClass::CohFwd) {}
+  CohSnpMsg() : Message(MessageClass::CohSnp) {}
 
   //
   std::string to_string() const override;
@@ -136,33 +139,14 @@ class CohFwdMsg : public Message {
 
 //
 //
-class CohFwdRspMsg : public Message {
+class CohSnpRspMsg : public Message {
  public:
-  CohFwdRspMsg() : Message(MessageClass::CohFwdRsp) {}
+  CohSnpRspMsg() : Message(MessageClass::CohSnpRsp) {}
 
   //
   std::string to_string() const override;
 };
 
-//
-//
-class CohInvMsg : public Message {
- public:
-  CohInvMsg() : Message(MessageClass::CohInv) {}
-
-  //
-  std::string to_string() const override;
-};
-
-//
-//
-class CohInvRspMsg : public Message {
- public:
-  CohInvRspMsg() : Message(MessageClass::CohInvRsp) {}
-
-  //
-  std::string to_string() const override;
-};
 
 //
 //
@@ -347,6 +331,18 @@ class CCLineState {
   virtual ~CCLineState() = default;
 };
 
+
+//
+//
+class CCSnpLineState {
+ public:
+  CCSnpLineState() = default;
+  virtual void release() const { delete this; }
+
+ protected:
+  virtual ~CCSnpLineState() = default;
+};
+
 enum class CCMessageID {};
 
 using CCMessageIDList = std::vector<CCMessageID>;
@@ -366,7 +362,15 @@ class CCProtocol : public kernel::Module {
 
   //
   //
+  virtual CCSnpLineState* construct_snp_line() const = 0;
+
+  //
+  //
   virtual void apply(CCContext& ctxt, CCCommandList& cl) const = 0;
+
+  //
+  //
+  virtual void apply(CCSnpContext& ctxt, CCSnpCommandList& cl) const = 0;
 
  protected:
   //

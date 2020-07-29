@@ -161,19 +161,10 @@ enum class MessageClass {
   //
 
   // DIR -> CC
-  CohFwd,
+  CohSnp,
 
   // CC -> DIR
-  CohFwdRsp,
-
-  // Coherence agent line invalidation messages:
-  //
-
-  // DIR -> CC
-  CohInv,
-
-  // CC - DIR
-  CohInvRsp,
+  CohSnpRsp,
 
   // ------------------------------------------------------------------------ //
   // Last-Level Cache Message Classes:

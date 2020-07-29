@@ -67,25 +67,13 @@ std::string CohCmdRspMsg::to_string() const {
   return r.to_string();
 }
 
-std::string CohFwdMsg::to_string() const {
+std::string CohSnpMsg::to_string() const {
   KVListRenderer r;
   render_msg_fields(r);
   return r.to_string();
 }
 
-std::string CohFwdRspMsg::to_string() const {
-  KVListRenderer r;
-  render_msg_fields(r);
-  return r.to_string();
-}
-
-std::string CohInvMsg::to_string() const {
-  KVListRenderer r;
-  render_msg_fields(r);
-  return r.to_string();
-}
-
-std::string CohInvRspMsg::to_string() const {
+std::string CohSnpRspMsg::to_string() const {
   KVListRenderer r;
   render_msg_fields(r);
   return r.to_string();

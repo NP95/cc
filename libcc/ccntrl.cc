@@ -93,13 +93,9 @@ CCCommandList::~CCCommandList() {
   }
 }
 
-void CCCommandList::push_back(CCCommand* cmd) { cmds_.push_back(cmd); }
-
 //
 //
 class CCCommandInterpreter {
-  struct State {
-  };
  public:
   CCCommandInterpreter() = default;
 
@@ -140,8 +136,8 @@ class CCCommandInterpreter {
   }
   
   void executeInvokeCoherenceAction(CCContext& ctxt, const CCCommand* cmd) {
-    CoherenceAction* action = cmd->action();
-    action->execute();
+      CoherenceAction* action = cmd->action();
+      action->execute();
   }
 
   void executeMsgConsume(CCContext& ctxt, const CCCommand* cmd) {
@@ -171,9 +167,6 @@ class CCCommandInterpreter {
       process_->wait_on(arb->request_arrival_event());
     }
   }
-  
-  //
-  State state_;
   //
   AgentProcess* process_ = nullptr;
   //
@@ -281,7 +274,7 @@ class CCModel::RdisProcess : public AgentProcess {
   }
 
   void execute(CCContext& ctxt, const CCCommandList& cl) {
-    try {
+      try {
       CCCommandInterpreter interpreter;
       interpreter.set_cc(model_);
       interpreter.set_process(this);
@@ -294,12 +287,12 @@ class CCModel::RdisProcess : public AgentProcess {
 #endif
         interpreter.execute(ctxt, cmd);
       }
-    } catch (const std::runtime_error& ex) {
-      LogMessage lm("Interpreter encountered an error: ");
-      lm.append(ex.what());
-      lm.level(Level::Fatal);
-      log(lm);
-    }
+      } catch (const std::runtime_error& ex) {
+        LogMessage lm("Interpreter encountered an error: ");
+        lm.append(ex.what());
+        lm.level(Level::Fatal);
+        log(lm);
+      }
   }
 
   CCTState* lookup_state_or_fail(Transaction* t) const {
@@ -316,6 +309,214 @@ class CCModel::RdisProcess : public AgentProcess {
   }
 
   // Cache controller instance.
+  CCModel* model_ = nullptr;
+};
+
+
+const char* to_string(CCSnpOpcode opcode) {
+  switch (opcode) {
+    case CCSnpOpcode::TransactionStart:
+      return "TransactionStart";
+    case CCSnpOpcode::TransactionEnd:
+      return "TransactionEnd";
+    case CCSnpOpcode::InvokeCoherenceAction:
+      return "InvokeCoherenceAction";
+    case CCSnpOpcode::WaitOnMsg:
+      return "WaitOnMsg";
+    case CCSnpOpcode::Invalid:
+    default:
+      return "Invalid";
+  }
+}
+
+CCSnpCommand::~CCSnpCommand() {
+  switch (opcode()) {
+    case CCSnpOpcode::InvokeCoherenceAction:
+      oprands.coh.action->release();
+      break;
+    default: ;
+  }
+}
+
+
+std::string CCSnpCommand::to_string() const {
+  KVListRenderer r;
+  r.add_field("opcode", cc::to_string(opcode()));
+  return r.to_string();
+}
+
+CCSnpCommand* CCSnpCommandBuilder::from_opcode(CCSnpOpcode opcode) {
+  CCSnpCommand* cmd = new CCSnpCommand;
+  cmd->set_opcode(opcode);
+  return cmd;
+}
+
+CCSnpCommand* CCSnpCommandBuilder::from_action(CoherenceAction* action) {
+  CCSnpCommand* cmd = new CCSnpCommand;
+  cmd->set_opcode(CCSnpOpcode::InvokeCoherenceAction);
+  cmd->oprands.coh.action = action;
+  return cmd;
+}
+
+//
+//
+class CCSnpCommandInterpreter {
+ public:
+  CCSnpCommandInterpreter() = default;
+
+  void set_cc(CCModel* model) { model_ = model; }
+  void set_process(AgentProcess* process) { process_ = process; }
+
+  void execute(CCSnpContext& ctxt, const CCSnpCommand* cmd) {
+    switch (cmd->opcode()) {
+      case CCSnpOpcode::TransactionStart: {
+        execute_transaction_start(ctxt, cmd);
+      } break;
+      case CCSnpOpcode::TransactionEnd: {
+        execute_transaction_end(ctxt, cmd);
+      } break;
+      case CCSnpOpcode::InvokeCoherenceAction: {
+        execute_invoke_coherence_action(ctxt, cmd);
+      } break;
+      case CCSnpOpcode::WaitOnMsg: {
+        execute_wait_on_msg(ctxt, cmd);
+      } break;
+      default: {
+      } break;
+    }
+  }
+
+  void execute_transaction_start(CCSnpContext& ctxt, const CCSnpCommand* cmd) {
+    CCSnpTTable* tt = model_->snp_tt();
+    tt->install(ctxt.msg()->t(), ctxt.tstate());
+    ctxt.set_owns_tstate(false);
+  }
+
+  void execute_transaction_end(CCSnpContext& ctxt, const CCSnpCommand* cmd) {
+    CCSnpTTable* tt = model_->snp_tt();
+    Transaction* t = ctxt.msg()->t();
+    if (auto it = tt->find(t); it != tt->end()) {
+      tt->remove(t);
+    } else {
+      throw std::runtime_error("Table entry for transaction does not exist.");
+    }
+  }
+
+  void execute_invoke_coherence_action(CCSnpContext& ctxt, const CCSnpCommand* cmd) {
+    CoherenceAction* action = cmd->action();
+    action->execute();
+  }
+
+  void execute_wait_on_msg(CCSnpContext& ctxt, const CCSnpCommand* cmd) {
+    MQArb* arb = model_->snp_arb();
+    process_->wait_on(arb->request_arrival_event());
+  }
+
+ private:
+  // Parent cache controller model.
+  CCModel* model_ = nullptr;
+  // Invoking thread.
+  AgentProcess* process_ = nullptr;
+};
+  
+//
+//
+class CCModel::SnpProcess : public AgentProcess {
+  using cb = CCSnpCommandBuilder;
+ public:
+  SnpProcess(kernel::Kernel* k, const std::string& name, CCModel* model)
+      : AgentProcess(k, name), model_(model) {}
+
+  void init() override {
+    CCSnpContext ctxt;
+    CCSnpCommandList cl;
+    cl.push_back(cb::from_opcode(CCSnpOpcode::WaitOnMsg));
+    execute(ctxt, cl);
+  }
+
+  void eval() override {
+    CCSnpCommandList cl;
+    CCSnpContext ctxt;
+    ctxt.set_cc(model_);
+    MQArb* arb = model_->snp_arb();
+    ctxt.set_t(arb->tournament());
+
+    // Check if requests are present, if not block until a new message
+    // arrives at the arbiter. Process should ideally not wake in the
+    // absence of requesters.
+    if (!ctxt.t().has_requester()) {
+      cl.push_back(cb::from_opcode(CCSnpOpcode::WaitOnMsg));
+      execute(ctxt, cl);
+      return;
+    }
+    // Fetch nominated message queue
+    ctxt.set_mq(ctxt.t().winner());
+
+    switch (ctxt.msg()->cls()) {
+      case MessageClass::CohSnp: {
+        process_cohsnp(ctxt, cl);
+      } break;
+      case MessageClass::AceCmdRsp: {
+        process_acecmdrsp(ctxt, cl);
+      } break;
+      default: {
+        LogMessage lmsg("Invalid message class received: ");
+        lmsg.append(cc::to_string(ctxt.msg()->cls()));
+        lmsg.level(Level::Error);
+        log(lmsg);
+      } break;
+    }
+    if (can_execute(cl)) {
+      LogMessage lm("Execute message: ");
+      lm.append(ctxt.msg()->to_string());
+      lm.level(Level::Debug);
+      log(lm);
+
+      execute(ctxt, cl);
+    }
+  }
+
+  void process_cohsnp(CCSnpContext& ctxt, CCSnpCommandList& cl) {
+    CCSnpTState* tstate = new CCSnpTState;
+    const CCProtocol* protocol = model_->protocol();
+    tstate->set_line(protocol->construct_snp_line());
+    tstate->set_owns_line(true);
+    ctxt.set_tstate(tstate);
+    ctxt.set_owns_tstate(true);
+    protocol->apply(ctxt, cl);
+  }
+
+  void process_acecmdrsp(CCSnpContext& ctxt, CCSnpCommandList& cl) {
+    const CCProtocol* protocol = model_->protocol();
+    protocol->apply(ctxt, cl);
+  }
+
+  bool can_execute(const CCSnpCommandList& cl) const {
+    return true;
+  }
+
+  void execute(CCSnpContext& ctxt, const CCSnpCommandList& cl) {
+    try {
+      CCSnpCommandInterpreter interpreter;
+      interpreter.set_cc(model_);
+      interpreter.set_process(this);
+      for (const CCSnpCommand* cmd : cl) {
+#if 0
+        LogMessage lm("Executing command: ");
+        lm.append(cmd->to_string());
+        lm.level(Level::Debug);
+        log(lm);
+#endif
+        interpreter.execute(ctxt, cmd);
+      }
+    } catch (const std::runtime_error& ex) {
+      LogMessage lm("Interpreter encountered an error: ");
+      lm.append(ex.what());
+      lm.level(Level::Fatal);
+      log(lm);
+    }
+  }
+
   CCModel* model_ = nullptr;
 };
 
@@ -357,11 +558,15 @@ CCModel::CCModel(kernel::Kernel* k, const CCConfig& config)
 CCModel::~CCModel() {
   delete l2_cc__cmd_q_;
   delete dir_cc__rsp_q_;
+  delete dir_cc__snpcmd_q_;
+  delete l2_cc__snprsp_q_;
   delete cc__dt_q_;
   delete arb_;
+  delete snp_arb_;
   delete rdis_proc_;
   delete noc_endpoint_;
   delete tt_;
+  delete snp_tt_;
   delete protocol_;
   delete cc_l2__rsp_q_;
   delete cc_noc__msg_q_;
@@ -376,10 +581,19 @@ void CCModel::build() {
   dir_cc__rsp_q_ = new MessageQueue(k(), "dir_cc__rsp_q", 3);
   add_child_module(dir_cc__rsp_q_);
   //
+  dir_cc__snpcmd_q_ = new MessageQueue(k(), "dir_cc__snpcmd_q", 3);
+  add_child_module(dir_cc__snpcmd_q_);
+  //
+  l2_cc__snprsp_q_ = new MessageQueue(k(), "l2_cc__snprsp_q", 3);
+  add_child_module(l2_cc__snprsp_q_);
+  //
   cc__dt_q_ = new MessageQueue(k(), "cc__dt_q", 3);
   add_child_module(cc__dt_q_);
   // Arbiteer
   arb_ = new MQArb(k(), "arb");
+  add_child_module(arb_);
+  // Snoop arbiter
+  snp_arb_ = new MQArb(k(), "snp_arb");
   add_child_module(arb_);
   // Dispatcher process
   rdis_proc_ = new RdisProcess(k(), "rdis_proc", this);
@@ -390,6 +604,9 @@ void CCModel::build() {
   // Transaction table
   tt_ = new CCTTable(k(), "tt", 16);
   add_child_module(tt_);
+  // Snoop transaction table.
+  snp_tt_ = new CCSnpTTable(k(), "snp_tt", 16);
+  add_child_module(snp_tt_);
   // Create protocol instance
   protocol_ = config_.pbuilder->create_cc(k());
   add_child_module(protocol_);
@@ -417,6 +634,18 @@ void CCModel::elab() {
   p = dir_cc__rsp_q_->construct_proxy();
   noc_endpoint_->register_endpoint(MessageClass::CohCmdRsp, p);
   noc_endpoint_->register_endpoint(MessageClass::CohEnd, p);
+  endpoints_.push_back(p);
+
+  // Snoop commands
+  snp_arb_->add_requester(dir_cc__snpcmd_q_);
+  snp_arb_->add_requester(l2_cc__snprsp_q_);
+
+  p = dir_cc__snpcmd_q_->construct_proxy();
+  noc_endpoint_->register_endpoint(MessageClass::CohSnp, p);
+  endpoints_.push_back(p);
+
+  p = l2_cc__snprsp_q_->construct_proxy();
+  noc_endpoint_->register_endpoint(MessageClass::AceSnoopRsp, p);
   endpoints_.push_back(p);
 }
 

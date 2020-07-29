@@ -141,6 +141,13 @@ class Line : public CCLineState {
   State state_ = State::I;
 };
 
+class SnpLine : public CCSnpLineState {
+ public:
+  SnpLine() = default;
+};
+
+//
+//
 enum class LineUpdate {
   SetAwaitingCmdMsgRsp,
   ClrAwaitingCmdMsgRsp,
@@ -220,6 +227,12 @@ class MOESICCProtocol : public CCProtocol {
 
   //
   //
+  CCSnpLineState* construct_snp_line() const override {
+    return new SnpLine;
+  }
+
+  //
+  //
   void apply(CCContext& ctxt, CCCommandList& cl) const override {
     const MessageClass cls = ctxt.msg()->cls();
     switch (cls) {
@@ -235,6 +248,20 @@ class MOESICCProtocol : public CCProtocol {
       case MessageClass::Dt: {
         eval_msg(ctxt, cl, static_cast<const DtMsg*>(ctxt.msg()));
       } break;
+      default: {
+        LogMessage msg("Invalid message class received: ");
+        msg.append(cc::to_string(cls));
+        msg.level(Level::Fatal);
+        log(msg);
+      } break;
+    }
+  }
+
+  //
+  //
+  void apply(CCSnpContext& ctxt, CCSnpCommandList& cl) const override {
+    const MessageClass cls = ctxt.msg()->cls();
+    switch (cls) {
       default: {
         LogMessage msg("Invalid message class received: ");
         msg.append(cc::to_string(cls));

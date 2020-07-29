@@ -65,14 +65,10 @@ const char* to_string(MessageClass cls) {
       return "CohEnd";
     case MessageClass::CohCmd:
       return "CohCmd";
-    case MessageClass::CohFwd:
-      return "CohFwd";
-    case MessageClass::CohFwdRsp:
-      return "CohFwdRsp";
-    case MessageClass::CohInv:
-      return "CohInv";
-    case MessageClass::CohInvRsp:
-      return "CohInvRsp";
+    case MessageClass::CohSnp:
+      return "CohSnp";
+    case MessageClass::CohSnpRsp:
+      return "CohSnpRsp";
     case MessageClass::LLCCmd:
       return "LLCCmd";
     case MessageClass::LLCCmdRsp:
