@@ -239,6 +239,11 @@ class CCModel::RdisProcess : public AgentProcess {
     }
 
     if (can_execute(cl)) {
+      LogMessage lm("Execute message: ");
+      lm.append(ctxt.msg()->to_string());
+      lm.level(Level::Debug);
+      log(lm);
+
       execute(ctxt, cl);
     }
   }
@@ -281,11 +286,12 @@ class CCModel::RdisProcess : public AgentProcess {
       interpreter.set_cc(model_);
       interpreter.set_process(this);
       for (const CCCommand* cmd : cl) {
+#if 0
         LogMessage lm("Executing command: ");
         lm.append(cmd->to_string());
         lm.level(Level::Debug);
         log(lm);
-
+#endif
         interpreter.execute(ctxt, cmd);
       }
     } catch (const std::runtime_error& ex) {

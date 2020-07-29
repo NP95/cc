@@ -241,6 +241,7 @@ class Loggable : public Object {
   };
 
   struct LogMessage {
+    LogMessage() = default;
     LogMessage(const std::string& msg, Level level = Level::Info)
         : msg_(msg), level_(level) {}
     Level level() const { return level_; }

@@ -160,11 +160,24 @@ TEST(Basic121, SimpleRead2Cpu) {
   const cc::L1CacheModel* l1c0 =
       soc.get_object_as<cc::L1CacheModel*>("top.cluster0.l1cache0");
   EXPECT_NE(l1c0, nullptr);
+  const test::LineChecker checker0(l1c0->cache(), 0);
+
+  // Validate that cache has line installed.
+  EXPECT_TRUE(checker0.has_line());
+
+  // Validate that cache line is in a readable state.
+  EXPECT_TRUE(checker0.line_is_readable());
 
   const cc::L1CacheModel* l1c1 =
       soc.get_object_as<cc::L1CacheModel*>("top.cluster1.l1cache0");
   EXPECT_NE(l1c1, nullptr);
+  const test::LineChecker checker1(l1c1->cache(), 0);
 
+  // Validate that cache has line installed.
+  EXPECT_TRUE(checker1.has_line());
+
+  // Validate that cache line is in a readable state.
+  EXPECT_TRUE(checker1.line_is_readable());
 }
 
 int main(int argc, char** argv) {

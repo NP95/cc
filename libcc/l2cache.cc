@@ -321,6 +321,11 @@ class L2CacheModel::MainProcess : public AgentProcess {
     }
 
     if (can_execute(cl)) {
+      LogMessage lm("Execute message: ");
+      lm.append(ctxt.msg()->to_string());
+      lm.level(Level::Debug);
+      log(lm);
+
       execute(ctxt, cl);
     }
   }
@@ -384,11 +389,12 @@ class L2CacheModel::MainProcess : public AgentProcess {
       interpreter.set_l2cache(model_);
       interpreter.set_process(this);
       for (const L2Command* cmd : cl) {
-        LogMessage lm("Executing opcode: ");
-        lm.append(to_string(cmd->opcode()));
+#if 0
+        LogMessage lm("Executing command: ");
+        lm.append(cmd->to_string());
         lm.level(Level::Debug);
         log(lm);
-
+#endif
         interpreter.execute(ctxt, cmd);
       }
     } catch (const std::runtime_error& ex) {

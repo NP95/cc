@@ -309,40 +309,45 @@ class L1CacheModel::MainProcess : public AgentProcess {
 
     // Construct and initialize current processing context.
     L1CommandList cl;
-    L1CacheContext c;
-    c.set_t(arb->tournament());
-    c.set_l1cache(model_);
+    L1CacheContext ctxt;
+    ctxt.set_t(arb->tournament());
+    ctxt.set_l1cache(model_);
 
     // Check if requests are present, if not block until a new message
     // arrives at the arbiter. Process should ideally not wake in the
     // absence of requesters.
-    if (!c.t().has_requester()) {
+    if (!ctxt.t().has_requester()) {
       cl.push_back(cb::from_opcode(L1Opcode::WaitOnMsg));
-      execute(c, cl);
+      execute(ctxt, cl);
       return;
     }
 
     // Fetch nominated message queue
-    c.set_mq(c.t().winner());
+    ctxt.set_mq(ctxt.t().winner());
 
     // Dispatch to appropriate handler based upon message class.
-    switch (c.msg()->cls()) {
+    switch (ctxt.msg()->cls()) {
       case MessageClass::L1Cmd:
-        process_l1cmd(c, cl);
+        process_l1cmd(ctxt, cl);
         break;
       case MessageClass::L2CmdRsp:
-        process_l2cmdrsp(c, cl);
+        process_l2cmdrsp(ctxt, cl);
         break;
       default: {
         LogMessage lmsg("Invalid message class received: ");
-        lmsg.append(cc::to_string(c.msg()->cls()));
+        lmsg.append(cc::to_string(ctxt.msg()->cls()));
         lmsg.level(Level::Error);
         log(lmsg);
       } break;
     }
 
     if (can_execute(cl)) {
-      execute(c, cl);
+      LogMessage lm("Execute message: ");
+      lm.append(ctxt.msg()->to_string());
+      lm.level(Level::Debug);
+      log(lm);
+
+      execute(ctxt, cl);
     }
   }
 
@@ -402,11 +407,12 @@ class L1CacheModel::MainProcess : public AgentProcess {
       interpreter.set_l1cache(model_);
       interpreter.set_process(this);
       for (const L1Command* cmd : cl) {
+#if 0
         LogMessage lm("Executing cmd: ");
         lm.append(cmd->to_string());
         lm.level(Level::Debug);
         log(lm);
-
+#endif
         interpreter.execute(ctxt, cmd);
       }
     } catch (const std::runtime_error& ex) {

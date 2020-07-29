@@ -64,16 +64,6 @@ bool MessageQueue::issue(const Message* msg, epoch_t epoch) {
   };
 
   if (full()) return false;
-
-  // Log message issue:
-  //#if 0
-  LogMessage lmsg("Issue Message (dst: ");
-  lmsg.append(path());
-  lmsg.append("): ");
-  lmsg.append(msg->to_string());
-  lmsg.level(Level::Debug);
-  log(lmsg);
-  //#endif
   // Issue action:
   kernel::Time t;
   const kernel::Time execute_time = k()->time() + t;
@@ -124,13 +114,6 @@ const Message* MessageQueue::dequeue() {
 
   // Return credits
   credits_++;
-
-  //#if 0
-  LogMessage lm("Dequeue message: ");
-  lm.append(msg->to_string());
-  lm.level(Level::Debug);
-  log(lm);
-  //#endif
   return msg;
 }
 

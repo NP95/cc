@@ -276,6 +276,11 @@ class DirModel::RdisProcess : public AgentProcess {
     }
 
     if (can_execute(cl)) {
+      LogMessage lm("Execute message: ");
+      lm.append(ctxt.msg()->to_string());
+      lm.level(Level::Debug);
+      log(lm);
+
       execute(ctxt, cl);
     }
   }
@@ -347,11 +352,12 @@ class DirModel::RdisProcess : public AgentProcess {
       interpreter.set_dir(model_);
       interpreter.set_process(this);
       for (const DirCommand* cmd : cl) {
+#if 0
         LogMessage lm("Executing command: ");
         lm.append(cmd->to_string());
         lm.level(Level::Debug);
         log(lm);
-
+#endif
         interpreter.execute(ctxt, cmd);
       }
     } catch (const std::runtime_error& ex) {
@@ -441,10 +447,10 @@ DirModel::~DirModel() {
 
 void DirModel::build() {
   // CPU -> DIR command queue
-  cpu_dir__cmd_q_ = new MessageQueue(k(), "cpu_dir__cmd_q", 3);
+  cpu_dir__cmd_q_ = new MessageQueue(k(), "cpu_dir__cmd_q", 30);
   add_child_module(cpu_dir__cmd_q_);
   // LLC -> DIR command queue
-  llc_dir__rsp_q_ = new MessageQueue(k(), "llc_dir__rsp_q", 3);
+  llc_dir__rsp_q_ = new MessageQueue(k(), "llc_dir__rsp_q", 30);
   add_child_module(llc_dir__rsp_q_);
   // Construct arbiter
   arb_ = new MQArb(k(), "arb");

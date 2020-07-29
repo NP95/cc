@@ -92,11 +92,27 @@ std::string MemRspMsg::to_string() const {
 
 //
 //
-class MemCntrlModel::RequestDispatcherProcess : public kernel::Process {
+std::string DtMsg::to_string() const {
+  KVListRenderer r;
+  render_msg_fields(r);
+  return r.to_string();
+}
+
+//
+//
+std::string DtRspMsg::to_string() const {
+  KVListRenderer r;
+  render_msg_fields(r);
+  return r.to_string();
+}
+
+//
+//
+class MemCntrlModel::RequestDispatcherProcess : public AgentProcess {
  public:
   RequestDispatcherProcess(kernel::Kernel* k, const std::string& name,
                            MemCntrlModel* model)
-      : Process(k, name), model_(model) {}
+      : AgentProcess(k, name), model_(model) {}
 
  private:
   // Initialization
@@ -109,35 +125,45 @@ class MemCntrlModel::RequestDispatcherProcess : public kernel::Process {
   void eval() override {
     MQArb* rdis_arb = model_->rdis_arb();
     MQArbTmt t = rdis_arb->tournament();
+
+    if (!t.has_requester()) {
+      // If no requesters, block until a requester has arrived.
+      wait_on(rdis_arb->request_arrival_event());
+      return;
+    }
+
+    const MemCmdMsg* cmdmsg =
+        static_cast<const MemCmdMsg*>(t.winner()->dequeue());
+
+    LogMessage lm("Execute message: ");
+    lm.append(cmdmsg->to_string());
+    lm.level(Level::Debug);
+    log(lm);
+
+    MemRspMsg* rspmsg = new MemRspMsg;
+    rspmsg->set_t(cmdmsg->t());
+    switch (cmdmsg->opcode()) {
+      case MemCmdOpcode::Read: {
+        rspmsg->set_opcode(MemRspOpcode::ReadOkay);
+      } break;
+      case MemCmdOpcode::Write: {
+        rspmsg->set_opcode(MemRspOpcode::WriteOkay);
+      } break;
+      default: {
+        LogMessage lmsg("Invalid message opcode received: ");
+        lmsg.append(to_string(cmdmsg->opcode()));
+        lmsg.level(Level::Fatal);
+        log(lmsg);
+      } break;
+    }
+    issue_emit_to_noc(cmdmsg->origin(), rspmsg);
+    // Discard message
+    cmdmsg->release();
+    t.advance();
+
+    t = rdis_arb->tournament();
     if (t.has_requester()) {
-      const MemCmdMsg* cmdmsg =
-          static_cast<const MemCmdMsg*>(t.winner()->dequeue());
-      MemRspMsg* rspmsg = new MemRspMsg;
-      rspmsg->set_t(cmdmsg->t());
-      switch (cmdmsg->opcode()) {
-        case MemCmdOpcode::Read: {
-          rspmsg->set_opcode(MemRspOpcode::ReadOkay);
-        } break;
-        case MemCmdOpcode::Write: {
-          rspmsg->set_opcode(MemRspOpcode::WriteOkay);
-        } break;
-        default: {
-          LogMessage lmsg("Invalid message opcode received: ");
-          lmsg.append(to_string(cmdmsg->opcode()));
-          lmsg.level(Level::Fatal);
-          log(lmsg);
-        } break;
-      }
-      issue_emit_to_noc(cmdmsg->origin(), rspmsg);
-
-      LogMessage lm("Execute message: ");
-      lm.append(cmdmsg->to_string());
-      lm.level(Level::Debug);
-      log(lm);
-
-      // Discard message
-      cmdmsg->release();
-      t.advance();
+      wait_for(kernel::Time{10, 0});
     } else {
       wait_on(rdis_arb->request_arrival_event());
     }

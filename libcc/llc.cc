@@ -126,10 +126,10 @@ class LLCTState {
 
 //
 //
-class LLCModel::RdisProcess : public kernel::Process {
+class LLCModel::RdisProcess : public AgentProcess {
  public:
   RdisProcess(kernel::Kernel* k, const std::string& name, LLCModel* model)
-      : kernel::Process(k, name), model_(model) {}
+      : AgentProcess(k, name), model_(model) {}
 
  private:
   // Initialization
@@ -146,6 +146,13 @@ class LLCModel::RdisProcess : public kernel::Process {
     t = arb->tournament();
     if (t.has_requester()) {
       const Message* msg = t.winner()->dequeue();
+
+      LogMessage lm;
+      lm.append("Execute message: ");
+      lm.append(msg->to_string());
+      lm.level(Level::Debug);
+      log(lm);
+    
       switch (msg->cls()) {
         case MessageClass::LLCCmd: {
           process(static_cast<const LLCCmdMsg*>(msg));
@@ -347,10 +354,10 @@ LLCModel::~LLCModel() {
 
 void LLCModel::build() {
   // DIR -> LLC command queue
-  dir_llc__cmd_q_ = new MessageQueue(k(), "dir_llc__cmd_q", 3);
+  dir_llc__cmd_q_ = new MessageQueue(k(), "dir_llc__cmd_q", 30);
   add_child_module(dir_llc__cmd_q_);
   // MEM -> LLC response queue
-  mem_llc__rsp_q_ = new MessageQueue(k(), "mem_llc__rsp_q", 3);
+  mem_llc__rsp_q_ = new MessageQueue(k(), "mem_llc__rsp_q", 30);
   add_child_module(mem_llc__rsp_q_);
   // Construct arbiter
   arb_ = new MQArb(k(), "arb");
@@ -367,7 +374,7 @@ void LLCModel::build() {
 
 void LLCModel::register_cc(CpuCluster* cc) {
   const std::string mq_name = cc->name() + "_mq";
-  MessageQueue* mq = new MessageQueue(k(), mq_name, 3);
+  MessageQueue* mq = new MessageQueue(k(), mq_name, 30);
   add_child_module(mq);
   cc_llc__rsp_qs_.push_back(mq);
 }

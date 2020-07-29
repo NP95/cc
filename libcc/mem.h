@@ -95,6 +95,9 @@ class MemRspMsg : public Message {
 class DtMsg : public Message {
  public:
   DtMsg() : Message(MessageClass::Dt) {}
+
+  //
+  std::string to_string() const override;
 };
 
 //
@@ -102,6 +105,9 @@ class DtMsg : public Message {
 class DtRspMsg : public Message {
  public:
   DtRspMsg() : Message(MessageClass::DtRsp) {}
+
+  //
+  std::string to_string() const override;
 };
 
 // Memory Controller Model
