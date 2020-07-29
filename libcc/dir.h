@@ -179,6 +179,7 @@ class DirContext {
   DirModel* dir() const { return dir_; }
   DirTState* tstate() const { return tstate_; }
   bool owns_tstate() const { return owns_tstate_; }
+  bool owns_line() const { return owns_line_; }
 
   //
   void set_t(MQArbTmt t) { t_ = t; }
@@ -186,6 +187,7 @@ class DirContext {
   void set_dir(DirModel* dir) { dir_ = dir; }
   void set_tstate(DirTState* tstate) { tstate_ = tstate; }
   void set_owns_tstate(bool owns_tstate) { owns_tstate_ = owns_tstate; }
+  void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
 
  private:
   // Current Message Queue arbiter tournament.
@@ -198,6 +200,8 @@ class DirContext {
   DirTState* tstate_ = nullptr;
   //
   bool owns_tstate_ = false;
+  //
+  bool owns_line_ = false;
 };
 
 

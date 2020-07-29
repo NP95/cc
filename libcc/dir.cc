@@ -85,12 +85,14 @@ DirCommand* DirCommandBuilder::from_action(CoherenceAction* action) {
 }
 
 void DirTState::release() {
-  line_->release();
   delete this;
 }
 
 DirContext::~DirContext() {
-  if (owns_tstate_) {
+  if (owns_line()) {
+    tstate_->line()->release();
+  }
+  if (owns_tstate()) {
     tstate_->release();
   }
 }
@@ -141,20 +143,30 @@ class DirCommandInterpreter {
     // Install in the transaction table.
     DirTTable* tt = model_->tt();
     tt->install(ctxt.msg()->t(), tstate);
-
-    // Install line in the dache.
-    DirCacheModel* cache = model_->cache();
-    const CacheAddressHelper ah = cache->ah();
-    DirCacheSet set = cache->set(ah.set(tstate->addr()));
-
-    if (DirCacheLineIt it = set.find(ah.tag(tstate->addr())); it == set.end()) {
-      set.install(it, ah.tag(tstate->addr()), tstate->line());
-    } else {
-      throw std::runtime_error(
-          "Cannot install line in directory cache; cache line must first "
-          "be recalled from owning/sharer cache(s).");
-    }
     ctxt.set_owns_tstate(false);
+
+    if (ctxt.owns_line()) {
+      // Install line in the dache.
+      DirCacheModel* cache = model_->cache();
+      const CacheAddressHelper ah = cache->ah();
+      DirCacheSet set = cache->set(ah.set(tstate->addr()));
+      if (DirCacheLineIt it = set.find(ah.tag(tstate->addr())); it == set.end()) {
+        DirCacheModel::Evictor evictor;
+        if (auto p = evictor.nominate(set.begin(), set.end()); !p.second) {
+          // A way in the set has been nominated, install cache line.
+          set.install(p.first, ah.tag(tstate->addr()), tstate->line());
+        } else {
+          throw std::runtime_error(
+              "Cannot install line in the directory cache; no free cache line "
+              "ways are available.");
+        }
+      } else {
+        throw std::runtime_error(
+            "Cannot install line in directory cache; cache line is already "
+            "present in the cache.");
+      }
+      ctxt.set_owns_line(false);
+    }
     // Transaction starts; notify.
     tstate->transaction_start()->notify();
   }
@@ -300,16 +312,11 @@ class DirModel::RdisProcess : public AgentProcess {
         cl.push_back(cb::from_opcode(DirOpcode::MqSetBlockedOnTransaction));
         cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
       } else if (DirTTable* tt = model_->tt(); !tt->full()) {
-        // Otherwise, if there are free entries in the transaction
-        // table, the transaction can proceed. Issue.
-        const DirProtocol* protocol = model_->protocol();
-        tstate = new DirTState(k());
-        tstate->set_line(protocol->construct_line());
-        tstate->set_addr(msg->addr());
-        tstate->set_origin(msg->origin());
-        ctxt.set_tstate(tstate);
-        ctxt.set_owns_tstate(true);
-        protocol->apply(ctxt, cl);
+        // Transaction has not already been initiated, there is no
+        // pending transaction to this line, AND, there are free
+        // entries in the transaction table: the command can proceed
+        // with execution.
+        process_new_transaction(ctxt, cl, msg);
       } else {
         // Otherwise, a transaction is not in progress and the
         // transaction is full, therefore block Message Queue until
@@ -324,6 +331,44 @@ class DirModel::RdisProcess : public AgentProcess {
       msg.level(Level::Fatal);
       log(msg);
     }
+  }
+
+  void process_new_transaction(
+      DirContext& ctxt, DirCommandList& cl, const CohSrtMsg* msg) const {
+    // Otherwise, if there are free entries in the transaction table,
+    // the transaction can proceed. Issue.  Search for the line in the
+    // directory cache; if present, proceed, if not install new line,
+    // if set is full, need to consider either evicting a line
+    // presently in an evictable state, or blocking until one of the
+    // transactions in the set completes.
+    DirCacheModel* cache = model_->cache();
+    const CacheAddressHelper ah = cache->ah();
+    const DirProtocol* protocol = model_->protocol();
+    // Construct new transactions state object.
+    DirTState* tstate = new DirTState(k());
+    tstate->set_addr(msg->addr());
+    tstate->set_origin(msg->origin());
+    DirCacheSet set = cache->set(ah.set(tstate->addr()));
+    if (DirCacheLineIt it = set.find(ah.tag(tstate->addr())); it == set.end()) {
+      // Line is not present in the cache.
+      DirCacheModel::Evictor evictor;
+      if (auto p = evictor.nominate(set.begin(), set.end()); p.second) {
+        // Eviction required.
+        // TODO:
+      } else {
+        // Free line, or able to be evicted.
+        tstate->set_line(protocol->construct_line());
+        ctxt.set_owns_line(true);
+      }
+    } else {
+      // Otherwise, lookup the line and assign to the new tstate.
+      tstate->set_line(it->t());
+    }
+    ctxt.set_tstate(tstate);
+    ctxt.set_owns_tstate(true);
+
+    // Execute protocol update.
+    protocol->apply(ctxt, cl);
   }
 
   void process(DirContext& ctxt, DirCommandList& cl, const CohCmdMsg* msg) const {

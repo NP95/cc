@@ -53,6 +53,10 @@ enum class State {
 
   //
   //
+  IS,
+
+  //
+  //
   S,
 
   //
@@ -74,6 +78,7 @@ const char* to_string(State state) {
   switch (state) {
     case State::I: return "I";
     case State::IE: return "IE";
+    case State::IS: return "IS";
     case State::S: return "S";
     case State::E: return "E";
     case State::M: return "M";
@@ -309,7 +314,11 @@ class MOESIDirProtocol : public DirProtocol {
         // Originator becomes owner.
         issue_set_owner(ctxt, cl, msg->origin());
         // Update state
-        issue_update_state(ctxt, cl, State::IE);
+
+        // TEMPORARY; install line in E state from I; but invalidation
+        // mechanism are not presently in place.
+        issue_update_state(ctxt, cl, State::IS);
+        //issue_update_state(ctxt, cl, State::IE);
         issue_update_substate(ctxt, cl, SubState::AwaitingLLCFillRsp);
 
         cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
@@ -321,6 +330,22 @@ class MOESIDirProtocol : public DirProtocol {
             // Add requester to sharer list; forward data to requester
             // from either LLC or nominated sharing cache
             // (complication in the presence of silent evictions).
+
+            // Instruct LLC to forward line (presently in the S-state)
+            // to the requesting agent.
+            LLCCmdMsg* cmd = new LLCCmdMsg;
+            cmd->set_t(msg->t());
+            cmd->set_opcode(LLCCmdOpcode::PutLine);
+            DirTState* tstate = ctxt.tstate();
+            cmd->set_addr(tstate->addr());
+            cmd->set_agent(tstate->origin());
+            issue_emit_to_noc(ctxt, cl, cmd, ctxt.dir()->llc());
+            // Requester now becomes a sharer.
+            issue_add_sharer(ctxt, cl, msg->origin());
+            //issue_update_state(ctxt, cl, State::IE);
+            issue_update_substate(ctxt, cl, SubState::AwaitingLLCFwdRsp);
+            cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
+            cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
           } break;
           case AceCmdOpcode::ReadUnique: {
             // Issue invalidation commands to sharing caches, if unique
@@ -358,6 +383,7 @@ class MOESIDirProtocol : public DirProtocol {
   void apply(DirContext& ctxt, DirCommandList& cl, const LLCCmdRspMsg* msg) const {
     LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
     switch (line->state()) {
+      case State::IS:
       case State::IE: {
         switch (line->substate()) {
           case SubState::AwaitingLLCFillRsp: {
@@ -384,7 +410,9 @@ class MOESIDirProtocol : public DirProtocol {
             end->set_t(msg->t());
             end->set_origin(ctxt.dir());
             issue_emit_to_noc(ctxt, cl, end, line->owner());
-            issue_update_state(ctxt, cl, State::E);
+            const State next_state =
+                (line->state() == State::IS) ? State::S : State::E;
+            issue_update_state(ctxt, cl, next_state);
             // Return to stable/non-transient state.
             issue_update_substate(ctxt, cl, SubState::None);
 
@@ -394,6 +422,25 @@ class MOESIDirProtocol : public DirProtocol {
           } break;
           default: {
           }
+        }
+      } break;
+      case State::S: {
+        switch (line->substate()) {
+          case SubState::AwaitingLLCFwdRsp: {
+            CohEndMsg* end = new CohEndMsg;
+            end->set_t(msg->t());
+            end->set_origin(ctxt.dir());
+            issue_emit_to_noc(ctxt, cl, end, ctxt.tstate()->origin());
+            issue_update_state(ctxt, cl, State::S);
+            // Return to stable/non-transient state.
+            issue_update_substate(ctxt, cl, SubState::None);
+
+            cl.push_back(cb::from_opcode(DirOpcode::EndTransaction));
+            cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
+            cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
+          } break;
+          default: {
+          } break;
         }
       } break;
       default: {
@@ -428,6 +475,12 @@ class MOESIDirProtocol : public DirProtocol {
     cl.push_back(cb::from_action(update)); 
   }
 
+  void issue_add_sharer(DirContext& ctxt, DirCommandList& cl, Agent* owner) const {
+    LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
+    LineUpdateAction* update = new LineUpdateAction(line, LineUpdate::AddSharer);
+    update->set_agent(owner);
+    cl.push_back(cb::from_action(update)); 
+  }
 };
 
 }
