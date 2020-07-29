@@ -39,11 +39,8 @@
 namespace test {
 
 //
-cc::StimulusConfig build_stimulus(const std::vector<const char*>& trace);
-
-//
 void build_config(cc::SocConfig& cfg, std::size_t dir_n, std::size_t cc_n,
-                  std::size_t cpu_n);
+                  std::size_t cpu_n, const std::vector<const char*>& trace);
 
 //
 template<typename LINE>

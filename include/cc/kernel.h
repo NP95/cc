@@ -180,7 +180,7 @@ class Object {
   // Set parent object.
   void set_parent(Object* o) { parent_ = o; }
   // Add child object.
-  void add_child(Object* c);
+  bool add_child(Object* c);
   //
   Object* find_path(const std::string& path);
 

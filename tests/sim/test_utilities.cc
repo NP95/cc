@@ -26,29 +26,18 @@
 //========================================================================== //
 
 #include "test_utilities.h"
+#include "utility.h"
 
 namespace test {
 
-cc::StimulusConfig build_stimulus(const std::vector<const char*>& trace) {
-  cc::StimulusConfig cfg;
-  std::string s;
-  for (const char* line : trace) {
-    s += line;
-    s += "\n";
-  }
-  cfg.is = new std::istringstream(s);
-  cfg.cpaths = {
-    "top.cluster.cpu"
-  };
-  return cfg;
-}
-
 void build_config(cc::SocConfig& cfg, std::size_t dir_n,
-                  std::size_t cc_n, std::size_t cpu_n) {
+                  std::size_t cc_n, std::size_t cpu_n,
+                  const std::vector<const char*>& trace) {
   cc::ProtocolBuilder* pb = cc::construct_protocol_builder("moesi");
 
-  for (std::size_t i = 0; i < cc_n; i++) {
+  for (std::size_t cc = 0; cc < cc_n; cc++) {
     cc::CpuClusterConfig cpuc_cfg;
+    cpuc_cfg.name += std::to_string(cc);
 
     cc::CCConfig cc_cfg;
     cc_cfg.pbuilder = pb;
@@ -58,22 +47,47 @@ void build_config(cc::SocConfig& cfg, std::size_t dir_n,
     l2c_config.pbuilder = pb;
     cpuc_cfg.l2c_config = l2c_config;
 
-    cc::L1CacheModelConfig l1c_config;
-    l1c_config.pbuilder = pb;
-    cpuc_cfg.l1c_configs.push_back(l1c_config);
+    for (std::size_t cpu = 0; cpu < cpu_n; cpu++) {
+      cc::L1CacheModelConfig l1c_config;
+      l1c_config.name += std::to_string(cpu);
+      l1c_config.pbuilder = pb;
+      cpuc_cfg.l1c_configs.push_back(l1c_config);
 
-    cc::CpuConfig cpu_config;
-    cpuc_cfg.cpu_configs.push_back(cpu_config);
+      cc::CpuConfig cpu_config;
+      cpu_config.name += std::to_string(cpu);
+      cpuc_cfg.cpu_configs.push_back(cpu_config);
+    }
 
     cfg.ccls.push_back(cpuc_cfg);
   }
 
-  for (std::size_t i = 0; i < dir_n; i++) {
+  for (std::size_t d = 0; d < dir_n; d++) {
     cc::DirModelConfig dcfg;
+    dcfg.name += std::to_string(d);
     dcfg.pbuilder = pb;
 
     cfg.dcfgs.push_back(dcfg);
   }
+
+  cc::StimulusConfig scfg;
+  std::string s;
+  for (const char* line : trace) {
+    s += line;
+    s += "\n";
+  }
+  scfg.is = new std::istringstream(s);
+  std::vector<std::string> cpu_path;
+  cpu_path.push_back("top");
+  for (std::size_t cc = 0; cc < cc_n; cc++) {
+    cpu_path.push_back("cluster" + std::to_string(cc));
+    for (std::size_t cpu = 0; cpu < cpu_n; cpu++) {
+      cpu_path.push_back("cpu" + std::to_string(cpu));
+      scfg.cpaths.push_back(cc::join(cpu_path.begin(), cpu_path.end()));
+      cpu_path.pop_back();
+    }
+    cpu_path.pop_back();
+  }
+  cfg.scfg = scfg;
 }
 
 

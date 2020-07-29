@@ -265,9 +265,16 @@ std::string Object::path() const {
   return path_;
 }
 
-void Object::add_child(Object* c) {
+bool Object::add_child(Object* c) {
+  for (Object* o : children_) {
+    if (o->name() == c->name()) {
+      // Cannot add an object with the same name.
+      return false;
+    }
+  }
   children_.push_back(c);
   c->set_parent(this);
+  return true;
 }
 
 Loggable::LogMessage& Loggable::LogMessage::append(const std::string& str) {
@@ -305,7 +312,13 @@ ProcessHost::ProcessHost(Kernel* k, const std::string& name)
     : Loggable(k, name) {}
 
 void ProcessHost::add_child_process(Process* p) {
-  Object::add_child(p);
+  if (!Object::add_child(p)) {
+    LogMessage msg("Object with name: ");
+    msg.append(p->name());
+    msg.append(" is already present in the design heirarchy.");
+    msg.level(Level::Fatal);
+    log(msg);
+  }
   ps_.push_back(p);
 }
 
@@ -416,7 +429,13 @@ Module::Module(Kernel* k, const std::string& name) : ProcessHost(k, name) {}
 Module::~Module() {}
 
 void Module::add_child_module(Module* m) {
-  Object::add_child(m);
+  if (!Object::add_child(m)) {
+    LogMessage msg("Object with name: ");
+    msg.append(m->name());
+    msg.append(" is already present in the design heirarchy.");
+    msg.level(Level::Fatal);
+    log(msg);
+  }
   ms_.push_back(m);
 }
 

@@ -80,6 +80,17 @@ class KVListRenderer {
   std::vector<kv_type> kvs_;
 };
 
+template<typename FwdIt>
+typename std::iterator_traits<FwdIt>::value_type
+join(FwdIt begin, FwdIt end, const char* sep = ".") {
+  typename std::iterator_traits<FwdIt>::value_type v;
+  while (begin != end) {
+    v += *begin;
+    if (++begin != end) v += sep;
+  }
+  return v;
+}
+
 template<typename IT>
 void split(IT it, const std::string& name, const char* sep = ".") {
   std::string::size_type i = 0, j = 0;
@@ -93,6 +104,9 @@ void split(IT it, const std::string& name, const char* sep = ".") {
     }
   } while (j != std::string::npos);
 }
+
+// Convert some '.' separated path and replace with '_'
+std::string flatten_path(const std::string& path);
 
 struct Hexer {
   explicit Hexer() = default;

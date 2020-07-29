@@ -50,6 +50,17 @@ void KVListRenderer::add_field(const std::string& key,
   kvs_.push_back(std::make_pair(key, value));
 }
 
+std::string flatten_path(const std::string& path) {
+  std::string ret;
+  std::vector<std::string> vs;
+  split(std::back_inserter(vs), path);
+  for (std::size_t i = 0; i < vs.size(); i++) {
+    if (i != 0) ret += '_';
+    ret += vs[i];
+  }
+  return ret;
+}
+
 std::string Hexer::to_hex(std::uint64_t x, std::size_t bits) const {
   return to_hex(reinterpret_cast<const char*>(std::addressof(x)), bits);
 }

@@ -48,3 +48,4 @@ macro (create_sim_test testname testfile)
 endmacro ()
 
 create_sim_test(basic_1dir_1cc_1cpu basic_1dir_1cc_1cpu.cc)
+create_sim_test(basic_1dir_2cc_1cpu basic_1dir_2cc_1cpu.cc)

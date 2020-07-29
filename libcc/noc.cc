@@ -321,7 +321,10 @@ void NocModel::build() {
 }
 
 void NocModel::register_agent(Agent* agent) {
-  const std::string port_name = agent->name();
+  // Name port as the 'flatten' path to the agent; otherwise,
+  // duplicates may exist when agents with the same name, but
+  // different paths, are registers with the NOC.
+  const std::string port_name = flatten_path(agent->path());
   NocPort* port = new NocPort(k(), port_name);
   add_child_module(port);
   // Install in port table.

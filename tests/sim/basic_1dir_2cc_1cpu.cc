@@ -66,12 +66,8 @@ class SocModel {
   cc::Stimulus* stimulus_ = nullptr;
 };
 
-
-// Perform a single load to L1 (the only L1 in the system). The line
-// should arrived in either the shared or the exclusive state. The
-// load instruction should not consequently commit to the machine
-// state.
-TEST(Basic111, SimpleRead) {
+/*
+TEST(Basic121, SimpleRead) {
   cc::kernel::Kernel k;
   cc::SocConfig cfg;
 
@@ -86,7 +82,7 @@ TEST(Basic111, SimpleRead) {
     "C:0,LD,0"
   };
   // Build simple test configuration.
-  test::build_config(cfg, 1, 1, 1, trace);
+  test::build_config(cfg, 1, 2, 1, trace);
   SocModel soc(&k, cfg);
   soc.run();
 
@@ -102,20 +98,9 @@ TEST(Basic111, SimpleRead) {
 
   // Validate that cache line is in a readable state.
   EXPECT_TRUE(checker.line_is_readable());
-
-  // Line may or may not be in a writeable state at this point
-  // (ideally the line should be in a writeable state as it should be
-  // exclusive at this point, but this is not something that we
-  // specifically enforce).
 }
 
-
-// Perform a single write to L1 (the only L1 in the system). The line
-// should arrive back at the L1 in the exclusive state and then after
-// commit of the store command be promoted to the modified state. Once
-// complete, the line should reside in the cache and be both readable
-// and writeable.
-TEST(Basic111, SimpleWrite) {
+TEST(Basic121, SimpleWrite) {
   cc::kernel::Kernel k;
   cc::SocConfig cfg;
 
@@ -149,6 +134,37 @@ TEST(Basic111, SimpleWrite) {
 
   // Validate that cache line is in a writeable state.
   EXPECT_TRUE(checker.line_is_writeable());
+}
+*/
+TEST(Basic121, SimpleRead2Cpu) {
+  cc::kernel::Kernel k;
+  cc::SocConfig cfg;
+
+  const std::vector<const char*> trace = {
+    // @200 issue load from CPU 0
+    "+200",
+    "C:0,LD,0",
+    // @400 issue load from CPU 1
+    "+200",
+    "C:1,LD,0",
+    
+  };
+
+  // Build simple test configuration.
+  test::build_config(cfg, 1, 2, 1, trace);
+
+  SocModel soc(&k, cfg);
+  soc.run();
+
+  // Lookup L1 cache model instance where we expect to find the line.
+  const cc::L1CacheModel* l1c0 =
+      soc.get_object_as<cc::L1CacheModel*>("top.cluster0.l1cache0");
+  EXPECT_NE(l1c0, nullptr);
+
+  const cc::L1CacheModel* l1c1 =
+      soc.get_object_as<cc::L1CacheModel*>("top.cluster1.l1cache0");
+  EXPECT_NE(l1c1, nullptr);
+
 }
 
 int main(int argc, char** argv) {
