@@ -39,12 +39,20 @@ namespace cc {
 
 const char* to_string(CCOpcode opcode) {
   switch (opcode) {
-#define __declare_to_string(__name)             \
-    case CCOpcode::__name:                      \
-      return #__name;
-    CCOPCODE_LIST(__declare_to_string)
-#undef __declare_to_string
-    default: return "Invalid";
+    case CCOpcode::StartTransaction:
+      return "StartTransaction";
+    case CCOpcode::EndTransaction:
+      return "EndTransaction";
+    case CCOpcode::InvokeCoherenceAction:
+      return "InvokeCoherenceAction";
+    case CCOpcode::MsgConsume:
+      return "MsgConsume";
+    case CCOpcode::WaitOnMsg:
+      return "WaitOnMsg";
+    case CCOpcode::WaitNextEpochOrWait:
+      return "WaitNextEpochOrWait";
+    default:
+      return "Invalid";
   }
 }
 
@@ -102,21 +110,34 @@ class CCCommandInterpreter {
   void set_cc(CCModel* model) { model_ = model; }
   void set_process(AgentProcess* process) { process_ = process; }
 
-  void execute(CCContext& ctxt, const CCCommand* c) {
-    switch (c->opcode()) {
-      default: {
+  void execute(CCContext& ctxt, const CCCommand* cmd) {
+    switch (cmd->opcode()) {
+      case CCOpcode::StartTransaction: {
+        execute_start_transaction(ctxt, cmd);
       } break;
-#define __declare_dispatcher(__name)            \
-        case CCOpcode::__name:                  \
-          execute##__name(ctxt, c);             \
-          break;
-        CCOPCODE_LIST(__declare_dispatcher)
-#undef __declare_dispatcher
-      }
+      case CCOpcode::EndTransaction: {
+        execute_end_transaction(ctxt, cmd);
+      } break;
+      case CCOpcode::InvokeCoherenceAction: {
+        execute_invoke_coherence_action(ctxt, cmd);
+      } break;
+      case CCOpcode::MsgConsume: {
+        execute_msg_consume(ctxt, cmd);
+      } break;
+      case CCOpcode::WaitOnMsg: {
+        execute_wait_on_msg(ctxt, cmd);
+      } break;
+      case CCOpcode::WaitNextEpochOrWait: {
+        execute_wait_next_epoch_or_wait(ctxt, cmd);
+      } break;
+      default: {
+        throw std::runtime_error("Invalid command encountered.");
+      } break;
+    }
   }
  private:
 
-  void executeStartTransaction(CCContext& ctxt, const CCCommand* cmd) {
+  void execute_start_transaction(CCContext& ctxt, const CCCommand* cmd) {
     CCTTable* tt = model_->tt();
     CCTState* st = new CCTState();
     st->set_line(ctxt.line());
@@ -125,7 +146,7 @@ class CCCommandInterpreter {
     
   }
 
-  void executeEndTransaction(CCContext& ctxt, const CCCommand* cmd) {
+  void execute_end_transaction(CCContext& ctxt, const CCCommand* cmd) {
     CCTTable* tt = model_->tt();
     Transaction* t = ctxt.msg()->t();
     if (auto it = tt->find(t); it != tt->end()) {
@@ -135,12 +156,12 @@ class CCCommandInterpreter {
     }
   }
   
-  void executeInvokeCoherenceAction(CCContext& ctxt, const CCCommand* cmd) {
+  void execute_invoke_coherence_action(CCContext& ctxt, const CCCommand* cmd) {
       CoherenceAction* action = cmd->action();
       action->execute();
   }
 
-  void executeMsgConsume(CCContext& ctxt, const CCCommand* cmd) {
+  void execute_msg_consume(CCContext& ctxt, const CCCommand* cmd) {
     // Dequeue and release the head message of the currently
     // addressed Message Queue.
     const Message* msg = ctxt.mq()->dequeue();
@@ -148,14 +169,14 @@ class CCCommandInterpreter {
     ctxt.t().advance();
   }
 
-  void executeWaitOnMsg(CCContext& ctxt, const CCCommand* cmd) {
+  void execute_wait_on_msg(CCContext& ctxt, const CCCommand* cmd) {
     // Set wait state of current process; await the arrival of a
     // new message.
     MQArb* arb = model_->arb();
     process_->wait_on(arb->request_arrival_event());
   }
 
-  void executeWaitNextEpochOrWait(CCContext& ctxt, const CCCommand* cmd) {
+  void execute_wait_next_epoch_or_wait(CCContext& ctxt, const CCCommand* cmd) {
     MQArb* arb = model_->arb();
     MQArbTmt t = arb->tournament();
     if (t.has_requester()) {

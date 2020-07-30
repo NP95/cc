@@ -52,9 +52,12 @@ class CCNocEndpoint;
   __func(WaitNextEpochOrWait)
 
 enum class CCOpcode {
-#define __declare_opcode(__name) __name,
-  CCOPCODE_LIST(__declare_opcode)
-#undef __declare_opcode
+  StartTransaction,
+  EndTransaction,
+  InvokeCoherenceAction,
+  MsgConsume,
+  WaitOnMsg,
+  WaitNextEpochOrWait
 };
 
 const char* to_string(CCOpcode opcode);

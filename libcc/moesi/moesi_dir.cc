@@ -42,46 +42,14 @@ using namespace cc;
 //
 //
 enum class State {
-
-  // Invalid State
-  //
-  I,
-
-  //
-  //
-  IE,
-
-  //
-  //
-  IS,
-
-  //
-  //
-  S,
-
-  //
-  //
-  M,
-
-  //
-  //
-  E,
-
-  // E -> S
-  //
-  // Transition on the demotion of a line from exclusive to shared:
-  //
-  ES,
-
-  //
-  //
-  O
+  X, I, IE, IS, S, M, E, ES, O
 };
 
 //
 //
 const char* to_string(State state) {
   switch (state) {
+    case State::X: return "X";
     case State::I: return "I";
     case State::IE: return "IE";
     case State::IS: return "IS";
@@ -92,6 +60,15 @@ const char* to_string(State state) {
     case State::O: return "O";
     default: return "Invalid";
   }
+}
+
+State compute_final_state(bool is, bool pd) {
+  State next = State::X;
+  if (!is && !pd) next = State::E;
+  if (!is &&  pd) next = State::M;
+  if ( is && !pd) next = State::S;
+  if ( is &&  pd) next = State::O;
+  return next;
 }
 
 //
@@ -491,6 +468,8 @@ class MOESIDirProtocol : public DirProtocol {
         end->set_t(msg->t());
         end->set_origin(ctxt.dir());
         issue_emit_to_noc(ctxt, cl, end, ctxt.tstate()->origin());
+        // Update state of line based upon response.
+        issue_update_state(ctxt, cl, compute_final_state(msg->is(), msg->pd()));
         
         cl.push_back(cb::from_opcode(DirOpcode::EndTransaction));
         cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
