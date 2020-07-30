@@ -197,6 +197,29 @@ void CCProtocol::issue_emit_to_noc(CCContext& ctxt, CCCommandList& cl,
   cl.push_back(CCCommandBuilder::from_action(action));
 }
 
+void CCProtocol::issue_emit_to_noc(CCSnpContext& ctxt, CCSnpCommandList& cl,
+                                   const Message* msg, Agent* dest) const {
+  if (dest == nullptr) {
+    LogMessage lm("Destination is not defined.");
+    lm.level(Level::Fatal);
+    log(lm);
+  } else if (msg == nullptr) {
+    LogMessage lm("Message is not defined.");
+    lm.level(Level::Fatal);
+    log(lm);
+  }
+  CCModel* cc = ctxt.cc();
+  // Encapsulate message in NOC transport protocol.
+  NocMsg* nocmsg = new NocMsg;
+  nocmsg->set_t(msg->t());
+  nocmsg->set_payload(msg);
+  nocmsg->set_origin(cc);
+  nocmsg->set_dest(dest);
+  // Issue Message Emit action.
+  CoherenceAction* action = new EmitMessageActionProxy(cc->cc_noc__msg_q(), nocmsg);
+  cl.push_back(CCSnpCommandBuilder::from_action(action));
+}
+
 void CCProtocol::issue_invalid_state_transition(
     CCCommandList& cl, const std::string& desc) const {
   struct InvalidStateTransition : CoherenceAction {

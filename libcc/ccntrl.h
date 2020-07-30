@@ -388,6 +388,8 @@ class CCModel : public Agent {
   MessageQueue* dir_cc__snpcmd_q_ = nullptr;
   // L2 -> CC snoop response queue
   MessageQueue* l2_cc__snprsp_q_ = nullptr;
+  // CC -> CC response queue.
+  MessageQueue* cc_cc__rsp_q_ = nullptr;
   // {LLC, CC} -> CC Data (dt) queue
   MessageQueue* cc__dt_q_ = nullptr;
   // Queue selection arbiter

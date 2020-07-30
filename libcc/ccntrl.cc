@@ -485,15 +485,18 @@ class CCModel::SnpProcess : public AgentProcess {
         process_cohsnp(ctxt, cl);
       } break;
       case MessageClass::AceCmdRsp: {
-        process_acecmdrsp(ctxt, cl);
+        process_in_flight(ctxt, cl);
       } break;
       case MessageClass::AceSnoopRsp: {
-        process_acesnooprsp(ctxt, cl);
+        process_in_flight(ctxt, cl);
+      } break;
+      case MessageClass::DtRsp: {
+        process_in_flight(ctxt, cl);
       } break;
       default: {
         LogMessage lmsg("Invalid message class received: ");
         lmsg.append(cc::to_string(ctxt.msg()->cls()));
-        lmsg.level(Level::Error);
+        lmsg.level(Level::Fatal);
         log(lmsg);
       } break;
     }
@@ -517,12 +520,7 @@ class CCModel::SnpProcess : public AgentProcess {
     protocol->apply(ctxt, cl);
   }
 
-  void process_acecmdrsp(CCSnpContext& ctxt, CCSnpCommandList& cl) {
-    const CCProtocol* protocol = model_->protocol();
-    protocol->apply(ctxt, cl);
-  }
-
-  void process_acesnooprsp(CCSnpContext& ctxt, CCSnpCommandList& cl) {
+  void process_in_flight(CCSnpContext& ctxt, CCSnpCommandList& cl) {
     CCSnpTTable* snp_tt = model_->snp_table();
     const Message* msg = ctxt.msg();
     if (auto it = snp_tt->find(msg->t()); it != snp_tt->end()) {
@@ -605,6 +603,7 @@ CCModel::~CCModel() {
   delete dir_cc__rsp_q_;
   delete dir_cc__snpcmd_q_;
   delete l2_cc__snprsp_q_;
+  delete cc_cc__rsp_q_;
   delete cc__dt_q_;
   delete arb_;
   delete snp_arb_;
@@ -632,6 +631,9 @@ void CCModel::build() {
   //
   l2_cc__snprsp_q_ = new MessageQueue(k(), "l2_cc__snprsp_q", 3);
   add_child_module(l2_cc__snprsp_q_);
+  // CC -> CC response queue (intervention response.
+  cc_cc__rsp_q_ = new MessageQueue(k(), "cc_cc__rsp_q", 3);
+  add_child_module(cc_cc__rsp_q_);
   //
   cc__dt_q_ = new MessageQueue(k(), "cc__dt_q", 3);
   add_child_module(cc__dt_q_);
@@ -688,6 +690,7 @@ void CCModel::elab() {
   // Snoop commands
   snp_arb_->add_requester(dir_cc__snpcmd_q_);
   snp_arb_->add_requester(l2_cc__snprsp_q_);
+  snp_arb_->add_requester(cc_cc__rsp_q_);
 
   p = dir_cc__snpcmd_q_->construct_proxy();
   noc_endpoint_->register_endpoint(MessageClass::CohSnp, p);
@@ -695,6 +698,10 @@ void CCModel::elab() {
 
   p = l2_cc__snprsp_q_->construct_proxy();
   noc_endpoint_->register_endpoint(MessageClass::AceSnoopRsp, p);
+  endpoints_.push_back(p);
+
+  p = cc_cc__rsp_q_->construct_proxy();
+  noc_endpoint_->register_endpoint(MessageClass::DtRsp, p);
   endpoints_.push_back(p);
 }
 

@@ -425,6 +425,10 @@ class CCProtocol : public kernel::Module {
   virtual void issue_emit_to_noc(CCContext& ctxt, CCCommandList& lc,
                                  const Message* msg, Agent* dest) const;
 
+  //
+  virtual void issue_emit_to_noc(CCSnpContext& ctxt, CCSnpCommandList& lc,
+                                 const Message* msg, Agent* dest) const;
+
   virtual void issue_invalid_state_transition(
       CCCommandList& cl, const std::string& desc) const;
 };

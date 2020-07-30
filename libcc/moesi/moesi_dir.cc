@@ -378,6 +378,7 @@ class MOESIDirProtocol : public DirProtocol {
             CohSnpMsg* snp = new CohSnpMsg;
             snp->set_t(msg->t());
             snp->set_addr(msg->addr());
+            snp->set_origin(ctxt.dir());
             snp->set_agent(msg->origin());
             // ReadShared; owning agent can relinquish the line or
             // retain it in the shared state.
@@ -485,6 +486,15 @@ class MOESIDirProtocol : public DirProtocol {
     LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
     switch (line->state()) {
       case State::ES: {
+
+        CohEndMsg* end = new CohEndMsg;
+        end->set_t(msg->t());
+        end->set_origin(ctxt.dir());
+        issue_emit_to_noc(ctxt, cl, end, ctxt.tstate()->origin());
+        
+        cl.push_back(cb::from_opcode(DirOpcode::EndTransaction));
+        cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
+        cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
       } break;
       default: {
       } break;

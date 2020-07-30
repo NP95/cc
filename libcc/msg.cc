@@ -65,6 +65,8 @@ const char* to_string(MessageClass cls) {
       return "CohEnd";
     case MessageClass::CohCmd:
       return "CohCmd";
+    case MessageClass::CohCmdRsp:
+      return "CohCmdRsp";
     case MessageClass::CohSnp:
       return "CohSnp";
     case MessageClass::CohSnpRsp:

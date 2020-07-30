@@ -145,7 +145,19 @@ class SnpLine : public CCSnpLineState {
  public:
   SnpLine() = default;
 
-  // Set fields; Set Aciton handler.
+  //
+  Agent* origin() const { return origin_; }
+  Agent* agent() const { return agent_; }
+
+  //
+  void set_origin(Agent* origin) { origin_ = origin; }
+  void set_agent(Agent* agent) { agent_ = agent; }
+  
+ private:
+  // Originating directory.
+  Agent* origin_ = nullptr;
+  // Requesting agent.
+  Agent* agent_ = nullptr;
 };
 
 //
@@ -242,7 +254,7 @@ class MOESICCProtocol : public CCProtocol {
         eval_msg(ctxt, cl, static_cast<const AceCmdMsg*>(ctxt.msg()));
       } break;
       case MessageClass::CohEnd: {
-        eval_msg(ctxt, cl, static_cast<const CohCmdMsg*>(ctxt.msg()));
+        eval_msg(ctxt, cl, static_cast<const CohEndMsg*>(ctxt.msg()));
       } break;
       case MessageClass::CohCmdRsp: {
         eval_msg(ctxt, cl, static_cast<const CohCmdRspMsg*>(ctxt.msg()));
@@ -268,7 +280,10 @@ class MOESICCProtocol : public CCProtocol {
         eval_msg(ctxt, cl, static_cast<const CohSnpMsg*>(ctxt.msg()));
       } break;
       case MessageClass::AceSnoopRsp: {
-        eval_msg(ctxt, cl, static_cast<const AceSnpMsg*>(ctxt.msg()));
+        eval_msg(ctxt, cl, static_cast<const AceSnpRspMsg*>(ctxt.msg()));
+      } break;
+      case MessageClass::DtRsp: {
+        eval_msg(ctxt, cl, static_cast<const DtRspMsg*>(ctxt.msg()));
       } break;
       default: {
         LogMessage msg("Invalid message class received: ");
@@ -351,11 +366,7 @@ class MOESICCProtocol : public CCProtocol {
     }
   }
 
-  void eval_msg(CCSnpContext& ctxt, CCSnpCommandList& cl, const AceSnpMsg* msg) const {
-    
-  }
-
-  void eval_msg(CCContext& ctxt, CCCommandList& cl, const CohCmdMsg* msg) const {
+  void eval_msg(CCContext& ctxt, CCCommandList& cl, const CohEndMsg* msg) const {
     AceCmdRspMsg* rmsg = new AceCmdRspMsg;
     rmsg->set_t(msg->t());
     issue_msg(cl, ctxt.cc()->cc_l2__rsp_q(), rmsg);
@@ -369,9 +380,10 @@ class MOESICCProtocol : public CCProtocol {
   }
 
   void eval_msg(CCContext& ctxt, CCCommandList& cl, const DtMsg* msg) const {
-    // Issue Dt response to LLC
+    // Issue Dt response to LLC/CC
     DtRspMsg* rsp = new DtRspMsg;
     rsp->set_t(msg->t());
+    rsp->set_origin(ctxt.cc());
     issue_emit_to_noc(ctxt, cl, rsp, msg->origin());
     // Consume message
     cl.push_back(cb::from_opcode(CCOpcode::MsgConsume));
@@ -388,9 +400,48 @@ class MOESICCProtocol : public CCProtocol {
     acesnp->set_opcode(msg->opcode());
     acesnp->set_addr(msg->addr());
     issue_msg(cl, ctxt.cc()->cc_l2__cmd_q(), acesnp);
+
+    SnpLine* snpline = static_cast<SnpLine*>(ctxt.tstate()->line());
+    snpline->set_origin(msg->origin());
+    snpline->set_agent(msg->agent());
+    
     // Consume message
+    cl.push_back(snpcb::from_opcode(CCSnpOpcode::TransactionStart));
     cl.push_back(snpcb::from_opcode(CCSnpOpcode::ConsumeMsg));
-    // Advance to next
+    cl.push_back(snpcb::from_opcode(CCSnpOpcode::NextEpoch));
+  }
+
+  void eval_msg(CCSnpContext& ctxt, CCSnpCommandList& cl, const AceSnpRspMsg* msg) const {
+    using snpcb = CCSnpCommandBuilder;
+   // Snoop line
+    SnpLine* snpline = static_cast<SnpLine*>(ctxt.tstate()->line());
+
+    // Forward response back to originating directory.
+    CohSnpRspMsg* rsp = new CohSnpRspMsg;
+    rsp->set_t(msg->t());
+    rsp->set_origin(ctxt.cc());
+    rsp->set_dt(msg->dt());
+    rsp->set_pd(msg->pd());
+    rsp->set_is(msg->is());
+    rsp->set_wu(msg->wu());
+    issue_emit_to_noc(ctxt, cl, rsp, snpline->origin());
+    
+    if (msg->dt()) {
+      // Data transfer, send data to requester.
+      DtMsg* dt = new DtMsg;
+      dt->set_t(msg->t());
+      dt->set_origin(ctxt.cc());
+
+      issue_emit_to_noc(ctxt, cl, dt, snpline->agent());
+    }
+    cl.push_back(snpcb::from_opcode(CCSnpOpcode::ConsumeMsg));
+    cl.push_back(snpcb::from_opcode(CCSnpOpcode::NextEpoch));
+  }
+
+  void eval_msg(CCSnpContext& ctxt, CCSnpCommandList& cl, const DtRspMsg* msg) const {
+    using snpcb = CCSnpCommandBuilder;
+    cl.push_back(snpcb::from_opcode(CCSnpOpcode::TransactionEnd));
+    cl.push_back(snpcb::from_opcode(CCSnpOpcode::ConsumeMsg));
     cl.push_back(snpcb::from_opcode(CCSnpOpcode::NextEpoch));
   }
 

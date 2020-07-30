@@ -403,7 +403,7 @@ void Process::wait_until(Time t) {
     WaitUntilAction(Kernel* k, Process* p)
         : Action(k, "WaitUntilAction"), p_(p) {}
     bool eval() override {
-      p_->eval();
+      p_->invoke_eval();
       // Discard after evaluation.
       return true;
     }

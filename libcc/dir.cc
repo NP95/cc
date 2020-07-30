@@ -269,15 +269,19 @@ class DirModel::RdisProcess : public AgentProcess {
     ctxt.set_dir(model_);
 
     // Dispatch to appropriate message class
-    switch (ctxt.msg()->cls()) {
+    const Message* msg = ctxt.msg();
+    switch (msg->cls()) {
       case MessageClass::CohSrt: {
-        process(ctxt, cl, static_cast<const CohSrtMsg*>(ctxt.msg()));
+        process(ctxt, cl, static_cast<const CohSrtMsg*>(msg));
       } break;
       case MessageClass::CohCmd: {
-        process(ctxt, cl, static_cast<const CohCmdMsg*>(ctxt.msg()));
+        process_in_flight(ctxt, cl);
       } break;
       case MessageClass::LLCCmdRsp: {
-        process(ctxt, cl, static_cast<const LLCCmdRspMsg*>(ctxt.msg()));
+        process_in_flight(ctxt, cl);
+      } break;
+      case MessageClass::CohSnpRsp: {
+        process_in_flight(ctxt, cl);
       } break;
       default: {
         LogMessage lmsg("Invalid message class received: ");
@@ -371,19 +375,11 @@ class DirModel::RdisProcess : public AgentProcess {
     protocol->apply(ctxt, cl);
   }
 
-  void process(DirContext& ctxt, DirCommandList& cl, const CohCmdMsg* msg) const {
+  void process_in_flight(DirContext& ctxt, DirCommandList& cl) const {
     // Lookup transaction table or bail if not found.
     const DirProtocol* protocol = model_->protocol();
     DirTState* tstate = lookup_state_or_fatal(ctxt.msg()->t());
     ctxt.set_tstate(tstate);
-    protocol->apply(ctxt, cl);
-  }
-
-  void process(DirContext& ctxt, DirCommandList& cl, const LLCCmdRspMsg* msg) const {
-    // Lookup transaction table or bail if not found.
-    DirTState* tstate = lookup_state_or_fatal(ctxt.msg()->t());
-    ctxt.set_tstate(tstate);
-    const DirProtocol* protocol = model_->protocol();
     protocol->apply(ctxt, cl);
   }
 
