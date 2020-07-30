@@ -104,16 +104,19 @@ class CohCmdMsg : public Message {
   //
   AceCmdOpcode opcode() const { return opcode_; }
   Agent* origin() const { return origin_; }
+  Agent* agent() const { return agent_; }
   addr_t addr() const { return addr_; }
 
   //
   void set_opcode(AceCmdOpcode opcode) { opcode_ = opcode; }
   void set_origin(Agent* origin) { origin_ = origin; }
+  void set_agent(Agent* agent) { agent_ = agent; }
   void set_addr(addr_t addr) { addr_ = addr; }
 
  private:
   AceCmdOpcode opcode_;
   Agent* origin_ = nullptr;
+  Agent* agent_ = nullptr;
   addr_t addr_;
 };
 
@@ -135,6 +138,21 @@ class CohSnpMsg : public Message {
 
   //
   std::string to_string() const override;
+
+  //
+  AceSnpOpcode opcode() const { return opcode_; }
+  Agent* agent() const { return agent_; }
+  addr_t addr() const { return addr_; }
+
+  //
+  void set_opcode(AceSnpOpcode opcode) { opcode_ = opcode; }
+  void set_agent(Agent* agent) { agent_ = agent; }
+  void set_addr(addr_t addr) { addr_ = addr; }
+
+ private:
+  AceSnpOpcode opcode_ = AceSnpOpcode::Invalid;
+  Agent* agent_ = nullptr;
+  addr_t addr_ = 0;
 };
 
 //
@@ -145,6 +163,28 @@ class CohSnpRspMsg : public Message {
 
   //
   std::string to_string() const override;
+
+  //
+  bool dt() const { return dt_; }
+  bool pd() const { return pd_; }
+  bool is() const { return is_; }
+  bool wu() const { return wu_; }
+
+  //
+  void set_dt(bool dt) { dt_ = dt; }
+  void set_pd(bool pd) { pd_ = pd; }
+  void set_is(bool is) { is_ = is; }
+  void set_wu(bool wu) { wu_ = wu; }
+
+ private:
+  // Data Transfer
+  bool dt_ = false;
+  // Pass Dirty
+  bool pd_ = false;
+  // Is Shared
+  bool is_ = false;
+  // Was Unique
+  bool wu_ = false;
 };
 
 
@@ -375,6 +415,10 @@ class CCProtocol : public kernel::Module {
  protected:
   //
   virtual void issue_msg(CCCommandList& lc, MessageQueueProxy* mq,
+                         const Message* msg) const;
+
+  //
+  virtual void issue_msg(CCSnpCommandList& lc, MessageQueueProxy* mq,
                          const Message* msg) const;
 
   //

@@ -98,6 +98,10 @@ void CpuCluster::elab() {
   cc_->set_l2c(l2c_);
   MessageQueue* cc_l2__rsp_q = l2c_->cc_l2__rsp_q();
   cc_->set_cc_l2__rsp_q(cc_l2__rsp_q->construct_proxy());
+  MessageQueue* cc_l2__cmd_q = l2c_->cc_l2__cmd_q();
+  cc_->set_cc_l2__cmd_q(cc_l2__cmd_q->construct_proxy());
+  MessageQueue* l2_cc__snprsp_q_ = cc_->l2_cc__snprsp_q();
+  l2c_->set_l2_cc__snprsp_q(l2_cc__snprsp_q_->construct_proxy());
 
   // Bind L1 caches to parent L2.
   for (std::size_t i = 0; i < l1cs_.size(); i++) {

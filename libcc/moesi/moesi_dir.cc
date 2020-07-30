@@ -67,6 +67,12 @@ enum class State {
   //
   E,
 
+  // E -> S
+  //
+  // Transition on the demotion of a line from exclusive to shared:
+  //
+  ES,
+
   //
   //
   O
@@ -81,6 +87,7 @@ const char* to_string(State state) {
     case State::IS: return "IS";
     case State::S: return "S";
     case State::E: return "E";
+    case State::ES: return "ES";
     case State::M: return "M";
     case State::O: return "O";
     default: return "Invalid";
@@ -104,6 +111,7 @@ bool is_stable(State state) {
 enum class SubState {
   AwaitingLLCFillRsp,
   AwaitingLLCFwdRsp,
+  AwaitingCohSnpRsp,
   None
 };
 
@@ -113,8 +121,12 @@ const char* to_string(SubState state) {
       return "AwaitingLLCFillRsp";
     case SubState::AwaitingLLCFwdRsp:
       return "AwaitingLLCFwdRsp";
+    case SubState::AwaitingCohSnpRsp:
+      return "AwaitingCohSnpRsp";
     case SubState::None:
       return "None";
+    default:
+      return "Invalid";
   }
 }
 
@@ -285,6 +297,9 @@ class MOESIDirProtocol : public DirProtocol {
       case MessageClass::LLCCmdRsp: {
         apply(ctxt, cl, static_cast<const LLCCmdRspMsg*>(ctxt.msg()));
       } break;
+      case MessageClass::CohSnpRsp: {
+        apply(ctxt, cl, static_cast<const CohSnpRspMsg*>(ctxt.msg()));
+      } break;
       default: {
         LogMessage msg("Invalid message class received!");
         msg.level(Level::Fatal);
@@ -314,11 +329,7 @@ class MOESIDirProtocol : public DirProtocol {
         // Originator becomes owner.
         issue_set_owner(ctxt, cl, msg->origin());
         // Update state
-
-        // TEMPORARY; install line in E state from I; but invalidation
-        // mechanism are not presently in place.
-        issue_update_state(ctxt, cl, State::IS);
-        //issue_update_state(ctxt, cl, State::IE);
+        issue_update_state(ctxt, cl, State::IE);
         issue_update_substate(ctxt, cl, SubState::AwaitingLLCFillRsp);
 
         cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
@@ -342,7 +353,6 @@ class MOESIDirProtocol : public DirProtocol {
             issue_emit_to_noc(ctxt, cl, cmd, ctxt.dir()->llc());
             // Requester now becomes a sharer.
             issue_add_sharer(ctxt, cl, msg->origin());
-            //issue_update_state(ctxt, cl, State::IE);
             issue_update_substate(ctxt, cl, SubState::AwaitingLLCFwdRsp);
             cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
             cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
@@ -358,7 +368,28 @@ class MOESIDirProtocol : public DirProtocol {
       case State::E: {
         switch (msg->opcode()) {
           case AceCmdOpcode::ReadShared: {
+            // Line resides in the exclusive state, meaning that a
+            // single agent has it in either the E or M state. We
+            // therefore wish for the agent to relinquish control of
+            // the line by either updating LLC and demoting the line
+            // to S, or in the ReadShared case, transfering ownership
+            // to the requesting agent.
+            //
+            CohSnpMsg* snp = new CohSnpMsg;
+            snp->set_t(msg->t());
+            snp->set_addr(msg->addr());
+            snp->set_agent(msg->origin());
+            // ReadShared; owning agent can relinquish the line or
+            // retain it in the shared state.
+            snp->set_opcode(AceSnpOpcode::ReadShared);
+            issue_emit_to_noc(ctxt, cl, snp, line->owner());
 
+            // Transition to exclusive state, owning agent can transition
+            // to I or S state after completion of transaction.
+            issue_update_state(ctxt, cl, State::ES);
+            issue_update_substate(ctxt, cl, SubState::AwaitingCohSnpRsp);
+            cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
+            cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
           } break;
           case AceCmdOpcode::ReadUnique: {
           } break;
@@ -442,6 +473,18 @@ class MOESIDirProtocol : public DirProtocol {
           default: {
           } break;
         }
+      } break;
+      default: {
+      } break;
+    }
+  }
+
+  //
+  //
+  void apply(DirContext& ctxt, DirCommandList& cl, const CohSnpRspMsg* msg) const {
+    LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
+    switch (line->state()) {
+      case State::ES: {
       } break;
       default: {
       } break;

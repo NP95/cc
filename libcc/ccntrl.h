@@ -132,11 +132,7 @@ class CCTState {
  private:
   CCLineState* line_ = nullptr;
 };
-
-//
-//
 using CCTTable = Table<Transaction*, CCTState*>;
-
 
 //
 //
@@ -179,6 +175,8 @@ enum class CCSnpOpcode {
   TransactionStart,
   TransactionEnd,
   InvokeCoherenceAction,
+  ConsumeMsg,
+  NextEpoch,
   WaitOnMsg,
   Invalid
 };
@@ -322,8 +320,12 @@ class CCModel : public Agent {
   const CCConfig& config() const { return config_; }
   // L2 -> Controller (Transaction) Command Queue (owning)
   MessageQueue* l2_cc__cmd_q() const { return l2_cc__cmd_q_; }
-  // CC -> L2 Queue
+  // CC -> L2 Command Queue (Snoops)
+  MessageQueueProxy* cc_l2__cmd_q() const { return cc_l2__cmd_q_; }
+  // CC -> L2 Response Queue
   MessageQueueProxy* cc_l2__rsp_q() const { return cc_l2__rsp_q_; }
+  // L2 -> CC Snoop Response
+  MessageQueue* l2_cc__snprsp_q() const { return l2_cc__snprsp_q_; }
   // NOC -> CC Ingress Queue
   MessageQueue* endpoint() const;
   // CC -> NOC Egress Queue
@@ -343,6 +345,8 @@ class CCModel : public Agent {
   CCProtocol* protocol() const { return protocol_; }
   // Transaction table.
   CCTTable* table() const { return tt_; }
+  // Snoop transactiont table.
+  CCSnpTTable* snp_table() const { return snp_tt_; }
 
   // Construction
   void build();
@@ -355,7 +359,9 @@ class CCModel : public Agent {
   void set_dm(DirMapper* dm) { dm_ = dm; }
   // Set CC -> NOC message queue
   void set_cc_noc__msg_q(MessageQueueProxy* mq);
-  /// Set CC -> L2 response queue
+  // Set CC -> L2 message
+  void set_cc_l2__cmd_q(MessageQueueProxy* mq);
+  // Set CC -> L2 response queue
   void set_cc_l2__rsp_q(MessageQueueProxy* mq);
   // Transaction table
   CCTTable* tt() const { return tt_; }
@@ -370,6 +376,8 @@ class CCModel : public Agent {
   L2CacheModel* l2c_ = nullptr;
   // L2 -> Controller (Transaction) Command Queue (owning)
   MessageQueue* l2_cc__cmd_q_ = nullptr;
+  // CC -> L2 command queue
+  MessageQueueProxy* cc_l2__cmd_q_ = nullptr;
   // CC -> L2 response queue
   MessageQueueProxy* cc_l2__rsp_q_ = nullptr;
   // CC -> NOC Egress Queue
@@ -378,7 +386,7 @@ class CCModel : public Agent {
   MessageQueue* dir_cc__rsp_q_ = nullptr;
   // DIR -> CC Command Queue (snoops)
   MessageQueue* dir_cc__snpcmd_q_ = nullptr;
-  //
+  // L2 -> CC snoop response queue
   MessageQueue* l2_cc__snprsp_q_ = nullptr;
   // {LLC, CC} -> CC Data (dt) queue
   MessageQueue* cc__dt_q_ = nullptr;
@@ -390,13 +398,15 @@ class CCModel : public Agent {
   DirMapper* dm_ = nullptr;
   // Disatpcher process
   RdisProcess* rdis_proc_ = nullptr;
+  // Snoop process
+  SnpProcess* snp_proc_ = nullptr;
   // NOC endpoint
   CCNocEndpoint* noc_endpoint_ = nullptr;
   // NOC endpoint proxies.
   std::vector<MessageQueueProxy*> endpoints_;
   // Transaction table instance.
   CCTTable* tt_ = nullptr;
-  // Snoop Transaction table instance.
+  // Snoop transaction table instance.
   CCSnpTTable* snp_tt_ = nullptr;
   // Cache controller protocol instance.
   CCProtocol* protocol_ = nullptr;

@@ -144,6 +144,8 @@ class Line : public CCLineState {
 class SnpLine : public CCSnpLineState {
  public:
   SnpLine() = default;
+
+  // Set fields; Set Aciton handler.
 };
 
 //
@@ -262,6 +264,12 @@ class MOESICCProtocol : public CCProtocol {
   void apply(CCSnpContext& ctxt, CCSnpCommandList& cl) const override {
     const MessageClass cls = ctxt.msg()->cls();
     switch (cls) {
+      case MessageClass::CohSnp: {
+        eval_msg(ctxt, cl, static_cast<const CohSnpMsg*>(ctxt.msg()));
+      } break;
+      case MessageClass::AceSnoopRsp: {
+        eval_msg(ctxt, cl, static_cast<const AceSnpMsg*>(ctxt.msg()));
+      } break;
       default: {
         LogMessage msg("Invalid message class received: ");
         msg.append(cc::to_string(cls));
@@ -343,6 +351,10 @@ class MOESICCProtocol : public CCProtocol {
     }
   }
 
+  void eval_msg(CCSnpContext& ctxt, CCSnpCommandList& cl, const AceSnpMsg* msg) const {
+    
+  }
+
   void eval_msg(CCContext& ctxt, CCCommandList& cl, const CohCmdMsg* msg) const {
     AceCmdRspMsg* rmsg = new AceCmdRspMsg;
     rmsg->set_t(msg->t());
@@ -367,6 +379,20 @@ class MOESICCProtocol : public CCProtocol {
     cl.push_back(cb::from_opcode(CCOpcode::WaitNextEpochOrWait));
   }
 
+  void eval_msg(CCSnpContext& ctxt, CCSnpCommandList& cl, const CohSnpMsg* msg) const {
+    using snpcb = CCSnpCommandBuilder;
+
+    // Forward snoop request to L2.
+    AceSnpMsg* acesnp = new AceSnpMsg;
+    acesnp->set_t(msg->t());
+    acesnp->set_opcode(msg->opcode());
+    acesnp->set_addr(msg->addr());
+    issue_msg(cl, ctxt.cc()->cc_l2__cmd_q(), acesnp);
+    // Consume message
+    cl.push_back(snpcb::from_opcode(CCSnpOpcode::ConsumeMsg));
+    // Advance to next
+    cl.push_back(snpcb::from_opcode(CCSnpOpcode::NextEpoch));
+  }
 
   void issue_field_update(
       CCContext& ctxt,  CCCommandList& cl, LineUpdate update) const {

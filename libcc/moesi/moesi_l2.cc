@@ -132,13 +132,17 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
   //
   void apply(L2CacheContext& ctxt, L2CommandList& cl) const override {
     MOESIL2LineState* line = static_cast<MOESIL2LineState*>(ctxt.line());
-    switch(ctxt.msg()->cls()) {
+    const Message* msg = ctxt.msg();
+    switch(msg->cls()) {
       case MessageClass::L2Cmd: {
         // CPU -> L1 command:
         apply(ctxt, cl, line, static_cast<const L2CmdMsg*>(ctxt.msg()));
       } break;
       case MessageClass::AceCmdRsp: {
         apply(ctxt, cl, line, static_cast<const AceCmdRspMsg*>(ctxt.msg()));
+      } break;
+      case MessageClass::AceSnoop: {
+        apply(ctxt, cl, line, static_cast<const AceSnpMsg*>(ctxt.msg()));
       } break;
       default: {
         // Unknown message class; error
@@ -260,6 +264,71 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
         cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpochOrWait));
       } break;
       default: {
+      } break;
+    }
+  }
+
+  void apply(L2CacheContext& ctxt, L2CommandList& cl, MOESIL2LineState* line,
+             const AceSnpMsg* msg) const {
+    switch (msg->opcode()) {
+      case AceSnpOpcode::ReadShared: {
+        AceSnpRspMsg* rsp = new AceSnpRspMsg;
+        rsp->set_t(msg->t());
+        // In the siliently evicted case, there is no line.
+        const State state = ctxt.silently_evicted() ? State::I : line->state();
+        switch (state) {
+          case State::I: {
+            // Dir thinks cache has the line, but it doesn't. Line
+            // must have been siliently evicted.
+            rsp->set_dt(false);
+          } break;
+          case State::E: {
+            // Demote to S or evict (I); dt or not dt.
+            const bool retain = true;
+            const bool dt = true;
+            if (retain) {
+              rsp->set_dt(dt);
+              rsp->set_pd(false);
+              rsp->set_is(true);
+              rsp->set_wu(true);
+              // Demote line to S state.
+              issue_update_state(cl, line, State::S);
+            } else {
+              // Relinquish line.
+              rsp->set_dt(true);
+              rsp->set_pd(false);
+              rsp->set_is(false);
+              rsp->set_wu(true);
+              // TODO: update L1 states.
+              // Demote line to S state.
+              issue_update_state(cl, line, State::I);
+            }
+          } break;
+          case State::S: {
+            // Retain S or evict (I); dt or not dt.
+
+            // Line remains in S state.
+          } break;
+          case State::M: {
+            // Retain as O; writeback to LLC and I; pass ownership to
+            // requester.
+          } break;
+          default: {
+            // TODO: decide what to do here.
+          } break;
+        }
+        // Issue response to CC.
+        L2CacheModel* l2cache = ctxt.l2cache();
+        issue_msg(cl, l2cache->l2_cc__snprsp_q(), rsp);
+        // Consume L1Cmd as it can complete successfully.
+        cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
+        cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpochOrWait));
+      } break;
+      default: {
+        LogMessage lm("Unknown opcode received: ");
+        lm.append(cc::to_string(msg->opcode()));
+        lm.level(Level::Fatal);
+        log(lm);
       } break;
     }
   }

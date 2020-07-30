@@ -138,6 +138,17 @@ AceSnpMsg::AceSnpMsg() : Message(MessageClass::AceSnoop) {}
 
 //
 //
+std::string AceSnpMsg::to_string() const {
+  KVListRenderer r;
+  render_msg_fields(r);
+  r.add_field("opcode", cc::to_string(opcode()));
+  Hexer h;
+  r.add_field("addr", h.to_hex(addr()));
+  return r.to_string();
+}
+
+//
+//
 AceSnpRspMsg::AceSnpRspMsg() : Message(MessageClass::AceSnoopRsp) {}
 
 //
@@ -147,11 +158,10 @@ std::string AceSnpRspMsg::to_string() const {
 
   KVListRenderer r;
   render_msg_fields(r);
-  r.add_field("data_transfer", to_string(data_transfer()));
-  r.add_field("error", to_string(error()));
-  r.add_field("pass_dirty", to_string(pass_dirty()));
-  r.add_field("is_shared", to_string(is_shared()));
-  r.add_field("was_unique", to_string(was_unique()));
+  r.add_field("dt", to_string(dt()));
+  r.add_field("pd", to_string(pd()));
+  r.add_field("is", to_string(is()));
+  r.add_field("wu", to_string(wu()));
   return r.to_string();
 }
 

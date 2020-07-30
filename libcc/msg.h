@@ -224,12 +224,7 @@ class Message {
   Agent* origin() const { return origin_; }
   msg_id_t mid() const { return mid_; }
 
-  virtual std::string to_string_short() const {
-    return "Some message";
-  }  // TO abstract
-  virtual std::string to_string() const {
-    return "Some message";
-  }  // TO abstract
+  virtual std::string to_string() const  = 0;
 
   void set_origin(Agent* origin) { origin_ = origin; }
   void set_t(Transaction* t) { t_ = t; }

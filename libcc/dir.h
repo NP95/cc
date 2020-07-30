@@ -259,6 +259,8 @@ class DirModel : public Agent {
   MessageQueue* cpu_dir__cmd_q_ = nullptr;
   // LLC -> DIR response queue (owned by DIR)
   MessageQueue* llc_dir__rsp_q_ = nullptr;
+  // CC -> DIR snoop response queue.
+  MessageQueue* cc_dir__snprsp_q_ = nullptr;
   // NOC endpoint
   DirNocEndpoint* noc_endpoint_ = nullptr;
   // NOC endpoint proxies.

@@ -130,12 +130,20 @@ class AceSnpMsg : public Message {
  public:
   AceSnpMsg();
 
-  AceSnpOpcode opcode() const { return opcode_; }
+  //
+  std::string to_string() const override;
 
+  //
+  AceSnpOpcode opcode() const { return opcode_; }
+  addr_t addr() const { return addr_; }
+
+  //
   void set_opcode(AceSnpOpcode opcode) { opcode_ = opcode; }
+  void set_addr(addr_t addr) { addr_ = addr; }
 
  private:
-  AceSnpOpcode opcode_;
+  AceSnpOpcode opcode_ = AceSnpOpcode::Invalid;
+  addr_t addr_ = 0;
 };
 
 //
@@ -148,25 +156,22 @@ class AceSnpRspMsg : public Message {
   std::string to_string() const override;
 
   //
-  bool data_transfer() const { return data_transfer_; }
-  bool error() const { return error_; }
-  bool pass_dirty() const { return pass_dirty_; }
-  bool is_shared() const { return is_shared_; }
-  bool was_unique() const { return was_unique_; }
+  bool dt() const { return dt_; }
+  bool pd() const { return pd_; }
+  bool is() const { return is_; }
+  bool wu() const { return wu_; }
 
   //
-  void set_data_transfer(bool data_transfer) { data_transfer_ = data_transfer; }
-  void set_error(bool error) { error_ = error; }
-  void set_pass_dirty(bool pass_dirty) { pass_dirty_ = pass_dirty; }
-  void set_is_shared(bool is_shared) { is_shared_ = is_shared; }
-  void set_was_unique(bool was_unique) { was_unique_ = was_unique; }
+  void set_dt(bool dt) { dt_ = dt; }
+  void set_pd(bool pd) { pd_ = pd; }
+  void set_is(bool is) { is_ = is; }
+  void set_wu(bool wu) { wu_ = wu; }
 
  private:
-  bool data_transfer_ = false;
-  bool error_ = false;
-  bool pass_dirty_ = false;
-  bool is_shared_ = false;
-  bool was_unique_ = false;
+  bool dt_ = false;
+  bool pd_ = false;
+  bool is_ = false;
+  bool wu_ = false;
 };
 
 }  // namespace cc

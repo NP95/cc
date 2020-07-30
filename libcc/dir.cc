@@ -480,6 +480,7 @@ DirModel::DirModel(kernel::Kernel* k, const DirModelConfig& config)
 DirModel::~DirModel() {
   delete cpu_dir__cmd_q_;
   delete llc_dir__rsp_q_;
+  delete cc_dir__snprsp_q_;
   delete arb_;
   delete cache_;
   delete noc_endpoint_;
@@ -497,6 +498,9 @@ void DirModel::build() {
   // LLC -> DIR command queue
   llc_dir__rsp_q_ = new MessageQueue(k(), "llc_dir__rsp_q", 30);
   add_child_module(llc_dir__rsp_q_);
+  // CC -> DIR snoop response queue.
+  cc_dir__snprsp_q_ = new MessageQueue(k(), "cc_dir__snprsp_q", 30);
+  add_child_module(cc_dir__snprsp_q_);
   // Construct arbiter
   arb_ = new MQArb(k(), "arb");
   add_child_module(arb_);
@@ -523,6 +527,7 @@ void DirModel::elab() {
   // Register message queue end-points
   arb_->add_requester(cpu_dir__cmd_q_);
   arb_->add_requester(llc_dir__rsp_q_);
+  arb_->add_requester(cc_dir__snprsp_q_);
 
   MessageQueueProxy* p = nullptr;
 
@@ -533,6 +538,10 @@ void DirModel::elab() {
 
   p = llc_dir__rsp_q_->construct_proxy();
   noc_endpoint_->register_endpoint(MessageClass::LLCCmdRsp, p);
+  endpoints_.push_back(p);
+
+  p = cc_dir__snprsp_q_->construct_proxy();
+  noc_endpoint_->register_endpoint(MessageClass::CohSnpRsp, p);
   endpoints_.push_back(p);
 }
 

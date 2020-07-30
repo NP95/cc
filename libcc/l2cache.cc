@@ -312,10 +312,13 @@ class L2CacheModel::MainProcess : public AgentProcess {
       case MessageClass::AceCmdRsp: {
         process_acecmdrsp(ctxt, cl);
       } break;
+      case MessageClass::AceSnoop: {
+        process_acesnoop(ctxt, cl);
+      } break;
       default: {
         LogMessage lmsg("Invalid message class received: ");
         lmsg.append(cc::to_string(ctxt.msg()->cls()));
-        lmsg.level(Level::Error);
+        lmsg.level(Level::Fatal);
         log(lmsg);
       } break;
     }
@@ -379,6 +382,32 @@ class L2CacheModel::MainProcess : public AgentProcess {
     }
   }
 
+  void process_acesnoop(L2CacheContext& ctxt, L2CommandList& cl) const {
+    const bool opt_allow_silent_evictions = false;
+    // Lookup cache line of interest
+    L2Cache* cache = model_->cache();
+    const CacheAddressHelper ah = cache->ah();
+    const AceSnpMsg* msg = static_cast<const AceSnpMsg*>(ctxt.msg());
+    L2CacheSet set = cache->set(ah.set(msg->addr()));
+    L2CacheLineIt it = set.find(ah.tag(msg->addr()));
+    if (it != set.end()) {
+      // Found line in cache; set constext
+      ctxt.set_line(it->t());
+    } else if (opt_allow_silent_evictions) {
+      //
+      ctxt.set_silently_evicted(true);
+    } else {
+      LogMessage msg(
+          "Expect line to be installed in cache for snoops "
+          "when silent evictions have not be enabled.");
+      msg.level(Level::Fatal);
+      log(msg);
+    }
+    ctxt.set_owns_line(false);
+    const L2CacheModelProtocol* protocol = model_->protocol();
+    protocol->apply(ctxt, cl);
+  }
+
   bool can_execute(const L2CommandList& cl) const {
     return true;
   }
@@ -419,6 +448,7 @@ L2CacheModel::~L2CacheModel() {
   delete main_;
   delete cache_;
   delete protocol_;
+  delete cc_l2__cmd_q_;
   delete cc_l2__rsp_q_;
   for (MessageQueue* mq : l1_l2__cmd_qs_) {
     delete mq;
@@ -427,6 +457,7 @@ L2CacheModel::~L2CacheModel() {
   for (MessageQueueProxy* mq : l2_l1__rsp_qs_) {
     delete mq;
   }
+  delete l2_cc__snprsp_q_;
   delete tt_;
 }
 
@@ -442,6 +473,9 @@ void L2CacheModel::add_l1c(L1CacheModel* l1c) {
 }
 
 void L2CacheModel::build() {
+  // CC -> L2 command queue.
+  cc_l2__cmd_q_ = new MessageQueue(k(), "cc_l2__cmd_q", 16);
+  add_child_module(cc_l2__cmd_q_);
   // CC -> L2 response queue.
   cc_l2__rsp_q_ = new MessageQueue(k(), "cc_l2__rsp_q", 16);
   add_child_module(cc_l2__rsp_q_);
@@ -463,6 +497,7 @@ void L2CacheModel::build() {
 
 void L2CacheModel::elab() {
   // Add command queues to arbiter
+  arb_->add_requester(cc_l2__cmd_q_);
   arb_->add_requester(cc_l2__rsp_q_);
   for (MessageQueue* msgq : l1_l2__cmd_qs_) {
     arb_->add_requester(msgq);
@@ -479,6 +514,11 @@ void L2CacheModel::set_l2_cc__cmd_q(MessageQueueProxy* mq) {
 void L2CacheModel::set_l2_l1__rsp_q(std::size_t n, MessageQueueProxy* mq) {
   l2_l1__rsp_qs_[n] = mq;
   add_child_module(l2_l1__rsp_qs_[n]);
+}
+
+void L2CacheModel::set_l2_cc__snprsp_q(MessageQueueProxy* mq) {
+  l2_cc__snprsp_q_ = mq;
+  add_child_module(l2_cc__snprsp_q_);
 }
 
 void L2CacheModel::drc() {

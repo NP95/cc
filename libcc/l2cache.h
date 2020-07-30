@@ -240,6 +240,7 @@ class L2CacheContext {
   L2CacheModel* l2cache() const { return l2cache_; }
   bool owns_line() const { return owns_line_; }
   L2LineState* line() const { return line_; }
+  bool silently_evicted() const { return silently_evicted_; }
 
   //
   void set_t(MQArbTmt t) { t_ = t; }
@@ -247,6 +248,8 @@ class L2CacheContext {
   void set_l2cache(L2CacheModel* l2cache) { l2cache_ = l2cache; }
   void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
   void set_line(L2LineState* line) { line_ = line; }
+  void set_silently_evicted(bool silently_evicted) {
+    silently_evicted_ = silently_evicted; }
 
  private:
   // Current Message Queue arbiter tournament.
@@ -259,6 +262,8 @@ class L2CacheContext {
   MessageQueue* mq_ = nullptr;
   // L2 cache instance
   L2CacheModel* l2cache_ = nullptr;
+  // Line is not present (silently evicted).
+  bool silently_evicted_ = false;
 };
 
 //
@@ -280,8 +285,12 @@ class L2CacheModel : public Agent {
   MessageQueueProxy* l2_l1__rsp_q(std::size_t n) const { return l2_l1__rsp_qs_[n]; }
   // L2 -> CC command queue
   MessageQueueProxy* l2_cc__cmd_q() const { return l2_cc__cmd_q_; }
+  // CC -> L2 (Snoop) command queue
+  MessageQueue* cc_l2__cmd_q() const { return cc_l2__cmd_q_; }
   // CC -> L2 response queue
   MessageQueue* cc_l2__rsp_q() const { return cc_l2__rsp_q_; }
+  // L2 -> CC snoop response queue
+  MessageQueueProxy* l2_cc__snprsp_q() const { return l2_cc__snprsp_q_; }
 
  protected:
   // Accessors:
@@ -309,6 +318,8 @@ class L2CacheModel : public Agent {
   void set_l2_cc__cmd_q(MessageQueueProxy* mq);
   // L2 -> L1 response queue.
   void set_l2_l1__rsp_q(std::size_t n, MessageQueueProxy* mq);
+  // L2 -> CC snoop response queue.
+  void set_l2_cc__snprsp_q(MessageQueueProxy* mq);
 
   // Design Rule Check (DRC) callback
   virtual void drc() override;
@@ -324,8 +335,12 @@ class L2CacheModel : public Agent {
   std::vector<MessageQueueProxy*> l2_l1__rsp_qs_;
   // L2 -> CC Command Queue
   MessageQueueProxy* l2_cc__cmd_q_ = nullptr;
+  // CC -> L2 Command Queue
+  MessageQueue* cc_l2__cmd_q_ = nullptr;
   // CC -> L2 Response Queue
   MessageQueue* cc_l2__rsp_q_ = nullptr;
+  // L2 -> CC Response Queue
+  MessageQueueProxy* l2_cc__snprsp_q_ = nullptr;
   // Queue selection arbiter
   MQArb* arb_ = nullptr;
   // Transaction table.

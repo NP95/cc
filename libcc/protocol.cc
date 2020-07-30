@@ -70,12 +70,20 @@ std::string CohCmdRspMsg::to_string() const {
 std::string CohSnpMsg::to_string() const {
   KVListRenderer r;
   render_msg_fields(r);
+  r.add_field("opcode", cc::to_string(opcode()));
+  r.add_field("agent", agent()->path());
+  Hexer h;
+  r.add_field("addr", h.to_hex(addr()));
   return r.to_string();
 }
 
 std::string CohSnpRspMsg::to_string() const {
   KVListRenderer r;
   render_msg_fields(r);
+  r.add_field("dt", cc::to_string(dt()));
+  r.add_field("pd", cc::to_string(pd()));
+  r.add_field("is", cc::to_string(is()));
+  r.add_field("wu", cc::to_string(wu()));
   return r.to_string();
 }
 
@@ -158,6 +166,12 @@ void CCProtocol::issue_msg(CCCommandList& cl, MessageQueueProxy* mq,
                            const Message* msg) const {
   CoherenceAction* action = new EmitMessageActionProxy(mq, msg);
   cl.push_back(CCCommandBuilder::from_action(action));
+}
+
+void CCProtocol::issue_msg(CCSnpCommandList& cl, MessageQueueProxy* mq,
+                           const Message* msg) const {
+  CoherenceAction* action = new EmitMessageActionProxy(mq, msg);
+  cl.push_back(CCSnpCommandBuilder::from_action(action));
 }
 
 void CCProtocol::issue_emit_to_noc(CCContext& ctxt, CCCommandList& cl,

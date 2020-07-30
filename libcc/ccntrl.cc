@@ -210,7 +210,8 @@ class CCModel::RdisProcess : public AgentProcess {
     ctxt.set_mq(ctxt.t().winner());
 
     // Dispatch to appropriate message class
-    switch (ctxt.msg()->cls()) {
+    const Message* msg = ctxt.msg();
+    switch (msg->cls()) {
       case MessageClass::AceCmd: {
         process_acecmd(ctxt, cl);
       } break;
@@ -321,6 +322,10 @@ const char* to_string(CCSnpOpcode opcode) {
       return "TransactionEnd";
     case CCSnpOpcode::InvokeCoherenceAction:
       return "InvokeCoherenceAction";
+    case CCSnpOpcode::ConsumeMsg:
+      return "ConsumeMsg";
+    case CCSnpOpcode::NextEpoch:
+      return "NextEpoch";
     case CCSnpOpcode::WaitOnMsg:
       return "WaitOnMsg";
     case CCSnpOpcode::Invalid:
@@ -358,6 +363,12 @@ CCSnpCommand* CCSnpCommandBuilder::from_action(CoherenceAction* action) {
   return cmd;
 }
 
+CCSnpCommandList::~CCSnpCommandList() {
+  for (CCSnpCommand* cmd : cmds_) {
+    cmd->release();
+  }
+}
+
 //
 //
 class CCSnpCommandInterpreter {
@@ -377,6 +388,12 @@ class CCSnpCommandInterpreter {
       } break;
       case CCSnpOpcode::InvokeCoherenceAction: {
         execute_invoke_coherence_action(ctxt, cmd);
+      } break;
+      case CCSnpOpcode::ConsumeMsg: {
+        execute_consume_msg(ctxt, cmd);
+      } break;
+      case CCSnpOpcode::NextEpoch: {
+        execute_next_epoch(ctxt, cmd);
       } break;
       case CCSnpOpcode::WaitOnMsg: {
         execute_wait_on_msg(ctxt, cmd);
@@ -405,6 +422,16 @@ class CCSnpCommandInterpreter {
   void execute_invoke_coherence_action(CCSnpContext& ctxt, const CCSnpCommand* cmd) {
     CoherenceAction* action = cmd->action();
     action->execute();
+  }
+
+  void execute_consume_msg(CCSnpContext& ctxt, const CCSnpCommand* cmd) {
+    const Message* msg = ctxt.mq()->dequeue();
+    msg->release();
+    ctxt.t().advance();
+  }
+
+  void execute_next_epoch(CCSnpContext& ctxt, const CCSnpCommand* cmd) {
+    process_->wait_for(kernel::Time{10, 0});
   }
 
   void execute_wait_on_msg(CCSnpContext& ctxt, const CCSnpCommand* cmd) {
@@ -452,12 +479,16 @@ class CCModel::SnpProcess : public AgentProcess {
     // Fetch nominated message queue
     ctxt.set_mq(ctxt.t().winner());
 
-    switch (ctxt.msg()->cls()) {
+    const Message* msg = ctxt.msg();
+    switch (msg->cls()) {
       case MessageClass::CohSnp: {
         process_cohsnp(ctxt, cl);
       } break;
       case MessageClass::AceCmdRsp: {
         process_acecmdrsp(ctxt, cl);
+      } break;
+      case MessageClass::AceSnoopRsp: {
+        process_acesnooprsp(ctxt, cl);
       } break;
       default: {
         LogMessage lmsg("Invalid message class received: ");
@@ -489,6 +520,20 @@ class CCModel::SnpProcess : public AgentProcess {
   void process_acecmdrsp(CCSnpContext& ctxt, CCSnpCommandList& cl) {
     const CCProtocol* protocol = model_->protocol();
     protocol->apply(ctxt, cl);
+  }
+
+  void process_acesnooprsp(CCSnpContext& ctxt, CCSnpCommandList& cl) {
+    CCSnpTTable* snp_tt = model_->snp_table();
+    const Message* msg = ctxt.msg();
+    if (auto it = snp_tt->find(msg->t()); it != snp_tt->end()) {
+      ctxt.set_tstate(it->second);
+      const CCProtocol* protocol = model_->protocol();
+      protocol->apply(ctxt, cl);
+    } else {
+      LogMessage lm("Transaction not found in Transaction table.");
+      lm.level(Level::Fatal);
+      log(lm);
+    }
   }
 
   bool can_execute(const CCSnpCommandList& cl) const {
@@ -564,6 +609,7 @@ CCModel::~CCModel() {
   delete arb_;
   delete snp_arb_;
   delete rdis_proc_;
+  delete snp_proc_;
   delete noc_endpoint_;
   delete tt_;
   delete snp_tt_;
@@ -594,10 +640,13 @@ void CCModel::build() {
   add_child_module(arb_);
   // Snoop arbiter
   snp_arb_ = new MQArb(k(), "snp_arb");
-  add_child_module(arb_);
+  add_child_module(snp_arb_);
   // Dispatcher process
   rdis_proc_ = new RdisProcess(k(), "rdis_proc", this);
   add_child_process(rdis_proc_);
+  // Snoop process.
+  snp_proc_ = new SnpProcess(k(), "snp_proc", this);
+  add_child_process(snp_proc_);
   // NOC endpoint
   noc_endpoint_ = new CCNocEndpoint(k(), "noc_ep");
   add_child_module(noc_endpoint_);
@@ -653,6 +702,12 @@ void CCModel::elab() {
 void CCModel::set_cc_noc__msg_q(MessageQueueProxy* mq) {
   cc_noc__msg_q_ = mq;
   add_child_module(cc_noc__msg_q_);
+}
+
+// Set CC -> L2 response queue
+void CCModel::set_cc_l2__cmd_q(MessageQueueProxy* mq) {
+  cc_l2__cmd_q_ = mq;
+  add_child_module(cc_l2__cmd_q_);
 }
 
 // Set CC -> L2 response queue
