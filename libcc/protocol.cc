@@ -119,26 +119,7 @@ struct EmitMessageActionProxy : public CoherenceAction {
   MessageQueueProxy* mq_ = nullptr;
   const Message* msg_ = nullptr;
 };
-/*
-struct EmitMessageAction : public CoherenceAction {
-  EmitMessageAction(MessageQueue* mq, const Message* msg)
-      : mq_(mq), msg_(msg) {}
-  std::string to_string() const override {
-    std::stringstream ss;
-    {
-      KVListRenderer r(ss);
-      r.add_field("action", "emit message");
-      r.add_field("mq", mq_->path());
-      r.add_field("msg", msg_->to_string());
-    }
-    return ss.str();
-  }
-  bool execute() override { return mq_->issue(msg_); }
- private:
-  MessageQueue* mq_ = nullptr;
-  const Message* msg_ = nullptr;
-};
-*/
+
 L1CacheModelProtocol::L1CacheModelProtocol(kernel::Kernel* k, const std::string& name)
     : Module(k, name) {}
 
