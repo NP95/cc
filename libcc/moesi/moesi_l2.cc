@@ -39,19 +39,14 @@ using namespace cc;
 //
 //
 enum class State {
-  I,
-  IS,
-  IE,
-  S,
-  E,
-  M,
-  O
+  X, I, IS, IE, S, E, M, O
 };
 
 //
 //
 const char* to_string(State state) {
   switch (state) {
+    case State::X: return "X";
     case State::I: return "I";
     case State::IS: return "IS";
     case State::IE: return "IE";
@@ -165,6 +160,7 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
         log(msg);
       }
       [[fallthrough]];
+      case State::O:
       case State::E: {
         // Set modified status of line; should really be in the E
         // state.  Still valid if performed from the M state but
@@ -253,16 +249,16 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
         L2CacheModel* l2cache = ctxt.l2cache();
         issue_msg(cl, l2cache->l2_l1__rsp_q(0), rsp);
         // Compute final line state
-        const bool is_shared = msg->is_shared();
-        const bool pass_dirty = msg->pass_dirty();
-        if (is_shared && pass_dirty) {
-          rsp->set_is_shared(false);
+        const bool is = msg->is();
+        const bool pd = msg->pd();
+        if (is && pd) {
+          rsp->set_is(false);
           issue_update_state(cl, line, State::O);
-        } else if (!is_shared && !pass_dirty) {
-          rsp->set_is_shared(false);
+        } else if (!is && !pd) {
+          rsp->set_is(false);
           issue_update_state(cl, line, State::E);
         } else {
-          rsp->set_is_shared(true);
+          rsp->set_is(true);
           issue_update_state(cl, line, State::S);
         }
         // Consume L1Cmd as it can complete successfully.
@@ -278,8 +274,14 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
         L2CacheModel* l2cache = ctxt.l2cache();
         issue_msg(cl, l2cache->l2_l1__rsp_q(0), rsp);
         // Compute final line state
-        rsp->set_is_shared(false);
-        issue_update_state(cl, line, State::E);
+        rsp->set_is(false);
+        if (msg->is()) {
+          // Throw error cannot receive in the shared state.
+        }
+        // Compute next state; expect !is_shared, Ownership if recieving
+        // dirty data otherwise Exclusive.
+        const State next_state = msg->pd() ? State::O : State::E;
+        issue_update_state(cl, line, next_state);
         // Consume L1Cmd as it can complete successfully.
         cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
         // Advance to next
@@ -366,6 +368,38 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
           } break;
           default: {
             // TODO: decide what to do here.
+          } break;
+        }
+        // Issue response to CC.
+        L2CacheModel* l2cache = ctxt.l2cache();
+        issue_msg(cl, l2cache->l2_cc__snprsp_q(), rsp);
+        // Consume L1Cmd as it can complete successfully.
+        cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
+        cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpochOrWait));
+      } break;
+      case AceSnpOpcode::ReadUnique: {
+        AceSnpRspMsg* rsp = new AceSnpRspMsg;
+        rsp->set_t(msg->t());
+        // C5.3.3 ReadUnique
+        switch (line->state()) {
+          case State::I:
+          case State::S:
+          case State::E: { 
+            rsp->set_dt(true);
+            rsp->set_pd(false);
+            rsp->set_is(false);
+            rsp->set_wu(true);
+            // Transition back to invalid state, line is gone.
+            cl.push_back(cb::from_opcode(L2Opcode::SetL1LinesInvalid));
+          } break;
+          case State::O:
+          case State::M: {
+            rsp->set_dt(true);
+            rsp->set_pd(true);
+            rsp->set_is(false);
+            rsp->set_wu(true);
+            // Transition back to invalid state, line is gone.
+            cl.push_back(cb::from_opcode(L2Opcode::SetL1LinesInvalid));
           } break;
         }
         // Issue response to CC.

@@ -100,8 +100,8 @@ std::string AceCmdRspMsg::to_string() const {
 
   KVListRenderer r;
   render_msg_fields(r);
-  r.add_field("pass_dirty", to_string(pass_dirty()));
-  r.add_field("is_shared", to_string(is_shared()));
+  r.add_field("pd", to_string(pd()));
+  r.add_field("is", to_string(is()));
   return r.to_string();
 }
 

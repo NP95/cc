@@ -137,10 +137,12 @@ class DirTState {
   DirLineState* line() const { return line_; }
   addr_t addr() const { return addr_; }
   Agent* origin() const { return origin_; }
+  AceCmdOpcode opcode() const { return opcode_; }
 
   void set_line(DirLineState* line) { line_ = line; }
   void set_addr(addr_t addr) { addr_ = addr; }
   void set_origin(Agent* origin) { origin_ = origin; }
+  void set_opcode(AceCmdOpcode opcode) { opcode_ = opcode; }
 
  protected:
   virtual ~DirTState();
@@ -154,6 +156,8 @@ class DirTState {
   addr_t addr_;
   // Originating cache controller origin.
   Agent* origin_ = nullptr;
+  //
+  AceCmdOpcode opcode_ = AceCmdOpcode::Invalid;
 };
 
 // Cache data type

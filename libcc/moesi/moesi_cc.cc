@@ -367,9 +367,12 @@ class MOESICCProtocol : public CCProtocol {
   }
 
   void eval_msg(CCContext& ctxt, CCCommandList& cl, const CohEndMsg* msg) const {
-    AceCmdRspMsg* rmsg = new AceCmdRspMsg;
-    rmsg->set_t(msg->t());
-    issue_msg(cl, ctxt.cc()->cc_l2__rsp_q(), rmsg);
+    AceCmdRspMsg* rsp = new AceCmdRspMsg;
+    rsp->set_t(msg->t());
+    rsp->set_origin(ctxt.cc());
+    rsp->set_pd(msg->pd());
+    rsp->set_is(msg->is());
+    issue_msg(cl, ctxt.cc()->cc_l2__rsp_q(), rsp);
 
     // Transaction is now complete; delete entry from transaction table.
     cl.push_back(cb::from_opcode(CCOpcode::EndTransaction));

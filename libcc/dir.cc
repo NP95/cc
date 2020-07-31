@@ -379,6 +379,12 @@ class DirModel::RdisProcess : public AgentProcess {
     // Lookup transaction table or bail if not found.
     const DirProtocol* protocol = model_->protocol();
     DirTState* tstate = lookup_state_or_fatal(ctxt.msg()->t());
+    const Message* msg = ctxt.mq()->peek();
+    if (msg->cls() == MessageClass::CohCmd) {
+      // Grab the opcode on the initial command.
+      const CohCmdMsg* coh = static_cast<const CohCmdMsg*>(msg);
+      tstate->set_opcode(coh->opcode());
+    }
     ctxt.set_tstate(tstate);
     protocol->apply(ctxt, cl);
   }

@@ -319,7 +319,7 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
     switch (line->state()) {
       case State::IS: {
         // Update state
-        issue_update_state(cl, line, msg->is_shared() ? State::S : State::E);
+        issue_update_state(cl, line, msg->is() ? State::S : State::E);
           
         // Update transaction table; wake all blocked Message Queues
         // and delete context.

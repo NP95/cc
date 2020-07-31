@@ -90,6 +90,18 @@ class CohEndMsg : public Message {
 
   //
   std::string to_string() const override;
+
+  bool is() const { return is_; }
+  bool pd() const { return pd_; }
+
+  void set_is(bool is) { is_ = is; }
+  void set_pd(bool pd) { pd_ = pd; }
+  
+ private:
+  // Is Shared
+  bool is_;
+  // Pass Dirty
+  bool pd_;
 };
 
 //

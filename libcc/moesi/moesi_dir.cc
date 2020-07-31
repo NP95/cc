@@ -42,7 +42,7 @@ using namespace cc;
 //
 //
 enum class State {
-  X, I, IE, IS, S, M, E, ES, O
+  X, I, IE, IS, S, M, E, ES, EE, O
 };
 
 //
@@ -56,6 +56,7 @@ const char* to_string(State state) {
     case State::S: return "S";
     case State::E: return "E";
     case State::ES: return "ES";
+    case State::EE: return "EE";
     case State::M: return "M";
     case State::O: return "O";
     default: return "Invalid";
@@ -293,6 +294,8 @@ class MOESIDirProtocol : public DirProtocol {
 
   void apply(DirContext& ctxt, DirCommandList& cl, const CohCmdMsg* msg) const {
     LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
+    DirTState* tstate = ctxt.tstate();
+    tstate->set_opcode(msg->opcode());
     switch (line->state()) {
       case State::I: {
         // Line is not present in the directory
@@ -324,7 +327,6 @@ class MOESIDirProtocol : public DirProtocol {
             LLCCmdMsg* cmd = new LLCCmdMsg;
             cmd->set_t(msg->t());
             cmd->set_opcode(LLCCmdOpcode::PutLine);
-            DirTState* tstate = ctxt.tstate();
             cmd->set_addr(tstate->addr());
             cmd->set_agent(tstate->origin());
             issue_emit_to_noc(ctxt, cl, cmd, ctxt.dir()->llc());
@@ -370,6 +372,24 @@ class MOESIDirProtocol : public DirProtocol {
             cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
           } break;
           case AceCmdOpcode::ReadUnique: {
+            // Owning cache may have line in either the E or the M
+            // state; would nominally expected for the line to have
+            // been promoted to the M state by the time some other
+            // cache requests the line, but this is necessarily the
+            // case.
+            CohSnpMsg* snp = new CohSnpMsg;
+            snp->set_t(msg->t());
+            snp->set_addr(msg->addr());
+            snp->set_origin(ctxt.dir());
+            snp->set_agent(msg->origin());
+            
+            snp->set_opcode(AceSnpOpcode::ReadUnique);
+            issue_emit_to_noc(ctxt, cl, snp, line->owner());
+
+            issue_update_state(ctxt, cl, State::EE);
+            issue_update_substate(ctxt, cl, SubState::AwaitingCohSnpRsp);
+            cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
+            cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
           } break;
           default: {
           } break;
@@ -461,19 +481,110 @@ class MOESIDirProtocol : public DirProtocol {
   //
   void apply(DirContext& ctxt, DirCommandList& cl, const CohSnpRspMsg* msg) const {
     LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
-    switch (line->state()) {
-      case State::ES: {
 
-        CohEndMsg* end = new CohEndMsg;
-        end->set_t(msg->t());
-        end->set_origin(ctxt.dir());
-        issue_emit_to_noc(ctxt, cl, end, ctxt.tstate()->origin());
-        // Update state of line based upon response.
-        issue_update_state(ctxt, cl, compute_final_state(msg->is(), msg->pd()));
+    DirTState* tstate = ctxt.tstate();
+    const AceCmdOpcode opcode = tstate->opcode();
+    switch (opcode) {
+      case AceCmdOpcode::ReadShared: {
+        //
+        switch (line->state()) {
+          case State::ES: {
+            // Line was in Exclusive state in owning cache. Upon
+            // completion of the ReadShared the owning cache may have either
+            // invalidated the line, retained the line as the owner, or
+            // it may have passed ownership to the requesting agent.
+            CohEndMsg* end = new CohEndMsg;
+            end->set_t(msg->t());
+            end->set_origin(ctxt.dir());
+            issue_emit_to_noc(ctxt, cl, end, ctxt.tstate()->origin());
+            // Update state of line based upon response.
+
+            const bool is = msg->is(), pd = msg->pd(), dt = msg->dt();
+            State next_state = State::X;
+            if (        dt && !is && !pd) {
+              // Requesting agent becomes owner.
+              issue_set_owner(ctxt, cl, tstate->origin());
+              next_state = State::E;
+            } else if ( dt && !is &&  pd) {
+              // Requesting agent becomes owner.
+              issue_set_owner(ctxt, cl, tstate->origin());
+              next_state = State::M;
+            } else if ( dt && is && !pd) {
+              // Requester becomes Sharer.
+              issue_add_sharer(ctxt, cl, tstate->origin());
+              next_state = State::S;
+            } else if ( dt && is &&  pd) {
+              // Requester becomes Owner; responder retains Shared.
+              issue_set_owner(ctxt, cl, tstate->origin());
+              next_state = State::O;
+            } else {
+              // No data transfer, therefore DIR must issue fill to
+              // LLC.
+              
+              // TODO: Cannot handle case !dt
+            }
+            issue_update_state(ctxt, cl, next_state);
         
-        cl.push_back(cb::from_opcode(DirOpcode::EndTransaction));
-        cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
-        cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
+            cl.push_back(cb::from_opcode(DirOpcode::EndTransaction));
+            cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
+            cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
+          } break;
+          default: {
+          } break;
+        }
+      } break;
+      case AceCmdOpcode::ReadUnique: {
+        switch (line->state()) {
+          case State::EE: {
+            // Line is presently in the Exclusive state in the owning
+            // cache (possibly modified). Exclusive ownership is to be
+            // passed to the requesting agent. Therefore the state
+            // transition is: E -> EE -> E.
+            const bool is = msg->is(), pd = msg->pd(), dt = msg->dt();
+            if (is) {
+              // Cannot obtain line with IsShared property set.
+              throw std::runtime_error("Cannot receive with IS.");
+            }
+
+            CohEndMsg* end = new CohEndMsg;
+            end->set_t(msg->t());
+            end->set_origin(ctxt.dir());
+            end->set_is(false);
+
+            State next_state = State::X;
+            if (        dt && !pd) {
+              issue_set_owner(ctxt, cl, tstate->origin());
+              // Line is clean. The requesting agent can evict the
+              // line without having first written it back.
+              end->set_pd(false);
+              next_state = State::E;
+            } else if ( dt &&  pd) {
+              issue_set_owner(ctxt, cl, tstate->origin());
+              // Line is dirty, therefore cache obtains line in
+              // ownership state and must writeback the line before
+              // eviction.
+              end->set_pd(true);
+              next_state = State::O;
+            } else {
+              // 
+            }
+            issue_update_state(ctxt, cl, next_state);
+
+            // Issue completed response to the requester.
+            issue_emit_to_noc(ctxt, cl, end, tstate->origin());
+
+            // Transaction ends at this point, as the final state of
+            // the line is now known. The requesters cache controller
+            // now awaits 1 DT either from responding agent or the
+            // LLC.
+            cl.push_back(cb::from_opcode(DirOpcode::EndTransaction));
+            cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
+            cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
+          } break;
+          default: {
+            // TODO
+          } break;
+        }
       } break;
       default: {
       } break;

@@ -93,17 +93,17 @@ class AceCmdRspMsg : public Message {
 
   //
   //
-  bool pass_dirty() const { return pass_dirty_; }
-  bool is_shared() const { return is_shared_; }
+  bool pd() const { return pd_; }
+  bool is() const { return is_; }
 
   //
   //
-  void set_pass_dirty(bool pass_dirty) { pass_dirty_ = pass_dirty; }
-  void set_is_shared(bool is_shared) { is_shared_ = is_shared; }
+  void set_pd(bool pd) { pd_ = pd; }
+  void set_is(bool is) { is_ = is; }
 
  private:
-  bool pass_dirty_ = false;
-  bool is_shared_ = false;
+  bool pd_ = false;
+  bool is_ = false;
 };
 
 //
