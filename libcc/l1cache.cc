@@ -271,6 +271,17 @@ class L1CommandInterpreter {
     }
   }
 
+  void executeRemoveLine(L1CacheContext& ctxt, const L1Command* cmd) const {
+    L1Cache* cache = model_->cache();
+    const CacheAddressHelper ah = cache->ah();
+    L1CacheSet set = cache->set(ah.set(ctxt.addr()));
+    if (auto it = set.find(ah.tag(ctxt.addr()));  it != set.end()) {
+      set.evict(it);
+    } else {
+      throw std::runtime_error("Cannot remove line, line is not present.");
+    }
+  }
+  
   void executeSetL2LineDirty(L1CacheContext& ctxt, const L1Command* cmd) const {
     L2CacheModel* l2cache = ctxt.l1cache()->l2cache();
     l2cache->set_cache_line_modified(ctxt.addr());
@@ -359,6 +370,7 @@ class L1CacheModel::MainProcess : public AgentProcess {
     L1CommandList cl;
     L1CacheContext ctxt;
     ctxt.set_l1cache(model_);
+    ctxt.set_addr(addr);
     L1Cache* cache = model_->cache();
     const CacheAddressHelper ah = cache->ah();
     L1CacheSet set = cache->set(ah.set(addr));

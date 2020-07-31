@@ -137,6 +137,7 @@ enum class L2Opcode {
   MsgL1CmdExtractAddr,
   MsgConsume,
   InstallLine,
+  RemoveLine,
   InvokeCoherenceAction,
   SetL1LinesShared,
   SetL1LinesInvalid,
@@ -218,9 +219,13 @@ class L2TState {
   L2LineState* line() const { return line_; }
   // Set of Message Queues blocked on the current transaction.
   const std::vector<MessageQueue*>& bmqs() const { return bmqs_; }
+  // Address of current transaction.
+  addr_t addr() const { return addr_; }
 
   // Set current cache line
   void set_line(L2LineState* line) { line_ = line; }
+  //
+  void set_addr(addr_t addr) { addr_ = addr; }
   // Add Blocked Message Queue
   void add_blocked_mq(MessageQueue* mq) { bmqs_.push_back(mq); }
 
@@ -231,6 +236,8 @@ class L2TState {
   L2LineState* line_ = nullptr;
   // Set of message queues block on the current transaction.
   std::vector<MessageQueue*> bmqs_;
+  //
+  addr_t addr_;
 };
 
 //
@@ -253,6 +260,7 @@ class L2CacheContext {
   bool owns_line() const { return owns_line_; }
   L2LineState* line() const { return line_; }
   bool silently_evicted() const { return silently_evicted_; }
+  L2TState* tstate() const { return tstate_; }
 
   //
   void set_addr(addr_t addr) { addr_ = addr; }
@@ -263,6 +271,7 @@ class L2CacheContext {
   void set_line(L2LineState* line) { line_ = line; }
   void set_silently_evicted(bool silently_evicted) {
     silently_evicted_ = silently_evicted; }
+  void set_tstate(L2TState* tstate) { tstate_ = tstate; }
 
  private:
   // Current address of interest.
@@ -279,6 +288,8 @@ class L2CacheContext {
   L2CacheModel* l2cache_ = nullptr;
   // Line is not present (silently evicted).
   bool silently_evicted_ = false;
+  //
+  L2TState* tstate_ = nullptr;
 };
 
 //

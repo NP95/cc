@@ -99,6 +99,7 @@ using L1CacheLineIt = L1Cache::LineIterator;
   __func(MsgConsume)                            \
   __func(MsgL1CmdExtractAddr)                   \
   __func(InstallLine)                           \
+  __func(RemoveLine)                            \
   __func(SetL2LineDirty)                        \
   __func(InvokeCoherenceAction)
 // clang-format on
@@ -115,6 +116,7 @@ enum class L1Opcode {
   MsgConsume,
   MsgL1CmdExtractAddr,
   InstallLine,
+  RemoveLine,
   SetL2LineDirty,
   InvokeCoherenceAction
 };

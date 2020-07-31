@@ -177,6 +177,9 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
       L1CacheContext& c, L1CommandList& cl, bool shared) const override {
     MOESIL1LineState* line = static_cast<MOESIL1LineState*>(c.line());
     issue_update_state(cl, line, shared ? State::S : State::I);
+    if (!shared) {
+      cl.push_back(cb::from_opcode(L1Opcode::RemoveLine));
+    }
   }
 
  private:

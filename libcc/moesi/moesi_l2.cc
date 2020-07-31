@@ -165,7 +165,7 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
         // Set modified status of line; should really be in the E
         // state.  Still valid if performed from the M state but
         // redundant and suggests that something has gone awry.
-        issue_update_state(cl, line, State::M);
+        issue_update_state(ctxt, cl, line, State::M);
       } break;
       default: {
         LogMessage msg("Unable to set modified state; line is not owned.");
@@ -188,13 +188,13 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
             // State I; requesting GetS (ie. Shared); issue ReadShared
             msg->set_opcode(AceCmdOpcode::ReadShared);
             // Update state
-            issue_update_state(cl, line, State::IS);
+            issue_update_state(ctxt, cl, line, State::IS);
           } break;
           case L2CmdOpcode::L1GetE: {
             // State I; requesting GetE (i.e. Exclusive); issue ReadShared
             msg->set_opcode(AceCmdOpcode::ReadUnique);
             // Update state
-            issue_update_state(cl, line, State::IE);
+            issue_update_state(ctxt, cl, line, State::IE);
           } break;
         }
         // Issue ACE command to the cache controller.
@@ -253,13 +253,13 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
         const bool pd = msg->pd();
         if (is && pd) {
           rsp->set_is(false);
-          issue_update_state(cl, line, State::O);
+          issue_update_state(ctxt, cl, line, State::O);
         } else if (!is && !pd) {
           rsp->set_is(false);
-          issue_update_state(cl, line, State::E);
+          issue_update_state(ctxt, cl, line, State::E);
         } else {
           rsp->set_is(true);
-          issue_update_state(cl, line, State::S);
+          issue_update_state(ctxt, cl, line, State::S);
         }
         // Consume L1Cmd as it can complete successfully.
         cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
@@ -281,7 +281,7 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
         // Compute next state; expect !is_shared, Ownership if recieving
         // dirty data otherwise Exclusive.
         const State next_state = msg->pd() ? State::O : State::E;
-        issue_update_state(cl, line, next_state);
+        issue_update_state(ctxt, cl, line, next_state);
         // Consume L1Cmd as it can complete successfully.
         cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
         // Advance to next
@@ -294,6 +294,7 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
 
   void apply(L2CacheContext& ctxt, L2CommandList& cl, MOESIL2LineState* line,
              const AceSnpMsg* msg) const {
+    ctxt.set_addr(msg->addr());
     switch (msg->opcode()) {
       case AceSnpOpcode::ReadShared: {
         AceSnpRspMsg* rsp = new AceSnpRspMsg;
@@ -316,7 +317,7 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
               rsp->set_is(true);
               rsp->set_wu(true);
               // Demote line to S state.
-              issue_update_state(cl, line, State::S);
+              issue_update_state(ctxt, cl, line, State::S);
             } else {
               // Relinquish line.
               rsp->set_dt(true);
@@ -325,7 +326,8 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
               rsp->set_wu(true);
               // TODO: update L1 states.
               // Demote line to S state.
-              issue_update_state(cl, line, State::I);
+              issue_update_state(ctxt, cl, line, State::I);
+              cl.push_back(cb::from_opcode(L2Opcode::RemoveLine));
             }
           } break;
           case State::S: {
@@ -348,7 +350,7 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
               rsp->set_is(true);
               rsp->set_wu(true);
 
-              issue_update_state(cl, line, State::O);
+              issue_update_state(ctxt, cl, line, State::O);
 
               // Write-through cache, demote lines back to shared
               // state.
@@ -359,7 +361,8 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
               rsp->set_is(false);
               rsp->set_wu(true);
 
-              issue_update_state(cl, line, State::I);
+              issue_update_state(ctxt, cl, line, State::I);
+              cl.push_back(cb::from_opcode(L2Opcode::RemoveLine));
 
               // Write-through cache, therefore immediately evict
               // lines from child L1 cache.
@@ -389,8 +392,6 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
             rsp->set_pd(false);
             rsp->set_is(false);
             rsp->set_wu(true);
-            // Transition back to invalid state, line is gone.
-            cl.push_back(cb::from_opcode(L2Opcode::SetL1LinesInvalid));
           } break;
           case State::O:
           case State::M: {
@@ -399,12 +400,18 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
             rsp->set_is(false);
             rsp->set_wu(true);
             // Transition back to invalid state, line is gone.
-            cl.push_back(cb::from_opcode(L2Opcode::SetL1LinesInvalid));
+          } break;
+          default: {
+            // TODO: figure out transient states.
           } break;
         }
         // Issue response to CC.
         L2CacheModel* l2cache = ctxt.l2cache();
         issue_msg(cl, l2cache->l2_cc__snprsp_q(), rsp);
+        // Final state is Invalid
+        issue_update_state(ctxt, cl, line, State::I);
+        cl.push_back(cb::from_opcode(L2Opcode::RemoveLine));
+        cl.push_back(cb::from_opcode(L2Opcode::SetL1LinesInvalid));
         // Consume L1Cmd as it can complete successfully.
         cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
         cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpochOrWait));
@@ -418,8 +425,8 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
     }
   }
 
-  void issue_update_state(
-      L2CommandList& cl, MOESIL2LineState* line, State state) const {
+  void issue_update_state(L2CacheContext& ctxt, L2CommandList& cl,
+                          MOESIL2LineState* line, State state) const {
     struct UpdateStateAction : public CoherenceAction {
       UpdateStateAction(MOESIL2LineState* line, State state)
           : line_(line), state_(state)
@@ -438,7 +445,9 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
         return true;
       }
      private:
+      // Line instance
       MOESIL2LineState* line_ = nullptr;
+      // Update state
       State state_;
     };
     CoherenceAction* action = new UpdateStateAction(line, state);

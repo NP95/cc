@@ -201,6 +201,9 @@ class L2CommandInterpreter {
       case L2Opcode::InstallLine: {
         execute_install_line(ctxt, cmd);
       } break;
+      case L2Opcode::RemoveLine: {
+        execute_remove_line(ctxt, cmd);
+      } break;
       case L2Opcode::InvokeCoherenceAction: {
         execute_invoke_coherence_action(ctxt, cmd);
       } break;
@@ -280,6 +283,17 @@ class L2CommandInterpreter {
       ctxt.set_owns_line(false);
     } else {
       throw std::runtime_error("Cannot install line as set is full.");
+    }
+  }
+
+  void execute_remove_line(L2CacheContext& ctxt, const L2Command* cmd) const {
+    L2Cache* cache = model_->cache();
+    const CacheAddressHelper ah = cache->ah();
+    L2CacheSet set = cache->set(ah.set(ctxt.addr()));
+    if (auto it = set.find(ah.tag(ctxt.addr()));  it != set.end()) {
+      set.evict(it);
+    } else {
+      throw std::runtime_error("Cannot remove line, line is not present.");
     }
   }
   
