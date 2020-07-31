@@ -79,11 +79,34 @@ std::string L1CmdRspMsg::to_string() const {
 
 const char* to_string(L1Opcode opcode) {
   switch (opcode) {
-#define __declare_to_string(__name) \
-  case L1Opcode::__name:            \
-    return #__name;
-    L1OPCODE_LIST(__declare_to_string)
-#undef __declare_to_string
+    case L1Opcode::TableInstall:
+      return "TableInstall";
+    case L1Opcode::TableGetCurrentState:
+      return "TableGetCurrentState";
+    case L1Opcode::TableRemove:
+      return "TableRemove";
+    case L1Opcode::TableMqUnblockAll:
+      return "TableMqUnblockAll";
+    case L1Opcode::TableMqAddToBlockedList:
+      return "TableMqAddToBlockedList";
+    case L1Opcode::WaitOnMsg:
+      return "WaitOnMsg";
+    case L1Opcode::WaitNextEpochOrWait:
+      return "WaitNextEpochOrWait";
+    case L1Opcode::MqSetBlocked:
+      return "MqSetBlocked";
+    case L1Opcode::MsgConsume:
+      return "MsgConsume";
+    case L1Opcode::MsgL1CmdExtractAddr:
+      return "MsgL1CmdExtractAddr";
+    case L1Opcode::InstallLine:
+      return "InstallLine";
+    case L1Opcode::RemoveLine:
+      return "RemoveLine";
+    case L1Opcode::SetL2LineDirty:
+      return "SetL2LineDirty";
+    case L1Opcode::InvokeCoherenceAction:
+      return "InvokeCoherenceAction";
     default:
       return "Invalid";
   }
