@@ -154,21 +154,57 @@ class L1CommandInterpreter {
   void set_l1cache(L1CacheModel* model) { model_ = model; }
   void set_process(AgentProcess* process) { process_ = process; }
 
-  void execute(L1CacheContext& ctxt, const L1Command* c) {
-    switch (c->opcode()) {
-      default: {
+  void execute(L1CacheContext& ctxt, const L1Command* cmd) {
+    switch (cmd->opcode()) {
+      case L1Opcode::TableInstall: {
+        execute_table_install(ctxt, cmd);
       } break;
-#define __declare_dispatcher(__name) \
-  case L1Opcode::__name:             \
-    execute##__name(ctxt, c);        \
-    break;
-        L1OPCODE_LIST(__declare_dispatcher)
-#undef __declare_dispatcher
+      case L1Opcode::TableGetCurrentState: {
+        execute_table_get_current_state(ctxt, cmd);
+      } break;
+      case L1Opcode::TableRemove: {
+        execute_table_remove(ctxt, cmd);
+      } break;
+      case L1Opcode::TableMqUnblockAll: {
+        execute_table_mq_unblock_all(ctxt, cmd);
+      } break;
+      case L1Opcode::TableMqAddToBlockedList: {
+        execute_table_mq_add_to_blocked_list(ctxt, cmd);
+      } break;
+      case L1Opcode::WaitOnMsg: {
+        execute_wait_on_msg(ctxt, cmd);
+      } break;
+      case L1Opcode::WaitNextEpochOrWait: {
+        execute_wait_next_epoch_or_wait(ctxt, cmd);
+      } break;
+      case L1Opcode::MqSetBlocked: {
+        execute_mq_set_blocked(ctxt, cmd);
+      } break;
+      case L1Opcode::MsgConsume: {
+        execute_msg_consume(ctxt, cmd);
+      } break;
+      case L1Opcode::MsgL1CmdExtractAddr: {
+        execute_msg_l1_cmd_extract_addr(ctxt, cmd);
+      } break;
+      case L1Opcode::InstallLine: {
+        execute_install_line(ctxt, cmd);
+      } break;
+      case L1Opcode::RemoveLine: {
+        execute_remove_line(ctxt, cmd);
+      } break;
+      case L1Opcode::SetL2LineDirty: {
+      } break;
+      case L1Opcode::InvokeCoherenceAction: {
+        execute_invoke_coherence_action(ctxt, cmd);
+      } break;
+      default: {
+        throw std::runtime_error("Invalid opcode");
+      } break;
     }
   }
 
  private:
-  void executeTableInstall(L1CacheContext& ctxt, const L1Command* cmd) {
+  void execute_table_install(L1CacheContext& ctxt, const L1Command* cmd) {
     L1TTable* tt = model_->tt();
     state_.t = ctxt.msg()->t();
     state_.ts = new L1TState();
@@ -176,7 +212,7 @@ class L1CommandInterpreter {
     tt->install(state_.t, state_.ts);
   }
 
-  void executeTableGetCurrentState(L1CacheContext& ctxt, const L1Command* cmd) {
+  void execute_table_get_current_state(L1CacheContext& ctxt, const L1Command* cmd) {
     // Lookup the Transaction Table for the current transaction
     // and set the table pointer for subsequent operations.
     L1TTable* tt = model_->tt();
@@ -189,7 +225,7 @@ class L1CommandInterpreter {
     state_.ts = it->second;
   }
 
-  void executeTableRemove(L1CacheContext& ctxt, const L1Command* cmd) const {
+  void execute_table_remove(L1CacheContext& ctxt, const L1Command* cmd) const {
     // Remove the current Transsaction context from the
     // Transaction Table.
     state_.ts->release();
@@ -197,7 +233,7 @@ class L1CommandInterpreter {
     tt->remove(state_.t);
   }
 
-  void executeTableMqUnblockAll(L1CacheContext& ctxt,
+  void execute_table_mq_unblock_all(L1CacheContext& ctxt,
                                 const L1Command* cmd) const {
     // For the current table context, unblock all messages
     // queues that are currently blocked awaiting completion of
@@ -207,21 +243,21 @@ class L1CommandInterpreter {
     }
   }
 
-  void executeTableMqAddToBlockedList(L1CacheContext& ctxt,
+  void execute_table_mq_add_to_blocked_list(L1CacheContext& ctxt,
                                       const L1Command* cmd) const {
     // Add the currently address Message Queue to the set of
     // queues blocked on the current transaction.
     state_.ts->add_blocked_mq(ctxt.mq());
   }
 
-  void executeWaitOnMsg(L1CacheContext& ctxt, const L1Command* cmd) const {
+  void execute_wait_on_msg(L1CacheContext& ctxt, const L1Command* cmd) const {
     // Set wait state of current process; await the arrival of a
     // new message.
     MQArb* arb = model_->arb();
     process_->wait_on(arb->request_arrival_event());
   }
 
-  void executeWaitNextEpochOrWait(L1CacheContext& ctxt,
+  void execute_wait_next_epoch_or_wait(L1CacheContext& ctxt,
                                   const L1Command* cmd) const {
     MQArb* arb = model_->arb();
     MQArbTmt t = arb->tournament();
@@ -235,12 +271,12 @@ class L1CommandInterpreter {
     }
   }
 
-  void executeMqSetBlocked(L1CacheContext& ctxt, const L1Command* cmd) const {
+  void execute_mq_set_blocked(L1CacheContext& ctxt, const L1Command* cmd) const {
     // Set the blocked status of the current Message Queue.
     ctxt.mq()->set_blocked(true);
   }
 
-  void executeMsgConsume(L1CacheContext& ctxt, const L1Command* cmd) const {
+  void execute_msg_consume(L1CacheContext& ctxt, const L1Command* cmd) const {
     // Dequeue and release the head message of the currently
     // addressed Message Queue.
     const Message* msg = ctxt.mq()->dequeue();
@@ -248,12 +284,12 @@ class L1CommandInterpreter {
     ctxt.t().advance();
   }
 
-  void executeMsgL1CmdExtractAddr(L1CacheContext& ctxt, const L1Command* cmd) {
+  void execute_msg_l1_cmd_extract_addr(L1CacheContext& ctxt, const L1Command* cmd) {
     // Extract address field from command message.
     state_.addr = static_cast<const L1CmdMsg*>(ctxt.msg())->addr();
   }
 
-  void executeInstallLine(L1CacheContext& ctxt, const L1Command* cmd) const {
+  void execute_install_line(L1CacheContext& ctxt, const L1Command* cmd) const {
     // Install line within the current context into the cache at
     // an appropriate location. Expects that any prior evictions
     // to thg destination set have already taken place.
@@ -271,7 +307,7 @@ class L1CommandInterpreter {
     }
   }
 
-  void executeRemoveLine(L1CacheContext& ctxt, const L1Command* cmd) const {
+  void execute_remove_line(L1CacheContext& ctxt, const L1Command* cmd) const {
     L1Cache* cache = model_->cache();
     const CacheAddressHelper ah = cache->ah();
     L1CacheSet set = cache->set(ah.set(ctxt.addr()));
@@ -287,7 +323,7 @@ class L1CommandInterpreter {
     l2cache->set_cache_line_modified(ctxt.addr());
   }
 
-  void executeInvokeCoherenceAction(L1CacheContext& ctxt,
+  void execute_invoke_coherence_action(L1CacheContext& ctxt,
                                     const L1Command* cmd) const {
     CoherenceAction* action = cmd->action();
     action->execute();

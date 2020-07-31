@@ -86,24 +86,6 @@ using L1CacheSet = L1Cache::Set;
 // Cache Line Iterator type.
 using L1CacheLineIt = L1Cache::LineIterator;
 
-// clang-format off
-#define L1OPCODE_LIST(__func)                   \
-  __func(TableInstall)                          \
-  __func(TableGetCurrentState)                  \
-  __func(TableRemove)                           \
-  __func(TableMqUnblockAll)                     \
-  __func(TableMqAddToBlockedList)               \
-  __func(WaitOnMsg)                             \
-  __func(WaitNextEpochOrWait)                   \
-  __func(MqSetBlocked)                          \
-  __func(MsgConsume)                            \
-  __func(MsgL1CmdExtractAddr)                   \
-  __func(InstallLine)                           \
-  __func(RemoveLine)                            \
-  __func(SetL2LineDirty)                        \
-  __func(InvokeCoherenceAction)
-// clang-format on
-
 enum class L1Opcode {
   TableInstall,
   TableGetCurrentState,
