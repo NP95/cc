@@ -252,6 +252,11 @@ class L1CacheModelProtocol : public kernel::Module {
   //
   virtual void evict(L1CacheContext& c, L1CommandList& cl) const = 0;
 
+  //
+  //
+  virtual void set_line_shared_or_invalid(
+      L1CacheContext& c, L1CommandList& cl, bool shared) const = 0;
+
  protected:
   virtual void issue_msg(L1CommandList& cl, MessageQueueProxy* mq,
                          const Message* msg) const;
@@ -291,6 +296,10 @@ class L2CacheModelProtocol : public kernel::Module {
   //
   //
   virtual void evict(L2CacheContext& ctxt, L2CommandList& cl) const = 0;
+
+  //
+  //
+  virtual void set_modified_status(L2CacheContext& ctxt, L2CommandList& cl) const = 0;
 
  protected:
   virtual void issue_msg(L2CommandList& cl, MessageQueueProxy* mq,

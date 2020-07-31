@@ -166,9 +166,17 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
   }
 
   //
-  //p
+  //
   void evict(L1CacheContext& c, L1CommandList& cl) const override {
     // TODO
+  }
+
+  //
+  //
+  void set_line_shared_or_invalid(
+      L1CacheContext& c, L1CommandList& cl, bool shared) const override {
+    MOESIL1LineState* line = static_cast<MOESIL1LineState*>(c.line());
+    issue_update_state(cl, line, shared ? State::S : State::I);
   }
 
  private:
@@ -287,6 +295,9 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
             rsp->set_t(msg->t());
             issue_msg(cl, c.l1cache()->l1_cpu__rsp_q(), rsp);
             issue_update_state(cl, line, State::M);
+            // Write through to L2. such that L2 sees the transition
+            // to M immediately.
+            cl.push_back(cb::from_opcode(L1Opcode::SetL2LineDirty));
             // Instruction commits
             cl.push_back(cb::from_opcode(L1Opcode::MsgConsume));
             // Advance to next

@@ -124,13 +124,24 @@ using L2CacheLineIt = L2Cache::LineIterator;
   __func(MsgConsume)                            \
   __func(InstallLine)                           \
   __func(InvokeCoherenceAction)                 \
+  __func(SetL1LinesShared)                      \
+  __func(SetL1LinesInvalid)                     \
   __func(WaitOnMsg)                             \
   __func(WaitNextEpochOrWait)
 
 enum class L2Opcode {
-#define __declare_opcode(__name) __name,
-  L2OPCODE_LIST(__declare_opcode)
-#undef __declare_opcode
+  TableInstall,
+  TableGetCurrentState,
+  TableMqAddToBlockedList,
+  MqSetBlocked,
+  MsgL1CmdExtractAddr,
+  MsgConsume,
+  InstallLine,
+  InvokeCoherenceAction,
+  SetL1LinesShared,
+  SetL1LinesInvalid,
+  WaitOnMsg,
+  WaitNextEpochOrWait
 };
 
 //
@@ -234,6 +245,7 @@ class L2CacheContext {
   ~L2CacheContext();
 
   //
+  addr_t addr() const { return addr_; }
   MQArbTmt t() const { return t_; }
   const Message* msg() const { return mq_->peek(); }
   MessageQueue* mq() const { return mq_; }
@@ -243,6 +255,7 @@ class L2CacheContext {
   bool silently_evicted() const { return silently_evicted_; }
 
   //
+  void set_addr(addr_t addr) { addr_ = addr; }
   void set_t(MQArbTmt t) { t_ = t; }
   void set_mq(MessageQueue* mq) { mq_ = mq; }
   void set_l2cache(L2CacheModel* l2cache) { l2cache_ = l2cache; }
@@ -252,6 +265,8 @@ class L2CacheContext {
     silently_evicted_ = silently_evicted; }
 
  private:
+  // Current address of interest.
+  addr_t addr_ = 0;
   // Current Message Queue arbiter tournament.
   MQArbTmt t_;
   //
@@ -272,6 +287,7 @@ class L2CacheModel : public Agent {
   class MainProcess;
 
   friend class CpuCluster;
+  friend class L1CommandInterpreter;
   friend class L2CommandInterpreter;
  public:
   L2CacheModel(kernel::Kernel* k, const L2CacheModelConfig& config);
@@ -323,6 +339,16 @@ class L2CacheModel : public Agent {
 
   // Design Rule Check (DRC) callback
   virtual void drc() override;
+
+  // "Back-door" write-through cache related method(s):
+
+  // Set cache line 'addr' to Modified state. Expects line to be
+  // resident in the cache and in a state where promotion to the
+  // modified state can take place. Called by L1 in response to a
+  // Store command committing to a line presently in the E state. This
+  // 'back-door' mechanism emulates the behavior or a write-through
+  // cache.
+  void set_cache_line_modified(addr_t addr);
 
  private:
   // L2 Cache Configuration.

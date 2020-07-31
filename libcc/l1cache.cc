@@ -271,6 +271,11 @@ class L1CommandInterpreter {
     }
   }
 
+  void executeSetL2LineDirty(L1CacheContext& ctxt, const L1Command* cmd) const {
+    L2CacheModel* l2cache = ctxt.l1cache()->l2cache();
+    l2cache->set_cache_line_modified(ctxt.addr());
+  }
+
   void executeInvokeCoherenceAction(L1CacheContext& ctxt,
                                     const L1Command* cmd) const {
     CoherenceAction* action = cmd->action();
@@ -294,7 +299,6 @@ class L1CacheModel::MainProcess : public AgentProcess {
   MainProcess(kernel::Kernel* k, const std::string& name, L1CacheModel* model)
       : AgentProcess(k, name), model_(model) {}
 
- private:
   // Initialization
   void init() override {
     L1CacheContext c;
@@ -351,9 +355,32 @@ class L1CacheModel::MainProcess : public AgentProcess {
     }
   }
 
+  void set_cache_line_shared_or_invalid(addr_t addr, bool shared) {
+    L1CommandList cl;
+    L1CacheContext ctxt;
+    ctxt.set_l1cache(model_);
+    L1Cache* cache = model_->cache();
+    const CacheAddressHelper ah = cache->ah();
+    L1CacheSet set = cache->set(ah.set(addr));
+    L1CacheLineIt it = set.find(ah.tag(addr));
+    if (it != set.end()) {
+      ctxt.set_line(it->t());
+      const L1CacheModelProtocol* protocol = model_->protocol();
+      protocol->set_line_shared_or_invalid(ctxt, cl, shared);
+    } else {
+      LogMessage msg("L2 sets cache line status to ");
+      msg.append(shared ? "shared" : "Invalid");
+      msg.append(" but line is not present in the cache.");
+      msg.level(Level::Fatal);
+      log(msg);
+    }
+    execute(ctxt, cl);
+  }
+
  private:
   void process_l1cmd(L1CacheContext& c, L1CommandList& cl) const {
     const L1CmdMsg* cmd = static_cast<const L1CmdMsg*>(c.msg());
+    c.set_addr(cmd->addr());
     L1Cache* cache = model_->cache();
     const CacheAddressHelper ah = cache->ah();
     const L1CacheModelProtocol* protocol = model_->protocol();
@@ -497,10 +524,14 @@ void L1CacheModel::drc() {
     LogMessage msg("CPU has not been bound.", Level::Fatal);
     log(msg);
   }
-  if (l2c_ == nullptr) {
+  if (l2cache_ == nullptr) {
     LogMessage msg("L2 has not been bound.", Level::Fatal);
     log(msg);
   }
+}
+
+void L1CacheModel::set_cache_line_shared_or_invalid(addr_t addr, bool shared) {
+  main_->set_cache_line_shared_or_invalid(addr, shared);
 }
 
 }  // namespace cc

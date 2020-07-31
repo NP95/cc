@@ -156,6 +156,28 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
     // TODO
   }
 
+  void set_modified_status(L2CacheContext& ctxt, L2CommandList& cl) const override {
+    MOESIL2LineState* line = static_cast<MOESIL2LineState*>(ctxt.line());
+    switch (line->state()) {
+      case State::M: {
+        LogMessage msg("Attempt to set modified status of line already in M state.");
+        msg.level(Level::Warning);
+        log(msg);
+      }
+      [[fallthrough]];
+      case State::E: {
+        // Set modified status of line; should really be in the E
+        // state.  Still valid if performed from the M state but
+        // redundant and suggests that something has gone awry.
+        issue_update_state(cl, line, State::M);
+      } break;
+      default: {
+        LogMessage msg("Unable to set modified state; line is not owned.");
+        msg.level(Level::Fatal);
+        log(msg);
+      } break;
+    }
+  }
 
  private:
   void apply(L2CacheContext& ctxt, L2CommandList& cl, MOESIL2LineState* line,
@@ -310,8 +332,37 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
             // Line remains in S state.
           } break;
           case State::M: {
-            // Retain as O; writeback to LLC and I; pass ownership to
-            // requester.
+            // Options:
+            //
+            //  1. Retain as owner
+            //
+            //  2. Evict and pass ownership.
+
+            const bool retain_as_owner = true;
+
+            if (retain_as_owner) {
+              rsp->set_dt(true);
+              rsp->set_pd(false);
+              rsp->set_is(true);
+              rsp->set_wu(true);
+
+              issue_update_state(cl, line, State::O);
+
+              // Write-through cache, demote lines back to shared
+              // state.
+              cl.push_back(cb::from_opcode(L2Opcode::SetL1LinesShared));
+            } else {
+              rsp->set_dt(true);
+              rsp->set_pd(true);
+              rsp->set_is(false);
+              rsp->set_wu(true);
+
+              issue_update_state(cl, line, State::I);
+
+              // Write-through cache, therefore immediately evict
+              // lines from child L1 cache.
+              cl.push_back(cb::from_opcode(L2Opcode::SetL1LinesInvalid));
+            }
           } break;
           default: {
             // TODO: decide what to do here.

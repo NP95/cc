@@ -99,13 +99,24 @@ using L1CacheLineIt = L1Cache::LineIterator;
   __func(MsgConsume)                            \
   __func(MsgL1CmdExtractAddr)                   \
   __func(InstallLine)                           \
+  __func(SetL2LineDirty)                        \
   __func(InvokeCoherenceAction)
 // clang-format on
 
 enum class L1Opcode {
-#define __declare_opcode(__name) __name,
-  L1OPCODE_LIST(__declare_opcode)
-#undef __declare_opcode
+  TableInstall,
+  TableGetCurrentState,
+  TableRemove,
+  TableMqUnblockAll,
+  TableMqAddToBlockedList,
+  WaitOnMsg,
+  WaitNextEpochOrWait,
+  MqSetBlocked,
+  MsgConsume,
+  MsgL1CmdExtractAddr,
+  InstallLine,
+  SetL2LineDirty,
+  InvokeCoherenceAction
 };
 
 //
@@ -210,6 +221,7 @@ class L1CacheContext {
   ~L1CacheContext();
 
   //
+  addr_t addr() const { return addr_; }
   MQArbTmt t() const { return t_; }
   const Message* msg() const { return mq_->peek(); }
   MessageQueue* mq() const { return mq_; }
@@ -218,6 +230,7 @@ class L1CacheContext {
   L1LineState* line() const { return line_; }
 
   //
+  void set_addr(addr_t addr) { addr_ = addr; }
   void set_t(MQArbTmt t) { t_ = t; }
   void set_mq(MessageQueue* mq) { mq_ = mq; }
   void set_l1cache(L1CacheModel* l1cache) { l1cache_ = l1cache; }
@@ -225,6 +238,8 @@ class L1CacheContext {
   void set_line(L1LineState* line) { line_ = line; }
 
  private:
+  //
+  addr_t addr_;
   // Current Message Queue arbiter tournament.
   MQArbTmt t_;
   //
@@ -243,6 +258,7 @@ class L1CacheModel : public Agent {
   class MainProcess;
 
   friend class CpuCluster;
+  friend class L2CommandInterpreter;
   friend class L1CommandInterpreter;
 
  public:
@@ -269,7 +285,7 @@ class L1CacheModel : public Agent {
   // Pointer to current CPU child instance.
   Cpu* cpu() const { return cpu_; }
   // Pointer to owning L2Cache
-  L2CacheModel* l2c() const { return l2c_; }
+  L2CacheModel* l2cache() const { return l2cache_; }
   // Protocol
   L1CacheModelProtocol* protocol() const { return protocol_; }
   // Transaction table.
@@ -281,7 +297,7 @@ class L1CacheModel : public Agent {
   // Elaboration Phase:
   virtual void elab() override;
   // Set parent L2Cache (Elaboration-Phase)
-  void set_l2c(L2CacheModel* l2c) { l2c_ = l2c; }
+  void set_l2c(L2CacheModel* l2cache) { l2cache_ = l2cache; }
   // Set CPU (Elaboration-Phase)
   void set_cpu(Cpu* cpu) { cpu_ = cpu; }
   // Set L1 -> L2 Command Queue
@@ -293,6 +309,14 @@ class L1CacheModel : public Agent {
 
   // Design Rule Check (DRC) Phase
   virtual void drc() override;
+
+  // "Back-door" write-through cache related method(s):
+
+  // Set cache line 'addr' to either Shared or Invalid state. Method
+  // expects line to reside in cache. Called upon L2 initiated
+  // demotion in response to some inbound snoop command.
+  //
+  void set_cache_line_shared_or_invalid(addr_t addr, bool shared = true);
 
  private:
   // L1 Cache stimulus (models the concept of a processor data path
@@ -318,7 +342,7 @@ class L1CacheModel : public Agent {
   // Cache Instance
   L1Cache* cache_ = nullptr;
   // Pointer to parent L2.
-  L2CacheModel* l2c_ = nullptr;
+  L2CacheModel* l2cache_ = nullptr;
   // L1 cache protocol
   L1CacheModelProtocol* protocol_ = nullptr;
   // Cache configuration.

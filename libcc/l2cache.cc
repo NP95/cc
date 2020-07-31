@@ -26,6 +26,7 @@
 //========================================================================== //
 
 #include "l2cache.h"
+#include "l1cache.h"
 
 #include "utility.h"
 
@@ -92,12 +93,32 @@ L2CacheContext::~L2CacheContext() {
 
 const char* to_string(L2Opcode opcode) {
   switch (opcode) {
-#define __declare_to_string(__name)             \
-    case L2Opcode::__name:                      \
-      return #__name;
-    L2OPCODE_LIST(__declare_to_string)
-#undef __declare_to_string
-    default: return "Invalid";
+    case L2Opcode::TableInstall:
+      return "TableInstall";
+    case L2Opcode::TableGetCurrentState:
+      return "TableGetCurrentState";
+    case L2Opcode::TableMqAddToBlockedList:
+      return "TableMqAddToBlockedList";
+    case L2Opcode::MqSetBlocked:
+      return "MqSetBlocked";
+    case L2Opcode::MsgL1CmdExtractAddr:
+      return "MsgL1CmdExtractAddr";
+    case L2Opcode::MsgConsume:
+      return "MsgConsume";
+    case L2Opcode::InstallLine:
+      return "InstallLine";
+    case L2Opcode::InvokeCoherenceAction:
+      return "InvokeCoherenceAction";
+    case L2Opcode::SetL1LinesShared:
+      return "SetL1LinesShared";
+    case L2Opcode::SetL1LinesInvalid:
+      return "SetL1LinesInvalid";
+    case L2Opcode::WaitOnMsg:
+      return "WaitOnMsg";
+    case L2Opcode::WaitNextEpochOrWait:
+      return "WaitNextEpochOrWait";
+    default:
+      return "Invalid";
   }
 }
 
@@ -157,28 +178,58 @@ class L2CommandInterpreter {
   void set_l2cache(L2CacheModel* model) { model_ = model; }
   void set_process(AgentProcess* process) { process_ = process; }
 
-  void execute(L2CacheContext& ctxt, const L2Command* c) {
-    switch (c->opcode()) {
+  void execute(L2CacheContext& ctxt, const L2Command* cmd) {
+    switch (cmd->opcode()) {
+      case L2Opcode::TableInstall: {
+        execute_table_install(ctxt, cmd);
+      } break;
+      case L2Opcode::TableGetCurrentState: {
+        execute_table_get_current_state(ctxt, cmd);
+      } break;
+      case L2Opcode::TableMqAddToBlockedList: {
+        execute_table_mq_add_to_blocked_list(ctxt, cmd);
+      } break;
+      case L2Opcode::MqSetBlocked: {
+        execute_mq_set_blocked(ctxt, cmd);
+      } break;
+      case L2Opcode::MsgL1CmdExtractAddr: {
+        execute_msg_l1_cmd_extract_addr(ctxt, cmd);
+      } break;
+      case L2Opcode::MsgConsume: {
+        execute_msg_consume(ctxt, cmd);
+      } break;
+      case L2Opcode::InstallLine: {
+        execute_install_line(ctxt, cmd);
+      } break;
+      case L2Opcode::InvokeCoherenceAction: {
+        execute_invoke_coherence_action(ctxt, cmd);
+      } break;
+      case L2Opcode::SetL1LinesShared: {
+        execute_set_l1_lines_shared(ctxt, cmd);
+      } break;
+      case L2Opcode::SetL1LinesInvalid: {
+        execute_set_l1_lines_invalid(ctxt, cmd);
+      } break;
+      case L2Opcode::WaitOnMsg: {
+        execute_wait_on_msg(ctxt, cmd);
+      } break;
+      case L2Opcode::WaitNextEpochOrWait: {
+        execute_wait_next_epoch_or_wait(ctxt, cmd);
+      } break;
       default: {
       } break;
-#define __declare_dispatcher(__name) \
-  case L2Opcode::__name:             \
-    execute##__name(ctxt, c);        \
-    break;
-        L2OPCODE_LIST(__declare_dispatcher)
-#undef __declare_dispatcher
     }
   }
  private:
 
-  void executeTableInstall(L2CacheContext& ctxt, const L2Command* cmd) const {
+  void execute_table_install(L2CacheContext& ctxt, const L2Command* cmd) const {
     L2TTable* tt = model_->tt();
     L2TState* st = new L2TState();
     st->set_line(ctxt.line());
     tt->install(ctxt.msg()->t(), st);
   }
   
-  void executeTableGetCurrentState(L2CacheContext& ctxt, const L2Command* cmd) {
+  void execute_table_get_current_state(L2CacheContext& ctxt, const L2Command* cmd) {
     // Lookup the Transaction Table for the current transaction
     // and set the table pointer for subsequent operations.
     L2TTable* tt = model_->tt();
@@ -189,24 +240,24 @@ class L2CommandInterpreter {
     }
   }
   
-  void executeTableMqAddToBlockedList(L2CacheContext& ctxt, const L2Command* cmd) const {
+  void execute_table_mq_add_to_blocked_list(L2CacheContext& ctxt, const L2Command* cmd) const {
     // Add the currently address Message Queue to the set of
     // queues blocked on the current transaction.
     L2TState* st = state_.table_it->second;
     st->add_blocked_mq(ctxt.mq());
   }
   
-  void executeMqSetBlocked(L2CacheContext& ctxt, const L2Command* cmd) const {
+  void execute_mq_set_blocked(L2CacheContext& ctxt, const L2Command* cmd) const {
     // Set the blocked status of the current Message Queue.
     ctxt.mq()->set_blocked(true);
   }
   
-  void executeMsgL1CmdExtractAddr(L2CacheContext& ctxt, const L2Command* cmd) {
+  void execute_msg_l1_cmd_extract_addr(L2CacheContext& ctxt, const L2Command* cmd) {
     // Extract address field from command message.
     state_.addr = static_cast<const L2CmdMsg*>(ctxt.msg())->addr();
   }
 
-  void executeMsgConsume(L2CacheContext& ctxt, const L2Command* cmd) const {
+  void execute_msg_consume(L2CacheContext& ctxt, const L2Command* cmd) const {
     // Dequeue and release the head message of the currently
     // addressed Message Queue.
     const Message* msg = ctxt.mq()->dequeue();
@@ -214,7 +265,7 @@ class L2CommandInterpreter {
     ctxt.t().advance();
   }  
   
-  void executeInstallLine(L2CacheContext& ctxt, const L2Command* cmd) const {
+  void execute_install_line(L2CacheContext& ctxt, const L2Command* cmd) const {
     // Install line within the current context into the cache at
     // an appropriate location. Expects that any prior evictions
     // to thg destination set have already taken place.
@@ -232,19 +283,36 @@ class L2CommandInterpreter {
     }
   }
   
-  void executeInvokeCoherenceAction(L2CacheContext& ctxt, const L2Command* cmd) const {
+  void execute_invoke_coherence_action(L2CacheContext& ctxt,
+                                       const L2Command* cmd) const {
     CoherenceAction* action = cmd->action();
     action->execute();
   }
+
+  void execute_set_l1_lines_shared(L2CacheContext& ctxt,
+                                   const L2Command* cmd) const {
+    for (L1CacheModel* l1cache : ctxt.l2cache()->l1cs_) {
+      l1cache->set_cache_line_shared_or_invalid(ctxt.addr());
+    }
+  }
   
-  void executeWaitOnMsg(L2CacheContext& ctxt, const L2Command* cmd) const {
+
+  void execute_set_l1_lines_invalid(L2CacheContext& ctxt,
+                                   const L2Command* cmd) const {
+    for (L1CacheModel* l1cache : ctxt.l2cache()->l1cs_) {
+      l1cache->set_cache_line_shared_or_invalid(ctxt.addr(), false);
+    }
+  }
+  
+  void execute_wait_on_msg(L2CacheContext& ctxt, const L2Command* cmd) const {
     // Set wait state of current process; await the arrival of a
     // new message.
     MQArb* arb = model_->arb();
     process_->wait_on(arb->request_arrival_event());
   }
   
-  void executeWaitNextEpochOrWait(L2CacheContext& ctxt, const L2Command* cmd) const {
+  void execute_wait_next_epoch_or_wait(L2CacheContext& ctxt,
+                                       const L2Command* cmd) const {
     MQArb* arb = model_->arb();
     MQArbTmt t = arb->tournament();
     if (t.has_requester()) {
@@ -269,11 +337,11 @@ class L2CommandInterpreter {
 //
 class L2CacheModel::MainProcess : public AgentProcess {
   using cb = L2CommandBuilder;
+
  public:
   MainProcess(kernel::Kernel* k, const std::string& name, L2CacheModel* model)
       : AgentProcess(k, name), model_(model) {}
 
- private:
   // Initialization:
   void init() override {
     L2CacheContext c;
@@ -333,6 +401,28 @@ class L2CacheModel::MainProcess : public AgentProcess {
     }
   }
 
+  void set_cache_line_modified(addr_t addr) {
+    L2CommandList cl;
+    L2CacheContext ctxt;
+    ctxt.set_l2cache(model_);
+    const L2CacheModelProtocol* protocol = model_->protocol();
+    L2Cache* cache = model_->cache();
+    const CacheAddressHelper ah = cache->ah();
+
+    L2CacheSet set = cache->set(ah.set(addr));
+    L2CacheLineIt it = set.find(ah.tag(addr));
+    if (it != set.end()) {
+      ctxt.set_line(it->t());
+      protocol->set_modified_status(ctxt, cl);
+    } else {
+      LogMessage msg("L1 attempts to set modified state of cache line but "
+                     "cache line is not resident in L2.");
+      msg.level(Level::Fatal);
+      log(msg);
+    }
+    execute(ctxt, cl);
+  }
+
  private:
   void process_l2cmd(L2CacheContext& ctxt, L2CommandList& cl) const {
     const L2CmdMsg* cmd = static_cast<const L2CmdMsg*>(ctxt.msg());
@@ -388,6 +478,7 @@ class L2CacheModel::MainProcess : public AgentProcess {
     L2Cache* cache = model_->cache();
     const CacheAddressHelper ah = cache->ah();
     const AceSnpMsg* msg = static_cast<const AceSnpMsg*>(ctxt.msg());
+    ctxt.set_addr(msg->addr());
     L2CacheSet set = cache->set(ah.set(msg->addr()));
     L2CacheLineIt it = set.find(ah.tag(msg->addr()));
     if (it != set.end()) {
@@ -537,5 +628,10 @@ void L2CacheModel::drc() {
     log(msg);
   }
 }
+
+void L2CacheModel::set_cache_line_modified(addr_t addr) {
+  main_->set_cache_line_modified(addr);
+}
+
 
 }  // namespace cc
