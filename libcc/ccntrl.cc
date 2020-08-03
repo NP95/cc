@@ -641,22 +641,22 @@ CCModel::~CCModel() {
 
 void CCModel::build() {
   // Construct L2 to CC command queue
-  l2_cc__cmd_q_ = new MessageQueue(k(), "l2_cc__cmd_q", 3);
+  l2_cc__cmd_q_ = new MessageQueue(k(), "l2_cc__cmd_q", 30);
   add_child_module(l2_cc__cmd_q_);
   // DIR -> CC response queue
-  dir_cc__rsp_q_ = new MessageQueue(k(), "dir_cc__rsp_q", 3);
+  dir_cc__rsp_q_ = new MessageQueue(k(), "dir_cc__rsp_q", 30);
   add_child_module(dir_cc__rsp_q_);
   //
-  dir_cc__snpcmd_q_ = new MessageQueue(k(), "dir_cc__snpcmd_q", 3);
+  dir_cc__snpcmd_q_ = new MessageQueue(k(), "dir_cc__snpcmd_q", 30);
   add_child_module(dir_cc__snpcmd_q_);
   //
-  l2_cc__snprsp_q_ = new MessageQueue(k(), "l2_cc__snprsp_q", 3);
+  l2_cc__snprsp_q_ = new MessageQueue(k(), "l2_cc__snprsp_q", 30);
   add_child_module(l2_cc__snprsp_q_);
   // CC -> CC response queue (intervention response.
-  cc_cc__rsp_q_ = new MessageQueue(k(), "cc_cc__rsp_q", 3);
+  cc_cc__rsp_q_ = new MessageQueue(k(), "cc_cc__rsp_q", 30);
   add_child_module(cc_cc__rsp_q_);
   //
-  cc__dt_q_ = new MessageQueue(k(), "cc__dt_q", 3);
+  cc__dt_q_ = new MessageQueue(k(), "cc__dt_q", 30);
   add_child_module(cc__dt_q_);
   // Arbiteer
   arb_ = new MQArb(k(), "arb");

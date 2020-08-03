@@ -523,12 +523,11 @@ class L2CacheModel::MainProcess : public AgentProcess {
       interpreter.set_l2cache(model_);
       interpreter.set_process(this);
       for (const L2Command* cmd : cl) {
-#if 0
         LogMessage lm("Executing command: ");
         lm.append(cmd->to_string());
         lm.level(Level::Debug);
         log(lm);
-#endif
+
         interpreter.execute(ctxt, cmd);
       }
     } catch (const std::runtime_error& ex) {

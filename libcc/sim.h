@@ -77,6 +77,8 @@ class MessageQueue : public Agent {
   MessageQueue(kernel::Kernel* k, const std::string& name, std::size_t n);
   ~MessageQueue();
 
+  std::string to_string() const;
+
   MessageQueueProxy* construct_proxy();
   
   // Queue depth.

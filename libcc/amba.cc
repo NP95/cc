@@ -41,8 +41,8 @@ const char* to_string(AceCmdOpcode opcode) {
       return "ReadOnce";
     case AceCmdOpcode::ReadClean:
       return "ReadClean";
-    case AceCmdOpcode::ReadSharedNotDirty:
-      return "ReadSharedNotDirty";
+    case AceCmdOpcode::ReadNotSharedDirty:
+      return "ReadNotSharedDirty";
     case AceCmdOpcode::ReadShared:
       return "ReadShared";
     case AceCmdOpcode::ReadUnique:
@@ -59,6 +59,8 @@ const char* to_string(AceCmdOpcode opcode) {
       return "MakeInvalid";
     case AceCmdOpcode::WriteNoSnoop:
       return "WriteNoSnoop";
+    case AceCmdOpcode::WriteUnique:
+      return "WriteUnique";
     case AceCmdOpcode::WriteLineUnique:
       return "WriteLineUnique";
     case AceCmdOpcode::WriteBack:
@@ -100,8 +102,8 @@ std::string AceCmdRspMsg::to_string() const {
 
   KVListRenderer r;
   render_msg_fields(r);
-  r.add_field("pd", to_string(pd()));
   r.add_field("is", to_string(is()));
+  r.add_field("pd", to_string(pd()));
   return r.to_string();
 }
 
@@ -129,6 +131,41 @@ const char* to_string(AceSnpOpcode opcode) {
       return "Invalid";
     default:
       return "Invalid";
+  }
+}
+
+//
+//
+AceSnpOpcode to_snp_opcode(AceCmdOpcode opcode) {
+  // AMBA reference C5-1
+  switch (opcode) {
+    case AceCmdOpcode::ReadOnce:
+      return AceSnpOpcode::ReadOnce;
+    case AceCmdOpcode::ReadClean:
+      return AceSnpOpcode::ReadClean;
+    case AceCmdOpcode::ReadNotSharedDirty:
+      return AceSnpOpcode::ReadNotSharedDirty;
+    case AceCmdOpcode::ReadShared:
+      return AceSnpOpcode::ReadShared;
+    case AceCmdOpcode::ReadUnique:
+      return AceSnpOpcode::ReadUnique;
+    case AceCmdOpcode::CleanUnique:
+      return AceSnpOpcode::CleanInvalid;
+    case AceCmdOpcode::MakeUnique:
+      return AceSnpOpcode::MakeInvalid;
+    case AceCmdOpcode::CleanShared:
+      return AceSnpOpcode::CleanShared;
+    case AceCmdOpcode::CleanInvalid:
+      return AceSnpOpcode::CleanInvalid;
+    case AceCmdOpcode::MakeInvalid:
+      return AceSnpOpcode::MakeInvalid;
+    case AceCmdOpcode::WriteUnique:
+      return AceSnpOpcode::CleanInvalid;
+    case AceCmdOpcode::WriteLineUnique:
+      return AceSnpOpcode::MakeInvalid;
+    default:
+      // Either original command is "Not Snooped", or bad opcode.
+      return AceSnpOpcode::Invalid;
   }
 }
 

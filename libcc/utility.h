@@ -63,6 +63,19 @@ typename std::underlying_type<T>::type ut(T e) {
   return static_cast<typename std::underlying_type<T>::type>(e);
 }
 
+//
+//
+class ArrayRenderer {
+ public:
+  ArrayRenderer() = default;
+  std::string to_string() const;
+  void add_item(const std::string& item);
+ private:
+  std::vector<std::string> items_;
+};
+
+//
+//
 class KVListRenderer {
   using kv_type = std::pair<std::string, std::string>;
 

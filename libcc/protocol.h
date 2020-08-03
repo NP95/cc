@@ -93,15 +93,19 @@ class CohEndMsg : public Message {
 
   bool is() const { return is_; }
   bool pd() const { return pd_; }
+  std::size_t dt_n() const { return dt_n_; }
 
   void set_is(bool is) { is_ = is; }
   void set_pd(bool pd) { pd_ = pd; }
+  void set_dt_n(std::size_t dt_n) { dt_n_ = dt_n; }
   
  private:
   // Is Shared
-  bool is_;
+  bool is_ = false;
   // Pass Dirty
-  bool pd_;
+  bool pd_ = false;
+  // Data Transfer count (where applicable).
+  std::size_t dt_n_ = 0;
 };
 
 //

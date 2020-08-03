@@ -32,6 +32,22 @@
 
 namespace cc {
 
+std::string ArrayRenderer::to_string() const {
+  std::string r;
+  r += "[";
+  for (std::size_t i = 0; i < items_.size(); i++) {
+    r += "\"";
+    if (i != 0) r += ", ";
+    r += items_[i];
+    r += "\"";
+  }
+  r += "]";
+  return r;
+}
+
+void ArrayRenderer::add_item(const std::string& item) {
+  items_.push_back(item);
+}
 
 std::string KVListRenderer::to_string() const {
   std::stringstream ss;

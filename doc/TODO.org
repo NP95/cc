@@ -1,0 +1,13 @@
+* MOESI
+** L2
+- Remove "Table look". All context should be in the context object,
+  not in the interpreter itself.
+- L1GetS from O; add notion of sharer state to L2 directory.
+- Context should be extended to contain the L1Cache from which a
+  command origited.
+** CC
+- Remove notion of "State" only transient states; CC does not
+  understand cache lines only transaction which are currently in
+  flight.
+** General
+- Rationalize notion of transient states.

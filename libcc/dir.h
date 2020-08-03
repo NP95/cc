@@ -134,11 +134,18 @@ class DirTState {
   kernel::Event* transaction_start() const { return transaction_start_; }
   kernel::Event* transaction_end() const { return transaction_end_; }
 
+  std::size_t snoop_n() const { return snoop_n_; }
+  std::size_t snoop_i() const { return snoop_i_; }
+  std::size_t dt_i() const { return dt_i_; }
+  
   DirLineState* line() const { return line_; }
   addr_t addr() const { return addr_; }
   Agent* origin() const { return origin_; }
   AceCmdOpcode opcode() const { return opcode_; }
 
+  void set_snoop_n(std::size_t snoop_n) { snoop_n_ = snoop_n; }
+  void set_snoop_i(std::size_t snoop_i) { snoop_i_ = snoop_i; }
+  void set_dt_i(std::size_t dt_i) { dt_i_ = dt_i; }
   void set_line(DirLineState* line) { line_ = line; }
   void set_addr(addr_t addr) { addr_ = addr; }
   void set_origin(Agent* origin) { origin_ = origin; }
@@ -158,6 +165,13 @@ class DirTState {
   Agent* origin_ = nullptr;
   //
   AceCmdOpcode opcode_ = AceCmdOpcode::Invalid;
+
+  // The total expected number of snoop responses
+  std::size_t snoop_n_ = 0;
+  // The total number of snoop responses received.
+  std::size_t snoop_i_ = 0;
+  // The total number of data transfers
+  std::size_t dt_i_ = 0;
 };
 
 // Cache data type

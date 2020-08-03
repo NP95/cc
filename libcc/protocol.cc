@@ -45,8 +45,13 @@ std::string CohSrtMsg::to_string() const {
 }
 
 std::string CohEndMsg::to_string() const {
+  using cc::to_string;
+  using std::to_string;
   KVListRenderer r;
   render_msg_fields(r);
+  r.add_field("is", to_string(is()));
+  r.add_field("pd", to_string(pd()));
+  r.add_field("dt_n", to_string(dt_n()));
   return r.to_string();
 }
 

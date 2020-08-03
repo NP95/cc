@@ -39,7 +39,7 @@ using namespace cc;
 //
 //
 enum class State {
-  X, I, IS, IE, S, E, M, O
+  X, I, IS, IE, S, E, M, O, OE
 };
 
 //
@@ -54,6 +54,7 @@ const char* to_string(State state) {
     case State::E: return "E";
     case State::M: return "M";
     case State::O: return "O";
+    case State::OE: return "OE";
     default: return "Invalid";
   }
 }
@@ -205,15 +206,12 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
         // itself is not complete at this point.
         cl.push_back(cb::from_opcode(L2Opcode::TableInstall));
         cl.push_back(cb::from_opcode(L2Opcode::TableGetCurrentState));
-        // Source Message Queue is blocked until the current
-        // transaction (lookup to L2) has completed.
-        cl.push_back(cb::from_opcode(L2Opcode::TableMqAddToBlockedList));
-        // Set blocked status in Message Queue to rescind requestor
-        // status.
-        cl.push_back(cb::from_opcode(L2Opcode::MqSetBlocked));
         cl.push_back(cb::from_opcode(L2Opcode::MsgL1CmdExtractAddr));
-        // Install new cache line.
+        //
         cl.push_back(cb::from_opcode(L2Opcode::InstallLine));
+        // Message is consumed at this point as the transaction has
+        // started.
+        cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
         // Advance to next
         cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpochOrWait));
       } break;
@@ -234,6 +232,46 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
           } break;
         }
       } break;
+      case State::O: {
+        switch (cmd->opcode()) {
+          case L2CmdOpcode::L1GetS: {
+            // L2 currently has a dirty copy of the line in its cache
+            // and can therefore immediately service a request for a
+            // line in the S state. Issue response and add requester
+            // to set of sharers.
+
+            // TODO: sharer state.
+            // TODO: L1 should be in the context state at this point.
+            
+          } break;
+          case L2CmdOpcode::L1GetE: {
+            // L2 has line in Owning state, but must first promote the
+            // line to the exclusive state. L2 already has the data it
+            // requires
+
+            // L2 already has the line, therefore simply issue a
+            // CleanUnique command to invalidate other copies within
+            // the system.
+            AceCmdMsg* msg = new AceCmdMsg;
+            msg->set_t(cmd->t());
+            msg->set_addr(cmd->addr());
+            msg->set_opcode(AceCmdOpcode::CleanUnique);
+            issue_msg(cl, ctxt.l2cache()->l2_cc__cmd_q(), msg);
+            // Update state: transitional Owner to Exclusive.
+            issue_update_state(ctxt, cl, line, State::OE);
+            // Command initiates a transaction, therefore consume the
+            // message and install a new transaction object in the
+            // transaction table.
+            cl.push_back(cb::from_opcode(L2Opcode::TableInstall));
+            cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
+            // Advance to next
+            cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpochOrWait));
+          } break;
+          default: {
+          } break;
+        }
+        
+      } break;
       default: {
       } break;
     }
@@ -241,7 +279,8 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
 
   void apply(L2CacheContext& ctxt, L2CommandList& cl,
              MOESIL2LineState* line, const AceCmdRspMsg* msg) const {
-    switch (line->state()) {
+    const State state = line->state();
+    switch (state) {
       case State::IS: {
         L2CmdRspMsg* rsp = new L2CmdRspMsg;
         rsp->set_t(msg->t());
@@ -287,6 +326,21 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
         // Advance to next
         cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpochOrWait));
       } break;
+      case State::OE: {
+        // TODO: should perform some additional qualificiation on the command type.
+        
+        L2CmdRspMsg* rsp = new L2CmdRspMsg;
+        rsp->set_t(msg->t());
+        // Always sending to the zeroth L1
+        L2CacheModel* l2cache = ctxt.l2cache();
+        issue_msg(cl, l2cache->l2_l1__rsp_q(0), rsp);
+
+        issue_update_state(ctxt, cl, line, State::E);
+        // Consume L1Cmd as it can complete successfully.
+        cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
+        // Advance to next
+        cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpochOrWait));
+      } break;
       default: {
       } break;
     }
@@ -295,7 +349,8 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
   void apply(L2CacheContext& ctxt, L2CommandList& cl, MOESIL2LineState* line,
              const AceSnpMsg* msg) const {
     ctxt.set_addr(msg->addr());
-    switch (msg->opcode()) {
+    const AceSnpOpcode opcode = msg->opcode();
+    switch (opcode) {
       case AceSnpOpcode::ReadShared: {
         AceSnpRspMsg* rsp = new AceSnpRspMsg;
         rsp->set_t(msg->t());
@@ -408,6 +463,49 @@ class MOESIL2CacheProtocol : public L2CacheModelProtocol {
         // Issue response to CC.
         L2CacheModel* l2cache = ctxt.l2cache();
         issue_msg(cl, l2cache->l2_cc__snprsp_q(), rsp);
+        // Final state is Invalid
+        issue_update_state(ctxt, cl, line, State::I);
+        cl.push_back(cb::from_opcode(L2Opcode::RemoveLine));
+        cl.push_back(cb::from_opcode(L2Opcode::SetL1LinesInvalid));
+        // Consume L1Cmd as it can complete successfully.
+        cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
+        cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpochOrWait));
+      } break;
+      case AceSnpOpcode::MakeInvalid:
+      case AceSnpOpcode::CleanInvalid: {
+        AceSnpRspMsg* rsp = new AceSnpRspMsg;
+        rsp->set_t(msg->t());
+        
+        // C5.3.4 CleanInvalid
+        //
+        // Specificiation recommends that data is transferred only if
+        // present in the dirty state. (The cache would typically not
+        // be snooped in the dirty case as this would be the
+        // initiating agent in the system for the command).
+        //
+        // C5.3.5 MakeInvalid
+        //
+        // Specification recommands that data is NOT transferred.
+        switch (line->state()) {
+          case State::O:
+          case State::M:
+            if (opcode != AceSnpOpcode::MakeInvalid) {
+              // Transfer data in the CleanInvalid case.
+              rsp->set_dt(true);
+              rsp->set_pd(true);
+            }
+            [[fallthrough]];
+          case State::I:
+          case State::S:
+          case State::E: {
+            issue_update_state(ctxt, cl, line, State::I);
+          } break;
+          default: {
+            // TODO
+          } break;
+        }
+        // Issue response to CC.
+        issue_msg(cl, ctxt.l2cache()->l2_cc__snprsp_q(), rsp);
         // Final state is Invalid
         issue_update_state(ctxt, cl, line, State::I);
         cl.push_back(cb::from_opcode(L2Opcode::RemoveLine));

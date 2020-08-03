@@ -222,7 +222,7 @@ TEST(Basic121, SimpleWriteRead) {
   // Validate that cache line is in a readable state.
   EXPECT_TRUE(checker1.line_is_readable());
 }
-*/
+
 TEST(Basic121, SimpleWriteWrite) {
   cc::kernel::Kernel k;
   cc::SocConfig cfg;
@@ -273,6 +273,59 @@ TEST(Basic121, SimpleWriteWrite) {
 
   // Validate that cache line is in a writeable state.
   EXPECT_TRUE(checker1.line_is_writeable());
+}
+*/
+TEST(Basic121, SimpleWriteReadWrite) {
+  cc::kernel::Kernel k;
+  cc::SocConfig cfg;
+
+
+  // Expect:
+  //
+  // 1. Agent 1: Line installed in L1 in E state; transitions to M
+  //    state upon the commit of the initiating store instruction.
+  //
+  // 2. Agent 2: Acquires a copy of the line in L1; Agent 1 retains
+  //    the line in a shared state.
+  //
+  // 3. Agent 1: Re-cquires write ownership of the line (already is
+  //    already present in Agent 1's cache.
+  //
+  const std::vector<const char*> trace = {
+    // @200 issue store from CPU 0
+    "+200",
+    "C:0,ST,0",
+    // @400 issue store from CPU 1
+    "+200",
+    "C:1,LD,0",
+    //
+    "+200",
+    "C:0,ST,0",
+  };
+
+  // Build simple test configuration.
+  test::build_config(cfg, 1, 2, 1, trace);
+
+  SocModel soc(&k, cfg);
+  soc.run();
+
+  // Lookup L1 cache model instance where we expect to find the line.
+  const cc::L1CacheModel* l1c0 =
+      soc.get_object_as<cc::L1CacheModel*>("top.cluster0.l1cache0");
+  EXPECT_NE(l1c0, nullptr);
+  const test::LineChecker checker0(l1c0->cache(), 0);
+
+  // Validate that cache has line installed.
+  EXPECT_TRUE( checker0.has_line());
+  EXPECT_TRUE( checker0.line_is_writeable());
+
+  const cc::L1CacheModel* l1c1 =
+      soc.get_object_as<cc::L1CacheModel*>("top.cluster1.l1cache0");
+  EXPECT_NE(l1c1, nullptr);
+  const test::LineChecker checker1(l1c1->cache(), 0);
+
+  // Validate that cache has line installed.
+  EXPECT_TRUE(!checker1.has_line());
 }
 
 int main(int argc, char** argv) {

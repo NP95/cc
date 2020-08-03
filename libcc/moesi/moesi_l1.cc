@@ -39,9 +39,9 @@ enum class State {
   // Invalid
   I,
   IS,
+  IE,
   // Shared
   S,
-  IE,
   SE,
   // Exclusive
   E,
@@ -245,6 +245,28 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
           case L1CacheOpcode::CpuStore: {
             // Store instruction to line in S-state. Line must be promoted to
             // the E state before the transaction can complete.
+
+            // Issue GetE message to owning L2 cache.
+            L2CmdMsg* l2cmdmsg = new L2CmdMsg();
+            l2cmdmsg->set_t(msg->t());
+            l2cmdmsg->set_addr(msg->addr());
+            l2cmdmsg->set_opcode(L2CmdOpcode::L1GetE);
+            l2cmdmsg->set_l1cache(c.l1cache());
+            // Issue L2 command
+            issue_msg(cl, c.l1cache()->l1_l2__cmd_q(), l2cmdmsg);
+            // Start new transaction
+            cl.push_back(cb::from_opcode(L1Opcode::TableInstall));
+            cl.push_back(cb::from_opcode(L1Opcode::TableGetCurrentState));
+            // Source Message Queue is blocked until the current
+            // transaction (lookup to L2) has completed.
+            cl.push_back(cb::from_opcode(L1Opcode::TableMqAddToBlockedList));
+            // Set blocked status in Message Queue to rescind requestor
+            // status.
+            cl.push_back(cb::from_opcode(L1Opcode::MqSetBlocked));
+            cl.push_back(cb::from_opcode(L1Opcode::MsgL1CmdExtractAddr));
+            // Advance to next
+            cl.push_back(cb::from_opcode(L1Opcode::WaitNextEpochOrWait));
+            // State transitions to SE state.
             issue_update_state(cl, line, State::SE);
           } break;
         }
@@ -346,7 +368,16 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
         cl.push_back(cb::from_opcode(L1Opcode::WaitNextEpochOrWait));
       } break;
       case State::SE: {
-        //
+        // Line is installed in 'E' state.
+        issue_update_state(cl, line, State::E);
+        // Update transaction table; wake all blocked Message Queues
+        // and delete context.
+        cl.push_back(cb::from_opcode(L1Opcode::TableGetCurrentState));
+        cl.push_back(cb::from_opcode(L1Opcode::TableMqUnblockAll));
+        // Consume committed message.
+        cl.push_back(cb::from_opcode(L1Opcode::MsgConsume));
+        // Advance to next
+        cl.push_back(cb::from_opcode(L1Opcode::WaitNextEpochOrWait));
       } break;
       default: {
         // Invalid state

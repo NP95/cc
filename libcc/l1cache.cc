@@ -216,6 +216,7 @@ class L1CommandInterpreter {
         execute_remove_line(ctxt, cmd);
       } break;
       case L1Opcode::SetL2LineDirty: {
+        execute_set_l2_line_dirty(ctxt, cmd);
       } break;
       case L1Opcode::InvokeCoherenceAction: {
         execute_invoke_coherence_action(ctxt, cmd);
@@ -341,7 +342,7 @@ class L1CommandInterpreter {
     }
   }
   
-  void executeSetL2LineDirty(L1CacheContext& ctxt, const L1Command* cmd) const {
+  void execute_set_l2_line_dirty(L1CacheContext& ctxt, const L1Command* cmd) const {
     L2CacheModel* l2cache = ctxt.l1cache()->l2cache();
     l2cache->set_cache_line_modified(ctxt.addr());
   }
@@ -505,12 +506,10 @@ class L1CacheModel::MainProcess : public AgentProcess {
       interpreter.set_l1cache(model_);
       interpreter.set_process(this);
       for (const L1Command* cmd : cl) {
-#if 0
         LogMessage lm("Executing cmd: ");
         lm.append(cmd->to_string());
         lm.level(Level::Debug);
         log(lm);
-#endif
         interpreter.execute(ctxt, cmd);
       }
     } catch (const std::runtime_error& ex) {

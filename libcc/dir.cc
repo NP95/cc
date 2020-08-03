@@ -399,12 +399,11 @@ class DirModel::RdisProcess : public AgentProcess {
       interpreter.set_dir(model_);
       interpreter.set_process(this);
       for (const DirCommand* cmd : cl) {
-#if 0
         LogMessage lm("Executing command: ");
         lm.append(cmd->to_string());
         lm.level(Level::Debug);
         log(lm);
-#endif
+
         interpreter.execute(ctxt, cmd);
       }
     } catch (const std::runtime_error& ex) {

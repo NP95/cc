@@ -29,6 +29,7 @@
 
 #include "msg.h"
 #include "protocol.h"
+#include "utility.h"
 
 namespace cc {
 
@@ -44,6 +45,14 @@ MessageQueue::~MessageQueue() {
 
 MessageQueueProxy* MessageQueue::construct_proxy() {
   return new MessageQueueProxy(this);
+}
+
+std::string MessageQueue::to_string() const {
+  using cc::to_string;
+  KVListRenderer r;
+  r.add_field("empty", to_string(empty()));
+  r.add_field("full", to_string(full()));
+  return r.to_string();
 }
 
 bool MessageQueue::issue(const Message* msg, epoch_t epoch) {
@@ -102,9 +111,16 @@ const Message* MessageQueue::peek() const {
 const Message* MessageQueue::dequeue() {
   const Message* msg = nullptr;
   if (!q_->dequeue(msg)) {
-    const LogMessage lmsg("Attempt to dequeue Message failed.", Level::Fatal);
-    log(lmsg);
+    const LogMessage lm("Attempt to dequeue Message failed.", Level::Fatal);
+    log(lm);
     return nullptr;
+  } else {
+    LogMessage lm("Dequeue message: ");
+    lm.append(msg->to_string());
+    lm.append(" queue state: ");
+    lm.append(to_string());
+    lm.level(Level::Debug);
+    log(lm);
   }
 
   if (credits_ >= n()) {

@@ -42,7 +42,7 @@ using namespace cc;
 //
 //
 enum class State {
-  X, I, IE, IS, S, M, E, ES, EE, O
+  X, I, IE, IS, S, M, E, EO, EE, O, OE
 };
 
 //
@@ -55,10 +55,11 @@ const char* to_string(State state) {
     case State::IS: return "IS";
     case State::S: return "S";
     case State::E: return "E";
-    case State::ES: return "ES";
+    case State::EO: return "EO";
     case State::EE: return "EE";
     case State::M: return "M";
     case State::O: return "O";
+    case State::OE: return "OE";
     default: return "Invalid";
   }
 }
@@ -114,15 +115,29 @@ class LineState : public DirLineState {
  public:
   LineState() = default;
 
+  std::string to_string() const {
+    using cc::to_string;
+    KVListRenderer r;
+    r.add_field("state", to_string(state()));
+    r.add_field("owner", owner() == nullptr ? "<NONE>" : owner()->path());
+    ArrayRenderer a;
+    for (const Agent* agent : sharers()) {
+      a.add_item(agent->path());
+    }
+    r.add_field("sharers", a.to_string());
+    return r.to_string();
+  }
+
   // Current line state.
   State state() const { return state_; }
   //
   SubState substate() const { return substate_; }
+  const std::set<Agent*>& sharers() const { return sharers_; }
+  //
   // Current owning agent.
   Agent* owner() const { return owner_; }
   // Line resides in a stable state.
   bool is_stable() const { return true; }
-
   
   // Flag denoting if 'agent' is in the sharer set.
   bool is_sharer(Agent* agent) const {
@@ -187,12 +202,83 @@ const char* to_string(LineUpdate update) {
   }
 }
 
+enum class TStateAction {
+  Invalid,
+  SetSnoopN,
+  IncSnoopN,
+  IncDt
+};
+
+
+//
+//
+struct TStateUpdateAction : public CoherenceAction {
+  TStateUpdateAction(DirTState* tstate, TStateAction action)
+      : tstate_(tstate), action_(action)
+  {}
+  std::string to_string() const override {
+    using std::to_string;
+    KVListRenderer r;
+    switch (action()) {
+      case TStateAction::SetSnoopN: {
+        r.add_field("action", "set_snoop_n_action");
+        r.add_field("snoop_n", to_string(snoop_n_));
+        r.add_field("snoop_i", to_string(0));
+      } break;
+      case TStateAction::IncSnoopN: {
+        r.add_field("action", "inc_snoop_i_action");
+      } break;
+      case TStateAction::IncDt: {
+        r.add_field("action", "inc_dt");
+      } break;
+      default: {
+      } break;
+    }
+    return r.to_string();
+  }
+
+  // Getters
+  TStateAction action() const { return action_; }
+  std::size_t snoop_n() const { return snoop_n_; }
+
+  // Setters
+  void set_snoop_n(std::size_t snoop_n) { snoop_n_ = snoop_n; }
+  
+  bool execute() override {
+    switch (action()) {
+      case TStateAction::SetSnoopN: {
+        tstate_->set_snoop_n(snoop_n_);
+        tstate_->set_snoop_i(0);
+      } break;
+      case TStateAction::IncSnoopN: {
+        tstate_->set_snoop_i(tstate_->snoop_n() + 1);
+      } break;
+      case TStateAction::IncDt: {
+        tstate_->set_dt_i(tstate_->dt_i() + 1);
+      } break;
+      default: {
+      } break;
+    }
+    return true;
+  }
+ private:
+  DirTState* tstate_ = nullptr;
+  std::size_t snoop_n_ = 0;;
+  TStateAction action_ = TStateAction::Invalid;
+};
+
+//
+//
 struct LineUpdateAction : public CoherenceAction {
   LineUpdateAction(LineState* line, LineUpdate update)
       : line_(line), update_(update) {}
+
+
   void set_state(State state) { state_ = state; }
   void set_substate(SubState substate) { substate_ = substate; }
   void set_agent(Agent* agent) { agent_ = agent; }
+  void set_snoop_n(std::size_t snoop_n) { snoop_n_ = snoop_n; }
+
   std::string to_string() const override {
     KVListRenderer r;
     r.add_field("update", ::to_string(update_));
@@ -216,6 +302,7 @@ struct LineUpdateAction : public CoherenceAction {
     }
     return r.to_string();
   }
+
   bool execute() override {
     switch (update_) {
       case LineUpdate::State: {
@@ -246,6 +333,8 @@ struct LineUpdateAction : public CoherenceAction {
   LineState* line_ = nullptr;
   //
   LineUpdate update_ = LineUpdate::Invalid;
+  //
+  std::size_t snoop_n_ = 0;
 };
 
 //
@@ -296,7 +385,9 @@ class MOESIDirProtocol : public DirProtocol {
     LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
     DirTState* tstate = ctxt.tstate();
     tstate->set_opcode(msg->opcode());
-    switch (line->state()) {
+    const State state = line->state();
+    const AceCmdOpcode opcode = msg->opcode();
+    switch (state) {
       case State::I: {
         // Line is not present in the directory
         LLCCmdMsg* cmd = new LLCCmdMsg;
@@ -316,7 +407,7 @@ class MOESIDirProtocol : public DirProtocol {
         cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
       } break;
       case State::S: {
-        switch (msg->opcode()) {
+        switch (opcode) {
           case AceCmdOpcode::ReadShared: {
             // Add requester to sharer list; forward data to requester
             // from either LLC or nominated sharing cache
@@ -345,7 +436,7 @@ class MOESIDirProtocol : public DirProtocol {
         }
       } break;
       case State::E: {
-        switch (msg->opcode()) {
+        switch (opcode) {
           case AceCmdOpcode::ReadShared: {
             // Line resides in the exclusive state, meaning that a
             // single agent has it in either the E or M state. We
@@ -364,9 +455,11 @@ class MOESIDirProtocol : public DirProtocol {
             snp->set_opcode(AceSnpOpcode::ReadShared);
             issue_emit_to_noc(ctxt, cl, snp, line->owner());
 
-            // Transition to exclusive state, owning agent can transition
-            // to I or S state after completion of transaction.
-            issue_update_state(ctxt, cl, State::ES);
+            // Directory has no notion of local modified status,
+            // therefore when a line has been installed in the
+            // Exclusive state, the directory asssumes that the cache
+            // line has been modified by the owning agent.
+            issue_update_state(ctxt, cl, State::EO);
             issue_update_substate(ctxt, cl, SubState::AwaitingCohSnpRsp);
             cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
             cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
@@ -395,6 +488,48 @@ class MOESIDirProtocol : public DirProtocol {
           } break;
         }
       } break;
+      case State::O: {
+        switch (opcode) {
+          case AceCmdOpcode::CleanUnique: {
+            // Requesting cache has line presently installed in its
+            // cache but requests ownership of the line so that it can
+            // (presumably) complete a write operation to the line.
+            // Issue invalidate request to all sharers of the line and
+            // then forward the completed response back to the
+            // originating agent.
+
+            // Issue invalidation snoops to sharing agents
+            std::size_t snoop_n = 0;
+            for (Agent* agent : line->sharers()) {
+
+              // Do not sent message to originator as redundant.
+              if (agent == msg->origin()) continue;
+
+              // Issue snoop.
+              CohSnpMsg* snp = new CohSnpMsg;
+              snp->set_t(msg->t());
+              snp->set_addr(msg->addr());
+              snp->set_origin(ctxt.dir());
+              snp->set_agent(msg->origin());
+              snp->set_opcode(to_snp_opcode(opcode));
+              issue_emit_to_noc(ctxt, cl, snp, agent);
+              snoop_n++;
+            }
+
+            // Set expected snoop response count in transaction state
+            // object.
+            issue_set_snoop_n(ctxt, cl, snoop_n);
+
+            // Update state: transition Owner -> Exclusive.
+            issue_update_state(ctxt, cl, State::OE);
+
+            cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
+            cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
+          } break;
+          default: {
+          } break;
+        }
+      } break;
       default: {
         LogMessage msg("Unexpected state transition.", Level::Fatal);
         log(msg);
@@ -411,7 +546,8 @@ class MOESIDirProtocol : public DirProtocol {
   //
   void apply(DirContext& ctxt, DirCommandList& cl, const LLCCmdRspMsg* msg) const {
     LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
-    switch (line->state()) {
+    const State state = line->state();
+    switch (state) {
       case State::IS:
       case State::IE: {
         switch (line->substate()) {
@@ -484,38 +620,100 @@ class MOESIDirProtocol : public DirProtocol {
 
     DirTState* tstate = ctxt.tstate();
     const AceCmdOpcode opcode = tstate->opcode();
+    const State state = line->state();
     switch (opcode) {
+      case AceCmdOpcode::CleanUnique: {
+        switch (state) {
+          case State::OE: {
+            // Transition from Owned (with some number of sharers) to
+            // the exclusive state. Directory is awaiting response(s)
+            // from all of the sharing agents in the system. Snooped
+            // agents may or may not transfer data to the requester
+            // (preferrably not), however since they may do so, send
+            // the final DT count to the requester so that it may
+            // await all DT which may be in flight.
+            const bool is_final_snprsp =
+                (tstate->snoop_n() == 1 + tstate->snoop_i());
+
+            // Issue snoop count increment.
+            issue_inc_snoop_i(ctxt, cl);
+
+            // If data has been transfered, increment DT count.
+            if (msg->dt()) { issue_inc_dt(ctxt, cl); }
+            
+            if (is_final_snprsp) {
+              // Final response, therefore send completed coherence
+              // response back to requester to terminate the
+              // transaction.
+              CohEndMsg* end = new CohEndMsg;
+              end->set_t(msg->t());
+              end->set_origin(ctxt.dir());
+              // "Clean" instruction, therefore as data is transferred
+              // these fields are cleared as per. C4.6.1
+              end->set_is(false);
+              end->set_pd(false);
+              // Set expected transfer count; nominally zero.
+              end->set_dt_n(tstate->dt_i());
+
+              issue_emit_to_noc(ctxt, cl, end, tstate->origin());
+
+              // Transaction is complete once overall transaction
+              // response has been computed.
+              cl.push_back(cb::from_opcode(DirOpcode::EndTransaction));
+            }
+            cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
+            cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
+          } break;
+          default: {
+            // TODO
+          } break;
+        }
+      } break;
       case AceCmdOpcode::ReadShared: {
         //
-        switch (line->state()) {
-          case State::ES: {
+        switch (state) {
+          case State::EO: {
             // Line was in Exclusive state in owning cache. Upon
-            // completion of the ReadShared the owning cache may have either
-            // invalidated the line, retained the line as the owner, or
-            // it may have passed ownership to the requesting agent.
+            // completion of the ReadShared the owning cache may have
+            // either invalidated the line, retained the line as the
+            // owner, or it may have passed ownership to the
+            // requesting agent.  Update state of line based upon
+            // response.
             CohEndMsg* end = new CohEndMsg;
             end->set_t(msg->t());
             end->set_origin(ctxt.dir());
-            issue_emit_to_noc(ctxt, cl, end, ctxt.tstate()->origin());
-            // Update state of line based upon response.
 
             const bool is = msg->is(), pd = msg->pd(), dt = msg->dt();
             State next_state = State::X;
             if (        dt && !is && !pd) {
               // Requesting agent becomes owner.
+              end->set_is(false);
+              end->set_pd(false);
               issue_set_owner(ctxt, cl, tstate->origin());
+              // Line is no longer present in response cache.
               next_state = State::E;
             } else if ( dt && !is &&  pd) {
               // Requesting agent becomes owner.
+              end->set_is(false);
+              end->set_pd(true);
               issue_set_owner(ctxt, cl, tstate->origin());
+              // Line is no longer present in responder cache.
               next_state = State::M;
             } else if ( dt && is && !pd) {
               // Requester becomes Sharer.
+              end->set_is(true);
+              end->set_pd(false);
               issue_add_sharer(ctxt, cl, tstate->origin());
-              next_state = State::S;
+              // Responder becomes owner of assumed dirty line.
+              next_state = State::O;
             } else if ( dt && is &&  pd) {
               // Requester becomes Owner; responder retains Shared.
+              end->set_is(true);
+              end->set_pd(true);
               issue_set_owner(ctxt, cl, tstate->origin());
+              // Responder retains line in Shared state, line is dirty
+              // with respect to memory therefore requester gains line
+              // in ownership state.
               next_state = State::O;
             } else {
               // No data transfer, therefore DIR must issue fill to
@@ -525,6 +723,8 @@ class MOESIDirProtocol : public DirProtocol {
             }
             issue_update_state(ctxt, cl, next_state);
         
+            issue_emit_to_noc(ctxt, cl, end, tstate->origin());
+
             cl.push_back(cb::from_opcode(DirOpcode::EndTransaction));
             cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
             cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
@@ -623,6 +823,25 @@ class MOESIDirProtocol : public DirProtocol {
     LineUpdateAction* update = new LineUpdateAction(line, LineUpdate::AddSharer);
     update->set_agent(owner);
     cl.push_back(cb::from_action(update)); 
+  }
+
+  void issue_set_snoop_n(DirContext& ctxt, DirCommandList& cl, std::size_t n) const {
+    TStateUpdateAction* action =
+        new TStateUpdateAction(ctxt.tstate(), TStateAction::SetSnoopN);
+    action->set_snoop_n(n);
+    cl.push_back(cb::from_action(action));
+  }
+
+  void issue_inc_snoop_i(DirContext& ctxt, DirCommandList& cl) const {
+    TStateUpdateAction* action =
+        new TStateUpdateAction(ctxt.tstate(), TStateAction::IncSnoopN);
+    cl.push_back(cb::from_action(action));
+  }
+
+  void issue_inc_dt(DirContext& ctxt, DirCommandList& cl) const {
+    TStateUpdateAction* action =
+        new TStateUpdateAction(ctxt.tstate(), TStateAction::IncDt);
+    cl.push_back(cb::from_action(action));
   }
 };
 

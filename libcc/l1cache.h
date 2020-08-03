@@ -86,6 +86,7 @@ using L1CacheSet = L1Cache::Set;
 // Cache Line Iterator type.
 using L1CacheLineIt = L1Cache::LineIterator;
 
+// Opcode
 enum class L1Opcode {
   TableInstall,
   TableGetCurrentState,

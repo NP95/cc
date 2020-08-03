@@ -38,7 +38,7 @@ enum class AceCmdOpcode {
   ReadNoSnoop,
   ReadOnce,
   ReadClean,
-  ReadSharedNotDirty,
+  ReadNotSharedDirty,
   ReadShared,
   ReadUnique,
   CleanUnique,
@@ -47,6 +47,7 @@ enum class AceCmdOpcode {
   MakeUnique,
   MakeInvalid,
   WriteNoSnoop,
+  WriteUnique,
   WriteLineUnique,
   WriteBack,
   WriteClean,
@@ -123,6 +124,7 @@ enum class AceSnpOpcode {
 //
 //
 const char* to_string(AceSnpOpcode opcode);
+AceSnpOpcode to_snp_opcode(AceCmdOpcode opcode);
 
 //
 //
