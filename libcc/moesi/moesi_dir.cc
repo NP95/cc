@@ -653,7 +653,9 @@ class MOESIDirProtocol : public DirProtocol {
               end->set_is(false);
               end->set_pd(false);
               // Set expected transfer count; nominally zero.
-              end->set_dt_n(tstate->dt_i());
+              const std::size_t final_dt_n =
+                  tstate->dt_i() + (msg->dt() ? 1 : 0);
+              end->set_dt_n(final_dt_n);
 
               issue_emit_to_noc(ctxt, cl, end, tstate->origin());
 
