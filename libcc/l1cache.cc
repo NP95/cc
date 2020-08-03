@@ -231,6 +231,7 @@ class L1CommandInterpreter {
   void execute_table_install(L1CacheContext& ctxt, const L1Command* cmd) {
     L1TTable* tt = model_->tt();
     state_.t = ctxt.msg()->t();
+
     state_.ts = new L1TState();
     state_.ts->set_line(ctxt.line());
     tt->install(state_.t, state_.ts);
@@ -343,7 +344,7 @@ class L1CommandInterpreter {
   }
   
   void execute_set_l2_line_dirty(L1CacheContext& ctxt, const L1Command* cmd) const {
-    L2CacheModel* l2cache = ctxt.l1cache()->l2cache();
+    L2CacheAgent* l2cache = ctxt.l1cache()->l2cache();
     l2cache->set_cache_line_modified(ctxt.addr());
   }
 
@@ -450,13 +451,14 @@ class L1CacheModel::MainProcess : public AgentProcess {
   }
 
  private:
-  void process_l1cmd(L1CacheContext& c, L1CommandList& cl) const {
-    const L1CmdMsg* cmd = static_cast<const L1CmdMsg*>(c.msg());
-    c.set_addr(cmd->addr());
+  void process_l1cmd(L1CacheContext& ctxt, L1CommandList& cl) const {
+    const L1CmdMsg* cmd = static_cast<const L1CmdMsg*>(ctxt.msg());
+    ctxt.set_addr(cmd->addr());
+    ctxt.set_l1cache(model_);
     L1Cache* cache = model_->cache();
     const CacheAddressHelper ah = cache->ah();
     const L1CacheModelProtocol* protocol = model_->protocol();
-
+    
     // Otherwise, no transactions to current line in flight, therefore
     // query the cache to determine hit/miss status of line_id.
     L1CacheSet set = cache->set(ah.set(cmd->addr()));
@@ -471,14 +473,14 @@ class L1CacheModel::MainProcess : public AgentProcess {
           p.second) {
         // TODO
       } else {
-        c.set_line(protocol->construct_line());
-        c.set_owns_line(true);
-        protocol->apply(c, cl);
+        ctxt.set_line(protocol->construct_line());
+        ctxt.set_owns_line(true);
+        protocol->apply(ctxt, cl);
       }
     } else {
       // Line is present in the cache, apply state update.
-      c.set_line(it->t());
-      protocol->apply(c, cl);
+      ctxt.set_line(it->t());
+      protocol->apply(ctxt, cl);
     }
   }
 

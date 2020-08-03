@@ -41,7 +41,7 @@ namespace cc {
 // Forwards:
 class Cpu;
 class L1CacheModel;
-class L2CacheModel;
+class L2CacheAgent;
 class L1LineState;
 class CoherenceAction;
 
@@ -270,7 +270,7 @@ class L1CacheModel : public Agent {
   // Pointer to current CPU child instance.
   Cpu* cpu() const { return cpu_; }
   // Pointer to owning L2Cache
-  L2CacheModel* l2cache() const { return l2cache_; }
+  L2CacheAgent* l2cache() const { return l2cache_; }
   // Protocol
   L1CacheModelProtocol* protocol() const { return protocol_; }
   // Transaction table.
@@ -282,7 +282,7 @@ class L1CacheModel : public Agent {
   // Elaboration Phase:
   virtual void elab() override;
   // Set parent L2Cache (Elaboration-Phase)
-  void set_l2c(L2CacheModel* l2cache) { l2cache_ = l2cache; }
+  void set_l2c(L2CacheAgent* l2cache) { l2cache_ = l2cache; }
   // Set CPU (Elaboration-Phase)
   void set_cpu(Cpu* cpu) { cpu_ = cpu; }
   // Set L1 -> L2 Command Queue
@@ -327,7 +327,7 @@ class L1CacheModel : public Agent {
   // Cache Instance
   L1Cache* cache_ = nullptr;
   // Pointer to parent L2.
-  L2CacheModel* l2cache_ = nullptr;
+  L2CacheAgent* l2cache_ = nullptr;
   // L1 cache protocol
   L1CacheModelProtocol* protocol_ = nullptr;
   // Cache configuration.

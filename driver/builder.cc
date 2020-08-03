@@ -112,7 +112,7 @@ class SocConfigBuilderJson {
     
   }
 
-  void build(L2CacheModelConfig& c, json j) {
+  void build(L2CacheAgentConfig& c, json j) {
     // Set .name
     CHECK_AND_SET(name);
     // Set .cconfig
@@ -273,7 +273,7 @@ class SocConfigBuilderJson {
     cfg.pbuilder = pb_;
   }
 
-  void post(L2CacheModelConfig& cfg) {
+  void post(L2CacheAgentConfig& cfg) {
     cfg.pbuilder = pb_;
   }
 

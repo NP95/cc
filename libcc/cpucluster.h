@@ -34,7 +34,7 @@
 
 namespace cc {
 
-class L2CacheModel;
+class L2CacheAgent;
 class L1CacheModel;
 class CCModel;
 class Cpu;
@@ -71,7 +71,7 @@ class CpuCluster : public Agent {
   //
   CCModel* cc_ = nullptr;
   //
-  L2CacheModel* l2c_ = nullptr;
+  L2CacheAgent* l2c_ = nullptr;
   //
   std::vector<L1CacheModel*> l1cs_;
   //

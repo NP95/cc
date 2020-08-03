@@ -43,7 +43,7 @@ void build_config(cc::SocConfig& cfg, std::size_t dir_n,
     cc_cfg.pbuilder = pb;
     cpuc_cfg.cc_config = cc_cfg;
 
-    cc::L2CacheModelConfig l2c_config;
+    cc::L2CacheAgentConfig l2c_config;
     l2c_config.pbuilder = pb;
     cpuc_cfg.l2c_config = l2c_config;
 

@@ -37,7 +37,7 @@
 namespace cc {
 
 class MessageQueue;
-class L2CacheModel;
+class L2CacheAgent;
 class CCLineState;
 class CCProtocol;
 class CCModel;
@@ -336,7 +336,7 @@ class CCModel : public Agent {
   // Directory Mapper instance.
   DirMapper* dm() const { return dm_; }
   // L2 cache model
-  L2CacheModel* l2c() const { return l2c_; }
+  L2CacheAgent* l2c() const { return l2c_; }
 
  protected:
   // Accessors:
@@ -357,7 +357,7 @@ class CCModel : public Agent {
   // Elaboration
   void elab();
   // Set slave L2C instance.
-  void set_l2c(L2CacheModel* l2c) { l2c_ = l2c; }
+  void set_l2c(L2CacheAgent* l2c) { l2c_ = l2c; }
   // Set directory mapper.
   void set_dm(DirMapper* dm) { dm_ = dm; }
   // Set CC -> NOC message queue
@@ -376,7 +376,7 @@ class CCModel : public Agent {
 
  private:
   // L2 Cache Model to which this controller is bound.
-  L2CacheModel* l2c_ = nullptr;
+  L2CacheAgent* l2c_ = nullptr;
   // L2 -> Controller (Transaction) Command Queue (owning)
   MessageQueue* l2_cc__cmd_q_ = nullptr;
   // CC -> L2 command queue

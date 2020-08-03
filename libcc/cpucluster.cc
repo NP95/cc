@@ -59,7 +59,7 @@ void CpuCluster::build() {
   add_child_module(cc_);
 
   // Construct L2 cache instance.
-  l2c_ = new L2CacheModel(k(), config_.l2c_config);
+  l2c_ = new L2CacheAgent(k(), config_.l2c_config);
   add_child_module(l2c_);
 
   // Construct L1 cache instance(s).
@@ -91,7 +91,6 @@ void CpuCluster::elab() {
 
   // (L2 -> CC) Bind L2 cache to parent Cache Controller
   l2c_->set_cc(cc_);
-  l2c_->set_l1cache_n(cpus_.size());
   MessageQueue* l2_cc__cmd_q = cc_->l2_cc__cmd_q();
   l2c_->set_l2_cc__cmd_q(l2_cc__cmd_q->construct_proxy());
   // (CC -> L2) Bind Cache Controller to L2 instance.
@@ -113,7 +112,7 @@ void CpuCluster::elab() {
     l1c->set_l1_l2__cmd_q(l1_l2__cmd_q_mq->construct_proxy());
     // L2 -> L1 response queue
     MessageQueue* l2_l1__rsp_q = l1c->l2_l1__rsp_q();
-    l2c_->set_l2_l1__rsp_q(i, l2_l1__rsp_q->construct_proxy());
+    l2c_->set_l2_l1__rsp_q(l1c, l2_l1__rsp_q->construct_proxy());
   }
 
   // Bind CPU to parent L1.

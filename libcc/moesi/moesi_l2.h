@@ -30,13 +30,13 @@
 
 namespace cc {
 
-class L2CacheModelProtocol;
+class L2CacheAgentProtocol;
 
 namespace kernel { class Kernel; }
 
 namespace moesi {
 
-L2CacheModelProtocol* build_l2_protocol(kernel::Kernel* k);
+L2CacheAgentProtocol* build_l2_protocol(kernel::Kernel* k);
 
 } // namespace moesi
 

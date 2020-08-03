@@ -38,7 +38,7 @@ namespace cc {
 // Forwards
 class Stimulus;
 class L1CacheModelProtocol;
-class L2CacheModelProtocol;
+class L2CacheAgentProtocol;
 class DirProtocol;
 class DirMapper;
 class ProtocolBuilder;
@@ -93,7 +93,7 @@ struct L1CacheModelConfig {
 
 //
 //
-struct L2CacheModelConfig {
+struct L2CacheAgentConfig {
   // L2 Cache Model name
   std::string name = "l2cache";
 
@@ -174,7 +174,7 @@ struct CpuClusterConfig {
   CCConfig cc_config;
 
   // L2 cache configuration.
-  L2CacheModelConfig l2c_config;
+  L2CacheAgentConfig l2c_config;
 
   // L1 cache configuration(s)
   std::vector<L1CacheModelConfig> l1c_configs;

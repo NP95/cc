@@ -41,7 +41,7 @@ namespace cc {
 
 // Forwards:
 class L1CacheModel;
-class L2CacheModel;
+class L2CacheAgent;
 class MessageQueue;
 class L2LineState;
 template <typename>
@@ -109,40 +109,24 @@ class L2CmdRspMsg : public Message {
 };
 
 // Cache data type
-using L2Cache = CacheModel<L2LineState*>;
+using L2CacheModel = CacheModel<L2LineState*>;
 // Cache Set data type
-using L2CacheSet = L2Cache::Set;
+using L2CacheModelSet = L2CacheModel::Set;
 // Cache Line Iterator type.
-using L2CacheLineIt = L2Cache::LineIterator;
-
-#define L2OPCODE_LIST(__func)                   \
-  __func(TableInstall)                          \
-  __func(TableGetCurrentState)                  \
-  __func(TableMqAddToBlockedList)               \
-  __func(MqSetBlocked)                          \
-  __func(MsgL1CmdExtractAddr)                   \
-  __func(MsgConsume)                            \
-  __func(InstallLine)                           \
-  __func(InvokeCoherenceAction)                 \
-  __func(SetL1LinesShared)                      \
-  __func(SetL1LinesInvalid)                     \
-  __func(WaitOnMsg)                             \
-  __func(WaitNextEpochOrWait)
+using L2CacheModelLineIt = L2CacheModel::LineIterator;
 
 enum class L2Opcode {
-  TableInstall,
-  TableGetCurrentState,
-  TableMqAddToBlockedList,
-  MqSetBlocked,
-  MsgL1CmdExtractAddr,
+  StartTransaction,
+  EndTransaction,
+  MqSetBlockedOnTransaction,
+  MqSetBlockedOnTable,
   MsgConsume,
-  InstallLine,
   RemoveLine,
   InvokeCoherenceAction,
   SetL1LinesShared,
   SetL1LinesInvalid,
   WaitOnMsg,
-  WaitNextEpochOrWait
+  WaitNextEpoch
 };
 
 //
@@ -209,11 +193,15 @@ class L2CommandList {
 //
 class L2TState {
  public:
-  L2TState() = default;
-  virtual ~L2TState() = default;
+  L2TState(kernel::Kernel* k);
+  virtual ~L2TState();
 
   // Destruct/Return to pool
   void release() { delete this; }
+
+  //
+  kernel::Event* transaction_start() const { return transaction_start_; }
+  kernel::Event* transaction_end() const { return transaction_end_; }
 
   // Get current cache line
   L2LineState* line() const { return line_; }
@@ -221,6 +209,8 @@ class L2TState {
   const std::vector<MessageQueue*>& bmqs() const { return bmqs_; }
   // Address of current transaction.
   addr_t addr() const { return addr_; }
+  // L1 cache instance
+  L1CacheModel* l1cache() const { return l1cache_; }
 
   // Set current cache line
   void set_line(L2LineState* line) { line_ = line; }
@@ -228,8 +218,13 @@ class L2TState {
   void set_addr(addr_t addr) { addr_ = addr; }
   // Add Blocked Message Queue
   void add_blocked_mq(MessageQueue* mq) { bmqs_.push_back(mq); }
+  // Set L1 cache instance.
+  void set_l1cache(L1CacheModel* l1cache) { l1cache_ = l1cache; }
 
  private:
+  //
+  kernel::Event* transaction_start_;
+  kernel::Event* transaction_end_;
   // Cache line on which current transaction is executing. (Can
   // otherwise be recovered from the address, but this simply saves
   // the lookup into the cache structure).
@@ -238,6 +233,8 @@ class L2TState {
   std::vector<MessageQueue*> bmqs_;
   //
   addr_t addr_;
+  // Originating L1Cache instance.
+  L1CacheModel* l1cache_ = nullptr;
 };
 
 //
@@ -256,22 +253,26 @@ class L2CacheContext {
   MQArbTmt t() const { return t_; }
   const Message* msg() const { return mq_->peek(); }
   MessageQueue* mq() const { return mq_; }
-  L2CacheModel* l2cache() const { return l2cache_; }
+  L2CacheAgent* l2cache() const { return l2cache_; }
   bool owns_line() const { return owns_line_; }
   L2LineState* line() const { return line_; }
   bool silently_evicted() const { return silently_evicted_; }
+
+  bool owns_tstate() const { return owns_tstate_; }
   L2TState* tstate() const { return tstate_; }
 
   //
   void set_addr(addr_t addr) { addr_ = addr; }
   void set_t(MQArbTmt t) { t_ = t; }
   void set_mq(MessageQueue* mq) { mq_ = mq; }
-  void set_l2cache(L2CacheModel* l2cache) { l2cache_ = l2cache; }
+  void set_l2cache(L2CacheAgent* l2cache) { l2cache_ = l2cache; }
   void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
   void set_line(L2LineState* line) { line_ = line; }
   void set_silently_evicted(bool silently_evicted) {
     silently_evicted_ = silently_evicted; }
+
   void set_tstate(L2TState* tstate) { tstate_ = tstate; }
+  void set_owns_tstate(bool owns_tstate) { owns_tstate_ = owns_tstate; }
 
  private:
   // Current address of interest.
@@ -284,32 +285,36 @@ class L2CacheContext {
   L2LineState* line_ = nullptr;
   // Current Message Queue
   MessageQueue* mq_ = nullptr;
-  // L2 cache instance
-  L2CacheModel* l2cache_ = nullptr;
   // Line is not present (silently evicted).
   bool silently_evicted_ = false;
-  //
+  // Owns transaction state object.
+  bool owns_tstate_ = false;
+  // Current transaction state
   L2TState* tstate_ = nullptr;
+  // L2 cache instance
+  L2CacheAgent* l2cache_ = nullptr;
+  // L1 cache instance (originating requestor).
+  L1CacheModel* l1cache_ = nullptr;
 };
 
 //
 //
-class L2CacheModel : public Agent {
+class L2CacheAgent : public Agent {
   class MainProcess;
 
   friend class CpuCluster;
   friend class L1CommandInterpreter;
   friend class L2CommandInterpreter;
  public:
-  L2CacheModel(kernel::Kernel* k, const L2CacheModelConfig& config);
-  virtual ~L2CacheModel();
+  L2CacheAgent(kernel::Kernel* k, const L2CacheAgentConfig& config);
+  virtual ~L2CacheAgent();
 
-  L2CacheModelConfig config() const { return config_; }
+  L2CacheAgentConfig config() const { return config_; }
 
   // L1 Cache Command Queue (n)
   MessageQueue* l1_l2__cmd_q(std::size_t n) const { return l1_l2__cmd_qs_[n]; }
   // L2 -> L1 response queue
-  MessageQueueProxy* l2_l1__rsp_q(std::size_t n) const { return l2_l1__rsp_qs_[n]; }
+  MessageQueueProxy* l2_l1__rsp_q(L1CacheModel* l1cache) const;
   // L2 -> CC command queue
   MessageQueueProxy* l2_cc__cmd_q() const { return l2_cc__cmd_q_; }
   // CC -> L2 (Snoop) command queue
@@ -324,9 +329,9 @@ class L2CacheModel : public Agent {
   // Pointer to module arbiter instance.
   MQArb* arb() const { return arb_; }
   // Point to module cache instance.
-  CacheModel<L2LineState*>* cache() const { return cache_; }
+  L2CacheModel* cache() const { return cache_; }
   // Protocol instance
-  L2CacheModelProtocol* protocol() const { return protocol_; }
+  L2CacheAgentProtocol* protocol() const { return protocol_; }
   // Transaction table.
   L2TTable* tt() const { return tt_; }
 
@@ -338,13 +343,12 @@ class L2CacheModel : public Agent {
   // Elaboration:
   virtual void elab() override;
   //
-  void set_l1cache_n(std::size_t n);
   // Set parent cache controlle
   void set_cc(CCModel* cc) { cc_ = cc; }
   // Set L2 -> CC command queue.
   void set_l2_cc__cmd_q(MessageQueueProxy* mq);
   // L2 -> L1 response queue.
-  void set_l2_l1__rsp_q(std::size_t n, MessageQueueProxy* mq);
+  void set_l2_l1__rsp_q(L1CacheModel* l1cache, MessageQueueProxy* mq);
   // L2 -> CC snoop response queue.
   void set_l2_cc__snprsp_q(MessageQueueProxy* mq);
 
@@ -363,13 +367,13 @@ class L2CacheModel : public Agent {
 
  private:
   // L2 Cache Configuration.
-  L2CacheModelConfig config_;
+  L2CacheAgentConfig config_;
   // Child L1 Caches
   std::vector<L1CacheModel*> l1cs_;
   // L1 -> L2 Command Request
   std::vector<MessageQueue*> l1_l2__cmd_qs_;
   // L2 -> L1 Response queue
-  std::vector<MessageQueueProxy*> l2_l1__rsp_qs_;
+  std::map<L1CacheModel*, MessageQueueProxy*> l2_l1__rsp_qs_;
   // L2 -> CC Command Queue
   MessageQueueProxy* l2_cc__cmd_q_ = nullptr;
   // CC -> L2 Command Queue
@@ -383,11 +387,11 @@ class L2CacheModel : public Agent {
   // Transaction table.
   L2TTable* tt_ = nullptr;
   // Cache Instance
-  CacheModel<L2LineState*>* cache_ = nullptr;
+  L2CacheModel* cache_ = nullptr;
   // Cache Controller instance
   CCModel* cc_ = nullptr;
   // L1 cache protocol
-  L2CacheModelProtocol* protocol_ = nullptr;
+  L2CacheAgentProtocol* protocol_ = nullptr;
   // Main process of execution.
   MainProcess* main_;
 };

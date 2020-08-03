@@ -296,10 +296,10 @@ class L2LineState {
 
 //
 //
-class L2CacheModelProtocol : public kernel::Module {
+class L2CacheAgentProtocol : public kernel::Module {
  public:
-  L2CacheModelProtocol(kernel::Kernel* k, const std::string& name);
-  virtual ~L2CacheModelProtocol() = default;
+  L2CacheAgentProtocol(kernel::Kernel* k, const std::string& name);
+  virtual ~L2CacheAgentProtocol() = default;
 
   //
   //
@@ -468,7 +468,7 @@ class ProtocolBuilder {
   virtual L1CacheModelProtocol* create_l1(kernel::Kernel*) = 0;
 
   // Create an instance of the L2 protocol
-  virtual L2CacheModelProtocol* create_l2(kernel::Kernel*) = 0;
+  virtual L2CacheAgentProtocol* create_l2(kernel::Kernel*) = 0;
 
   // Create an instance of the Dir protocol
   virtual DirProtocol* create_dir(kernel::Kernel*) = 0;

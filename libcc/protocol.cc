@@ -136,10 +136,10 @@ void L1CacheModelProtocol::issue_msg(L1CommandList& cl, MessageQueueProxy* mq,
   cl.push_back(L1CommandBuilder::from_action(action));
 }
 
-L2CacheModelProtocol::L2CacheModelProtocol(kernel::Kernel* k, const std::string& name)
+L2CacheAgentProtocol::L2CacheAgentProtocol(kernel::Kernel* k, const std::string& name)
     : Module(k, name) {}
 
-void L2CacheModelProtocol::issue_msg(L2CommandList& cl, MessageQueueProxy* mq,
+void L2CacheAgentProtocol::issue_msg(L2CommandList& cl, MessageQueueProxy* mq,
                                      const Message* msg) const {
   CoherenceAction* action = new EmitMessageActionProxy(mq, msg);
   cl.push_back(L2CommandBuilder::from_action(action));
