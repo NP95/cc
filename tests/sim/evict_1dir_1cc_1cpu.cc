@@ -73,12 +73,6 @@ TEST(Evict111, LoadEvictOneLine) {
   cc::kernel::Kernel k;
   cc::SocConfig cfg;
 
-  // Test program:
-  //
-  //  1) Advance 200 time-units.
-  //
-  //  2) Issue a load instruction from CPU 0 to address 0x0.
-  //
   const std::vector<const char*> trace = {
     "+200",
     "C:0,ST,0x0000",
