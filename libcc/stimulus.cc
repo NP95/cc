@@ -162,6 +162,7 @@ void TraceStimulus::parse_tracefile() {
         case State::InTime: {
           // Advance scanner time cursor.
           time_type time_delta = std::stoi(ctxt);
+          ctxt.clear();
           current_time += time_delta;
           // Discard ctxt.
           ctxt.clear();
@@ -170,6 +171,7 @@ void TraceStimulus::parse_tracefile() {
           std::size_t num_chars = 0;
           // Auto-detect radix.
           cmd_ctxt.addr = std::stoi(ctxt, &num_chars, 0);
+          ctxt.clear();
           // Issue completed command to CPU stimulus context.
           Frontier f;
           f.time = kernel::Time{current_time, 0};
