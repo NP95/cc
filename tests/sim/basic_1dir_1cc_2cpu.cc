@@ -74,13 +74,40 @@ TEST(Basic112, Read0) {
   cc::kernel::Kernel k;
   cc::SocConfig cfg;
 
-  // Test program:
-  //
-  //  1) Advance 200 time-units.
-  //
-  //  2) Issue a load instruction from CPU 0 to address 0x0.
-  //
   const std::vector<const char*> trace = {
+    "+200",
+    "C:0,LD,0"
+  };
+  // Build simple test configuration.
+  test::build_config(cfg, 1, 1, 2, trace);
+  SocModel soc(&k, cfg);
+  soc.run();
+
+  // Lookup L1 cache model instance where we expect to find the line.
+  const cc::L1CacheModel* l1cache =
+      soc.get_object_as<cc::L1CacheModel*>("top.cluster0.l1cache0");
+  EXPECT_NE(l1cache, nullptr);
+
+  test::LineChecker checker(l1cache->cache(), 0);
+
+  // Validate that cache has line installed.
+  EXPECT_TRUE(checker.has_line());
+
+  // Validate that cache line is in a readable state.
+  EXPECT_TRUE(checker.line_is_readable());
+
+  // Line may or may not be in a writeable state at this point
+  // (ideally the line should be in a writeable state as it should be
+  // exclusive at this point, but this is not something that we
+  // specifically enforce).
+}
+TEST(Basic112, Read0Read0) {
+  cc::kernel::Kernel k;
+  cc::SocConfig cfg;
+
+  const std::vector<const char*> trace = {
+    "+200",
+    "C:0,LD,0",
     "+200",
     "C:0,LD,0"
   };
@@ -113,12 +140,6 @@ TEST(Basic112, SimpleReadCpu1) {
   cc::kernel::Kernel k;
   cc::SocConfig cfg;
 
-  // Test program:
-  //
-  //  1) Advance 200 time-units.
-  //
-  //  2) Issue a load instruction from CPU 0 to address 0x0.
-  //
   const std::vector<const char*> trace = {
     "+200",
     "C:1,LD,0"
@@ -147,12 +168,6 @@ TEST(Basic112, Read0Read1) {
   cc::kernel::Kernel k;
   cc::SocConfig cfg;
 
-  // Test program:
-  //
-  //  1) Advance 200 time-units.
-  //
-  //  2) Issue a load instruction from CPU 0 to address 0x0.
-  //
   const std::vector<const char*> trace = {
     "+200",
     "C:0,LD,0",
@@ -196,12 +211,6 @@ TEST(Basic112, Write0Write1) {
   cc::kernel::Kernel k;
   cc::SocConfig cfg;
 
-  // Test program:
-  //
-  //  1) Advance 200 time-units.
-  //
-  //  2) Issue a load instruction from CPU 0 to address 0x0.
-  //
   const std::vector<const char*> trace = {
     "+200",
     "C:0,ST,0",
@@ -243,12 +252,6 @@ TEST(Basic112, Read0Read1Write0) {
   cc::kernel::Kernel k;
   cc::SocConfig cfg;
 
-  // Test program:
-  //
-  //  1) Advance 200 time-units.
-  //
-  //  2) Issue a load instruction from CPU 0 to address 0x0.
-  //
   const std::vector<const char*> trace = {
     "+200",
     "C:0,LD,0",
