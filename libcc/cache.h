@@ -61,6 +61,7 @@ struct CacheAddressHelper {
   addr_t set(const addr_t& a) const;
   addr_t tag(const addr_t& a) const;
   addr_t line_id(const addr_t& a) const;
+  addr_t addr_from_set_tag(const addr_t set, const addr_t tag) const;
 
  private:
   std::size_t offset_bits_;
@@ -217,6 +218,7 @@ class CacheModel {
       while (it != end) {
         const T& t = it->t();
         if (t->is_evictable()) ns.push_back(it);
+        ++it;
       }
       // If no nominations selected, return end()
       if (ns.empty()) return std::make_pair(end, false);
@@ -224,7 +226,7 @@ class CacheModel {
       // Otherwise, select according to selected policy.
       switch (policy()) {
         case Policy::First: {
-          return std::make_pair(*ns.begin(), false);
+          return std::make_pair(*ns.begin(), true);
         } break;
         default: {
           return std::make_pair(end, false);
@@ -241,7 +243,8 @@ class CacheModel {
   class Set {
     friend class CacheModel;
 
-    Set(LineIterator begin, LineIterator end) : begin_(begin), end_(end) {}
+    Set(LineIterator begin, LineIterator end)
+        : begin_(begin), end_(end) {}
 
    public:
     // Iterator to the 'begin' line (the zeroth line in the set).

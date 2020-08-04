@@ -40,7 +40,7 @@ using namespace cc;
 //
 //
 enum class State {
-  X, I, IS, IE, S, E, M, O, OE
+  X, I, IS, IE, S, E, EI, M, O, OE
 };
 
 //
@@ -53,6 +53,7 @@ const char* to_string(State state) {
     case State::IE: return "IE";
     case State::S: return "S";
     case State::E: return "E";
+    case State::EI: return "EI";
     case State::M: return "M";
     case State::O: return "O";
     case State::OE: return "OE";
@@ -427,13 +428,12 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
       case State::E: {
         const bool requester_is_owner = false;
         if (!requester_is_owner) {
-          L2CmdRspMsg* msg = new L2CmdRspMsg;
-          msg->set_t(cmd->t());
           switch (opcode) {
             case L2CmdOpcode::L1GetS: {
               // Demote line in owner to Shared state, add requester to
               // set of sharers
-
+              L2CmdRspMsg* msg = new L2CmdRspMsg;
+              msg->set_t(cmd->t());
               // L1 lines become sharers
               issue_set_l1_shared_except(cl, tstate->l1cache());
               //cl.push_back(cb::from_opcode(L2Opcode::SetL1LinesShared));
@@ -444,8 +444,12 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
               issue_add_sharer(cl, line, tstate->l1cache());
               // Line becomes Shared
               issue_update_state(ctxt, cl, line, State::S);
+              // Issue response to L1.
+              issue_msg(cl, l2_l1__rsp_q, msg);
             } break;
             case L2CmdOpcode::L1GetE: {
+              L2CmdRspMsg* msg = new L2CmdRspMsg;
+              msg->set_t(cmd->t());
               // Requester becomes owner
               msg->set_is(false);
               // L1 lines become sharers
@@ -453,13 +457,35 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
               // Requester becomes owner
               issue_set_owner(cl, line, tstate->l1cache());
               // Line remains in Exclusive state
+              // Issue response to L1.
+              issue_msg(cl, l2_l1__rsp_q, msg);
+            } break;
+            case L2CmdOpcode::L1Put: {
+              const bool opt_silently_evict = false;
+              if (!opt_silently_evict) {
+                // Issue eviction notification to home directory. Line
+                // is not modified therefore no Write command is
+                // required.
+                // Issue Evict command to home directory.
+                AceCmdMsg* msg = new AceCmdMsg;
+                msg->set_t(cmd->t());
+                msg->set_addr(cmd->addr());
+                msg->set_opcode(AceCmdOpcode::Evict);
+                issue_msg(cl, ctxt.l2cache()->l2_cc__cmd_q(), msg);
+                // Transition to Exclusive -> Invalid state; awaiting
+                // receipt of AceCmdRspMsg for the Evict.
+                issue_update_state(ctxt, cl, line, State::EI);
+                // Current command commits:
+                cl.push_back(cb::from_opcode(L2Opcode::StartTransaction));
+              } else {
+                // Silently evict the cache line; line is clean with
+                // respect to memory therefore no writeback required.
+              }
             } break;
             default: {
               // Unknown command
             } break;
           }
-          // Issue response to L1.
-          issue_msg(cl, l2_l1__rsp_q, msg);
           // NOTE: no message to the cache controller therefore no
           // transaction starts.
           // Consume message; done
@@ -836,7 +862,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
     // keep out agents. The command therefore allows agent to retain
     // the line whereas all other will be invalidated.
     L2Command* cmd = cb::from_opcode(L2Opcode::SetL1LinesInvalid);
-    if constexpr (sizeof...(excluded)) {
+    if constexpr (sizeof...(excluded) != 0) {
       std::vector<L1CacheModel*>& agents = cmd->agents();
       for (const auto& agent : {excluded...}) {
         agents.push_back(agent);
@@ -850,7 +876,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
     // Demote L1 lines to Shared except Agents contains with in the
     // excluded set.
     L2Command* cmd = cb::from_opcode(L2Opcode::SetL1LinesShared);
-    if constexpr (sizeof...(excluded)) {
+    if constexpr (sizeof...(excluded) != 0) {
       std::vector<L1CacheModel*>& agents = cmd->agents();
       for (const auto& agent : {excluded...}) {
         agents.push_back(agent);

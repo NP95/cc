@@ -51,7 +51,14 @@ class L2TState;
 
 //
 //
-enum class L2CmdOpcode { L1GetS, L1GetE };
+enum class L2CmdOpcode {
+  // Obtain line in Shared State
+  L1GetS,
+  // Obtain line in Exclusive State
+  L1GetE,
+  // Evict line
+  L1Put
+};
 
 const char* to_string(L2CmdOpcode opcode);
 

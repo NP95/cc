@@ -303,7 +303,8 @@ class MOESICCProtocol : public CCProtocol {
   }
 
   void eval_msg(CCContext& ctxt, CCCommandList& cl, const AceCmdMsg* msg) const {
-    switch (msg->opcode()) {
+    const AceCmdOpcode opcode = msg->opcode();
+    switch (opcode) {
       case AceCmdOpcode::ReadShared: {
         const DirMapper* dm = ctxt.cc()->dm();
         
@@ -386,6 +387,31 @@ class MOESICCProtocol : public CCProtocol {
         cl.push_back(cb::from_opcode(CCOpcode::WaitNextEpochOrWait));
         // Update state
         issue_update_state(ctxt, cl, State::IE);
+      } break;
+      case AceCmdOpcode::Evict: {
+        const DirMapper* dm = ctxt.cc()->dm();
+        
+        CohSrtMsg* cohsrt = new CohSrtMsg;
+        cohsrt->set_t(msg->t());
+        cohsrt->set_origin(ctxt.cc());
+        cohsrt->set_addr(msg->addr());
+        issue_emit_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
+
+        CohCmdMsg* cohcmd = new CohCmdMsg;
+        cohcmd->set_t(msg->t());
+        cohcmd->set_opcode(msg->opcode());
+        cohcmd->set_origin(ctxt.cc());
+        cohcmd->set_addr(msg->addr());
+        issue_emit_to_noc(ctxt, cl, cohcmd, dm->lookup(msg->addr()));
+        issue_field_update(ctxt, cl, LineUpdate::SetAwaitingCmdMsgRsp);
+
+        // ACE command advances to active state; install entry within
+        // transaction table.
+        cl.push_back(cb::from_opcode(CCOpcode::StartTransaction));
+        // Consume ACE command
+        cl.push_back(cb::from_opcode(CCOpcode::MsgConsume));
+        // Advance to next
+        cl.push_back(cb::from_opcode(CCOpcode::WaitNextEpochOrWait));
       } break;
       default: {
         std::string name = "Unable to handle ACE command: ";

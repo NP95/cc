@@ -75,13 +75,15 @@ TEST(Evict111, LoadEvictOneLine) {
 
   const std::vector<const char*> trace = {
     "+200",
-    "C:0,ST,0x0000",
+    "C:0,LD,0x00000",
     "+200",
-    "C:0,ST,0x4000",
+    "C:0,LD,0x10000",
     "+200",
-    "C:0,ST,0x8000",
+    "C:0,LD,0x20000",
     "+200",
-    "C:0,ST,0xC000"
+    "C:0,LD,0x30000",
+    "+200",
+    "C:0,LD,0x40000"
   };
   // Build simple test configuration.
   test::build_config(cfg, 1, 1, 1, trace);
@@ -94,7 +96,7 @@ TEST(Evict111, LoadEvictOneLine) {
   EXPECT_NE(l1cache, nullptr);
 
 
-  for (std::size_t addr : {0x0000, 0x4000, 0x8000, 0xc000}) {
+  for (std::size_t addr : {0x0000, 0x10000, 0x20000, 0x30000}) {
     test::LineChecker checker(l1cache->cache(), addr);
     // Validate that cache has line installed.
     EXPECT_TRUE(checker.has_line());

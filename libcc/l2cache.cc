@@ -38,6 +38,8 @@ const char* to_string(L2CmdOpcode opcode) {
       return "L1GetS";
     case L2CmdOpcode::L1GetE:
       return "L1GetE";
+    case L2CmdOpcode::L1Put:
+      return "L1Put";
     default:
       return "Invalid";
   }
@@ -465,31 +467,54 @@ class L2CacheAgent::MainProcess : public AgentProcess {
 
     L2CacheModelSet set = cache->set(ah.set(cmd->addr()));
     L2CacheModelLineIt it = set.find(ah.tag(cmd->addr()));
-    if (it == set.end()) {
-      // Line for current address has not been found in the set,
-      // therefore a new line must either be installed or, if the set
-      // is currently full, another line must be nominated and
-      // evicted.
-      L2CacheModel::Evictor evictor;
-      if (const std::pair<L2CacheModelLineIt, bool> p =
-          evictor.nominate(set.begin(), set.end());
-          p.second) {
-        // Eviction required before command can complete.
-        // TODO
-      } else {
-        // Eviction not required for the command to complete.
-        line = protocol->construct_line();
-        ctxt.set_line(line);
-        ctxt.set_owns_line(true);
-        tstate->set_line(line);
-        protocol->apply(ctxt, cl);
-      }
-    } else {
-      // Line is present in the cache, apply state update.
-      line = it->t();
-      ctxt.set_line(line);
-      tstate->set_line(line);
-      protocol->apply(ctxt, cl);
+    const bool has_cache_line = (it != set.end());
+    const L2CmdOpcode opcode = cmd->opcode();
+    switch (opcode) {
+      case L2CmdOpcode::L1GetS:
+      case L2CmdOpcode::L1GetE: {
+        if (!has_cache_line) {
+          // Line for current address has not been found in the set,
+          // therefore a new line must either be installed or, if the set
+          // is currently full, another line must be nominated and
+          // evicted.
+          L2CacheModel::Evictor evictor;
+          if (const std::pair<L2CacheModelLineIt, bool> p =
+              evictor.nominate(set.begin(), set.end());
+              p.second) {
+            // Eviction required before command can complete.
+            // TODO
+          } else {
+            // Eviction not required for the command to complete.
+            line = protocol->construct_line();
+            ctxt.set_line(line);
+            ctxt.set_owns_line(true);
+            tstate->set_line(line);
+            protocol->apply(ctxt, cl);
+          }
+        } else {
+          // Line is present in the cache, apply state update.
+          line = it->t();
+          ctxt.set_line(line);
+          tstate->set_line(line);
+          protocol->apply(ctxt, cl);
+        }
+      } break;
+      case L2CmdOpcode::L1Put: {
+        if (has_cache_line) {
+          line = it->t();
+          ctxt.set_line(line);
+          tstate->set_line(line);
+          protocol->apply(ctxt, cl);
+        } else {
+          LogMessage msg("L1 requests eviction of line which is not present "
+                         "in L2; simulation assumes inclusive cache model.");
+          msg.level(Level::Fatal);
+          log(msg);
+        }
+      } break;
+      default: {
+        // Unknown opcode.
+      } break;
     }
   }
 
@@ -593,8 +618,7 @@ MessageQueueProxy* L2CacheAgent::l2_l1__rsp_q(L1CacheModel* l1cache) const {
   if (auto it = l2_l1__rsp_qs_.find(l1cache); it != l2_l1__rsp_qs_.end()) {
     proxy = it->second;
   } else {
-    LogMessage msg("Cannot find l2_lq__rsp_qs proxy instance for l1cache ");
-    msg.append(l1cache->path());
+    LogMessage msg("Cannot find l2_lq__rsp_qs proxy instance for l1cache.");
     msg.level(Level::Fatal);
     log(msg);
   }

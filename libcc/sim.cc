@@ -36,7 +36,8 @@ namespace cc {
 MessageQueue::MessageQueue(kernel::Kernel* k, const std::string& name,
                            std::size_t n)
     : Agent(k, name) {
-  build(n);
+  // TEMPORARY override N
+  build(100);
 }
 
 MessageQueue::~MessageQueue() {

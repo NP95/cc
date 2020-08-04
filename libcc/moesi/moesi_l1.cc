@@ -45,6 +45,7 @@ enum class State {
   SE,
   // Exclusive
   E,
+  EI,
   // Modified
   M,
   MI
@@ -56,10 +57,11 @@ const char* to_string(State state) {
   switch (state) {
     case State::I: return "I";
     case State::IS: return "IS";
+    case State::IE: return "IE";
     case State::S: return "S";
     case State::SE: return "SE";
-    case State::IE: return "IE";
     case State::E: return "E";
+    case State::EI: return "EI";
     case State::M: return "M";
     case State::MI: return "MI";
     default: return "Invalid";
@@ -168,7 +170,40 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
   //
   //
   void evict(L1CacheContext& c, L1CommandList& cl) const override {
-    // TODO
+    MOESIL1LineState* line = static_cast<MOESIL1LineState*>(c.line());
+    const State state = line->state();
+    switch (state) {
+      case State::E: {
+        // Evict line present in the Exclusive state. L2 should
+        // already have a recent upto date copy of the cache line,
+        // therefore no actual data needs to be written-back, however
+        // we inform L2 so that it may (conditionally) inform the home
+        // directory that the line is no longer present in the cache
+        // (when silent evictions are not allowed).
+
+        // Issue command notification to L2.
+        L2CmdMsg* cmd = new L2CmdMsg;
+        cmd->set_t(c.msg()->t());
+        cmd->set_addr(c.addr());
+        cmd->set_opcode(L2CmdOpcode::L1Put);
+        cmd->set_l1cache(c.l1cache());
+        issue_msg(cl, c.l1cache()->l1_l2__cmd_q(), cmd);
+        // Line transition to Invalid state.
+        issue_update_state(cl, line, State::EI);
+        // Start new transaction as we are awaiting the response from
+        // L2 before the line is evicted from the cache.
+        cl.push_back(cb::from_opcode(L1Opcode::TableInstall));
+        cl.push_back(cb::from_opcode(L1Opcode::TableGetCurrentState));
+        // Source Message Queue is blocked until the current
+        // transaction (lookup to L2) has completed.
+        cl.push_back(cb::from_opcode(L1Opcode::TableMqAddToBlockedList));
+        cl.push_back(cb::from_opcode(L1Opcode::MqSetBlocked));
+        // Advance to next
+        cl.push_back(cb::from_opcode(L1Opcode::WaitNextEpochOrWait));
+      } break;
+      default: {
+      } break;
+    }
   }
 
   //
@@ -186,8 +221,8 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
 
   void apply(L1CacheContext& c, L1CommandList& cl, MOESIL1LineState* line,
              const L1CmdMsg* msg) const {
-        
-    switch (line->state()) {
+    const State state = line->state();
+    switch (state) {
       case State::I: {
         // Emit request to L2.
         L2CmdMsg* l2cmdmsg = new L2CmdMsg();

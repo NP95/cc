@@ -484,6 +484,21 @@ class MOESIDirProtocol : public DirProtocol {
             cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
             cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
           } break;
+          case AceCmdOpcode::Evict: {
+            // Line is installed in the Exclusive state within the
+            // requester's cache. As the line is exclusive, remove the
+            // from the directory cache and issue a response.
+
+            // Issue coherence response, line has now been removed from cache.
+            CohEndMsg* end = new CohEndMsg;
+            end->set_t(end->t());
+
+            // Line becomes idle.
+            issue_update_state(ctxt, cl, State::I);
+            // TODO: remove line
+            cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
+            cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
+          } break;
           default: {
           } break;
         }

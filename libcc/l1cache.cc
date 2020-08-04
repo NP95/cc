@@ -471,7 +471,16 @@ class L1CacheModel::MainProcess : public AgentProcess {
       if (const std::pair<L1CacheLineIt, bool> p =
               evictor.nominate(set.begin(), set.end());
           p.second) {
-        // TODO
+        // Reconstruct line address from the set-id and the
+        // line-tag. This is a bit tricky as from the eviction
+        // nomination we only know the tag associated with the line,
+        // we need to reconstruct the full line-aligned address from
+        // the nominee and the set being addressed. This avoid having to
+        // associate the line address with each cache entry, which is not
+        // consistent with a hardware implementation.
+        ctxt.set_addr(ah.addr_from_set_tag(ah.set(cmd->addr()), p.first->tag()));
+        ctxt.set_line(p.first->t());
+        protocol->evict(ctxt, cl);
       } else {
         ctxt.set_line(protocol->construct_line());
         ctxt.set_owns_line(true);
