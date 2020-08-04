@@ -29,6 +29,7 @@
 #define CC_INCLUDE_CC_SOC_H
 
 #include "kernel.h"
+#include "cfgs.h"
 #include <string>
 
 namespace cc {
@@ -52,6 +53,9 @@ class SocTop : public kernel::TopModule {
 
   ~SocTop();
 
+  //
+  const SocConfig& cfg() const { return cfg_; }
+
  private:
   void build(const SocConfig& cfg);
 
@@ -73,12 +77,16 @@ class SocTop : public kernel::TopModule {
   std::vector<MemCntrlModel*> mms_;
   // Stimulus "module" instance.
   Stimulus* stimulus_;
+  // SOC configuration.
+  SocConfig cfg_;
 };
 
 class Soc {
  public:
   Soc(const SocConfig& soccfg);
   ~Soc();
+
+  const SocConfig& cfg() const { return top_->cfg(); }
 
   void initialize();
 

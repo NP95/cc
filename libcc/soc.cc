@@ -41,7 +41,7 @@
 namespace cc {
 
 SocTop::SocTop(kernel::Kernel* k, const SocConfig& cfg)
-    : TopModule(k, cfg.name) {
+    : TopModule(k, cfg.name), cfg_(cfg) {
   build(cfg);
 }
 

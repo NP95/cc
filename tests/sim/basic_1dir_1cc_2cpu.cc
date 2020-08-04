@@ -95,12 +95,8 @@ TEST(Basic112, Read0) {
 
   // Validate that cache line is in a readable state.
   EXPECT_TRUE(checker.line_is_readable());
-
-  // Line may or may not be in a writeable state at this point
-  // (ideally the line should be in a writeable state as it should be
-  // exclusive at this point, but this is not something that we
-  // specifically enforce).
 }
+
 TEST(Basic112, Read0Read0) {
   cc::kernel::Kernel k;
   cc::SocConfig cfg;
@@ -128,14 +124,9 @@ TEST(Basic112, Read0Read0) {
 
   // Validate that cache line is in a readable state.
   EXPECT_TRUE(checker.line_is_readable());
-
-  // Line may or may not be in a writeable state at this point
-  // (ideally the line should be in a writeable state as it should be
-  // exclusive at this point, but this is not something that we
-  // specifically enforce).
 }
 
-TEST(Basic112, SimpleReadCpu1) {
+TEST(Basic112, Read1) {
 
   cc::kernel::Kernel k;
   cc::SocConfig cfg;

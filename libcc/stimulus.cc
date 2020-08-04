@@ -167,8 +167,10 @@ void TraceStimulus::parse_tracefile() {
           ctxt.clear();
         } break;
         case State::InCmdAddr: {
-          cmd_ctxt.addr = std::stoi(ctxt);
-          // Issue completed command to CPU stimulus contexgt.
+          std::size_t num_chars = 0;
+          // Auto-detect radix.
+          cmd_ctxt.addr = std::stoi(ctxt, &num_chars, 0);
+          // Issue completed command to CPU stimulus context.
           Frontier f;
           f.time = kernel::Time{current_time, 0};
           f.cmd = Command(cmd_ctxt.opcode, cmd_ctxt.addr);
