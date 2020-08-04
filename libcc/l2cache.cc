@@ -300,7 +300,12 @@ class L2CommandInterpreter {
 
   void execute_set_l1_lines_shared(L2CacheContext& ctxt,
                                    const L2Command* cmd) const {
+    const std::vector<L1CacheModel*>& agents = cmd->agents();
     for (L1CacheModel* l1cache : ctxt.l2cache()->l1cs_) {
+      if (std::find(agents.begin(), agents.end(), l1cache) != agents.end()) {
+        // Agent in keep-out set.
+        continue;
+      }
       l1cache->set_cache_line_shared_or_invalid(ctxt.addr());
     }
   }
@@ -308,7 +313,14 @@ class L2CommandInterpreter {
 
   void execute_set_l1_lines_invalid(L2CacheContext& ctxt,
                                    const L2Command* cmd) const {
+    const std::vector<L1CacheModel*>& agents = cmd->agents();
     for (L1CacheModel* l1cache : ctxt.l2cache()->l1cs_) {
+      // Search agent 'keep-out' list such that we do not invalidate
+      // agents that we wish to retain, typically L1 which is about to
+      // receive exclusive ownership of the line.
+      if (std::find(agents.begin(), agents.end(), l1cache) != agents.end()) {
+        continue;
+      }
       l1cache->set_cache_line_shared_or_invalid(ctxt.addr(), false);
     }
   }

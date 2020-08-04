@@ -341,7 +341,8 @@ class MOESIL1CacheProtocol : public L1CacheModelProtocol {
 
   void apply(L1CacheContext& c, L1CommandList& cl, MOESIL1LineState* line,
              const L2CmdRspMsg* msg) const {
-    switch (line->state()) {
+    const State state = line->state();
+    switch (state) {
       case State::IS: {
         // Update state
         issue_update_state(cl, line, msg->is() ? State::S : State::E);

@@ -118,6 +118,11 @@ class LineState : public L2LineState {
     return success;
   }
 
+  // Clear sharer set
+  void clr_sharer() {
+    sharers_.clear();
+  }
+
  private:
   // Current line state
   State state_ = State::I;
@@ -133,6 +138,7 @@ enum class LineUpdate {
   DelOwner,
   AddSharer,
   DelSharer,
+  ClrSharer,
   Invalid
 };
 
@@ -148,6 +154,8 @@ const char* to_string(LineUpdate update) {
       return "AddSharer";
     case LineUpdate::DelSharer:
       return "DelSharer";
+    case LineUpdate::ClrSharer:
+      return "ClrSharer";
     case LineUpdate::Invalid:
     default:
       return "Invalid";
@@ -182,6 +190,9 @@ struct LineUpdateAction : public CoherenceAction {
       case LineUpdate::DelSharer: {
         r.add_field("action", "del_sharer");
       } break;
+      case LineUpdate::ClrSharer: {
+        r.add_field("action", "clr_sharer");
+      } break;
       default: {
       } break;
     }
@@ -208,6 +219,9 @@ struct LineUpdateAction : public CoherenceAction {
       } break;
       case LineUpdate::DelSharer: {
         line_->del_sharer(agent_);
+      } break;
+      case LineUpdate::ClrSharer: {
+        line_->clr_sharer();
       } break;
       default: {
       } break;
@@ -339,21 +353,37 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpoch));
       } break;
       case State::S: {
+        L2CmdRspMsg* msg = new L2CmdRspMsg;
+        msg->set_t(cmd->t());
         switch (opcode) {
           case L2CmdOpcode::L1GetS: {
-            // L1 requests a line which is already in the S-state.
-            L2CmdRspMsg* msg = new L2CmdRspMsg;
-            msg->set_t(cmd->t());
-            L2CacheAgent* l2cache = ctxt.l2cache();
-            issue_msg(cl, l2cache->l2_l1__rsp_q(0), msg);
-            // Consume L1Cmd as it can complete successfully.
-            cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
-            // Advance to next
-            cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpoch));
+            // Add agent to set of sharers
+            issue_add_sharer(cl, line, tstate->l1cache());
+            // L2 line remains in Shared state
+          } break;
+          case L2CmdOpcode::L1GetE: {
+            // Line is presently Shared in multiple L1. Requester
+            // requests line in Exclusive state. Requester may or may
+            // not already have the line in the Shared state. (TODO:
+            // might be some advantage to model the relative cost of
+            // transport delay in both the have and have-not line
+            // cases).
+            // Requester becomes owner
+            issue_set_owner(cl, line, tstate->l1cache());
+            // Invalid all other copies of line.
+            issue_set_l1_invalid_except(cl, tstate->l1cache());
+            // Line becomes Exclusive
+            issue_update_state(ctxt, cl, line, State::E);
           } break;
           default: {
           } break;
         }
+        // Issue response back to requester.
+        issue_msg(cl, l2_l1__rsp_q, msg);
+        // Consume L1Cmd as it can complete successfully.
+        cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
+        // Advance to next
+        cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpoch));
       } break;
       case State::O: {
         switch (opcode) {
@@ -405,7 +435,8 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
               // set of sharers
 
               // L1 lines become sharers
-              cl.push_back(cb::from_opcode(L2Opcode::SetL1LinesShared));
+              issue_set_l1_shared_except(cl, tstate->l1cache());
+              //cl.push_back(cb::from_opcode(L2Opcode::SetL1LinesShared));
               // Requester becomes sharer.
               msg->set_is(true);
               // No longer owning, therefore delete owner pointer.
@@ -418,7 +449,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
               // Requester becomes owner
               msg->set_is(false);
               // L1 lines become sharers
-              cl.push_back(cb::from_opcode(L2Opcode::SetL1LinesInvalid));
+              issue_set_l1_invalid_except(cl, tstate->l1cache());
               // Requester becomes owner
               issue_set_owner(cl, line, tstate->l1cache());
               // Line remains in Exclusive state
@@ -440,6 +471,63 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
           // which (although unexpected) probably okay if not
           // redundant. Command completes immediately as it is simply
           // a NOP.
+          L2CmdRspMsg* msg = new L2CmdRspMsg;
+          msg->set_t(cmd->t());
+          issue_msg(cl, l2_l1__rsp_q, msg);
+          // Consume message
+          cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
+          // Advance to next
+          cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpoch));
+        }
+      } break;
+      case State::M: {
+        const bool requester_is_owner = false;
+        if (!requester_is_owner) {
+          L2CmdRspMsg* msg = new L2CmdRspMsg;
+          msg->set_t(cmd->t());
+          switch (opcode) {
+            case L2CmdOpcode::L1GetS: {
+              // Requester requests line in the Shared state. Owning
+              // agent can retain line, but must demote the line from
+              // the Modified to Shared state. As the cache is
+              // write-through, L2 already has an up-to date copy of
+              // the modified data therefore we can simply modify the
+              // state in the owners L1.
+              msg->set_is(true);
+              // Current owner L1 relinqushes ownership.
+              issue_del_owner(cl, line);
+              // Add current requester to set of sharers for this
+              // line.
+              issue_add_sharer(cl, line, tstate->l1cache());
+              // State becomes Owned (still dirty with respect to
+              // memory).
+              issue_update_state(ctxt, cl, line, State::O);
+            } break;
+            case L2CmdOpcode::L1GetE: {
+              // Requester requests line in the Exclusive
+              // state. Owning cache must relinquish line and invalid
+              // its copy. Again, as the cache is write-through, L2
+              // already has the most recent state in its memory.
+              // Line is owned by requester
+              msg->set_is(false);
+              // Invalidate L1 copies.
+              issue_set_l1_invalid_except(cl, tstate->l1cache());
+              // Requester becomes owner
+              issue_set_owner(cl, line, tstate->l1cache());
+              // State remains modified.
+              issue_clr_sharer(cl, line);
+            } break;
+            default: {
+            } break;
+          }
+          // Issue response to requester.
+          issue_msg(cl, l2_l1__rsp_q, msg);
+          // Consume message; done
+          cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
+          // Advance to next
+          cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpoch));
+        } else {
+          // Otherwise, requester is currently owner.
           L2CmdRspMsg* msg = new L2CmdRspMsg;
           msg->set_t(cmd->t());
           issue_msg(cl, l2_l1__rsp_q, msg);
@@ -594,7 +682,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
 
               // Write-through cache, demote lines back to shared
               // state.
-              cl.push_back(cb::from_opcode(L2Opcode::SetL1LinesShared));
+              issue_set_l1_shared_except(cl);
             } else {
               rsp->set_dt(true);
               rsp->set_pd(true);
@@ -606,7 +694,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
 
               // Write-through cache, therefore immediately evict
               // lines from child L1 cache.
-              cl.push_back(cb::from_opcode(L2Opcode::SetL1LinesInvalid));
+              issue_set_l1_invalid_except(cl);
             }
           } break;
           default: {
@@ -651,7 +739,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         // Final state is Invalid
         issue_update_state(ctxt, cl, line, State::I);
         cl.push_back(cb::from_opcode(L2Opcode::RemoveLine));
-        cl.push_back(cb::from_opcode(L2Opcode::SetL1LinesInvalid));
+        issue_set_l1_invalid_except(cl);
         // Consume L1Cmd as it can complete successfully.
         cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
         cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpoch));
@@ -694,7 +782,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         // Final state is Invalid
         issue_update_state(ctxt, cl, line, State::I);
         cl.push_back(cb::from_opcode(L2Opcode::RemoveLine));
-        cl.push_back(cb::from_opcode(L2Opcode::SetL1LinesInvalid));
+        issue_set_l1_invalid_except(cl);
         // Consume L1Cmd as it can complete successfully.
         cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
         cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpoch));
@@ -734,6 +822,41 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         new LineUpdateAction(line, LineUpdate::SetOwner);
     update->set_agent(agent);
     cl.push_back(cb::from_action(update));
+  }
+
+  void issue_clr_sharer(L2CommandList& cl, LineState* line) const {
+    LineUpdateAction* update =
+        new LineUpdateAction(line, LineUpdate::ClrSharer);
+    cl.push_back(cb::from_action(update));
+  }
+
+  template<typename ...AGENT>
+  void issue_set_l1_invalid_except(L2CommandList& cl, AGENT... excluded) const {
+    // Issue L1 invalidate of current line, but add "agent" to set of
+    // keep out agents. The command therefore allows agent to retain
+    // the line whereas all other will be invalidated.
+    L2Command* cmd = cb::from_opcode(L2Opcode::SetL1LinesInvalid);
+    if constexpr (sizeof...(excluded)) {
+      std::vector<L1CacheModel*>& agents = cmd->agents();
+      for (const auto& agent : {excluded...}) {
+        agents.push_back(agent);
+      }
+    }
+    cl.push_back(cmd);
+  }
+
+  template<typename ...AGENT>
+  void issue_set_l1_shared_except(L2CommandList& cl, AGENT... excluded) const {
+    // Demote L1 lines to Shared except Agents contains with in the
+    // excluded set.
+    L2Command* cmd = cb::from_opcode(L2Opcode::SetL1LinesShared);
+    if constexpr (sizeof...(excluded)) {
+      std::vector<L1CacheModel*>& agents = cmd->agents();
+      for (const auto& agent : {excluded...}) {
+        agents.push_back(agent);
+      }
+    }
+    cl.push_back(cmd);
   }
 };
 

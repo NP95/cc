@@ -144,16 +144,24 @@ class L2Command {
 
   std::string to_string() const;
 
+  // Command opcode
   L2Opcode opcode() const { return opcode_; }
+  // Command Coherence action
   CoherenceAction* action() const { return oprands.coh.action; }
+  // "Agent" keep out list.
+  std::vector<L1CacheModel*>& agents() { return oprands.l1inv.agents; }
+  const std::vector<L1CacheModel*>& agents() const { return oprands.l1inv.agents; }
 
  private:
   virtual ~L2Command();
   //
-  union {
+  struct {
     struct {
       CoherenceAction* action;
     } coh;
+    struct {
+      std::vector<L1CacheModel*> agents;
+    } l1inv;
   } oprands;
   //
   L2Opcode opcode_;
@@ -183,9 +191,11 @@ class L2CommandList {
   const_iterator begin() const { return cmds_.begin(); }
   const_iterator end() const { return cmds_.end(); }
 
+  //
   void push_back(L2Command* cmd);
 
  private:
+  // Command List
   std::vector<L2Command*> cmds_;
 };
 

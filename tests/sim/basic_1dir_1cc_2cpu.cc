@@ -66,12 +66,11 @@ class SocModel {
   cc::Stimulus* stimulus_ = nullptr;
 };
 
-/*
 // Perform a single load to L1 (the only L1 in the system). The line
 // should arrived in either the shared or the exclusive state. The
 // load instruction should not consequently commit to the machine
 // state.
-TEST(Basic112, SimpleReadCpu0) {
+TEST(Basic112, Read0) {
   cc::kernel::Kernel k;
   cc::SocConfig cfg;
 
@@ -142,9 +141,8 @@ TEST(Basic112, SimpleReadCpu1) {
   // Validate that cache line is in a readable state.
   EXPECT_TRUE(checker.line_is_readable());
 }
-*/
 
-TEST(Basic112, SimpleReadCpu0Cpu1) {
+TEST(Basic112, Read0Read1) {
 
   cc::kernel::Kernel k;
   cc::SocConfig cfg;
@@ -191,4 +189,97 @@ TEST(Basic112, SimpleReadCpu0Cpu1) {
 
   // Validate that cache line is in a readable state.
   EXPECT_TRUE(checker1.line_is_readable());
+}
+
+TEST(Basic112, Write0Write1) {
+
+  cc::kernel::Kernel k;
+  cc::SocConfig cfg;
+
+  // Test program:
+  //
+  //  1) Advance 200 time-units.
+  //
+  //  2) Issue a load instruction from CPU 0 to address 0x0.
+  //
+  const std::vector<const char*> trace = {
+    "+200",
+    "C:0,ST,0",
+    "+200",
+    "C:1,ST,0"
+  };
+  // Build simple test configuration.
+  test::build_config(cfg, 1, 1, 2, trace);
+  SocModel soc(&k, cfg);
+  soc.run();
+
+  // Lookup L1 cache model instance where we expect to find the line.
+  const cc::L1CacheModel* l1cache0 =
+      soc.get_object_as<cc::L1CacheModel*>("top.cluster0.l1cache0");
+  EXPECT_NE(l1cache0, nullptr);
+
+  test::LineChecker checker0(l1cache0->cache(), 0);
+
+  // Validate that cache has line installed.
+  EXPECT_TRUE(!checker0.has_line());
+
+  // Lookup L1 cache model instance where we expect to find the line.
+  const cc::L1CacheModel* l1cache1 =
+      soc.get_object_as<cc::L1CacheModel*>("top.cluster0.l1cache1");
+  EXPECT_NE(l1cache1, nullptr);
+
+  test::LineChecker checker1(l1cache1->cache(), 0);
+
+  // Validate that cache has line installed.
+  EXPECT_TRUE(checker1.has_line());
+
+  // Validate that cache line is in a readable state.
+  EXPECT_TRUE(checker1.line_is_readable());
+  EXPECT_TRUE(checker1.line_is_writeable());
+}
+
+TEST(Basic112, Read0Read1Write0) {
+
+  cc::kernel::Kernel k;
+  cc::SocConfig cfg;
+
+  // Test program:
+  //
+  //  1) Advance 200 time-units.
+  //
+  //  2) Issue a load instruction from CPU 0 to address 0x0.
+  //
+  const std::vector<const char*> trace = {
+    "+200",
+    "C:0,LD,0",
+    "+200",
+    "C:1,LD,0",
+    "+200",
+    "C:0,ST,0"
+  };
+  // Build simple test configuration.
+  test::build_config(cfg, 1, 1, 2, trace);
+  SocModel soc(&k, cfg);
+  soc.run();
+
+  // Lookup L1 cache model instance where we expect to find the line.
+  const cc::L1CacheModel* l1cache0 =
+      soc.get_object_as<cc::L1CacheModel*>("top.cluster0.l1cache0");
+  EXPECT_NE(l1cache0, nullptr);
+
+  test::LineChecker checker0(l1cache0->cache(), 0);
+
+  // Validate that cache has line installed.
+  EXPECT_TRUE(checker0.has_line());
+  EXPECT_TRUE(checker0.line_is_writeable());
+
+  // Lookup L1 cache model instance where we expect to find the line.
+  const cc::L1CacheModel* l1cache1 =
+      soc.get_object_as<cc::L1CacheModel*>("top.cluster0.l1cache1");
+  EXPECT_NE(l1cache1, nullptr);
+
+  test::LineChecker checker1(l1cache1->cache(), 0);
+
+  // Validate that cache has line installed.
+  EXPECT_TRUE(!checker1.has_line());
 }
