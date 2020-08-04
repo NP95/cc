@@ -185,7 +185,6 @@ void Cpu::set_stimulus(StimulusContext* stimulus) {
   }
 
   stimulus_ = stimulus;
-  add_child_module(stimulus_);
   // Construct producer thread
   pp_ = new ProducerProcess(k(), "producer", this);
   add_child_process(pp_);
