@@ -45,6 +45,8 @@ const char* to_string(L1CmdOpcode opcode) {
       return "CpuLoad";
     case L1CmdOpcode::CpuStore:
       return "CpuStore";
+    case L1CmdOpcode::Invalid:
+      return "Invalid";
     default:
       return "Invalid";
   }

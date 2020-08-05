@@ -45,7 +45,18 @@ class L2CacheAgent;
 class L1LineState;
 class CoherenceAction;
 
-enum class L1CmdOpcode { CpuLoad, CpuStore };
+enum class L1CmdOpcode {
+  // CPU initiates a Load to a region of memory of some unspecified
+  // length, but entirely encapsulated within a single cache line.
+  CpuLoad,
+
+  // CPU instiates a Store to a region of memory of some unspecified
+  // length, but entirely encapsulated within a single cache line.
+  CpuStore,
+
+  // Invalid CPU command; default, placeholder state.
+  Invalid
+};
 
 //
 //
@@ -65,7 +76,10 @@ class L1CmdMsg : public Message {
   void set_addr(addr_t addr) { addr_ = addr; }
 
  private:
-  L1CmdOpcode opcode_;
+  // Current command opcode
+  L1CmdOpcode opcode_ = L1CmdOpcode::Invalid;
+
+  // Current command address
   addr_t addr_;
 };
 
@@ -232,26 +246,20 @@ class L1TState {
   // Command opcode.
   void set_opcode(L1CmdOpcode opcode) { opcode_ = opcode; }
 
-  void add_blocked_mq(MessageQueue* mq) { mqs_.push_back(mq); }
-
-  const std::vector<MessageQueue*>& mq() const { return mqs_; }
-
  private:
   virtual ~L1TState();
   
   // Transaction event instances.
-  kernel::Event* transaction_start_;
-  kernel::Event* transaction_end_;
+  kernel::Event* transaction_start_ = nullptr;
+  kernel::Event* transaction_end_ = nullptr;
   // Transaction address
   addr_t addr_;
   // Initiator command opcode
-  L1CmdOpcode opcode_;
+  L1CmdOpcode opcode_ = L1CmdOpcode::Invalid;
   // Cache line on which current transaction is executing. (Can
   // otherwise be recovered from the address, but this simply saves
   // the lookup into the cache structure).
   L1LineState* line_ = nullptr;
-  //
-  std::vector<MessageQueue*> mqs_;
 };
 
 //
