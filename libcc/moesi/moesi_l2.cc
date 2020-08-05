@@ -314,11 +314,16 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
   void apply(L2CacheContext& ctxt, L2CommandList& cl, LineState* line,
              const L2CmdMsg* cmd) const {
 
+    // Update Transaction State with data snooped from command message.
     L2TState* tstate = ctxt.tstate();
-    L2CacheAgent* l2cache = ctxt.l2cache();
-    // Lookup L2 to L1 response queue keyed on origin agent.
-    MessageQueueProxy* l2_l1__rsp_q = l2cache->l2_l1__rsp_q(tstate->l1cache());
+    tstate->set_addr(cmd->addr());
+    tstate->set_l1cache(cmd->l1cache());
+    tstate->set_opcode(cmd->opcode());
 
+    // Lookup L2 to L1 response queue keyed on origin agent.
+    MessageQueueProxy* l2_l1__rsp_q =
+        ctxt.l2cache()->l2_l1__rsp_q(tstate->l1cache());
+    
     const L2CmdOpcode opcode = cmd->opcode();
     const State state = line->state();
     switch (state) {
@@ -338,6 +343,8 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
             msg->set_opcode(AceCmdOpcode::ReadUnique);
             // Update state
             issue_update_state(ctxt, cl, line, State::IE);
+          } break;
+          default: {
           } break;
         }
         // Issue ACE command to the cache controller.
@@ -570,12 +577,12 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
 
   void apply(L2CacheContext& ctxt, L2CommandList& cl,
              LineState* line, const AceCmdRspMsg* msg) const {
-
     L2TState* tstate = ctxt.tstate();
-    L2CacheAgent* l2cache = ctxt.l2cache();
     // Lookup L2 to L1 response queue keyed on origin agent.
-    MessageQueueProxy* l2_l1__rsp_q = l2cache->l2_l1__rsp_q(tstate->l1cache());
+    MessageQueueProxy* l2_l1__rsp_q =
+        ctxt.l2cache()->l2_l1__rsp_q(tstate->l1cache());
 
+    const L2CmdOpcode opcode = tstate->opcode();
     const State state = line->state();
     switch (state) {
       case State::IS: {
@@ -639,6 +646,40 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
         // Advance to next
         cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpoch));
+      } break;
+      case State::EI: {
+        // Exclusive -> Invalid:
+        //
+        // ARC from Exclusive to Invalid state; in response from an
+        // eviction request from a line in the Exclusive state. ARC
+        // cannot be entered from a Write{Back,Clean} transaction as
+        // this would imply that the line was dirty.
+        //
+        // Response received from home directory indicating that line
+        // has now been evicted.
+        switch (opcode) {
+          case L2CmdOpcode::L1Put: {
+            // Inform L2 requestor (as per. AMBA spec. a empty "dummy"
+            // response message is returned."
+            L2CmdRspMsg* rsp = new L2CmdRspMsg;
+            rsp->set_t(msg->t());
+            issue_msg(cl, l2_l1__rsp_q, rsp);
+
+            // Line becomes Invalid in the cache. The line is also
+            // subsequently removed from the cache.
+            issue_update_state(ctxt, cl, line, State::I);
+            cl.push_back(cb::from_opcode(L2Opcode::RemoveLine));
+
+            // Transaction ends
+            cl.push_back(cb::from_opcode(L2Opcode::StartTransaction));
+            // Consume message
+            cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
+            // Advance to next
+            cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpoch));
+          } break;
+          default: {
+          } break;
+        }
       } break;
       default: {
       } break;
@@ -863,7 +904,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
     // the line whereas all other will be invalidated.
     L2Command* cmd = cb::from_opcode(L2Opcode::SetL1LinesInvalid);
     if constexpr (sizeof...(excluded) != 0) {
-      std::vector<L1CacheModel*>& agents = cmd->agents();
+      std::vector<L1CacheAgent*>& agents = cmd->agents();
       for (const auto& agent : {excluded...}) {
         agents.push_back(agent);
       }
@@ -877,7 +918,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
     // excluded set.
     L2Command* cmd = cb::from_opcode(L2Opcode::SetL1LinesShared);
     if constexpr (sizeof...(excluded) != 0) {
-      std::vector<L1CacheModel*>& agents = cmd->agents();
+      std::vector<L1CacheAgent*>& agents = cmd->agents();
       for (const auto& agent : {excluded...}) {
         agents.push_back(agent);
       }

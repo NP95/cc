@@ -42,12 +42,28 @@ namespace cc {
 
 const char* to_string(DirOpcode opcode) {
   switch (opcode) {
-#define __declare_to_string(__name)              \
-    case DirOpcode::__name:                      \
-      return #__name;
-    DIROPCODE_LIST(__declare_to_string)
-#undef __declare_to_string
-    default: return "Invalid";
+    case DirOpcode::StartTransaction:
+      return "StartTransaction";
+    case DirOpcode::EndTransaction:
+      return "EndTransaction";
+    case DirOpcode::MsgConsume:
+      return "MsgConsume";
+    case DirOpcode::RemoveLine:
+      return "RemoveLine";
+    case DirOpcode::MqSetBlockedOnTransaction:
+      return "MqSetBlockedOnTransaction";
+    case DirOpcode::MqSetBlockedOnTable:
+      return "MqSetBlockedOnTable";
+    case DirOpcode::InvokeCoherenceAction:
+      return "InvokeCoherenceAction";
+    case DirOpcode::WaitOnMsg:
+      return "WaitOnMsg";
+    case DirOpcode::WaitOnMsgOrNextEpoch:
+      return "WaitOnMsgOrNextEpoch";
+    case DirOpcode::Invalid:
+      return "Invalid";
+    default:
+      return "Invalid";
   }
 }
 
@@ -125,19 +141,41 @@ class DirCommandInterpreter {
   void set_process(AgentProcess* process) { process_ = process; }
 
   void execute(DirContext& ctxt, const DirCommand* cmd) {
+    const DirOpcode opcode = cmd->opcode();
     switch (cmd->opcode()) {
+      case DirOpcode::StartTransaction: {
+        execute_start_transaction(ctxt, cmd);
+      } break;
+      case DirOpcode::EndTransaction: {
+        execute_end_transaction(ctxt, cmd);
+      } break;
+      case DirOpcode::MsgConsume: {
+        execute_msg_consume(ctxt, cmd);
+      } break;
+      case DirOpcode::RemoveLine: {
+        execute_remove_line(ctxt, cmd);
+      } break;
+      case DirOpcode::MqSetBlockedOnTransaction: {
+        execute_mq_set_blocked_on_transaction(ctxt, cmd);
+      } break;
+      case DirOpcode::MqSetBlockedOnTable: {
+        execute_mq_set_blocked_on_table(ctxt, cmd);
+      } break;
+      case DirOpcode::InvokeCoherenceAction: {
+        execute_invoke_coherence_action(ctxt, cmd);
+      } break;
+      case DirOpcode::WaitOnMsg: {
+        execute_wait_on_msg(ctxt, cmd);
+      } break;
+      case DirOpcode::WaitOnMsgOrNextEpoch: {
+        execute_wait_on_msg_or_next_epoch(ctxt, cmd);
+      } break;
       default: {
       } break;
-#define __declare_dispatcher(__name)            \
-        case DirOpcode::__name:                 \
-          execute##__name(ctxt, cmd);           \
-          break;
-        DIROPCODE_LIST(__declare_dispatcher)
-#undef __declare_dispatcher
     }
   }
  private:
-  void executeStartTransaction(DirContext& ctxt, const DirCommand* cmd) {
+  void execute_start_transaction(DirContext& ctxt, const DirCommand* cmd) {
     DirTState* tstate = ctxt.tstate();
     
     // Install in the transaction table.
@@ -149,8 +187,9 @@ class DirCommandInterpreter {
       // Install line in the dache.
       DirCacheModel* cache = model_->cache();
       const CacheAddressHelper ah = cache->ah();
-      DirCacheSet set = cache->set(ah.set(tstate->addr()));
-      if (DirCacheLineIt it = set.find(ah.tag(tstate->addr())); it == set.end()) {
+      DirCacheModelSet set = cache->set(ah.set(tstate->addr()));
+      if (DirCacheModelLineIt it = set.find(ah.tag(tstate->addr()));
+          it == set.end()) {
         DirCacheModel::Evictor evictor;
         if (auto p = evictor.nominate(set.begin(), set.end()); !p.second) {
           // A way in the set has been nominated, install cache line.
@@ -171,7 +210,7 @@ class DirCommandInterpreter {
     tstate->transaction_start()->notify();
   }
   
-  void executeEndTransaction(DirContext& ctxt, const DirCommand* cmd) {
+  void execute_end_transaction(DirContext& ctxt, const DirCommand* cmd) {
     // Notify transaction event event; unblocks message queues
     // awaiting completion of current transaction.
     ctxt.tstate()->transaction_end()->notify();
@@ -181,7 +220,7 @@ class DirCommandInterpreter {
     ctxt.tstate()->release();
   }
 
-  void executeMsgConsume(DirContext& ctxt, const DirCommand* cmd) {
+  void execute_msg_consume(DirContext& ctxt, const DirCommand* cmd) {
     // Dequeue and release the head message of the currently
     // addressed Message Queue.
     const Message* msg = ctxt.mq()->dequeue();
@@ -189,34 +228,47 @@ class DirCommandInterpreter {
     ctxt.t().advance();
   }
 
-  void executeInvokeCoherenceAction(DirContext& ctxt, const DirCommand* cmd) {
+  void execute_remove_line(DirContext& ctxt, const DirCommand* cmd) {
+    DirCacheModel* cache = model_->cache();
+    const CacheAddressHelper ah = cache->ah();
+    DirCacheModelSet set = cache->set(ah.set(ctxt.addr()));
+    if (auto it = set.find(ah.tag(ctxt.addr()));  it != set.end()) {
+      set.evict(it);
+    } else {
+      throw std::runtime_error("Cannot remove line, line is not present.");
+    }
+  }
+
+  void execute_invoke_coherence_action(DirContext& ctxt, const DirCommand* cmd) {
     CoherenceAction* action = cmd->action();
     action->execute();
   }
   
-  void executeMqSetBlockedOnTransaction(DirContext& ctxt, const DirCommand* cmd) {
+  void execute_mq_set_blocked_on_transaction(DirContext& ctxt,
+                                             const DirCommand* cmd) {
     ctxt.mq()->set_blocked_until(ctxt.tstate()->transaction_end());
   }
 
-  void executeMqSetBlockedOnTable(DirContext& ctxt, const DirCommand* cmd) {
+  void execute_mq_set_blocked_on_table(DirContext& ctxt, const DirCommand* cmd) {
     ctxt.mq()->set_blocked_until(model_->tt()->non_full_event());
   }  
   
-  void executeWaitOnMsg(DirContext& ctxt, const DirCommand* cmd) const {
+  void execute_wait_on_msg(DirContext& ctxt, const DirCommand* cmd) const {
     // Set wait state of current process; await the arrival of a
     // new message.
     MQArb* arb = model_->arb();
     process_->wait_on(arb->request_arrival_event());
   }
 
-  void executeWaitOnMsgOrNextEpoch(DirContext& ctxt, const DirCommand* cmd) const {
+  void execute_wait_on_msg_or_next_epoch(DirContext& ctxt,
+                                         const DirCommand* cmd) const {
     MQArb* arb = model_->arb();
     MQArbTmt t = arb->tournament();
     if (t.has_requester()) {
       process_->wait_for(kernel::Time{10, 0});
     } else {
       // Otherwise, block process until a new message arrives.
-      executeWaitOnMsg(ctxt, cmd);
+      execute_wait_on_msg(ctxt, cmd);
     }
   }
 
@@ -352,8 +404,9 @@ class DirModel::RdisProcess : public AgentProcess {
     DirTState* tstate = new DirTState(k());
     tstate->set_addr(msg->addr());
     tstate->set_origin(msg->origin());
-    DirCacheSet set = cache->set(ah.set(tstate->addr()));
-    if (DirCacheLineIt it = set.find(ah.tag(tstate->addr())); it == set.end()) {
+    DirCacheModelSet set = cache->set(ah.set(tstate->addr()));
+    if (DirCacheModelLineIt it = set.find(ah.tag(tstate->addr()));
+        it == set.end()) {
       // Line is not present in the cache.
       DirCacheModel::Evictor evictor;
       if (auto p = evictor.nominate(set.begin(), set.end()); p.second) {
@@ -381,8 +434,9 @@ class DirModel::RdisProcess : public AgentProcess {
     DirTState* tstate = lookup_state_or_fatal(ctxt.msg()->t());
     const Message* msg = ctxt.mq()->peek();
     if (msg->cls() == MessageClass::CohCmd) {
-      // Grab the opcode on the initial command.
+      // Grab anciliary state on the Coherence Command message.
       const CohCmdMsg* coh = static_cast<const CohCmdMsg*>(msg);
+      tstate->set_addr(coh->addr());
       tstate->set_opcode(coh->opcode());
     }
     ctxt.set_tstate(tstate);

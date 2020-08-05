@@ -86,8 +86,8 @@ TEST(Basic121, SimpleRead) {
   soc.run();
 
   // Lookup L1 cache model instance where we expect to find the line.
-  const cc::L1CacheModel* l1cache =
-      soc.get_object_as<cc::L1CacheModel*>("top.cluster0.l1cache0");
+  const cc::L1CacheAgent* l1cache =
+      soc.get_object_as<cc::L1CacheAgent*>("top.cluster0.l1cache0");
   EXPECT_NE(l1cache, nullptr);
 
   test::LineChecker checker(l1cache->cache(), 0);
@@ -119,8 +119,8 @@ TEST(Basic121, SimpleWrite) {
   soc.run();
 
   // Lookup L1 cache model instance where we expect to find the line.
-  const cc::L1CacheModel* l1cache =
-      soc.get_object_as<cc::L1CacheModel*>("top.cluster0.l1cache0");
+  const cc::L1CacheAgent* l1cache =
+      soc.get_object_as<cc::L1CacheAgent*>("top.cluster0.l1cache0");
   EXPECT_NE(l1cache, nullptr);
 
   test::LineChecker checker(l1cache->cache(), 0);
@@ -156,8 +156,8 @@ TEST(Basic121, SimpleRead2Cpu) {
   soc.run();
 
   // Lookup L1 cache model instance where we expect to find the line.
-  const cc::L1CacheModel* l1c0 =
-      soc.get_object_as<cc::L1CacheModel*>("top.cluster0.l1cache0");
+  const cc::L1CacheAgent* l1c0 =
+      soc.get_object_as<cc::L1CacheAgent*>("top.cluster0.l1cache0");
   EXPECT_NE(l1c0, nullptr);
   const test::LineChecker checker0(l1c0->cache(), 0);
 
@@ -167,8 +167,8 @@ TEST(Basic121, SimpleRead2Cpu) {
   // Validate that cache line is in a readable state.
   EXPECT_TRUE(checker0.line_is_readable());
 
-  const cc::L1CacheModel* l1c1 =
-      soc.get_object_as<cc::L1CacheModel*>("top.cluster1.l1cache0");
+  const cc::L1CacheAgent* l1c1 =
+      soc.get_object_as<cc::L1CacheAgent*>("top.cluster1.l1cache0");
   EXPECT_NE(l1c1, nullptr);
   const test::LineChecker checker1(l1c1->cache(), 0);
 
@@ -200,8 +200,8 @@ TEST(Basic121, SimpleWriteRead) {
   soc.run();
 
   // Lookup L1 cache model instance where we expect to find the line.
-  const cc::L1CacheModel* l1c0 =
-      soc.get_object_as<cc::L1CacheModel*>("top.cluster0.l1cache0");
+  const cc::L1CacheAgent* l1c0 =
+      soc.get_object_as<cc::L1CacheAgent*>("top.cluster0.l1cache0");
   EXPECT_NE(l1c0, nullptr);
   const test::LineChecker checker0(l1c0->cache(), 0);
 
@@ -211,8 +211,8 @@ TEST(Basic121, SimpleWriteRead) {
   // Validate that cache line is in a readable state.
   EXPECT_TRUE(!checker0.line_is_writeable());
 
-  const cc::L1CacheModel* l1c1 =
-      soc.get_object_as<cc::L1CacheModel*>("top.cluster1.l1cache0");
+  const cc::L1CacheAgent* l1c1 =
+      soc.get_object_as<cc::L1CacheAgent*>("top.cluster1.l1cache0");
   EXPECT_NE(l1c1, nullptr);
   const test::LineChecker checker1(l1c1->cache(), 0);
 
@@ -255,16 +255,16 @@ TEST(Basic121, SimpleWriteWrite) {
   soc.run();
 
   // Lookup L1 cache model instance where we expect to find the line.
-  const cc::L1CacheModel* l1c0 =
-      soc.get_object_as<cc::L1CacheModel*>("top.cluster0.l1cache0");
+  const cc::L1CacheAgent* l1c0 =
+      soc.get_object_as<cc::L1CacheAgent*>("top.cluster0.l1cache0");
   EXPECT_NE(l1c0, nullptr);
   const test::LineChecker checker0(l1c0->cache(), 0);
 
   // Validate that cache has line installed.
   EXPECT_TRUE(!checker0.has_line());
 
-  const cc::L1CacheModel* l1c1 =
-      soc.get_object_as<cc::L1CacheModel*>("top.cluster1.l1cache0");
+  const cc::L1CacheAgent* l1c1 =
+      soc.get_object_as<cc::L1CacheAgent*>("top.cluster1.l1cache0");
   EXPECT_NE(l1c1, nullptr);
   const test::LineChecker checker1(l1c1->cache(), 0);
 
@@ -310,8 +310,8 @@ TEST(Basic121, SimpleWriteReadWrite) {
   soc.run();
 
   // Lookup L1 cache model instance where we expect to find the line.
-  const cc::L1CacheModel* l1c0 =
-      soc.get_object_as<cc::L1CacheModel*>("top.cluster0.l1cache0");
+  const cc::L1CacheAgent* l1c0 =
+      soc.get_object_as<cc::L1CacheAgent*>("top.cluster0.l1cache0");
   EXPECT_NE(l1c0, nullptr);
   const test::LineChecker checker0(l1c0->cache(), 0);
 
@@ -319,8 +319,8 @@ TEST(Basic121, SimpleWriteReadWrite) {
   EXPECT_TRUE( checker0.has_line());
   EXPECT_TRUE( checker0.line_is_writeable());
 
-  const cc::L1CacheModel* l1c1 =
-      soc.get_object_as<cc::L1CacheModel*>("top.cluster1.l1cache0");
+  const cc::L1CacheAgent* l1c1 =
+      soc.get_object_as<cc::L1CacheAgent*>("top.cluster1.l1cache0");
   EXPECT_NE(l1c1, nullptr);
   const test::LineChecker checker1(l1c1->cache(), 0);
 

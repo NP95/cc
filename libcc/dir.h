@@ -47,21 +47,17 @@ class CoherenceList;
 class CoherenceAction;
 class DirNocEndpoint;
 
-#define DIROPCODE_LIST(__func)                  \
-  __func(StartTransaction)                      \
-  __func(EndTransaction)                        \
-  __func(MsgConsume)                            \
-  __func(MqSetBlockedOnTransaction)             \
-  __func(MqSetBlockedOnTable)                   \
-  __func(InvokeCoherenceAction)                 \
-  __func(WaitOnMsg)                             \
-  __func(WaitOnMsgOrNextEpoch)
-
-
 enum class DirOpcode {
-#define __declare_opcode(__name) __name,
-  DIROPCODE_LIST(__declare_opcode)
-#undef __declare_opcode
+  StartTransaction,
+  EndTransaction,
+  MsgConsume,
+  RemoveLine,
+  MqSetBlockedOnTransaction,
+  MqSetBlockedOnTable,
+  InvokeCoherenceAction,
+  WaitOnMsg,
+  WaitOnMsgOrNextEpoch,
+  Invalid
 };
 
 const char* to_string(DirOpcode opcode);
@@ -177,9 +173,9 @@ class DirTState {
 // Cache data type
 using DirCacheModel = CacheModel<DirLineState*>;
 // Cache Set data type
-using DirCacheSet = DirCacheModel::Set;
+using DirCacheModelSet = DirCacheModel::Set;
 // Cache Line Iterator type.
-using DirCacheLineIt = DirCacheModel::LineIterator;
+using DirCacheModelLineIt = DirCacheModel::LineIterator;
 //
 using DirTTable = Table<Transaction*, DirTState*>;
 
@@ -191,6 +187,7 @@ class DirContext {
   ~DirContext();
 
   //
+  addr_t addr() const { return addr_; }
   MQArbTmt t() const { return t_; }
   const Message* msg() const { return mq_->peek(); }
   MessageQueue* mq() const { return mq_; }
@@ -200,6 +197,7 @@ class DirContext {
   bool owns_line() const { return owns_line_; }
 
   //
+  void set_addr(addr_t addr) { addr_ = addr; }
   void set_t(MQArbTmt t) { t_ = t; }
   void set_mq(MessageQueue* mq) { mq_ = mq; }
   void set_dir(DirModel* dir) { dir_ = dir; }
@@ -208,6 +206,8 @@ class DirContext {
   void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
 
  private:
+  // Current address of interest.
+  addr_t addr_ = 0;
   // Current Message Queue arbiter tournament.
   MQArbTmt t_;
   // Current Message Queue

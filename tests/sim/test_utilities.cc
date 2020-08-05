@@ -48,7 +48,7 @@ void build_config(cc::SocConfig& cfg, std::size_t dir_n,
     cpuc_cfg.l2c_config = l2c_config;
 
     for (std::size_t cpu = 0; cpu < cpu_n; cpu++) {
-      cc::L1CacheModelConfig l1c_config;
+      cc::L1CacheAgentConfig l1c_config;
       l1c_config.name += std::to_string(cpu);
       l1c_config.pbuilder = pb;
       cpuc_cfg.l1c_configs.push_back(l1c_config);

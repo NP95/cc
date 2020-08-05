@@ -40,7 +40,7 @@ namespace cc {
 
 // Forwards
 class Message;
-class L1CacheModel;
+class L1CacheAgent;
 class MessageQueue;
 class StimulusContext;
 
@@ -79,7 +79,7 @@ class Cpu : public Agent {
   // Elaboration:
   void elab() override;
   // Set parent L1 cache instance.
-  void set_l1c(L1CacheModel* l1c) { l1c_ = l1c; }
+  void set_l1c(L1CacheAgent* l1c) { l1c_ = l1c; }
   // Set CPU -> L1 command queue
   void set_cpu_l1__cmd_q(MessageQueueProxy* mq);
 
@@ -102,7 +102,7 @@ class Cpu : public Agent {
   // Consumer thread of execution.
   ConsumerProcess* cp_ = nullptr;
   // L1Cache instance.
-  L1CacheModel* l1c_ = nullptr;
+  L1CacheAgent* l1c_ = nullptr;
   // Transaction table.
   std::set<Transaction*> ts_;
   // CPU Configuration.

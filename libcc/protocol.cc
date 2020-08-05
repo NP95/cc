@@ -125,10 +125,10 @@ struct EmitMessageActionProxy : public CoherenceAction {
   const Message* msg_ = nullptr;
 };
 
-L1CacheModelProtocol::L1CacheModelProtocol(kernel::Kernel* k, const std::string& name)
+L1CacheAgentProtocol::L1CacheAgentProtocol(kernel::Kernel* k, const std::string& name)
     : Module(k, name) {}
 
-void L1CacheModelProtocol::issue_msg(L1CommandList& cl, MessageQueueProxy* mq,
+void L1CacheAgentProtocol::issue_msg(L1CommandList& cl, MessageQueueProxy* mq,
                                      const Message* msg) const {
 
 

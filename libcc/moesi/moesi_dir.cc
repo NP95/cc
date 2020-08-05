@@ -383,8 +383,19 @@ class MOESIDirProtocol : public DirProtocol {
 
   void apply(DirContext& ctxt, DirCommandList& cl, const CohCmdMsg* msg) const {
     LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
+
+    // Update Transaction State with appropriate state contained
+    // within the Command Message (also present in the context).
     DirTState* tstate = ctxt.tstate();
     tstate->set_opcode(msg->opcode());
+    tstate->set_addr(msg->addr());
+
+    // Issue command message response (returns credit).
+    CohCmdRspMsg* rsp = new CohCmdRspMsg;
+    rsp->set_t(msg->t());
+    issue_emit_to_noc(ctxt, cl, rsp, msg->origin());
+
+    //
     const State state = line->state();
     const AceCmdOpcode opcode = msg->opcode();
     switch (state) {
@@ -491,11 +502,13 @@ class MOESIDirProtocol : public DirProtocol {
 
             // Issue coherence response, line has now been removed from cache.
             CohEndMsg* end = new CohEndMsg;
-            end->set_t(end->t());
+            end->set_t(msg->t());
+            issue_emit_to_noc(ctxt, cl, end, msg->origin());
 
             // Line becomes idle.
             issue_update_state(ctxt, cl, State::I);
-            // TODO: remove line
+            cl.push_back(cb::from_opcode(DirOpcode::RemoveLine));
+            cl.push_back(cb::from_opcode(DirOpcode::EndTransaction));
             cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
             cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
           } break;
@@ -550,11 +563,6 @@ class MOESIDirProtocol : public DirProtocol {
         log(msg);
       } break;
     }
-
-    // Issue command message response (returns credit).
-    CohCmdRspMsg* rsp = new CohCmdRspMsg;
-    rsp->set_t(msg->t());
-    issue_emit_to_noc(ctxt, cl, rsp, msg->origin());
   }
 
   //

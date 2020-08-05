@@ -40,7 +40,7 @@
 namespace cc {
 
 // Forwards:
-class L1CacheModel;
+class L1CacheAgent;
 class L2CacheAgent;
 class MessageQueue;
 class L2LineState;
@@ -57,7 +57,9 @@ enum class L2CmdOpcode {
   // Obtain line in Exclusive State
   L1GetE,
   // Evict line
-  L1Put
+  L1Put,
+  // Invalid Opcode
+  Invalid
 };
 
 const char* to_string(L2CmdOpcode opcode);
@@ -74,15 +76,15 @@ class L2CmdMsg : public Message {
   //
   L2CmdOpcode opcode() const { return opcode_; }
   addr_t addr() const { return addr_; }
-  L1CacheModel* l1cache() const { return l1cache_; }
+  L1CacheAgent* l1cache() const { return l1cache_; }
 
   void set_opcode(L2CmdOpcode opcode) { opcode_ = opcode; }
   void set_addr(addr_t addr) { addr_ = addr; }
-  void set_l1cache(L1CacheModel* l1cache) { l1cache_ = l1cache; }
+  void set_l1cache(L1CacheAgent* l1cache) { l1cache_ = l1cache; }
 
  private:
   // Originator L1 cache instance (for response message).
-  L1CacheModel* l1cache_ = nullptr;
+  L1CacheAgent* l1cache_ = nullptr;
   L2CmdOpcode opcode_;
   addr_t addr_;
 };
@@ -156,8 +158,8 @@ class L2Command {
   // Command Coherence action
   CoherenceAction* action() const { return oprands.coh.action; }
   // "Agent" keep out list.
-  std::vector<L1CacheModel*>& agents() { return oprands.l1inv.agents; }
-  const std::vector<L1CacheModel*>& agents() const { return oprands.l1inv.agents; }
+  std::vector<L1CacheAgent*>& agents() { return oprands.l1inv.agents; }
+  const std::vector<L1CacheAgent*>& agents() const { return oprands.l1inv.agents; }
 
  private:
   virtual ~L2Command();
@@ -167,7 +169,7 @@ class L2Command {
       CoherenceAction* action;
     } coh;
     struct {
-      std::vector<L1CacheModel*> agents;
+      std::vector<L1CacheAgent*> agents;
     } l1inv;
   } oprands;
   //
@@ -222,21 +224,21 @@ class L2TState {
 
   // Get current cache line
   L2LineState* line() const { return line_; }
-  // Set of Message Queues blocked on the current transaction.
-  const std::vector<MessageQueue*>& bmqs() const { return bmqs_; }
   // Address of current transaction.
   addr_t addr() const { return addr_; }
+  // Transaction opcode.
+  L2CmdOpcode opcode() const { return opcode_; }
   // L1 cache instance
-  L1CacheModel* l1cache() const { return l1cache_; }
+  L1CacheAgent* l1cache() const { return l1cache_; }
 
   // Set current cache line
   void set_line(L2LineState* line) { line_ = line; }
-  //
+  // Current transaction address.
   void set_addr(addr_t addr) { addr_ = addr; }
-  // Add Blocked Message Queue
-  void add_blocked_mq(MessageQueue* mq) { bmqs_.push_back(mq); }
+  // Current transaction opcode
+  void set_opcode(L2CmdOpcode opcode) { opcode_ = opcode; }
   // Set L1 cache instance.
-  void set_l1cache(L1CacheModel* l1cache) { l1cache_ = l1cache; }
+  void set_l1cache(L1CacheAgent* l1cache) { l1cache_ = l1cache; }
 
  private:
   //
@@ -246,12 +248,12 @@ class L2TState {
   // otherwise be recovered from the address, but this simply saves
   // the lookup into the cache structure).
   L2LineState* line_ = nullptr;
-  // Set of message queues block on the current transaction.
-  std::vector<MessageQueue*> bmqs_;
-  //
+  // Current transaction addres
   addr_t addr_;
+  // Current transaction opcode
+  L2CmdOpcode opcode_;
   // Originating L1Cache instance.
-  L1CacheModel* l1cache_ = nullptr;
+  L1CacheAgent* l1cache_ = nullptr;
 };
 
 //
@@ -311,7 +313,7 @@ class L2CacheContext {
   // L2 cache instance
   L2CacheAgent* l2cache_ = nullptr;
   // L1 cache instance (originating requestor).
-  L1CacheModel* l1cache_ = nullptr;
+  L1CacheAgent* l1cache_ = nullptr;
 };
 
 //
@@ -331,7 +333,7 @@ class L2CacheAgent : public Agent {
   // L1 Cache Command Queue (n)
   MessageQueue* l1_l2__cmd_q(std::size_t n) const { return l1_l2__cmd_qs_[n]; }
   // L2 -> L1 response queue
-  MessageQueueProxy* l2_l1__rsp_q(L1CacheModel* l1cache) const;
+  MessageQueueProxy* l2_l1__rsp_q(L1CacheAgent* l1cache) const;
   // L2 -> CC command queue
   MessageQueueProxy* l2_cc__cmd_q() const { return l2_cc__cmd_q_; }
   // CC -> L2 (Snoop) command queue
@@ -355,7 +357,7 @@ class L2CacheAgent : public Agent {
   // Construction:
   void build();
   // Add L1 cache child.
-  void add_l1c(L1CacheModel* l1c);
+  void add_l1c(L1CacheAgent* l1c);
 
   // Elaboration:
   virtual void elab() override;
@@ -365,7 +367,7 @@ class L2CacheAgent : public Agent {
   // Set L2 -> CC command queue.
   void set_l2_cc__cmd_q(MessageQueueProxy* mq);
   // L2 -> L1 response queue.
-  void set_l2_l1__rsp_q(L1CacheModel* l1cache, MessageQueueProxy* mq);
+  void set_l2_l1__rsp_q(L1CacheAgent* l1cache, MessageQueueProxy* mq);
   // L2 -> CC snoop response queue.
   void set_l2_cc__snprsp_q(MessageQueueProxy* mq);
 
@@ -386,11 +388,11 @@ class L2CacheAgent : public Agent {
   // L2 Cache Configuration.
   L2CacheAgentConfig config_;
   // Child L1 Caches
-  std::vector<L1CacheModel*> l1cs_;
+  std::vector<L1CacheAgent*> l1cs_;
   // L1 -> L2 Command Request
   std::vector<MessageQueue*> l1_l2__cmd_qs_;
   // L2 -> L1 Response queue
-  std::map<L1CacheModel*, MessageQueueProxy*> l2_l1__rsp_qs_;
+  std::map<L1CacheAgent*, MessageQueueProxy*> l2_l1__rsp_qs_;
   // L2 -> CC Command Queue
   MessageQueueProxy* l2_cc__cmd_q_ = nullptr;
   // CC -> L2 Command Queue

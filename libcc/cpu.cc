@@ -37,12 +37,12 @@
 
 namespace cc {
 
-L1CacheOpcode to_l1cache_opcode(CpuOpcode opcode) {
+L1CmdOpcode to_l1cache_opcode(CpuOpcode opcode) {
   switch (opcode) {
     case CpuOpcode::Load:
-      return L1CacheOpcode::CpuLoad;
+      return L1CmdOpcode::CpuLoad;
     case CpuOpcode::Store:
-      return L1CacheOpcode::CpuStore;
+      return L1CmdOpcode::CpuStore;
     default:
       throw std::invalid_argument("Unknown CpuOpcode");
   }

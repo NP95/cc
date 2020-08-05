@@ -93,8 +93,8 @@ TEST(Basic111, SimpleRead) {
   soc.run();
 
   // Lookup L1 cache model instance where we expect to find the line.
-  const cc::L1CacheModel* l1cache =
-      soc.get_object_as<cc::L1CacheModel*>("top.cluster0.l1cache0");
+  const cc::L1CacheAgent* l1cache =
+      soc.get_object_as<cc::L1CacheAgent*>("top.cluster0.l1cache0");
   EXPECT_NE(l1cache, nullptr);
 
   test::LineChecker checker(l1cache->cache(), 0);
@@ -137,8 +137,8 @@ TEST(Basic111, SimpleWrite) {
   soc.run();
 
   // Lookup L1 cache model instance where we expect to find the line.
-  const cc::L1CacheModel* l1cache =
-      soc.get_object_as<cc::L1CacheModel*>("top.cluster0.l1cache0");
+  const cc::L1CacheAgent* l1cache =
+      soc.get_object_as<cc::L1CacheAgent*>("top.cluster0.l1cache0");
   EXPECT_NE(l1cache, nullptr);
 
   test::LineChecker checker(l1cache->cache(), 0);

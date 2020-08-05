@@ -251,10 +251,10 @@ using CoherenceActionList = std::vector<CoherenceAction*>;
 
 //
 //
-class L1CacheModelProtocol : public kernel::Module {
+class L1CacheAgentProtocol : public kernel::Module {
  public:
-  L1CacheModelProtocol(kernel::Kernel* k, const std::string& name);
-  virtual ~L1CacheModelProtocol() = default;
+  L1CacheAgentProtocol(kernel::Kernel* k, const std::string& name);
+  virtual ~L1CacheAgentProtocol() = default;
 
   //
   //
@@ -465,7 +465,7 @@ class ProtocolBuilder {
   virtual ~ProtocolBuilder() = default;
 
   // Create an instance of the L1 protocol
-  virtual L1CacheModelProtocol* create_l1(kernel::Kernel*) = 0;
+  virtual L1CacheAgentProtocol* create_l1(kernel::Kernel*) = 0;
 
   // Create an instance of the L2 protocol
   virtual L2CacheAgentProtocol* create_l2(kernel::Kernel*) = 0;

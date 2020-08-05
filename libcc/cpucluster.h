@@ -35,7 +35,7 @@
 namespace cc {
 
 class L2CacheAgent;
-class L1CacheModel;
+class L1CacheAgent;
 class CCModel;
 class Cpu;
 
@@ -73,7 +73,7 @@ class CpuCluster : public Agent {
   //
   L2CacheAgent* l2c_ = nullptr;
   //
-  std::vector<L1CacheModel*> l1cs_;
+  std::vector<L1CacheAgent*> l1cs_;
   //
   std::vector<Cpu*> cpus_;
   // Global stimulus instance

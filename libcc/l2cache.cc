@@ -40,6 +40,8 @@ const char* to_string(L2CmdOpcode opcode) {
       return "L1GetE";
     case L2CmdOpcode::L1Put:
       return "L1Put";
+    case L2CmdOpcode::Invalid:
+      return "Invalid";
     default:
       return "Invalid";
   }
@@ -302,8 +304,8 @@ class L2CommandInterpreter {
 
   void execute_set_l1_lines_shared(L2CacheContext& ctxt,
                                    const L2Command* cmd) const {
-    const std::vector<L1CacheModel*>& agents = cmd->agents();
-    for (L1CacheModel* l1cache : ctxt.l2cache()->l1cs_) {
+    const std::vector<L1CacheAgent*>& agents = cmd->agents();
+    for (L1CacheAgent* l1cache : ctxt.l2cache()->l1cs_) {
       if (std::find(agents.begin(), agents.end(), l1cache) != agents.end()) {
         // Agent in keep-out set.
         continue;
@@ -315,8 +317,8 @@ class L2CommandInterpreter {
 
   void execute_set_l1_lines_invalid(L2CacheContext& ctxt,
                                    const L2Command* cmd) const {
-    const std::vector<L1CacheModel*>& agents = cmd->agents();
-    for (L1CacheModel* l1cache : ctxt.l2cache()->l1cs_) {
+    const std::vector<L1CacheAgent*>& agents = cmd->agents();
+    for (L1CacheAgent* l1cache : ctxt.l2cache()->l1cs_) {
       // Search agent 'keep-out' list such that we do not invalidate
       // agents that we wish to retain, typically L1 which is about to
       // receive exclusive ownership of the line.
@@ -457,8 +459,6 @@ class L2CacheAgent::MainProcess : public AgentProcess {
     // transaction will start, therefore context owns tstate upon
     // destruction.
     L2TState* tstate = new L2TState(k());
-    tstate->set_addr(cmd->addr());
-    tstate->set_l1cache(cmd->l1cache());
     ctxt.set_tstate(tstate);
     ctxt.set_owns_tstate(true);
 
@@ -613,7 +613,7 @@ L2CacheAgent::~L2CacheAgent() {
   delete tt_;
 }
 
-MessageQueueProxy* L2CacheAgent::l2_l1__rsp_q(L1CacheModel* l1cache) const {
+MessageQueueProxy* L2CacheAgent::l2_l1__rsp_q(L1CacheAgent* l1cache) const {
   MessageQueueProxy* proxy = nullptr;
   if (auto it = l2_l1__rsp_qs_.find(l1cache); it != l2_l1__rsp_qs_.end()) {
     proxy = it->second;
@@ -625,7 +625,7 @@ MessageQueueProxy* L2CacheAgent::l2_l1__rsp_q(L1CacheModel* l1cache) const {
   return proxy;
 }
 
-void L2CacheAgent::add_l1c(L1CacheModel* l1c) {
+void L2CacheAgent::add_l1c(L1CacheAgent* l1c) {
   using std::to_string;
   // Assert build phase.
   
@@ -677,7 +677,7 @@ void L2CacheAgent::set_l2_cc__cmd_q(MessageQueueProxy* mq) {
 }
 
 void L2CacheAgent::set_l2_l1__rsp_q(
-    L1CacheModel* l1cache, MessageQueueProxy* mq) {
+    L1CacheAgent* l1cache, MessageQueueProxy* mq) {
   l2_l1__rsp_qs_[l1cache] = mq;
   add_child_module(l2_l1__rsp_qs_[l1cache]);
 }

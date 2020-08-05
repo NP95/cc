@@ -91,12 +91,14 @@ TEST(Evict111, LoadEvictOneLine) {
   soc.run();
 
   // Lookup L1 cache model instance where we expect to find the line.
-  const cc::L1CacheModel* l1cache =
-      soc.get_object_as<cc::L1CacheModel*>("top.cluster0.l1cache0");
+  const cc::L1CacheAgent* l1cache =
+      soc.get_object_as<cc::L1CacheAgent*>("top.cluster0.l1cache0");
   EXPECT_NE(l1cache, nullptr);
 
 
-  for (std::size_t addr : {0x0000, 0x10000, 0x20000, 0x30000}) {
+  // Presently assumes that this first address is evicted, which may
+  // not be the case in other eviction policies.
+  for (std::size_t addr : {0x10000, 0x20000, 0x30000, 0x40000}) {
     test::LineChecker checker(l1cache->cache(), addr);
     // Validate that cache has line installed.
     EXPECT_TRUE(checker.has_line());

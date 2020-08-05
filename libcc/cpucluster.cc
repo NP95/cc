@@ -44,7 +44,7 @@ CpuCluster::CpuCluster(kernel::Kernel* k, const CpuClusterConfig& config,
 CpuCluster::~CpuCluster() {
   delete cc_;
   delete l2c_;
-  for (L1CacheModel* l1c : l1cs_) {
+  for (L1CacheAgent* l1c : l1cs_) {
     delete l1c;
   }
   for (Cpu* cpu : cpus_) {
@@ -64,10 +64,10 @@ void CpuCluster::build() {
 
   // Construct L1 cache instance(s).
   for (std::size_t i = 0; i < config_.l1c_configs.size(); i++) {
-    const L1CacheModelConfig& l1c_cfg = config_.l1c_configs[i];
+    const L1CacheAgentConfig& l1c_cfg = config_.l1c_configs[i];
 
     // L1 Cache Model
-    L1CacheModel* l1c = new L1CacheModel(k(), l1c_cfg);
+    L1CacheAgent* l1c = new L1CacheAgent(k(), l1c_cfg);
     l1cs_.push_back(l1c);
     add_child_module(l1c);
 
@@ -104,9 +104,9 @@ void CpuCluster::elab() {
 
   // Bind L1 caches to parent L2.
   for (std::size_t i = 0; i < l1cs_.size(); i++) {
-    L1CacheModel* l1c = l1cs_[i];
+    L1CacheAgent* l1c = l1cs_[i];
     // L1 -> L2
-    l1c->set_l2c(l2c_);
+    l1c->set_l2cache(l2c_);
     // L1 -> L2 command queue
     MessageQueue* l1_l2__cmd_q_mq = l2c_->l1_l2__cmd_q(i);
     l1c->set_l1_l2__cmd_q(l1_l2__cmd_q_mq->construct_proxy());
@@ -118,7 +118,7 @@ void CpuCluster::elab() {
   // Bind CPU to parent L1.
   for (std::size_t i = 0; i < cpus_.size(); i++) {
     Cpu* cpu = cpus_[i];
-    L1CacheModel* l1c = l1cs_[i];
+    L1CacheAgent* l1c = l1cs_[i];
     // (CPU -> L1)
     cpu->set_l1c(l1c);
     MessageQueue* cpu_l1__cmd_q = l1c->cpu_l1__cmd_q();

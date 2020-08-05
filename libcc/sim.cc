@@ -95,6 +95,10 @@ void MessageQueue::set_blocked_until(kernel::Event* event) {
    private:
     MessageQueue* mq_ = nullptr;
   };
+  // Message queue is now blocked
+  set_blocked(true);
+  // Add notify action to 'awaking' event; which then rescinds the
+  // blocked state.
   event->add_notify_action(new UnblockAction(k(), this));
 }
 

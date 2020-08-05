@@ -286,8 +286,9 @@ Loggable::Loggable(Kernel* k, const std::string& name) : Object(k, name) {}
 
 void Loggable::log_prefix(Level l, std::ostream& os) const {
   const char* t = type_str();
-  os << l.to_char() << "[" << to_string(k()->phase())[0] << ";" << path() << ";"
-     << t[0] << "@" << k()->time() << "]: ";
+  os << "[" << k()->time() << ":"
+     << to_string(k()->phase())[0] << l.to_char() << ";" << path()
+     << " (" << t[0] << ")]:";
 }
 
 void Loggable::log(const LogMessage& m) const {

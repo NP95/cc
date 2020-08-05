@@ -97,7 +97,7 @@ class SocConfigBuilderJson {
     CHECK_AND_SET(name);
   }
 
-  void build(L1CacheModelConfig& c, json j) {
+  void build(L1CacheAgentConfig& c, json j) {
     // Set .name
     CHECK_AND_SET(name);
     // Set .l1_cmdq_slots_n
@@ -170,7 +170,7 @@ class SocConfigBuilderJson {
     // Set .l1c_config
     CHECK(l1c_config);
     for (const auto& item : j["l1c_config"]) {
-      L1CacheModelConfig cmc;
+      L1CacheAgentConfig cmc;
       build(cmc, item);
       c.l1c_configs.push_back(cmc);
     }
@@ -260,7 +260,7 @@ class SocConfigBuilderJson {
   void post(CpuClusterConfig& cfg) {
     post(cfg.cc_config);
     post(cfg.l2c_config);
-    for (L1CacheModelConfig& l1c : cfg.l1c_configs) {
+    for (L1CacheAgentConfig& l1c : cfg.l1c_configs) {
       post(l1c);
     }
   }
@@ -269,7 +269,7 @@ class SocConfigBuilderJson {
     cfg.pbuilder = pb_;
   }
 
-  void post(L1CacheModelConfig& cfg) {
+  void post(L1CacheAgentConfig& cfg) {
     cfg.pbuilder = pb_;
   }
 
