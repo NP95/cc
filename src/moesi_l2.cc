@@ -338,7 +338,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
     const State state = line->state();
     switch (state) {
       case State::I: {
-        AceCmdMsg* msg = new AceCmdMsg;
+        AceCmdMsg* msg = Pool<AceCmdMsg>::construct();
         msg->set_t(cmd->t());
         msg->set_addr(cmd->addr());
         switch (opcode) {
@@ -418,7 +418,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
             // L2 already has the line, therefore simply issue a
             // CleanUnique command to invalidate other copies within
             // the system.
-            AceCmdMsg* msg = new AceCmdMsg;
+            AceCmdMsg* msg = Pool<AceCmdMsg>::construct();
             msg->set_t(cmd->t());
             msg->set_addr(cmd->addr());
             msg->set_opcode(AceCmdOpcode::CleanUnique);
@@ -478,7 +478,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
                 // is not modified therefore no Write command is
                 // required.
                 // Issue Evict command to home directory.
-                AceCmdMsg* msg = new AceCmdMsg;
+                AceCmdMsg* msg = Pool<AceCmdMsg>::construct();
                 msg->set_t(cmd->t());
                 msg->set_addr(cmd->addr());
                 msg->set_opcode(AceCmdOpcode::Evict);
@@ -573,7 +573,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
               const bool writeback_on_put = true;
               if (writeback_on_put) {
                 // Issue Writeback transaction to home directory.
-                AceCmdMsg* msg = new AceCmdMsg;
+                AceCmdMsg* msg = Pool<AceCmdMsg>::construct();
                 msg->set_t(cmd->t());
                 msg->set_addr(cmd->addr());
                 msg->set_opcode(AceCmdOpcode::WriteBack);
@@ -742,7 +742,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
     const AceSnpOpcode opcode = msg->opcode();
     switch (opcode) {
       case AceSnpOpcode::ReadShared: {
-        AceSnpRspMsg* rsp = new AceSnpRspMsg;
+        AceSnpRspMsg* rsp = Pool<AceSnpRspMsg>::construct();
         rsp->set_t(msg->t());
         // In the siliently evicted case, there is no line.
         const State state = ctxt.silently_evicted() ? State::I : line->state();
@@ -825,7 +825,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         cl.next_and_do_consume(true);
       } break;
       case AceSnpOpcode::ReadUnique: {
-        AceSnpRspMsg* rsp = new AceSnpRspMsg;
+        AceSnpRspMsg* rsp = Pool<AceSnpRspMsg>::construct();
         rsp->set_t(msg->t());
         // C5.3.3 ReadUnique
         switch (line->state()) {
@@ -861,7 +861,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
       } break;
       case AceSnpOpcode::MakeInvalid:
       case AceSnpOpcode::CleanInvalid: {
-        AceSnpRspMsg* rsp = new AceSnpRspMsg;
+        AceSnpRspMsg* rsp = Pool<AceSnpRspMsg>::construct();
         rsp->set_t(msg->t());
         
         // C5.3.4 CleanInvalid

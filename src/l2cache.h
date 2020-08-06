@@ -68,7 +68,6 @@ const char* to_string(L2CmdOpcode opcode);
 //
 class L2CmdMsg : public Message {
   template<typename> friend class PooledItem;
-
   L2CmdMsg();
  public:
 

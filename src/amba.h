@@ -62,8 +62,9 @@ const char* to_string(AceCmdOpcode opcode);
 //
 //
 class AceCmdMsg : public Message {
- public:
+  template<typename> friend class PooledItem;
   AceCmdMsg();
+ public:
 
   //
   std::string to_string() const override;
@@ -86,8 +87,9 @@ class AceCmdMsg : public Message {
 //
 //
 class AceCmdRspMsg : public Message {
- public:
+  template<typename> friend class PooledItem;
   AceCmdRspMsg();
+ public:
 
   //
   std::string to_string() const override;
@@ -151,8 +153,9 @@ class AceSnpMsg : public Message {
 //
 //
 class AceSnpRspMsg : public Message {
- public:
+  template<typename> friend class PooledItem;
   AceSnpRspMsg();
+ public:
 
   //
   std::string to_string() const override;

@@ -289,7 +289,7 @@ class MOESICCProtocol : public CCProtocol {
     // Check line is complete, if not bail.
     if (!line->is_complete()) return false;
 
-    AceCmdRspMsg* rsp = new AceCmdRspMsg;
+    AceCmdRspMsg* rsp = Pool<AceCmdRspMsg>::construct();
     rsp->set_t(line->t());
     rsp->set_origin(ctxt.cc());
     rsp->set_pd(line->pd());
@@ -531,7 +531,7 @@ class MOESICCProtocol : public CCProtocol {
     using snpcb = CCSnpCommandBuilder;
 
     // Forward snoop request to L2.
-    AceSnpMsg* acesnp = new AceSnpMsg;
+    AceSnpMsg* acesnp = Pool<AceSnpMsg>::construct();
     acesnp->set_t(msg->t());
     acesnp->set_opcode(msg->opcode());
     acesnp->set_addr(msg->addr());
