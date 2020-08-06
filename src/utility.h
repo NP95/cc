@@ -59,11 +59,6 @@ T mask(std::size_t bits) {
   return (t << bits) - 1;
 }
 
-template <typename T>
-typename std::underlying_type<T>::type ut(T e) {
-  return static_cast<typename std::underlying_type<T>::type>(e);
-}
-
 //
 //
 class ArrayRenderer {
