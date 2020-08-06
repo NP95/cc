@@ -35,6 +35,7 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+#include <memory>
 
 namespace cc {
 
@@ -141,15 +142,38 @@ class PooledItem : public T {
 //
 template<typename T>
 class Pool {
+
+  // Utility class which encapsulates the notion of a free set of
+  // PooledItems which is appropriately wound down upon destruction.
+  class FreeSet {
+   public:
+    FreeSet() = default;
+
+    ~FreeSet() {
+      for (PooledItem<T>* item : items_) {
+        delete item;
+      }
+    }
+
+    bool empty() const { return items_.empty(); }
+    PooledItem<T>* back() const { return items_.back(); }
+
+    void push_back(PooledItem<T>* item) { items_.push_back(item); }
+    void pop_back() { items_.pop_back(); }
+
+   private:
+    std::vector<PooledItem<T>*> items_;
+  };
  public:
 
   // Construct new item from pool.
   static PooledItem<T>* construct() {
+    check_free_set();
     PooledItem<T>* t = nullptr;
-    if (!ts_.empty()) {
+    if (!fs_->empty()) {
       // Invoke constructor
-      t = new (ts_.back()) PooledItem<T>{};
-      ts_.pop_back();
+      t = new (fs_->back()) PooledItem<T>{};
+      fs_->pop_back();
     } else {
       t = new PooledItem<T>{};
     }
@@ -158,17 +182,24 @@ class Pool {
 
   // Release item back to pool.
   static void release(const PooledItem<T>* t) {
+    check_free_set();
     // Invoke destructor
     t->~T();
     // Magic, T is usually a const Message (by convention) but we wish
     // to retain this is in an non-constant form within the pool such
     // tha ancilliary may be added to it as required.
     PooledItem<T>* ut = const_cast<PooledItem<T>* >(t);
-    ts_.push_back(ut);
+    fs_->push_back(ut);
   }
 
  private:
-  static inline std::vector<PooledItem<T>*> ts_;
+  static void check_free_set() {
+    // Construct FreeSet if not already built.
+    if (fs_) return;
+    fs_ = std::make_unique<FreeSet>();
+  }
+
+  static inline std::unique_ptr<FreeSet> fs_;
 };
 
 
