@@ -42,6 +42,7 @@ enum class State {
   IE,
   // Shared
   S,
+  SI,
   SE,
   // Exclusive
   E,
@@ -59,6 +60,7 @@ const char* to_string(State state) {
     case State::IS: return "IS";
     case State::IE: return "IE";
     case State::S: return "S";
+    case State::SI: return "SI";
     case State::SE: return "SE";
     case State::E: return "E";
     case State::EI: return "EI";
@@ -413,29 +415,24 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
         // Advance to next and consume
         cl.next_and_do_consume(true);
       } break;
+      case State::SI:
+      case State::MI:
       case State::EI: {
-        // Exclusive -> Invalid
+        // Shared/Modifed/Exclusive -> Invalid
         //
-        // ARC entered in response to transition from the Exclusive
-        // state (where line is consistent with memory), but is
-        // to be evicted (not written-back) from memory.
+        // Edge entered upon an eviction from L1 cache. As L1 is
+        // write-through to L2, L2 maintains a recent up to date copy
+        // of the line and this transaction therefore serves as
+        // notification that the line has been evicted from L1. In the
+        // case of SI, L1 may optionally silently evict the line
+        // without L2 notification, in which the message is never
+        // sent.
 
         // Transition back to Invalid state and evict line.
         issue_update_state(cl, line, State::I);
         // Remove line from cache as now invalid.
-        cl.push_back(cb::build_remove_line(ctxt.tstate()->addr()));
-        // Transaction ends
-        cl.transaction_end();
-        // Advance to next and consume
-        cl.next_and_do_consume(true);
-      } break;
-      case State::MI: {
-        // Modified -> Invalid
-        //
-        // Writeback to L2/MEM completes.
-        issue_update_state(cl, line, State::I);
-        // Remove line from cache as now invalid.
-        cl.push_back(cb::build_remove_line(ctxt.tstate()->addr()));
+        const addr_t addr = ctxt.tstate()->addr();
+        cl.push_back(cb::build_remove_line(addrx));
         // Transaction ends
         cl.transaction_end();
         // Advance to next and consume
