@@ -29,21 +29,31 @@ macro (create_test testname testfile)
   add_executable(test_${testname} ${testfile})
   target_include_directories(test_${testname} PRIVATE
     ${CMAKE_SOURCE_DIR}/src
-    ${VerilatorDpi_INCLUDE_DIR}
-    ${Verilator_INCLUDE_DIR}
     )
   target_link_libraries(test_${testname}
     cc
     gtest_main
     gtest
     pthread
+    cctest
     )
   add_test(NAME ${testname} COMMAND test_${testname})
 endmacro ()
+
+add_library(cctest SHARED test_utilities.cc)
+target_include_directories(cctest PRIVATE
+  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/include
+  )
+target_link_libraries(cctest
+  cc
+  )
 
 create_test(utility utility.cc)
 create_test(kernel kernel.cc)
 create_test(primitives primitives.cc)
 create_test(cache cache.cc)
-
-add_subdirectory(sim)
+create_test(basic_1dir_1cc_1cpu basic_1dir_1cc_1cpu.cc)
+create_test(basic_1dir_1cc_2cpu basic_1dir_1cc_2cpu.cc)
+create_test(basic_1dir_2cc_1cpu basic_1dir_2cc_1cpu.cc)
+create_test(evict_1dir_1cc_1cpu evict_1dir_1cc_1cpu.cc)
