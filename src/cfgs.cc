@@ -26,12 +26,13 @@
 //========================================================================== //
 
 #include "cc/cfgs.h"
+
 #include "protocol.h"
 
 namespace cc {
 
 SocConfig::~SocConfig() {
-  //delete pbuilder;
+  // delete pbuilder;
 }
 
-} // namespace cc
+}  // namespace cc

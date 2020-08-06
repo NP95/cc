@@ -67,10 +67,11 @@ const char* to_string(L2CmdOpcode opcode);
 //
 //
 class L2CmdMsg : public Message {
-  template<typename> friend class PooledItem;
+  template <typename>
+  friend class PooledItem;
   L2CmdMsg();
- public:
 
+ public:
   //
   std::string to_string() const override;
 
@@ -99,8 +100,10 @@ const char* to_string(L2RspOpcode opcode);
 //
 //
 class L2CmdRspMsg : public Message {
-  template<typename> friend class PooledItem;
+  template <typename>
+  friend class PooledItem;
   L2CmdRspMsg();
+
  public:
   //
   std::string to_string() const override;
@@ -187,7 +190,6 @@ class L2CommandBuilder {
   static L2Command* from_action(CoherenceAction* action);
 };
 
-
 //
 //
 class L2CommandList {
@@ -204,7 +206,7 @@ class L2CommandList {
 
   //
   void push_back(L2Command* cmd);
-  
+
   // Consume current message and advance agent to next simulation
   // epoch.
   void next_and_do_consume(bool do_consume = false);
@@ -294,7 +296,8 @@ class L2CacheContext {
   void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
   void set_line(L2LineState* line) { line_ = line; }
   void set_silently_evicted(bool silently_evicted) {
-    silently_evicted_ = silently_evicted; }
+    silently_evicted_ = silently_evicted;
+  }
 
   void set_tstate(L2TState* tstate) { tstate_ = tstate; }
   void set_owns_tstate(bool owns_tstate) { owns_tstate_ = owns_tstate; }
@@ -330,6 +333,7 @@ class L2CacheAgent : public Agent {
   friend class CpuCluster;
   friend class L1CommandInterpreter;
   friend class L2CommandInterpreter;
+
  public:
   L2CacheAgent(kernel::Kernel* k, const L2CacheAgentConfig& config);
   virtual ~L2CacheAgent();

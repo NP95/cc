@@ -30,12 +30,12 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <ostream>
 #include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
-#include <memory>
 
 namespace cc {
 
@@ -66,6 +66,7 @@ class ArrayRenderer {
   ArrayRenderer() = default;
   std::string to_string() const;
   void add_item(const std::string& item);
+
  private:
   std::vector<std::string> items_;
 };
@@ -89,9 +90,9 @@ class KVListRenderer {
   std::vector<kv_type> kvs_;
 };
 
-template<typename FwdIt>
-typename std::iterator_traits<FwdIt>::value_type
-join(FwdIt begin, FwdIt end, const char* sep = ".") {
+template <typename FwdIt>
+typename std::iterator_traits<FwdIt>::value_type join(FwdIt begin, FwdIt end,
+                                                      const char* sep = ".") {
   typename std::iterator_traits<FwdIt>::value_type v;
   while (begin != end) {
     v += *begin;
@@ -100,7 +101,7 @@ join(FwdIt begin, FwdIt end, const char* sep = ".") {
   return v;
 }
 
-template<typename IT>
+template <typename IT>
 void split(IT it, const std::string& name, const char* sep = ".") {
   std::string::size_type i = 0, j = 0;
   do {
@@ -117,27 +118,27 @@ void split(IT it, const std::string& name, const char* sep = ".") {
 // Convert some '.' separated path and replace with '_'
 std::string flatten_path(const std::string& path);
 
-
-template<typename> class Pool;
+template <typename>
+class Pool;
 
 // PooledItem is a Facade over a poolable base type T. Facade override
 // base-types release method such that when called, the object is
 // returned to a Pool instead of being deallocated.
 //
-template<typename T>
+template <typename T>
 class PooledItem : public T {
   friend class Pool<T>;
   virtual ~PooledItem() = default;
   PooledItem() = default;
+
  public:
   virtual void release() const override { Pool<T>::release(this); }
 };
 
 //
 //
-template<typename T>
+template <typename T>
 class Pool {
-
   // Utility class which encapsulates the notion of a free set of
   // PooledItems which is appropriately wound down upon destruction.
   class FreeSet {
@@ -159,8 +160,8 @@ class Pool {
    private:
     std::vector<PooledItem<T>*> items_;
   };
- public:
 
+ public:
   // Construct new item from pool.
   static PooledItem<T>* construct() {
     check_free_set();
@@ -183,7 +184,7 @@ class Pool {
     // Magic, T is usually a const Message (by convention) but we wish
     // to retain this is in an non-constant form within the pool such
     // tha ancilliary may be added to it as required.
-    PooledItem<T>* ut = const_cast<PooledItem<T>* >(t);
+    PooledItem<T>* ut = const_cast<PooledItem<T>*>(t);
     fs_->push_back(ut);
   }
 
@@ -196,7 +197,6 @@ class Pool {
 
   static inline std::unique_ptr<FreeSet> fs_;
 };
-
 
 //
 //

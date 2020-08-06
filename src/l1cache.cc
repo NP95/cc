@@ -118,8 +118,8 @@ L1CacheContext::~L1CacheContext() {
 }
 
 std::string L1Command::to_string() const {
-  using std::to_string;
   using cc::to_string;
+  using std::to_string;
   Hexer h;
   KVListRenderer r;
   r.add_field("opcode", cc::to_string(opcode()));
@@ -135,7 +135,6 @@ std::string L1Command::to_string() const {
   }
   return r.to_string();
 }
-
 
 L1Command::~L1Command() {
   switch (opcode()) {
@@ -163,7 +162,6 @@ L1Command* L1CommandBuilder::build_remove_line(addr_t addr) {
   return cmd;
 }
 
-
 L1CommandList::~L1CommandList() {
   for (L1Command* cmd : cmds_) {
     cmd->release();
@@ -183,7 +181,7 @@ void L1CommandList::transaction_end() {
 void L1CommandList::next_and_do_consume(bool do_consume) {
   if (do_consume) {
     push_back(L1CommandBuilder::from_opcode(L1Opcode::MsgConsume));
-  } 
+  }
   push_back(L1CommandBuilder::from_opcode(L1Opcode::WaitNextEpoch));
 }
 
@@ -241,7 +239,6 @@ class L1CommandInterpreter {
   }
 
  private:
-  
   void execute_start_transaction(L1CacheContext& ctxt, const L1Command* cmd) {
     L1TState* tstate = ctxt.tstate();
     L1TTable* tt = ctxt.l1cache()->tt();
@@ -274,7 +271,7 @@ class L1CommandInterpreter {
     // Transaction starts; notify.
     tstate->transaction_start()->notify();
   }
-  
+
   void execute_end_transaction(L1CacheContext& ctxt, const L1Command* cmd) {
     // Notify transaction event event; unblocks message queues
     // awaiting completion of current transaction.
@@ -285,17 +282,19 @@ class L1CommandInterpreter {
     tt->remove(ctxt.msg()->t());
     tstate->release();
   }
-  
-  void execute_mq_set_blocked_on_transaction(L1CacheContext& ctxt, const L1Command* cmd) {
+
+  void execute_mq_set_blocked_on_transaction(L1CacheContext& ctxt,
+                                             const L1Command* cmd) {
     L1TState* tstate = ctxt.tstate();
     ctxt.mq()->set_blocked_until(tstate->transaction_end());
   }
-  
-  void execute_mq_set_blocked_on_table(L1CacheContext& ctxt, const L1Command* cmd) {
+
+  void execute_mq_set_blocked_on_table(L1CacheContext& ctxt,
+                                       const L1Command* cmd) {
     L1TTable* tt = ctxt.l1cache()->tt();
     ctxt.mq()->set_blocked_until(tt->non_full_event());
   }
-  
+
   void execute_msg_consume(L1CacheContext& ctxt, const L1Command* cmd) {
     const Message* msg = ctxt.mq()->dequeue();
     msg->release();
@@ -307,28 +306,30 @@ class L1CommandInterpreter {
     const CacheAddressHelper ah = cache->ah();
     const addr_t addr = cmd->addr();
     L1CacheModelSet set = cache->set(ah.set(addr));
-    if (auto it = set.find(addr);  it != set.end()) {
+    if (auto it = set.find(addr); it != set.end()) {
       set.evict(it);
     } else {
       throw std::runtime_error("Cannot remove line, line is not present.");
     }
   }
-  
-  void execute_invoke_coherence_action(L1CacheContext& ctxt, const L1Command* cmd) {
+
+  void execute_invoke_coherence_action(L1CacheContext& ctxt,
+                                       const L1Command* cmd) {
     CoherenceAction* action = cmd->action();
     action->execute();
   }
-  
+
   void execute_wait_on_msg(L1CacheContext& ctxt, const L1Command* cmd) {
     MQArb* arb = ctxt.l1cache()->arb();
     ctxt.process()->wait_on(arb->request_arrival_event());
   }
-  
+
   void execute_wait_next_epoch(L1CacheContext& ctxt, const L1Command* cmd) {
     ctxt.process()->wait_for(kernel::Time{10, 0});
   }
-  
-  void execute_set_l2_line_modified(L1CacheContext& ctxt, const L1Command* cmd) {
+
+  void execute_set_l2_line_modified(L1CacheContext& ctxt,
+                                    const L1Command* cmd) {
     L2CacheAgent* l2cache = ctxt.l1cache()->l2cache();
     l2cache->set_cache_line_modified(ctxt.tstate()->addr());
   }
@@ -438,7 +439,7 @@ class L1CacheAgent::MainProcess : public AgentProcess {
     L1TState* tstate = new L1TState(k());
     ctxt.set_tstate(tstate);
     ctxt.set_owns_tstate(true);
-    
+
     // Otherwise, no transactions to current line in flight, therefore
     // query the cache to determine hit/miss status of line_id.
     const addr_t set_id = ah.set(cmd->addr());

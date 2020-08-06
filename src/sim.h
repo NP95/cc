@@ -39,6 +39,7 @@ class Transaction;
 //
 class AgentProcess : public kernel::Process {
   using base_type = kernel::Process;
+
  public:
   AgentProcess(kernel::Kernel* k, const std::string& name);
 
@@ -52,11 +53,10 @@ class AgentProcess : public kernel::Process {
   void wait_on(kernel::Event* event) override;
 
  private:
-
   void invoke_init() override final;
 
   void invoke_eval() override final;
-  
+
   bool wait_set_ = false;
 };
 
@@ -73,6 +73,7 @@ class MessageQueueProxy;
 //
 class MessageQueue : public Agent {
   friend class MessageQueueProxy;
+
  public:
   MessageQueue(kernel::Kernel* k, const std::string& name, std::size_t n);
   ~MessageQueue();
@@ -80,7 +81,7 @@ class MessageQueue : public Agent {
   std::string to_string() const;
 
   MessageQueueProxy* construct_proxy();
-  
+
   // Queue depth.
   std::size_t n() const { return q_->n(); }
 
@@ -91,7 +92,6 @@ class MessageQueue : public Agent {
   // Flag indicating that the current agent is blocked.
   bool blocked() const { return blocked_; }
   bool has_req() const;
-  
 
   // Event notified when Message Queue transitions from empty to
   // non-empty state.
@@ -105,7 +105,7 @@ class MessageQueue : public Agent {
   const Message* peek() const;
   // Dequeue head message from queue.
   const Message* dequeue();
-  
+
   // Set blocked status of Message Queue until notified by event.
   void set_blocked_until(kernel::Event* event);
 
@@ -132,6 +132,7 @@ class MessageQueueProxy : public Agent {
   friend class MessageQueue;
 
   MessageQueueProxy(MessageQueue* mq);
+
  public:
   // Target Message Queue is full.
   bool full() const { return credits_ == 0; }
@@ -141,6 +142,7 @@ class MessageQueueProxy : public Agent {
   void add_credit() { credits_++; }
   // Issue message to target
   bool issue(const Message* msg, epoch_t epoch = 0);
+
  private:
   // Associated Message Queue
   MessageQueue* mq_ = nullptr;

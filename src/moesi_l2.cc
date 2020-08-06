@@ -25,13 +25,14 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "moesi.h"
-#include "protocol.h"
+#include <set>
+
+#include "amba.h"
 #include "l1cache.h"
 #include "l2cache.h"
-#include "amba.h"
+#include "moesi.h"
+#include "protocol.h"
 #include "utility.h"
-#include <set>
 
 namespace {
 
@@ -39,26 +40,36 @@ using namespace cc;
 
 //
 //
-enum class State {
-  X, I, IS, IE, S, E, EI, M, MI, O, OE
-};
+enum class State { X, I, IS, IE, S, E, EI, M, MI, O, OE };
 
 //
 //
 const char* to_string(State state) {
   switch (state) {
-    case State::X: return "X";
-    case State::I: return "I";
-    case State::IS: return "IS";
-    case State::IE: return "IE";
-    case State::S: return "S";
-    case State::E: return "E";
-    case State::EI: return "EI";
-    case State::M: return "M";
-    case State::MI: return "MI";
-    case State::O: return "O";
-    case State::OE: return "OE";
-    default: return "Invalid";
+    case State::X:
+      return "X";
+    case State::I:
+      return "I";
+    case State::IS:
+      return "IS";
+    case State::IE:
+      return "IE";
+    case State::S:
+      return "S";
+    case State::E:
+      return "E";
+    case State::EI:
+      return "EI";
+    case State::M:
+      return "M";
+    case State::MI:
+      return "MI";
+    case State::O:
+      return "O";
+    case State::OE:
+      return "OE";
+    default:
+      return "Invalid";
   }
 }
 
@@ -81,10 +92,8 @@ bool is_stable(State state) {
 //
 class LineState : public L2LineState {
  public:
-
   // Stable state status. deprecate
   bool is_stable() const { return true; }
-
 
   LineState() {}
 
@@ -93,24 +102,17 @@ class LineState : public L2LineState {
   Agent* owner() const { return owner_; }
   const std::set<Agent*>& sharers() const { return sharers_; }
 
-
   // Set current line state
-  void set_state(State state) {
-    state_ = state;
-  }
+  void set_state(State state) { state_ = state; }
 
   // Line has an owner L1. Line may be present in L2, but not present
   // in any L1. This may occur after an eviction of a line from L1,
   // but where the L2 has chosen to retain the line and forgo an
   // immediate writeback.
-  bool has_owner() const {
-    return owner_ != nullptr;
-  }
+  bool has_owner() const { return owner_ != nullptr; }
 
   // Set owning agent
-  void set_owner(Agent* owner) {
-    owner_ = owner;
-  }
+  void set_owner(Agent* owner) { owner_ = owner; }
 
   // Add agent to sharer list
   bool add_sharer(Agent* agent) {
@@ -129,9 +131,7 @@ class LineState : public L2LineState {
   }
 
   // Clear sharer set
-  void clr_sharer() {
-    sharers_.clear();
-  }
+  void clr_sharer() { sharers_.clear(); }
 
  private:
   // Current line state
@@ -176,8 +176,7 @@ const char* to_string(LineUpdate update) {
 //
 struct LineUpdateAction : public CoherenceAction {
   LineUpdateAction(LineState* line, LineUpdate update)
-      : line_(line), update_(update)
-  {}
+      : line_(line), update_(update) {}
 
   std::string to_string() const override {
     using cc::to_string;
@@ -239,6 +238,7 @@ struct LineUpdateAction : public CoherenceAction {
     }
     return true;
   }
+
  private:
   // Line state
   LineState* line_ = nullptr;
@@ -250,15 +250,14 @@ struct LineUpdateAction : public CoherenceAction {
   Agent* agent_ = nullptr;
 };
 
-
 //
 //
 class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
   using cb = L2CommandBuilder;
+
  public:
   MOESIL2CacheProtocol(kernel::Kernel* k)
-      : L2CacheAgentProtocol(k, "moesil2")
-  {}
+      : L2CacheAgentProtocol(k, "moesil2") {}
 
   //
   //
@@ -273,7 +272,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
     LineState* line = static_cast<LineState*>(ctxt.line());
     const Message* msg = ctxt.msg();
     const MessageClass cls = msg->cls();
-    switch(cls) {
+    switch (cls) {
       case MessageClass::L2Cmd: {
         // CPU -> L1 command:
         apply(ctxt, cl, line, static_cast<const L2CmdMsg*>(ctxt.msg()));
@@ -296,15 +295,17 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
     // TODO
   }
 
-  void set_modified_status(L2CacheContext& ctxt, L2CommandList& cl) const override {
+  void set_modified_status(L2CacheContext& ctxt,
+                           L2CommandList& cl) const override {
     LineState* line = static_cast<LineState*>(ctxt.line());
     switch (line->state()) {
       case State::M: {
-        LogMessage msg("Attempt to set modified status of line already in M state.");
+        LogMessage msg(
+            "Attempt to set modified status of line already in M state.");
         msg.level(Level::Warning);
         log(msg);
       }
-      [[fallthrough]];
+        [[fallthrough]];
       case State::O:
       case State::E: {
         // Set modified status of line; should really be in the E
@@ -323,7 +324,6 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
  private:
   void apply(L2CacheContext& ctxt, L2CommandList& cl, LineState* line,
              const L2CmdMsg* cmd) const {
-
     // Update Transaction State with data snooped from command message.
     L2TState* tstate = ctxt.tstate();
     tstate->set_addr(cmd->addr());
@@ -333,7 +333,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
     // Lookup L2 to L1 response queue keyed on origin agent.
     MessageQueueProxy* l2_l1__rsp_q =
         ctxt.l2cache()->l2_l1__rsp_q(tstate->l1cache());
-    
+
     const L2CmdOpcode opcode = cmd->opcode();
     const State state = line->state();
     switch (state) {
@@ -408,7 +408,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
 
             // TODO: sharer state.
             // TODO: L1 should be in the context state at this point.
-            
+
           } break;
           case L2CmdOpcode::L1GetE: {
             // L2 has line in Owning state, but must first promote the
@@ -447,7 +447,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
               msg->set_t(cmd->t());
               // L1 lines become sharers
               issue_set_l1_shared_except(cl, ctxt.addr(), tstate->l1cache());
-              //cl.push_back(cb::from_opcode(L2Opcode::SetL1LinesShared));
+              // cl.push_back(cb::from_opcode(L2Opcode::SetL1LinesShared));
               // Requester becomes sharer.
               msg->set_is(true);
               // No longer owning, therefore delete owner pointer.
@@ -607,8 +607,8 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
     }
   }
 
-  void apply(L2CacheContext& ctxt, L2CommandList& cl,
-             LineState* line, const AceCmdRspMsg* msg) const {
+  void apply(L2CacheContext& ctxt, L2CommandList& cl, LineState* line,
+             const AceCmdRspMsg* msg) const {
     L2TState* tstate = ctxt.tstate();
     // Lookup L2 to L1 response queue keyed on origin agent.
     MessageQueueProxy* l2_l1__rsp_q =
@@ -660,8 +660,9 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         cl.next_and_do_consume(true);
       } break;
       case State::OE: {
-        // TODO: should perform some additional qualificiation on the command type.
-        
+        // TODO: should perform some additional qualificiation on the command
+        // type.
+
         L2CmdRspMsg* rsp = Pool<L2CmdRspMsg>::construct();
         rsp->set_t(msg->t());
         // Always sending to the zeroth L1
@@ -831,7 +832,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         switch (line->state()) {
           case State::I:
           case State::S:
-          case State::E: { 
+          case State::E: {
             rsp->set_dt(true);
             rsp->set_pd(false);
             rsp->set_is(false);
@@ -863,7 +864,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
       case AceSnpOpcode::CleanInvalid: {
         AceSnpRspMsg* rsp = Pool<AceSnpRspMsg>::construct();
         rsp->set_t(msg->t());
-        
+
         // C5.3.4 CleanInvalid
         //
         // Specificiation recommends that data is transferred only if
@@ -912,19 +913,18 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
 
   void issue_update_state(L2CacheContext& ctxt, L2CommandList& cl,
                           LineState* line, State state) const {
-    LineUpdateAction* update =
-        new LineUpdateAction(line, LineUpdate::SetState);
+    LineUpdateAction* update = new LineUpdateAction(line, LineUpdate::SetState);
     update->set_state(state);
     cl.push_back(cb::from_action(update));
   }
 
   void issue_del_owner(L2CommandList& cl, LineState* line) const {
-    LineUpdateAction* update =
-        new LineUpdateAction(line, LineUpdate::DelOwner);
+    LineUpdateAction* update = new LineUpdateAction(line, LineUpdate::DelOwner);
     cl.push_back(cb::from_action(update));
   }
 
-  void issue_add_sharer(L2CommandList& cl, LineState* line, Agent* agent) const {
+  void issue_add_sharer(L2CommandList& cl, LineState* line,
+                        Agent* agent) const {
     LineUpdateAction* update =
         new LineUpdateAction(line, LineUpdate::AddSharer);
     update->set_agent(agent);
@@ -932,8 +932,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
   }
 
   void issue_set_owner(L2CommandList& cl, LineState* line, Agent* agent) const {
-    LineUpdateAction* update =
-        new LineUpdateAction(line, LineUpdate::SetOwner);
+    LineUpdateAction* update = new LineUpdateAction(line, LineUpdate::SetOwner);
     update->set_agent(agent);
     cl.push_back(cb::from_action(update));
   }
@@ -944,7 +943,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
     cl.push_back(cb::from_action(update));
   }
 
-  template<typename ...AGENT>
+  template <typename... AGENT>
   void issue_set_l1_invalid_except(L2CommandList& cl, addr_t addr,
                                    AGENT... excluded) const {
     // Issue L1 invalidate of current line, but add "agent" to set of
@@ -961,7 +960,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
     cl.push_back(cmd);
   }
 
-  template<typename ...AGENT>
+  template <typename... AGENT>
   void issue_set_l1_shared_except(L2CommandList& cl, addr_t addr,
                                   AGENT... excluded) const {
     // Demote L1 lines to Shared except Agents contains with in the
@@ -978,7 +977,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
   }
 };
 
-} // namespace
+}  // namespace
 
 namespace cc::moesi {
 
@@ -986,4 +985,4 @@ L2CacheAgentProtocol* build_l2_protocol(kernel::Kernel* k) {
   return new MOESIL2CacheProtocol(k);
 }
 
-} // namespace cc::moesi;
+}  // namespace cc::moesi

@@ -26,11 +26,12 @@
 //========================================================================== //
 
 #include "kernel.h"
-#include "utility.h"
 
 #include <algorithm>
 #include <exception>
 #include <iostream>
+
+#include "utility.h"
 
 namespace cc::kernel {
 
@@ -115,7 +116,7 @@ Object* Object::find_path(std::vector<std::string>& path) {
   for (Object* object : children_) {
     if (back_name == object->name()) {
       if (path.size() == 1) return object;
-        
+
       path.pop_back();
       ret = object->find_path(path);
       break;
@@ -123,7 +124,6 @@ Object* Object::find_path(std::vector<std::string>& path) {
   }
   return ret;
 }
-
 
 LogContext::LogContext(std::ostream* os) : os_(os) {}
 
@@ -286,9 +286,8 @@ Loggable::Loggable(Kernel* k, const std::string& name) : Object(k, name) {}
 
 void Loggable::log_prefix(Level l, std::ostream& os) const {
   const char* t = type_str();
-  os << "[" << k()->time() << ":"
-     << to_string(k()->phase())[0] << l.to_char() << ";" << path()
-     << " (" << t[0] << ")]:";
+  os << "[" << k()->time() << ":" << to_string(k()->phase())[0] << l.to_char()
+     << ";" << path() << " (" << t[0] << ")]:";
 }
 
 void Loggable::log(const LogMessage& m) const {
@@ -416,14 +415,10 @@ void Process::wait_until(Time t) {
 void Process::wait_on(Event* event) { event->add_waitee(this); }
 
 //
-void Process::invoke_init() {
-  init();
-}
+void Process::invoke_init() { init(); }
 
 //
-void Process::invoke_eval() {
-  eval();
-}
+void Process::invoke_eval() { eval(); }
 
 Module::Module(Kernel* k, const std::string& name) : ProcessHost(k, name) {}
 

@@ -108,7 +108,6 @@ class CCCommandBuilder {
   static CCCommand* build_transaction_end(Transaction* t);
 };
 
-
 //
 //
 class CCCommandList {
@@ -131,7 +130,7 @@ class CCCommandList {
 
   // Transaction ends
   void push_transaction_end(Transaction* t);
-  
+
   // Consume current message and advance agent to next simulation
   // epoch.
   void next_and_do_consume(bool do_consume = false);
@@ -212,6 +211,7 @@ const char* to_string(CCSnpOpcode opcode);
 //
 class CCSnpCommand {
   friend class CCSnpCommandBuilder;
+
  public:
   CCSnpCommand() = default;
   virtual void release() const { delete this; }
@@ -228,7 +228,7 @@ class CCSnpCommand {
 
  private:
   virtual ~CCSnpCommand();
-  
+
   //
   struct {
     CoherenceAction* action;
@@ -277,7 +277,7 @@ class CCSnpTState {
   //
   CCSnpLineState* line() const { return line_; }
   bool owns_line() const { return owns_line_; }
-  
+
   //
   void set_line(CCSnpLineState* line) { line_ = line; }
   void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
@@ -304,13 +304,14 @@ class CCSnpContext {
   const Message* msg() const { return mq_->peek(); }
   CCSnpTState* tstate() const { return tstate_; }
   bool owns_tstate() const { return owns_tstate_; }
-  
+
   //
   void set_t(MQArbTmt t) { t_ = t; }
   void set_cc(CCModel* cc) { cc_ = cc; }
   void set_mq(MessageQueue* mq) { mq_ = mq; }
   void set_tstate(CCSnpTState* tstate) { tstate_ = tstate; }
   void set_owns_tstate(bool owns_tstate) { owns_tstate_ = owns_tstate; }
+
  private:
   // Current Message Queue arbiter tournament.
   MQArbTmt t_;
@@ -325,7 +326,6 @@ class CCSnpContext {
   bool owns_tstate_ = false;
 };
 
-
 //
 //
 class CCModel : public Agent {
@@ -335,6 +335,7 @@ class CCModel : public Agent {
 
   class RdisProcess;
   class SnpProcess;
+
  public:
   CCModel(kernel::Kernel* k, const CCConfig& config);
   ~CCModel();

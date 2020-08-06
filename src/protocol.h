@@ -34,8 +34,8 @@
 #include <vector>
 
 #include "amba.h"
-#include "msg.h"
 #include "cc/types.h"
+#include "msg.h"
 
 namespace cc {
 
@@ -98,7 +98,7 @@ class CohEndMsg : public Message {
   void set_is(bool is) { is_ = is; }
   void set_pd(bool pd) { pd_ = pd; }
   void set_dt_n(std::size_t dt_n) { dt_n_ = dt_n; }
-  
+
  private:
   // Is Shared
   bool is_ = false;
@@ -203,7 +203,6 @@ class CohSnpRspMsg : public Message {
   bool wu_ = false;
 };
 
-
 //
 //
 class L1LineState {
@@ -243,6 +242,7 @@ class CoherenceAction {
   virtual std::string to_string() const = 0;
   virtual bool execute() = 0;
   virtual void release() { delete this; }
+
  protected:
   virtual ~CoherenceAction() = default;
 };
@@ -270,8 +270,8 @@ class L1CacheAgentProtocol : public kernel::Module {
 
   //
   //
-  virtual void set_line_shared_or_invalid(
-      L1CacheContext& c, L1CommandList& cl, bool shared) const = 0;
+  virtual void set_line_shared_or_invalid(L1CacheContext& c, L1CommandList& cl,
+                                          bool shared) const = 0;
 
  protected:
   virtual void issue_msg(L1CommandList& cl, MessageQueueProxy* mq,
@@ -315,7 +315,8 @@ class L2CacheAgentProtocol : public kernel::Module {
 
   //
   //
-  virtual void set_modified_status(L2CacheContext& ctxt, L2CommandList& cl) const = 0;
+  virtual void set_modified_status(L2CacheContext& ctxt,
+                                   L2CommandList& cl) const = 0;
 
  protected:
   virtual void issue_msg(L2CommandList& cl, MessageQueueProxy* mq,
@@ -369,7 +370,7 @@ class DirProtocol : public kernel::Module {
 
   //
   //
-  virtual DirLineState* construct_line() const  = 0;
+  virtual DirLineState* construct_line() const = 0;
 
   //
   //
@@ -395,7 +396,6 @@ class CCLineState {
  protected:
   virtual ~CCLineState() = default;
 };
-
 
 //
 //
@@ -458,8 +458,8 @@ class CCProtocol : public kernel::Module {
   virtual void issue_emit_to_noc(CCSnpContext& ctxt, CCSnpCommandList& lc,
                                  const Message* msg, Agent* dest) const;
 
-  virtual void issue_invalid_state_transition(
-      CCCommandList& cl, const std::string& desc) const;
+  virtual void issue_invalid_state_transition(CCCommandList& cl,
+                                              const std::string& desc) const;
 };
 
 //

@@ -40,9 +40,7 @@ MessageQueue::MessageQueue(kernel::Kernel* k, const std::string& name,
   build(100);
 }
 
-MessageQueue::~MessageQueue() {
-  delete q_;
-}
+MessageQueue::~MessageQueue() { delete q_; }
 
 MessageQueueProxy* MessageQueue::construct_proxy() {
   return new MessageQueueProxy(this);
@@ -58,7 +56,8 @@ std::string MessageQueue::to_string() const {
 
 bool MessageQueue::issue(const Message* msg, epoch_t epoch) {
   struct EnqueueAction : kernel::Action {
-    EnqueueAction(kernel::Kernel* k, Queue<const Message*>* q, const Message* msg)
+    EnqueueAction(kernel::Kernel* k, Queue<const Message*>* q,
+                  const Message* msg)
         : Action(k, "enqueue_action"), q_(q), msg_(msg) {}
     bool eval() override {
       if (!q_->enqueue(msg_)) {
@@ -68,6 +67,7 @@ bool MessageQueue::issue(const Message* msg, epoch_t epoch) {
       }
       return true;
     }
+
    private:
     Queue<const Message*>* q_ = nullptr;
     const Message* msg_;
@@ -86,12 +86,12 @@ bool MessageQueue::issue(const Message* msg, epoch_t epoch) {
 void MessageQueue::set_blocked_until(kernel::Event* event) {
   struct UnblockAction : kernel::Action {
     UnblockAction(kernel::Kernel* k, MessageQueue* mq)
-        : Action(k, "unblock_action"), mq_(mq)
-    {}
+        : Action(k, "unblock_action"), mq_(mq) {}
     bool eval() override {
       mq_->set_blocked(false);
       return true;
     }
+
    private:
     MessageQueue* mq_ = nullptr;
   };

@@ -78,7 +78,7 @@ class Cpu::ProducerProcess : public kernel::Process {
     if (mq->full()) {
       // Cpu issue queue has backpressured, therefore await notification
       // that the queue has become non-full.
-      //wait_on(mq->non_full_event());
+      // wait_on(mq->non_full_event());
       return;
     }
 

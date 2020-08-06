@@ -157,9 +157,7 @@ void CpuCluster::drc() {
   }
 }
 
-MessageQueue* CpuCluster::noc_cc__msg_q() const {
-  return cc_->endpoint();
-}
+MessageQueue* CpuCluster::noc_cc__msg_q() const { return cc_->endpoint(); }
 
 void CpuCluster::set_cc_noc__msg_q(MessageQueueProxy* mq) {
   cc_->set_cc_noc__msg_q(mq);

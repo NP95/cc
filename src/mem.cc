@@ -189,8 +189,7 @@ class MemNocEndpoint : public NocEndpoint {
  public:
   //
   MemNocEndpoint(kernel::Kernel* k, const std::string& name)
-      : NocEndpoint(k, name)
-  {}
+      : NocEndpoint(k, name) {}
   //
   void register_agent(Agent* agent, MessageQueueProxy* proxy) {
     endpoints_.insert(std::make_pair(agent, proxy));
@@ -224,7 +223,9 @@ MemCntrlModel::~MemCntrlModel() {
     delete mq;
   }
   delete noc_endpoint_;
-  for (MessageQueueProxy* p : endpoints_) { delete p; }
+  for (MessageQueueProxy* p : endpoints_) {
+    delete p;
+  }
   delete mem_noc__msg_q_;
 }
 

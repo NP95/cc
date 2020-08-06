@@ -32,14 +32,16 @@ namespace cc {
 
 class DirProtocol;
 
-namespace kernel { class Kernel; }
+namespace kernel {
+class Kernel;
+}
 
 namespace moesi {
 
 DirProtocol* build_dir_protocol(kernel::Kernel* k);
 
-} // namespace moesi
+}  // namespace moesi
 
-} // namespace cc
+}  // namespace cc
 
 #endif

@@ -31,14 +31,16 @@
 namespace cc {
 
 class L1CacheAgentProtocol;
-namespace kernel { class Kernel; }
+namespace kernel {
+class Kernel;
+}
 
 namespace moesi {
 
 L1CacheAgentProtocol* build_l1_protocol(kernel::Kernel* k);
 
-} // namespace moesi
+}  // namespace moesi
 
-} // namespace cc
+}  // namespace cc
 
 #endif

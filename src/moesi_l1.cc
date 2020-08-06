@@ -25,10 +25,10 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "protocol.h"
+#include "kernel.h"
 #include "l1cache.h"
 #include "l2cache.h"
-#include "kernel.h"
+#include "protocol.h"
 #include "utility.h"
 
 namespace {
@@ -56,17 +56,28 @@ enum class State {
 //
 const char* to_string(State state) {
   switch (state) {
-    case State::I: return "I";
-    case State::IS: return "IS";
-    case State::IE: return "IE";
-    case State::S: return "S";
-    case State::SI: return "SI";
-    case State::SE: return "SE";
-    case State::E: return "E";
-    case State::EI: return "EI";
-    case State::M: return "M";
-    case State::MI: return "MI";
-    default: return "Invalid";
+    case State::I:
+      return "I";
+    case State::IS:
+      return "IS";
+    case State::IE:
+      return "IE";
+    case State::S:
+      return "S";
+    case State::SI:
+      return "SI";
+    case State::SE:
+      return "SE";
+    case State::E:
+      return "E";
+    case State::EI:
+      return "EI";
+    case State::M:
+      return "M";
+    case State::MI:
+      return "MI";
+    default:
+      return "Invalid";
   }
 };
 
@@ -138,11 +149,10 @@ class MOESIL1LineState : public L1LineState {
 //
 class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
   using cb = L1CommandBuilder;
-  
+
  public:
-  MOESIL1CacheProtocol(kernel::Kernel* k) :
-      L1CacheAgentProtocol(k, "moesil2")
-  {}
+  MOESIL1CacheProtocol(kernel::Kernel* k)
+      : L1CacheAgentProtocol(k, "moesil2") {}
 
   //
   //
@@ -156,7 +166,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
   void apply(L1CacheContext& ctxt, L1CommandList& cl) const override {
     MOESIL1LineState* line = static_cast<MOESIL1LineState*>(ctxt.line());
     const MessageClass cls = ctxt.msg()->cls();
-    switch(cls) {
+    switch (cls) {
       case MessageClass::L1Cmd: {
         // CPU -> L1 command:
         apply(ctxt, cl, line, static_cast<const L1CmdMsg*>(ctxt.msg()));
@@ -173,14 +183,13 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
   //
   //
   void evict(L1CacheContext& ctxt, L1CommandList& cl) const override {
-
     // Update Transaction State with data snooped from command message.
     L1TState* tstate = ctxt.tstate();
     // Address becomes eviction address
     tstate->set_addr(ctxt.addr());
     // Line becomes evictee.
     tstate->set_line(ctxt.line());
-    
+
     MOESIL1LineState* line = static_cast<MOESIL1LineState*>(ctxt.line());
     const State state = line->state();
     switch (state) {
@@ -223,8 +232,8 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
 
   //
   //
-  void set_line_shared_or_invalid(
-      L1CacheContext& ctxt, L1CommandList& cl, bool shared) const override {
+  void set_line_shared_or_invalid(L1CacheContext& ctxt, L1CommandList& cl,
+                                  bool shared) const override {
     MOESIL1LineState* line = static_cast<MOESIL1LineState*>(ctxt.line());
     issue_update_state(cl, line, shared ? State::S : State::I);
     if (!shared) {
@@ -233,16 +242,14 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
   }
 
  private:
-
   void apply(L1CacheContext& ctxt, L1CommandList& cl, MOESIL1LineState* line,
              const L1CmdMsg* msg) const {
-
     // Update Transaction State with data snooped from command message.
     L1TState* tstate = ctxt.tstate();
     tstate->set_line(ctxt.line());
     tstate->set_addr(msg->addr());
     tstate->set_opcode(msg->opcode());
-    
+
     const State state = line->state();
     switch (state) {
       case State::I: {
@@ -282,7 +289,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
         cl.next_and_do_consume(false);
       } break;
       case State::S: {
-        // Line is present in the cache. 
+        // Line is present in the cache.
         switch (msg->opcode()) {
           case L1CmdOpcode::CpuLoad: {
             // LD to line in S-state can complete immediately. Forward
@@ -344,7 +351,6 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             cl.next_and_do_consume(true);
           } break;
           default: {
-
           } break;
         }
       } break;
@@ -390,7 +396,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
       case State::IS: {
         // Update state
         issue_update_state(cl, line, msg->is() ? State::S : State::E);
-          
+
         // Update transaction table; wake all blocked Message Queues
         // and delete context.
         cl.transaction_end();
@@ -444,15 +450,14 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
     }
   }
 
-  void issue_update_state(
-      L1CommandList& cl, MOESIL1LineState* line, State state) const {
+  void issue_update_state(L1CommandList& cl, MOESIL1LineState* line,
+                          State state) const {
     struct UpdateStateAction : public CoherenceAction {
       UpdateStateAction(MOESIL1LineState* line, State state)
-          : line_(line), state_(state)
-      {}
+          : line_(line), state_(state) {}
       std::string to_string() const override {
         using cc::to_string;
-        
+
         KVListRenderer r;
         r.add_field("action", "update state");
         r.add_field("current", to_string(line_->state()));
@@ -463,6 +468,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
         line_->set_state(state_);
         return true;
       }
+
      private:
       MOESIL1LineState* line_ = nullptr;
       State state_;
@@ -470,11 +476,9 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
     CoherenceAction* action = new UpdateStateAction(line, state);
     cl.push_back(cb::from_action(action));
   }
-
 };
 
-} // namespace
-
+}  // namespace
 
 namespace cc::moesi {
 
@@ -484,5 +488,4 @@ L1CacheAgentProtocol* build_l1_protocol(kernel::Kernel* k) {
   return new MOESIL1CacheProtocol(k);
 }
 
-} // namespace cc::moesi
-
+}  // namespace cc::moesi

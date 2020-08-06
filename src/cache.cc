@@ -54,9 +54,10 @@ addr_t CacheAddressHelper::line_id(const addr_t& a) const {
 }
 
 addr_t CacheAddressHelper::addr_from_set_tag(const addr_t setid,
-                                             const addr_t tag) const{
+                                             const addr_t tag) const {
   // Reconstruct cache-line aligned address from Set ID and TAG.
-  return ((tag << line_bits_) + setid & mask<addr_t>(line_bits_)) << offset_bits_;
+  return ((tag << line_bits_) + setid & mask<addr_t>(line_bits_))
+         << offset_bits_;
 }
 
 std::size_t CacheModelConfig::lines() const { return ways_n * sets_n; }

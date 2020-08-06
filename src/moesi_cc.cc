@@ -25,14 +25,14 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "moesi.h"
-#include "protocol.h"
 #include "amba.h"
 #include "ccntrl.h"
 #include "dir.h"
 #include "l2cache.h"
-#include "noc.h"
 #include "mem.h"
+#include "moesi.h"
+#include "noc.h"
+#include "protocol.h"
 #include "utility.h"
 
 namespace {
@@ -98,18 +98,14 @@ class Line : public CCLineState {
   bool awaiting_cohcmdrsp_ = false;
 };
 
-
 //
 //
 class ApplyMsgAction : public CoherenceAction {
  public:
-  ApplyMsgAction(const Message* msg, Line* line)
-      : msg_(msg), line_(line) {}
+  ApplyMsgAction(const Message* msg, Line* line) : msg_(msg), line_(line) {}
 
-  std::string to_string() const override {
-    return "TODO";
-  }
-  
+  std::string to_string() const override { return "TODO"; }
+
   bool execute() override {
     const MessageClass cls = msg_->cls();
 
@@ -133,12 +129,13 @@ class ApplyMsgAction : public CoherenceAction {
     }
     return ret;
   }
+
  private:
   bool execute_apply(const AceCmdMsg* msg) const {
     line_->set_t(msg->t());
     return true;
   }
-  
+
   bool execute_apply(const CohEndMsg* msg) const {
     line_->set_is(msg->is());
     line_->set_pd(msg->pd());
@@ -156,21 +153,16 @@ class ApplyMsgAction : public CoherenceAction {
     line_->set_dt_i(line_->dt_i() + 1);
     return true;
   }
-  
+
   //
   const Message* msg_ = nullptr;
-  // 
+  //
   Line* line_ = nullptr;
 };
 
-
 //
 //
-enum class LineUpdate {
-  SetAwaitingCohEnd,
-  SetAwaitingCohCmdRsp,
-  Invalid
-};
+enum class LineUpdate { SetAwaitingCohEnd, SetAwaitingCohCmdRsp, Invalid };
 
 const char* to_string(LineUpdate update) {
   switch (update) {
@@ -187,8 +179,7 @@ const char* to_string(LineUpdate update) {
 
 struct LineUpdateAction : public CoherenceAction {
   LineUpdateAction(Line* line, LineUpdate update)
-      : line_(line), update_(update)
-  {}
+      : line_(line), update_(update) {}
   std::string to_string() const override {
     using cc::to_string;
     KVListRenderer r;
@@ -208,11 +199,11 @@ struct LineUpdateAction : public CoherenceAction {
     }
     return true;
   }
+
  private:
   Line* line_ = nullptr;
   LineUpdate update_ = LineUpdate::Invalid;
 };
-
 
 //
 //
@@ -227,7 +218,7 @@ class SnpLine : public CCSnpLineState {
   //
   void set_origin(Agent* origin) { origin_ = origin; }
   void set_agent(Agent* agent) { agent_ = agent; }
-  
+
  private:
   // Originating directory.
   Agent* origin_ = nullptr;
@@ -239,21 +230,17 @@ class SnpLine : public CCSnpLineState {
 //
 class MOESICCProtocol : public CCProtocol {
   using cb = CCCommandBuilder;
-  
+
  public:
   MOESICCProtocol(kernel::Kernel* k) : CCProtocol(k, "moesicc") {}
 
   //
   //
-  CCLineState* construct_line() const override {
-    return new Line;
-  }
+  CCLineState* construct_line() const override { return new Line; }
 
   //
   //
-  CCSnpLineState* construct_snp_line() const override {
-    return new SnpLine;
-  }
+  CCSnpLineState* construct_snp_line() const override { return new SnpLine; }
 
   //
   //
@@ -325,14 +312,16 @@ class MOESICCProtocol : public CCProtocol {
     }
   }
 
-  void eval_msg(CCContext& ctxt, CCCommandList& cl, const CohCmdRspMsg* msg) const {
+  void eval_msg(CCContext& ctxt, CCCommandList& cl,
+                const CohCmdRspMsg* msg) const {
     // Apply message to transaction state.
     issue_apply_msg(ctxt, cl, msg);
     // Consume and advance
     cl.next_and_do_consume(true);
   }
 
-  void eval_msg(CCContext& ctxt, CCCommandList& cl, const AceCmdMsg* msg) const {
+  void eval_msg(CCContext& ctxt, CCCommandList& cl,
+                const AceCmdMsg* msg) const {
     // Apply message to transaction state.
     issue_apply_msg(ctxt, cl, msg);
 
@@ -341,7 +330,7 @@ class MOESICCProtocol : public CCProtocol {
     // Defaults
     bool set_awaiting_cohend = false;
     bool set_awaiting_cmdrsp = false;
-    
+
     const AceCmdOpcode opcode = msg->opcode();
     switch (opcode) {
       case AceCmdOpcode::ReadShared: {
@@ -406,13 +395,13 @@ class MOESICCProtocol : public CCProtocol {
         // Agent has copy of cache line and requests promotion of the
         // line to an owning state.
         const DirMapper* dm = ctxt.cc()->dm();
-        
+
         CohSrtMsg* cohsrt = new CohSrtMsg;
         cohsrt->set_t(msg->t());
         cohsrt->set_origin(ctxt.cc());
         cohsrt->set_addr(msg->addr());
         issue_emit_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
-        
+
         CohCmdMsg* cohcmd = new CohCmdMsg;
         cohcmd->set_t(msg->t());
         cohcmd->set_opcode(msg->opcode());
@@ -507,7 +496,8 @@ class MOESICCProtocol : public CCProtocol {
     }
   }
 
-  void eval_msg(CCContext& ctxt, CCCommandList& cl, const CohEndMsg* msg) const {
+  void eval_msg(CCContext& ctxt, CCCommandList& cl,
+                const CohEndMsg* msg) const {
     // Apply message to transaction state.
     issue_apply_msg(ctxt, cl, msg);
     // Consume and advance
@@ -527,7 +517,8 @@ class MOESICCProtocol : public CCProtocol {
     cl.next_and_do_consume(true);
   }
 
-  void eval_msg(CCSnpContext& ctxt, CCSnpCommandList& cl, const CohSnpMsg* msg) const {
+  void eval_msg(CCSnpContext& ctxt, CCSnpCommandList& cl,
+                const CohSnpMsg* msg) const {
     using snpcb = CCSnpCommandBuilder;
 
     // Forward snoop request to L2.
@@ -540,16 +531,17 @@ class MOESICCProtocol : public CCProtocol {
     SnpLine* snpline = static_cast<SnpLine*>(ctxt.tstate()->line());
     snpline->set_origin(msg->origin());
     snpline->set_agent(msg->agent());
-    
+
     // Consume message
     cl.push_back(snpcb::from_opcode(CCSnpOpcode::TransactionStart));
     cl.push_back(snpcb::from_opcode(CCSnpOpcode::ConsumeMsg));
     cl.push_back(snpcb::from_opcode(CCSnpOpcode::NextEpoch));
   }
 
-  void eval_msg(CCSnpContext& ctxt, CCSnpCommandList& cl, const AceSnpRspMsg* msg) const {
+  void eval_msg(CCSnpContext& ctxt, CCSnpCommandList& cl,
+                const AceSnpRspMsg* msg) const {
     using snpcb = CCSnpCommandBuilder;
-   // Snoop line
+    // Snoop line
     SnpLine* snpline = static_cast<SnpLine*>(ctxt.tstate()->line());
 
     // Forward response back to originating directory.
@@ -561,7 +553,7 @@ class MOESICCProtocol : public CCProtocol {
     rsp->set_is(msg->is());
     rsp->set_wu(msg->wu());
     issue_emit_to_noc(ctxt, cl, rsp, snpline->origin());
-    
+
     if (msg->dt()) {
       // Data transfer, send data to requester.
       DtMsg* dt = new DtMsg;
@@ -574,35 +566,37 @@ class MOESICCProtocol : public CCProtocol {
     cl.push_back(snpcb::from_opcode(CCSnpOpcode::NextEpoch));
   }
 
-  void eval_msg(CCSnpContext& ctxt, CCSnpCommandList& cl, const DtRspMsg* msg) const {
+  void eval_msg(CCSnpContext& ctxt, CCSnpCommandList& cl,
+                const DtRspMsg* msg) const {
     using snpcb = CCSnpCommandBuilder;
     cl.push_back(snpcb::from_opcode(CCSnpOpcode::TransactionEnd));
     cl.push_back(snpcb::from_opcode(CCSnpOpcode::ConsumeMsg));
     cl.push_back(snpcb::from_opcode(CCSnpOpcode::NextEpoch));
   }
 
-  void issue_apply_msg(
-      CCContext& ctxt,  CCCommandList& cl, const Message* msg) const {
+  void issue_apply_msg(CCContext& ctxt, CCCommandList& cl,
+                       const Message* msg) const {
     Line* line = static_cast<Line*>(ctxt.line());
     ApplyMsgAction* action = new ApplyMsgAction(msg, line);
     cl.push_back(cb::from_action(action));
   }
-  
-  void issue_line_update(
-      CCContext& ctxt,  CCCommandList& cl, LineUpdate update) const {
+
+  void issue_line_update(CCContext& ctxt, CCCommandList& cl,
+                         LineUpdate update) const {
     Line* line = static_cast<Line*>(ctxt.line());
     LineUpdateAction* action = new LineUpdateAction(line, update);
     cl.push_back(cb::from_action(action));
   }
-
 };
 
-} // namespace
+}  // namespace
 
 namespace cc::moesi {
 
 //
 //
-CCProtocol* build_cc_protocol(kernel::Kernel* k) { return new MOESICCProtocol(k); }
+CCProtocol* build_cc_protocol(kernel::Kernel* k) {
+  return new MOESICCProtocol(k);
+}
 
-} // namespace cc::moesi
+}  // namespace cc::moesi

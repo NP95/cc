@@ -27,11 +27,11 @@
 
 #include "llc.h"
 
+#include "cpucluster.h"
 #include "dir.h"
 #include "mem.h"
 #include "msg.h"
 #include "noc.h"
-#include "cpucluster.h"
 #include "utility.h"
 
 namespace cc {
@@ -89,19 +89,18 @@ std::string LLCCmdRspMsg::to_string() const {
   return r.to_string();
 }
 
-enum class State {
-  FillAwaitMemRsp,
-  PutAwaitCCDtRsp,
-  PutAwaitMemDtRsp,
-  Idle
-};
+enum class State { FillAwaitMemRsp, PutAwaitCCDtRsp, PutAwaitMemDtRsp, Idle };
 
 const char* to_string(State state) {
   switch (state) {
-    case State::FillAwaitMemRsp: return "FillAwaitMemRsp";
-    case State::PutAwaitCCDtRsp: return "PutAwaitCCDtRsp";
-    case State::PutAwaitMemDtRsp: return "PutAwaitMemDtRsp";
-    default: return "Idle";
+    case State::FillAwaitMemRsp:
+      return "FillAwaitMemRsp";
+    case State::PutAwaitCCDtRsp:
+      return "PutAwaitCCDtRsp";
+    case State::PutAwaitMemDtRsp:
+      return "PutAwaitMemDtRsp";
+    default:
+      return "Idle";
   }
 }
 
@@ -152,7 +151,7 @@ class LLCModel::RdisProcess : public AgentProcess {
       lm.append(msg->to_string());
       lm.level(Level::Debug);
       log(lm);
-    
+
       switch (msg->cls()) {
         case MessageClass::LLCCmd: {
           process(static_cast<const LLCCmdMsg*>(msg));
@@ -301,7 +300,7 @@ class LLCModel::RdisProcess : public AgentProcess {
     MessageQueueProxy* mq = model_->llc_noc__msg_q();
     mq->issue(nocmsg);
   }
-  
+
   // Pointer to owning LLC instance.
   LLCModel* model_ = nullptr;
 };
@@ -311,8 +310,7 @@ class LLCModel::RdisProcess : public AgentProcess {
 class LLCNocEndpoint : public NocEndpoint {
  public:
   LLCNocEndpoint(kernel::Kernel* k, const std::string& name)
-      : NocEndpoint(k, name)
-  {}
+      : NocEndpoint(k, name) {}
   //
   void register_endpoint(MessageClass cls, MessageQueueProxy* p) {
     endpoints_.insert(std::make_pair(cls, p));
@@ -346,8 +344,12 @@ LLCModel::~LLCModel() {
   delete arb_;
   delete rdis_proc_;
   delete noc_endpoint_;
-  for (MessageQueue* mq : cc_llc__rsp_qs_) { delete mq; }
-  for (MessageQueueProxy* p : endpoints_) { delete p; }
+  for (MessageQueue* mq : cc_llc__rsp_qs_) {
+    delete mq;
+  }
+  for (MessageQueueProxy* p : endpoints_) {
+    delete p;
+  }
   delete llc_noc__msg_q_;
   delete tt_;
 }
@@ -412,9 +414,7 @@ void LLCModel::drc() {
   }
 }
 
-MessageQueue* LLCModel::endpoint() const {
-  return noc_endpoint_->ingress_mq();
-}
+MessageQueue* LLCModel::endpoint() const { return noc_endpoint_->ingress_mq(); }
 
 void LLCModel::set_llc_noc__msg_q(MessageQueueProxy* mq) {
   llc_noc__msg_q_ = mq;

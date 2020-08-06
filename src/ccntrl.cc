@@ -95,7 +95,6 @@ CCCommand* CCCommandBuilder::build_transaction_end(Transaction* t) {
   return cmd;
 }
 
-
 CCContext::~CCContext() {
   if (owns_line_) {
     line_->release();
@@ -129,7 +128,6 @@ void CCCommandList::next_and_do_consume(bool do_consume) {
   // Advance to next
   push_back(cb::from_opcode(CCOpcode::WaitNextEpoch));
 }
-
 
 //
 //
@@ -165,15 +163,14 @@ class CCCommandInterpreter {
       } break;
     }
   }
- private:
 
+ private:
   void execute_transaction_start(CCContext& ctxt, const CCCommand* cmd) {
     CCTTable* tt = model_->tt();
     CCTState* st = new CCTState();
     st->set_line(ctxt.line());
     tt->install(ctxt.msg()->t(), st);
     ctxt.set_owns_line(false);
-    
   }
 
   void execute_transaction_end(CCContext& ctxt, const CCCommand* cmd) {
@@ -186,10 +183,10 @@ class CCCommandInterpreter {
       throw std::runtime_error("Table entry for transaction does not exist.");
     }
   }
-  
+
   void execute_invoke_coherence_action(CCContext& ctxt, const CCCommand* cmd) {
-      CoherenceAction* action = cmd->action();
-      action->execute();
+    CoherenceAction* action = cmd->action();
+    action->execute();
   }
 
   void execute_msg_consume(CCContext& ctxt, const CCCommand* cmd) {
@@ -220,6 +217,7 @@ class CCCommandInterpreter {
 //
 class CCModel::RdisProcess : public AgentProcess {
   using cb = CCCommandBuilder;
+
  public:
   RdisProcess(kernel::Kernel* k, const std::string& name, CCModel* model)
       : AgentProcess(k, name), model_(model) {}
@@ -296,7 +294,7 @@ class CCModel::RdisProcess : public AgentProcess {
       CCCommandList cs;
       if (protocol->is_complete(ctxt, cs)) {
         execute(ctxt, cs);
-      }      
+      }
     }
   }
 
@@ -309,29 +307,27 @@ class CCModel::RdisProcess : public AgentProcess {
   }
 
   void process_cohend(CCContext& ctxt, CCCommandList& cl) const {
-    const CCTState* st = lookup_state_or_fail(ctxt.msg()->t()); 
+    const CCTState* st = lookup_state_or_fail(ctxt.msg()->t());
     ctxt.set_line(st->line());
     const CCProtocol* protocol = model_->protocol();
     protocol->apply(ctxt, cl);
   }
 
   void process_cohcmdrsp(CCContext& ctxt, CCCommandList& cl) const {
-    const CCTState* st = lookup_state_or_fail(ctxt.msg()->t()); 
+    const CCTState* st = lookup_state_or_fail(ctxt.msg()->t());
     ctxt.set_line(st->line());
     const CCProtocol* protocol = model_->protocol();
     protocol->apply(ctxt, cl);
   }
 
   void process_dt(CCContext& ctxt, CCCommandList& cl) const {
-    const CCTState* st = lookup_state_or_fail(ctxt.msg()->t()); 
+    const CCTState* st = lookup_state_or_fail(ctxt.msg()->t());
     ctxt.set_line(st->line());
     const CCProtocol* protocol = model_->protocol();
     protocol->apply(ctxt, cl);
-  }  
-
-  bool can_execute(const CCCommandList& cl) const {
-    return true;
   }
+
+  bool can_execute(const CCCommandList& cl) const { return true; }
 
   void execute(CCContext& ctxt, const CCCommandList& cl) {
     try {
@@ -372,7 +368,6 @@ class CCModel::RdisProcess : public AgentProcess {
   CCModel* model_ = nullptr;
 };
 
-
 const char* to_string(CCSnpOpcode opcode) {
   switch (opcode) {
     case CCSnpOpcode::TransactionStart:
@@ -398,10 +393,9 @@ CCSnpCommand::~CCSnpCommand() {
     case CCSnpOpcode::InvokeCoherenceAction:
       oprands.action->release();
       break;
-    default: ;
+    default:;
   }
 }
-
 
 std::string CCSnpCommand::to_string() const {
   KVListRenderer r;
@@ -478,7 +472,8 @@ class CCSnpCommandInterpreter {
     }
   }
 
-  void execute_invoke_coherence_action(CCSnpContext& ctxt, const CCSnpCommand* cmd) {
+  void execute_invoke_coherence_action(CCSnpContext& ctxt,
+                                       const CCSnpCommand* cmd) {
     CoherenceAction* action = cmd->action();
     action->execute();
   }
@@ -504,11 +499,12 @@ class CCSnpCommandInterpreter {
   // Invoking thread.
   AgentProcess* process_ = nullptr;
 };
-  
+
 //
 //
 class CCModel::SnpProcess : public AgentProcess {
   using cb = CCSnpCommandBuilder;
+
  public:
   SnpProcess(kernel::Kernel* k, const std::string& name, CCModel* model)
       : AgentProcess(k, name), model_(model) {}
@@ -593,9 +589,7 @@ class CCModel::SnpProcess : public AgentProcess {
     }
   }
 
-  bool can_execute(const CCSnpCommandList& cl) const {
-    return true;
-  }
+  bool can_execute(const CCSnpCommandList& cl) const { return true; }
 
   void execute(CCSnpContext& ctxt, const CCSnpCommandList& cl) {
     try {
@@ -628,8 +622,7 @@ class CCNocEndpoint : public NocEndpoint {
  public:
   //
   CCNocEndpoint(kernel::Kernel* k, const std::string& name)
-      : NocEndpoint(k, name)
-  {}
+      : NocEndpoint(k, name) {}
   //
   void register_endpoint(MessageClass cls, MessageQueueProxy* p) {
     endpoints_.insert(std::make_pair(cls, p));
@@ -674,7 +667,9 @@ CCModel::~CCModel() {
   delete protocol_;
   delete cc_l2__rsp_q_;
   delete cc_noc__msg_q_;
-  for (MessageQueueProxy* p : endpoints_) { delete p; }
+  for (MessageQueueProxy* p : endpoints_) {
+    delete p;
+  }
 }
 
 void CCModel::build() {
@@ -740,7 +735,7 @@ void CCModel::elab() {
   p = l2_cc__cmd_q_->construct_proxy();
   noc_endpoint_->register_endpoint(MessageClass::L2Cmd, p);
   endpoints_.push_back(p);
-      
+
   p = dir_cc__rsp_q_->construct_proxy();
   noc_endpoint_->register_endpoint(MessageClass::CohCmdRsp, p);
   noc_endpoint_->register_endpoint(MessageClass::CohEnd, p);
@@ -796,8 +791,6 @@ void CCModel::drc() {
   }
 }
 
-MessageQueue* CCModel::endpoint() const {
-  return noc_endpoint_->ingress_mq();
-}
+MessageQueue* CCModel::endpoint() const { return noc_endpoint_->ingress_mq(); }
 
 }  // namespace cc

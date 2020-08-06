@@ -25,16 +25,18 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "moesi_l1.h"
-#include "moesi_l2.h"
 #include "moesi_cc.h"
 #include "moesi_dir.h"
+#include "moesi_l1.h"
+#include "moesi_l2.h"
 #include "protocol.h"
 
 namespace cc {
 
 // Forwards:
-namespace kernel { class Kernel; }
+namespace kernel {
+class Kernel;
+}
 
 class MOESIProtocolBuilder : public ProtocolBuilder {
  public:

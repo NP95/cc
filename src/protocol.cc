@@ -31,7 +31,6 @@
 #include "dir.h"
 #include "l1cache.h"
 #include "l2cache.h"
-#include "ccntrl.h"
 #include "noc.h"
 #include "sim.h"
 #include "utility.h"
@@ -120,23 +119,24 @@ struct EmitMessageActionProxy : public CoherenceAction {
     return r.to_string();
   }
   bool execute() override { return mq_->issue(msg_); }
+
  private:
   MessageQueueProxy* mq_ = nullptr;
   const Message* msg_ = nullptr;
 };
 
-L1CacheAgentProtocol::L1CacheAgentProtocol(kernel::Kernel* k, const std::string& name)
+L1CacheAgentProtocol::L1CacheAgentProtocol(kernel::Kernel* k,
+                                           const std::string& name)
     : Module(k, name) {}
 
 void L1CacheAgentProtocol::issue_msg(L1CommandList& cl, MessageQueueProxy* mq,
                                      const Message* msg) const {
-
-
   CoherenceAction* action = new EmitMessageActionProxy(mq, msg);
   cl.push_back(L1CommandBuilder::from_action(action));
 }
 
-L2CacheAgentProtocol::L2CacheAgentProtocol(kernel::Kernel* k, const std::string& name)
+L2CacheAgentProtocol::L2CacheAgentProtocol(kernel::Kernel* k,
+                                           const std::string& name)
     : Module(k, name) {}
 
 void L2CacheAgentProtocol::issue_msg(L2CommandList& cl, MessageQueueProxy* mq,
@@ -179,7 +179,8 @@ void CCProtocol::issue_emit_to_noc(CCContext& ctxt, CCCommandList& cl,
   nocmsg->set_origin(cc);
   nocmsg->set_dest(dest);
   // Issue Message Emit action.
-  CoherenceAction* action = new EmitMessageActionProxy(cc->cc_noc__msg_q(), nocmsg);
+  CoherenceAction* action =
+      new EmitMessageActionProxy(cc->cc_noc__msg_q(), nocmsg);
   cl.push_back(CCCommandBuilder::from_action(action));
 }
 
@@ -202,12 +203,13 @@ void CCProtocol::issue_emit_to_noc(CCSnpContext& ctxt, CCSnpCommandList& cl,
   nocmsg->set_origin(cc);
   nocmsg->set_dest(dest);
   // Issue Message Emit action.
-  CoherenceAction* action = new EmitMessageActionProxy(cc->cc_noc__msg_q(), nocmsg);
+  CoherenceAction* action =
+      new EmitMessageActionProxy(cc->cc_noc__msg_q(), nocmsg);
   cl.push_back(CCSnpCommandBuilder::from_action(action));
 }
 
-void CCProtocol::issue_invalid_state_transition(
-    CCCommandList& cl, const std::string& desc) const {
+void CCProtocol::issue_invalid_state_transition(CCCommandList& cl,
+                                                const std::string& desc) const {
   struct InvalidStateTransition : CoherenceAction {
     InvalidStateTransition(const std::string& desc) : desc_(desc) {}
     std::string to_string() const override {
@@ -218,6 +220,7 @@ void CCProtocol::issue_invalid_state_transition(
       throw std::runtime_error(to_string());
       return true;
     }
+
    private:
     std::string desc_;
   };
@@ -229,13 +232,13 @@ DirProtocol::DirProtocol(kernel::Kernel* k, const std::string& name)
     : Module(k, name) {}
 
 void DirProtocol::issue_msg(DirCommandList& cl, MessageQueueProxy* mq,
-                           const Message* msg) const {
+                            const Message* msg) const {
   CoherenceAction* action = new EmitMessageActionProxy(mq, msg);
   cl.push_back(DirCommandBuilder::from_action(action));
 }
 
 void DirProtocol::issue_emit_to_noc(DirContext& ctxt, DirCommandList& cl,
-                                   const Message* msg, Agent* dest) const {
+                                    const Message* msg, Agent* dest) const {
   if (dest == nullptr) {
     LogMessage lm("Destination is not defined.");
     lm.level(Level::Fatal);

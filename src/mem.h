@@ -123,7 +123,7 @@ class MemCntrlModel : public Agent {
 
   // Accessors:
   MessageQueue* endpoint() const;
-  
+
   // MEM -> NOC
   MessageQueueProxy* mem_noc__msg_q() const { return mem_noc__msg_q_; }
 

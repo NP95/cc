@@ -55,7 +55,7 @@ std::string KVListRenderer::to_string() const {
   for (std::size_t i = 0; i < kvs_.size(); i++) {
     const kv_type& kv = kvs_[i];
     if (i != 0) ss << ", ";
-    ss << kv.first << ":" << kv.second;  
+    ss << kv.first << ":" << kv.second;
   }
   ss << "}";
   return ss.str();

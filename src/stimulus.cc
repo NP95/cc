@@ -92,13 +92,9 @@ TraceStimulus::TraceStimulus(kernel::Kernel* k, const StimulusConfig& config)
   build();
 }
 
-TraceStimulus::~TraceStimulus() {
-  delete is_;
-}
+TraceStimulus::~TraceStimulus() { delete is_; }
 
-void TraceStimulus::build() {
-  is_ = config().is;
-}
+void TraceStimulus::build() { is_ = config().is; }
 
 void TraceStimulus::elab() { parse_tracefile(); }
 

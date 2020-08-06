@@ -35,17 +35,16 @@ namespace cc::moesi {
 //
 //
 struct ProtocolViolation : public CoherenceAction {
-  ProtocolViolation(const std::string& desc)
-      : desc_(desc)
-  {}
+  ProtocolViolation(const std::string& desc) : desc_(desc) {}
   bool execute() override {
     throw std::runtime_error("Protocol violation!");
     return true;
   }
+
  private:
   std::string desc_;
 };
 
-} // namespace cc::moesi
+}  // namespace cc::moesi
 
 #endif

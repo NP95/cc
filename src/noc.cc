@@ -210,15 +210,12 @@ void NocPort::build() {
   add_child_module(ingress_);
 }
 
-
 class NocEndpoint::MainProcess : public AgentProcess {
  public:
   MainProcess(kernel::Kernel* k, const std::string& name, NocEndpoint* ep)
-      : AgentProcess(k, name), ep_(ep)
-  {}
+      : AgentProcess(k, name), ep_(ep) {}
 
  private:
-
   // Initialization
   void init() override {
     MessageQueue* mq = ep_->ingress_mq();
@@ -268,7 +265,6 @@ class NocEndpoint::MainProcess : public AgentProcess {
 
   NocEndpoint* ep_ = nullptr;
 };
-
 
 NocEndpoint::NocEndpoint(kernel::Kernel* k, const std::string& name)
     : Agent(k, name) {

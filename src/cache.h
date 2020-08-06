@@ -243,8 +243,7 @@ class CacheModel {
   class Set {
     friend class CacheModel;
 
-    Set(LineIterator begin, LineIterator end)
-        : begin_(begin), end_(end) {}
+    Set(LineIterator begin, LineIterator end) : begin_(begin), end_(end) {}
 
    public:
     // Iterator to the 'begin' line (the zeroth line in the set).

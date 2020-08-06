@@ -32,10 +32,10 @@
 #include "amba.h"
 #include "cache.h"
 #include "llc.h"
+#include "msg.h"
 #include "noc.h"
 #include "primitives.h"
 #include "protocol.h"
-#include "msg.h"
 #include "utility.h"
 
 namespace cc {
@@ -100,9 +100,7 @@ DirCommand* DirCommandBuilder::from_action(CoherenceAction* action) {
   return cmd;
 }
 
-void DirTState::release() {
-  delete this;
-}
+void DirTState::release() { delete this; }
 
 DirContext::~DirContext() {
   if (owns_line()) {
@@ -119,14 +117,12 @@ DirCommandList::~DirCommandList() {
   }
 }
 
-void DirCommandList::push_back(DirCommand* cmd) {
-  cmds_.push_back(cmd);
-}
+void DirCommandList::push_back(DirCommand* cmd) { cmds_.push_back(cmd); }
 
 void DirCommandList::next_and_do_consume(bool do_consume) {
   if (do_consume) {
     push_back(DirCommandBuilder::from_opcode(DirOpcode::MsgConsume));
-  } 
+  }
   push_back(DirCommandBuilder::from_opcode(DirOpcode::WaitNextEpoch));
 }
 
@@ -183,10 +179,11 @@ class DirCommandInterpreter {
       } break;
     }
   }
+
  private:
   void execute_start_transaction(DirContext& ctxt, const DirCommand* cmd) {
     DirTState* tstate = ctxt.tstate();
-    
+
     // Install in the transaction table.
     DirTTable* tt = model_->tt();
     tt->install(ctxt.msg()->t(), tstate);
@@ -218,7 +215,7 @@ class DirCommandInterpreter {
     // Transaction starts; notify.
     tstate->transaction_start()->notify();
   }
-  
+
   void execute_end_transaction(DirContext& ctxt, const DirCommand* cmd) {
     // Notify transaction event event; unblocks message queues
     // awaiting completion of current transaction.
@@ -241,27 +238,29 @@ class DirCommandInterpreter {
     DirCacheModel* cache = model_->cache();
     const CacheAddressHelper ah = cache->ah();
     DirCacheModelSet set = cache->set(ah.set(ctxt.addr()));
-    if (auto it = set.find(ah.tag(ctxt.addr()));  it != set.end()) {
+    if (auto it = set.find(ah.tag(ctxt.addr())); it != set.end()) {
       set.evict(it);
     } else {
       throw std::runtime_error("Cannot remove line, line is not present.");
     }
   }
 
-  void execute_invoke_coherence_action(DirContext& ctxt, const DirCommand* cmd) {
+  void execute_invoke_coherence_action(DirContext& ctxt,
+                                       const DirCommand* cmd) {
     CoherenceAction* action = cmd->action();
     action->execute();
   }
-  
+
   void execute_mq_set_blocked_on_transaction(DirContext& ctxt,
                                              const DirCommand* cmd) {
     ctxt.mq()->set_blocked_until(ctxt.tstate()->transaction_end());
   }
 
-  void execute_mq_set_blocked_on_table(DirContext& ctxt, const DirCommand* cmd) {
+  void execute_mq_set_blocked_on_table(DirContext& ctxt,
+                                       const DirCommand* cmd) {
     ctxt.mq()->set_blocked_until(model_->tt()->non_full_event());
-  }  
-  
+  }
+
   void execute_wait_on_msg(DirContext& ctxt, const DirCommand* cmd) const {
     // Set wait state of current process; await the arrival of a
     // new message.
@@ -285,6 +284,7 @@ class DirCommandInterpreter {
 //
 class DirModel::RdisProcess : public AgentProcess {
   using cb = DirCommandBuilder;
+
  public:
   RdisProcess(kernel::Kernel* k, const std::string& name, DirModel* model)
       : AgentProcess(k, name), model_(model) {}
@@ -315,7 +315,6 @@ class DirModel::RdisProcess : public AgentProcess {
       execute(ctxt, cl);
       return;
     }
-
 
     // Fetch nominated message queue
     ctxt.set_mq(ctxt.t().winner());
@@ -369,7 +368,7 @@ class DirModel::RdisProcess : public AgentProcess {
         cl.push_back(cb::from_opcode(DirOpcode::MqSetBlockedOnTransaction));
         // Advance
         cl.next_and_do_consume(false);
-        //cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
+        // cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
       } else if (DirTTable* tt = model_->tt(); !tt->full()) {
         // Transaction has not already been initiated, there is no
         // pending transaction to this line, AND, there are free
@@ -394,8 +393,8 @@ class DirModel::RdisProcess : public AgentProcess {
     }
   }
 
-  void process_new_transaction(
-      DirContext& ctxt, DirCommandList& cl, const CohSrtMsg* msg) const {
+  void process_new_transaction(DirContext& ctxt, DirCommandList& cl,
+                               const CohSrtMsg* msg) const {
     // Otherwise, if there are free entries in the transaction table,
     // the transaction can proceed. Issue.  Search for the line in the
     // directory cache; if present, proceed, if not install new line,
@@ -448,9 +447,7 @@ class DirModel::RdisProcess : public AgentProcess {
     protocol->apply(ctxt, cl);
   }
 
-  bool can_execute(const DirCommandList& cl) const {
-    return true;
-  }
+  bool can_execute(const DirCommandList& cl) const { return true; }
 
   void execute(DirContext& ctxt, const DirCommandList& cl) {
     try {
@@ -473,8 +470,8 @@ class DirModel::RdisProcess : public AgentProcess {
     }
   }
 
-  DirTState* lookup_state_or_fatal(
-      Transaction* t, bool allow_fatal = true) const {
+  DirTState* lookup_state_or_fatal(Transaction* t,
+                                   bool allow_fatal = true) const {
     DirTTable* tt = model_->tt();
     DirTState* st = nullptr;
     if (auto it = tt->find(t); it != tt->end()) {
@@ -492,8 +489,7 @@ class DirModel::RdisProcess : public AgentProcess {
   DirTState* lookup_state_by_addr(addr_t addr) const {
     for (auto p : *model_->tt()) {
       DirTState* entry = p.second;
-      if (entry->addr() == addr)
-        return entry;
+      if (entry->addr() == addr) return entry;
     }
     return nullptr;
   }
@@ -508,8 +504,7 @@ class DirNocEndpoint : public NocEndpoint {
  public:
   //
   DirNocEndpoint(kernel::Kernel* k, const std::string& name)
-      : NocEndpoint(k, name)
-  {}
+      : NocEndpoint(k, name) {}
   //
   void register_endpoint(MessageClass cls, MessageQueueProxy* p) {
     endpoints_.insert(std::make_pair(cls, p));
@@ -546,7 +541,9 @@ DirModel::~DirModel() {
   delete noc_endpoint_;
   delete rdis_proc_;
   delete protocol_;
-  for (MessageQueueProxy* p : endpoints_) { delete p; }
+  for (MessageQueueProxy* p : endpoints_) {
+    delete p;
+  }
   delete dir_noc__msg_q_;
   delete tt_;
 }
@@ -618,7 +615,6 @@ void DirModel::drc() {
     log(lmsg);
   }
 }
-
 
 MessageQueue* DirModel::endpoint() { return noc_endpoint_->ingress_mq(); }
 

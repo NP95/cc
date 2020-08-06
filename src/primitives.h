@@ -287,9 +287,7 @@ class Table : public kernel::Module {
     non_full_event_ = new kernel::Event(k, "non_full_event");
   }
 
-  virtual ~Table() {
-    delete non_full_event_;
-  }
+  virtual ~Table() { delete non_full_event_; }
 
   kernel::Event* non_full_event() const { return non_full_event_; }
 

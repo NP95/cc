@@ -97,7 +97,6 @@ class DirCommandBuilder {
   static DirCommand* from_action(CoherenceAction* action);
 };
 
-
 //
 //
 class DirCommandList {
@@ -113,7 +112,7 @@ class DirCommandList {
   const_iterator end() const { return cmds_.end(); }
 
   void push_back(DirCommand* cmd);
-  
+
   // Consume current message and advance agent to next simulation
   // epoch.
   void next_and_do_consume(bool do_consume = false);
@@ -137,7 +136,7 @@ class DirTState {
   std::size_t snoop_n() const { return snoop_n_; }
   std::size_t snoop_i() const { return snoop_i_; }
   std::size_t dt_i() const { return dt_i_; }
-  
+
   DirLineState* line() const { return line_; }
   addr_t addr() const { return addr_; }
   Agent* origin() const { return origin_; }
@@ -226,7 +225,6 @@ class DirContext {
   bool owns_line_ = false;
 };
 
-
 //
 //
 class DirModel : public Agent {
@@ -234,6 +232,7 @@ class DirModel : public Agent {
   friend class DirCommandInterpreter;
 
   class RdisProcess;
+
  public:
   DirModel(kernel::Kernel* k, const DirModelConfig& config);
   ~DirModel();

@@ -28,11 +28,12 @@
 #ifndef CC_LIBCC_LLC_H
 #define CC_LIBCC_LLC_H
 
+#include <map>
+
 #include "cfgs.h"
 #include "kernel.h"
 #include "msg.h"
 #include "sim.h"
-#include <map>
 
 namespace cc {
 
@@ -151,7 +152,7 @@ class LLCModel : public Agent {
   void set_mc(MemCntrlModel* mc) { mc_ = mc; }
   // Set owner directory.
   void set_dir(DirModel* dir) { dir_ = dir; }
-  
+
   // Design Rule Check
   void drc() override;
   // Accessors:

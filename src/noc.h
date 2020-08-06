@@ -91,6 +91,7 @@ class NocPort : public kernel::Module {
 //
 class NocEndpoint : public Agent {
   class MainProcess;
+
  public:
   NocEndpoint(kernel::Kernel* k, const std::string& name);
   virtual ~NocEndpoint();
@@ -101,6 +102,7 @@ class NocEndpoint : public Agent {
  protected:
   //
   virtual MessageQueueProxy* lookup_mq(const Message* msg) const = 0;
+
  private:
   //
   void build();
@@ -112,7 +114,6 @@ class NocEndpoint : public Agent {
 
 //
 //
-
 
 //
 //

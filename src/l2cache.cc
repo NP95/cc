@@ -26,8 +26,8 @@
 //========================================================================== //
 
 #include "l2cache.h"
-#include "l1cache.h"
 
+#include "l1cache.h"
 #include "utility.h"
 
 namespace cc {
@@ -167,14 +167,12 @@ L2CommandList::~L2CommandList() {
   }
 }
 
-void L2CommandList::push_back(L2Command* cmd) {
-  cmds_.push_back(cmd);
-}
+void L2CommandList::push_back(L2Command* cmd) { cmds_.push_back(cmd); }
 
 void L2CommandList::next_and_do_consume(bool do_consume) {
   if (do_consume) {
     push_back(L2CommandBuilder::from_opcode(L2Opcode::MsgConsume));
-  } 
+  }
   push_back(L2CommandBuilder::from_opcode(L2Opcode::WaitNextEpoch));
 }
 
@@ -187,7 +185,6 @@ L2TState::~L2TState() {
   delete transaction_start_;
   delete transaction_end_;
 }
-
 
 class L2CommandInterpreter {
  public:
@@ -232,8 +229,8 @@ class L2CommandInterpreter {
       } break;
     }
   }
- private:
 
+ private:
   void execute_start_transaction(L2CacheContext& ctxt, const L2Command* cmd) {
     L2TState* tstate = ctxt.tstate();
     L2TTable* tt = model_->tt();
@@ -245,7 +242,8 @@ class L2CommandInterpreter {
       L2CacheModel* cache = model_->cache();
       const CacheAddressHelper ah = cache->ah();
       L2CacheModelSet set = cache->set(ah.set(tstate->addr()));
-      if (L2CacheModelLineIt it = set.find(ah.tag(tstate->addr())); it == set.end()) {
+      if (L2CacheModelLineIt it = set.find(ah.tag(tstate->addr()));
+          it == set.end()) {
         L2CacheModel::Evictor evictor;
         if (auto p = evictor.nominate(set.begin(), set.end()); !p.second) {
           // A way in the set has been nominated, install cache line.
@@ -275,15 +273,15 @@ class L2CommandInterpreter {
     tt->remove(ctxt.msg()->t());
     ctxt.tstate()->release();
   }
-  
-  void execute_mq_set_blocked_on_transaction(
-      L2CacheContext& ctxt, const L2Command* cmd) const {
+
+  void execute_mq_set_blocked_on_transaction(L2CacheContext& ctxt,
+                                             const L2Command* cmd) const {
     // Set the blocked status of the current Message Queue.
     ctxt.mq()->set_blocked_until(ctxt.tstate()->transaction_end());
   }
 
-  void execute_mq_set_blocked_on_table(
-      L2CacheContext& ctxt, const L2Command* cmd) const {
+  void execute_mq_set_blocked_on_table(L2CacheContext& ctxt,
+                                       const L2Command* cmd) const {
     // Set the blocked status of the current Message Queue.
     ctxt.mq()->set_blocked_until(model_->tt()->non_full_event());
   }
@@ -294,19 +292,19 @@ class L2CommandInterpreter {
     const Message* msg = ctxt.mq()->dequeue();
     msg->release();
     ctxt.t().advance();
-  }  
+  }
 
   void execute_remove_line(L2CacheContext& ctxt, const L2Command* cmd) const {
     L2CacheModel* cache = model_->cache();
     const CacheAddressHelper ah = cache->ah();
     L2CacheModelSet set = cache->set(ah.set(ctxt.addr()));
-    if (auto it = set.find(ah.tag(ctxt.addr()));  it != set.end()) {
+    if (auto it = set.find(ah.tag(ctxt.addr())); it != set.end()) {
       set.evict(it);
     } else {
       throw std::runtime_error("Cannot remove line, line is not present.");
     }
   }
-  
+
   void execute_invoke_coherence_action(L2CacheContext& ctxt,
                                        const L2Command* cmd) const {
     CoherenceAction* action = cmd->action();
@@ -324,10 +322,9 @@ class L2CommandInterpreter {
       l1cache->set_cache_line_shared_or_invalid(cmd->addr());
     }
   }
-  
 
   void execute_set_l1_lines_invalid(L2CacheContext& ctxt,
-                                   const L2Command* cmd) const {
+                                    const L2Command* cmd) const {
     const std::vector<L1CacheAgent*>& agents = cmd->agents();
     for (L1CacheAgent* l1cache : ctxt.l2cache()->l1cs_) {
       // Search agent 'keep-out' list such that we do not invalidate
@@ -339,14 +336,14 @@ class L2CommandInterpreter {
       l1cache->set_cache_line_shared_or_invalid(cmd->addr(), false);
     }
   }
-  
+
   void execute_wait_on_msg(L2CacheContext& ctxt, const L2Command* cmd) const {
     // Set wait state of current process; await the arrival of a
     // new message.
     MQArb* arb = model_->arb();
     process_->wait_on(arb->request_arrival_event());
   }
-  
+
   void execute_wait_next_epoch_or_wait(L2CacheContext& ctxt,
                                        const L2Command* cmd) const {
     MQArb* arb = model_->arb();
@@ -360,7 +357,7 @@ class L2CommandInterpreter {
       process_->wait_on(arb->request_arrival_event());
     }
   }
-  
+
   //
   AgentProcess* process_ = nullptr;
   //
@@ -450,8 +447,9 @@ class L2CacheAgent::MainProcess : public AgentProcess {
       ctxt.set_line(it->t());
       protocol->set_modified_status(ctxt, cl);
     } else {
-      LogMessage msg("L1 attempts to set modified state of cache line but "
-                     "cache line is not resident in L2.");
+      LogMessage msg(
+          "L1 attempts to set modified state of cache line but "
+          "cache line is not resident in L2.");
       msg.level(Level::Fatal);
       log(msg);
     }
@@ -490,7 +488,7 @@ class L2CacheAgent::MainProcess : public AgentProcess {
           // evicted.
           L2CacheModel::Evictor evictor;
           if (const std::pair<L2CacheModelLineIt, bool> p =
-              evictor.nominate(set.begin(), set.end());
+                  evictor.nominate(set.begin(), set.end());
               p.second) {
             // Eviction required before command can complete.
             // TODO
@@ -517,8 +515,9 @@ class L2CacheAgent::MainProcess : public AgentProcess {
           tstate->set_line(line);
           protocol->apply(ctxt, cl);
         } else {
-          LogMessage msg("L1 requests eviction of line which is not present "
-                         "in L2; simulation assumes inclusive cache model.");
+          LogMessage msg(
+              "L1 requests eviction of line which is not present "
+              "in L2; simulation assumes inclusive cache model.");
           msg.level(Level::Fatal);
           log(msg);
         }
@@ -572,9 +571,7 @@ class L2CacheAgent::MainProcess : public AgentProcess {
     protocol->apply(ctxt, cl);
   }
 
-  bool can_execute(const L2CommandList& cl) const {
-    return true;
-  }
+  bool can_execute(const L2CommandList& cl) const { return true; }
 
   void execute(L2CacheContext& ctxt, const L2CommandList& cl) {
     try {
@@ -639,7 +636,7 @@ MessageQueueProxy* L2CacheAgent::l2_l1__rsp_q(L1CacheAgent* l1cache) const {
 void L2CacheAgent::add_l1c(L1CacheAgent* l1c) {
   using std::to_string;
   // Assert build phase.
-  
+
   // Construct associated message queues
   std::string name = "l1_l2__cmd_q";
   name += to_string(l1cs_.size());
@@ -687,8 +684,8 @@ void L2CacheAgent::set_l2_cc__cmd_q(MessageQueueProxy* mq) {
   add_child_module(l2_cc__cmd_q_);
 }
 
-void L2CacheAgent::set_l2_l1__rsp_q(
-    L1CacheAgent* l1cache, MessageQueueProxy* mq) {
+void L2CacheAgent::set_l2_l1__rsp_q(L1CacheAgent* l1cache,
+                                    MessageQueueProxy* mq) {
   l2_l1__rsp_qs_[l1cache] = mq;
   add_child_module(l2_l1__rsp_qs_[l1cache]);
 }
@@ -718,6 +715,5 @@ void L2CacheAgent::drc() {
 void L2CacheAgent::set_cache_line_modified(addr_t addr) {
   main_->set_cache_line_modified(addr);
 }
-
 
 }  // namespace cc

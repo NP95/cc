@@ -62,9 +62,11 @@ enum class L1CmdOpcode {
 //
 //
 class L1CmdMsg : public Message {
-  template<typename> friend class PooledItem;
+  template <typename>
+  friend class PooledItem;
 
   L1CmdMsg();
+
  public:
   //
   std::string to_string() const override;
@@ -88,11 +90,12 @@ class L1CmdMsg : public Message {
 //
 //
 class L1CmdRspMsg : public Message {
-  template<typename> friend class PooledItem;
+  template <typename>
+  friend class PooledItem;
 
   L1CmdRspMsg();
- public:
 
+ public:
   //
   std::string to_string() const override;
 };
@@ -217,7 +220,7 @@ class L1CommandList {
 
   // Transaction ends
   void transaction_end();
-  
+
   // Consume current message and advance agent to next simulation
   // epoch.
   void next_and_do_consume(bool do_consume = false);
@@ -257,7 +260,7 @@ class L1TState {
 
  private:
   virtual ~L1TState();
-  
+
   // Transaction event instances.
   kernel::Event* transaction_start_ = nullptr;
   kernel::Event* transaction_end_ = nullptr;
