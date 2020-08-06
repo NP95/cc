@@ -117,6 +117,8 @@ const char* to_string(L2Opcode opcode) {
       return "SetL1LinesShared";
     case L2Opcode::SetL1LinesInvalid:
       return "SetL1LinesInvalid";
+    case L2Opcode::RemoveLine:
+      return "RemoveLine";
     case L2Opcode::WaitOnMsg:
       return "WaitOnMsg";
     case L2Opcode::WaitNextEpoch:
@@ -129,7 +131,7 @@ const char* to_string(L2Opcode opcode) {
 L2Command::~L2Command() {
   switch (opcode()) {
     case L2Opcode::InvokeCoherenceAction:
-      oprands.coh.action->release();
+      oprands.action->release();
       break;
     default:
       break;
@@ -141,7 +143,7 @@ std::string L2Command::to_string() const {
   r.add_field("opcode", cc::to_string(opcode()));
   switch (opcode()) {
     case L2Opcode::InvokeCoherenceAction: {
-      r.add_field("action", oprands.coh.action->to_string());
+      r.add_field("action", oprands.action->to_string());
     } break;
     default: {
     } break;
@@ -155,7 +157,7 @@ L2Command* L2CommandBuilder::from_opcode(L2Opcode opcode) {
 
 L2Command* L2CommandBuilder::from_action(CoherenceAction* action) {
   L2Command* cmd = new L2Command(L2Opcode::InvokeCoherenceAction);
-  cmd->oprands.coh.action = action;
+  cmd->oprands.action = action;
   return cmd;
 }
 
@@ -165,7 +167,16 @@ L2CommandList::~L2CommandList() {
   }
 }
 
-void L2CommandList::push_back(L2Command* cmd) { cmds_.push_back(cmd); }
+void L2CommandList::push_back(L2Command* cmd) {
+  cmds_.push_back(cmd);
+}
+
+void L2CommandList::next_and_do_consume(bool do_consume) {
+  if (do_consume) {
+    push_back(L2CommandBuilder::from_opcode(L2Opcode::MsgConsume));
+  } 
+  push_back(L2CommandBuilder::from_opcode(L2Opcode::WaitNextEpoch));
+}
 
 L2TState::L2TState(kernel::Kernel* k) {
   transaction_start_ = new kernel::Event(k, "transaction_start");
@@ -310,7 +321,7 @@ class L2CommandInterpreter {
         // Agent in keep-out set.
         continue;
       }
-      l1cache->set_cache_line_shared_or_invalid(ctxt.addr());
+      l1cache->set_cache_line_shared_or_invalid(cmd->addr());
     }
   }
   
@@ -325,7 +336,7 @@ class L2CommandInterpreter {
       if (std::find(agents.begin(), agents.end(), l1cache) != agents.end()) {
         continue;
       }
-      l1cache->set_cache_line_shared_or_invalid(ctxt.addr(), false);
+      l1cache->set_cache_line_shared_or_invalid(cmd->addr(), false);
     }
   }
   

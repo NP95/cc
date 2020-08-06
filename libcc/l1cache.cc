@@ -118,11 +118,17 @@ L1CacheContext::~L1CacheContext() {
 }
 
 std::string L1Command::to_string() const {
+  using std::to_string;
+  using cc::to_string;
+  Hexer h;
   KVListRenderer r;
   r.add_field("opcode", cc::to_string(opcode()));
   switch (opcode()) {
     case L1Opcode::InvokeCoherenceAction: {
-      r.add_field("action", oprands.coh.action->to_string());
+      r.add_field("action", oprands.action->to_string());
+    } break;
+    case L1Opcode::RemoveLine: {
+      r.add_field("addr", h.to_hex(addr()));
     } break;
     default: {
     } break;
@@ -134,7 +140,7 @@ std::string L1Command::to_string() const {
 L1Command::~L1Command() {
   switch (opcode()) {
     case L1Opcode::InvokeCoherenceAction: {
-      oprands.coh.action->release();
+      oprands.action->release();
     } break;
     default: {
     } break;
@@ -147,9 +153,16 @@ L1Command* L1CommandBuilder::from_opcode(L1Opcode opcode) {
 
 L1Command* L1CommandBuilder::from_action(CoherenceAction* action) {
   L1Command* cmd = new L1Command(L1Opcode::InvokeCoherenceAction);
-  cmd->oprands.coh.action = action;
+  cmd->oprands.action = action;
   return cmd;
 }
+
+L1Command* L1CommandBuilder::build_remove_line(addr_t addr) {
+  L1Command* cmd = new L1Command(L1Opcode::RemoveLine);
+  cmd->set_addr(addr);
+  return cmd;
+}
+
 
 L1CommandList::~L1CommandList() {
   for (L1Command* cmd : cmds_) {
@@ -288,11 +301,11 @@ class L1CommandInterpreter {
     msg->release();
     ctxt.t().advance();
   }
-  
+  // Derive addr from command opcode.
   void execute_remove_line(L1CacheContext& ctxt, const L1Command* cmd) {
     L1CacheModel* cache = ctxt.l1cache()->cache();
     const CacheAddressHelper ah = cache->ah();
-    const addr_t addr = ctxt.tstate()->addr();
+    const addr_t addr = cmd->addr();
     L1CacheModelSet set = cache->set(ah.set(addr));
     if (auto it = set.find(addr);  it != set.end()) {
       set.evict(it);
@@ -405,7 +418,7 @@ class L1CacheAgent::MainProcess : public AgentProcess {
       protocol->set_line_shared_or_invalid(ctxt, cl, shared);
     } else {
       LogMessage msg("L2 sets cache line status to ");
-      msg.append(shared ? "shared" : "Invalid");
+      msg.append(shared ? "Shared" : "Invalid");
       msg.append(" but line is not present in the cache.");
       msg.level(Level::Fatal);
       log(msg);

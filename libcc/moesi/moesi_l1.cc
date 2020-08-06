@@ -182,6 +182,11 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
     MOESIL1LineState* line = static_cast<MOESIL1LineState*>(ctxt.line());
     const State state = line->state();
     switch (state) {
+      case State::M:
+        // As in the Exclusive state, L2 already has the most recent
+        // upto date copy of the line therefore we just need to inform
+        // L2 that the line is being removed from the cache, and it
+        // will itself perform the writeback.
       case State::E: {
         // Evict line present in the Exclusive state. L2 should
         // already have a recent upto date copy of the cache line,
@@ -198,11 +203,11 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
         cmd->set_l1cache(ctxt.l1cache());
         issue_msg(cl, ctxt.l1cache()->l1_l2__cmd_q(), cmd);
         // Line transition to Invalid state.
-        issue_update_state(cl, line, State::EI);
+        const State next_state = (state == State::M) ? State::MI : State::EI;
+        issue_update_state(cl, line, next_state);
         // Start new transaction as we are awaiting the response from
         // L2 before the line is evicted from the cache.
         cl.transaction_start();
-        // cl.push_back(cb::from_opcode(L1Opcode::StartTransaction));
         // Source Message Queue is blocked until the current
         // transaction (lookup to L2) has completed.
         cl.push_back(cb::from_opcode(L1Opcode::MqSetBlockedOnTransaction));
@@ -217,11 +222,11 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
   //
   //
   void set_line_shared_or_invalid(
-      L1CacheContext& c, L1CommandList& cl, bool shared) const override {
-    MOESIL1LineState* line = static_cast<MOESIL1LineState*>(c.line());
+      L1CacheContext& ctxt, L1CommandList& cl, bool shared) const override {
+    MOESIL1LineState* line = static_cast<MOESIL1LineState*>(ctxt.line());
     issue_update_state(cl, line, shared ? State::S : State::I);
     if (!shared) {
-      cl.push_back(cb::from_opcode(L1Opcode::RemoveLine));
+      cl.push_back(cb::build_remove_line(ctxt.addr()));
     }
   }
 
@@ -256,6 +261,8 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             // Issue GetS
             l2cmdmsg->set_opcode(L2CmdOpcode::L1GetE);
           } break;
+          default: {
+          } break;
         }
         l2cmdmsg->set_l1cache(ctxt.l1cache());
         // Issue L2 command
@@ -282,7 +289,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             rsp->set_t(msg->t());
             issue_msg(cl, ctxt.l1cache()->l1_cpu__rsp_q(), rsp);
             // Advance to next
-            cl.next_and_do_consume(false);
+            cl.next_and_do_consume(true);
           } break;
           case L1CmdOpcode::CpuStore: {
             // Store instruction to line in S-state. Line must be promoted to
@@ -308,6 +315,9 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             cl.next_and_do_consume(false);
             // State transitions to SE state.
             issue_update_state(cl, line, State::SE);
+          } break;
+          default: {
+            // Invalid command.
           } break;
         }
       } break;
@@ -371,7 +381,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
     }
   }
 
-  void apply(L1CacheContext& c, L1CommandList& cl, MOESIL1LineState* line,
+  void apply(L1CacheContext& ctxt, L1CommandList& cl, MOESIL1LineState* line,
              const L2CmdRspMsg* msg) const {
     const State state = line->state();
     switch (state) {
@@ -412,7 +422,20 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
 
         // Transition back to Invalid state and evict line.
         issue_update_state(cl, line, State::I);
-        cl.push_back(cb::from_opcode(L1Opcode::RemoveLine));
+        // Remove line from cache as now invalid.
+        cl.push_back(cb::build_remove_line(ctxt.tstate()->addr()));
+        // Transaction ends
+        cl.transaction_end();
+        // Advance to next and consume
+        cl.next_and_do_consume(true);
+      } break;
+      case State::MI: {
+        // Modified -> Invalid
+        //
+        // Writeback to L2/MEM completes.
+        issue_update_state(cl, line, State::I);
+        // Remove line from cache as now invalid.
+        cl.push_back(cb::build_remove_line(ctxt.tstate()->addr()));
         // Transaction ends
         cl.transaction_end();
         // Advance to next and consume

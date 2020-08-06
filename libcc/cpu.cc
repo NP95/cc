@@ -234,8 +234,7 @@ void Cpu::end_transaction(Transaction* t) {
     (*it)->release();
     ts_.erase(it);
   } else {
-    LogMessage lmsg("Unknown transaction consumed: ");
-    lmsg.append(t->to_string());
+    LogMessage lmsg("Unknown transaction consumed!");
     lmsg.level(Level::Fatal);
     log(lmsg);
   }

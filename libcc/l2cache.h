@@ -156,21 +156,22 @@ class L2Command {
   // Command opcode
   L2Opcode opcode() const { return opcode_; }
   // Command Coherence action
-  CoherenceAction* action() const { return oprands.coh.action; }
+  CoherenceAction* action() const { return oprands.action; }
   // "Agent" keep out list.
-  std::vector<L1CacheAgent*>& agents() { return oprands.l1inv.agents; }
-  const std::vector<L1CacheAgent*>& agents() const { return oprands.l1inv.agents; }
+  std::vector<L1CacheAgent*>& agents() { return oprands.agents; }
+  const std::vector<L1CacheAgent*>& agents() const { return oprands.agents; }
+  addr_t addr() const { return oprands.addr; }
+
+  // Setters
+  void set_addr(addr_t addr) { oprands.addr = addr; }
 
  private:
   virtual ~L2Command();
   //
   struct {
-    struct {
-      CoherenceAction* action;
-    } coh;
-    struct {
-      std::vector<L1CacheAgent*> agents;
-    } l1inv;
+    addr_t addr;
+    CoherenceAction* action;
+    std::vector<L1CacheAgent*> agents;
   } oprands;
   //
   L2Opcode opcode_;
@@ -202,6 +203,10 @@ class L2CommandList {
 
   //
   void push_back(L2Command* cmd);
+  
+  // Consume current message and advance agent to next simulation
+  // epoch.
+  void next_and_do_consume(bool do_consume = false);
 
  private:
   // Command List

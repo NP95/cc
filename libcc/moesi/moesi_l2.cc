@@ -40,7 +40,7 @@ using namespace cc;
 //
 //
 enum class State {
-  X, I, IS, IE, S, E, EI, M, O, OE
+  X, I, IS, IE, S, E, EI, M, MI, O, OE
 };
 
 //
@@ -55,6 +55,7 @@ const char* to_string(State state) {
     case State::E: return "E";
     case State::EI: return "EI";
     case State::M: return "M";
+    case State::MI: return "MI";
     case State::O: return "O";
     case State::OE: return "OE";
     default: return "Invalid";
@@ -96,6 +97,14 @@ class LineState : public L2LineState {
   // Set current line state
   void set_state(State state) {
     state_ = state;
+  }
+
+  // Line has an owner L1. Line may be present in L2, but not present
+  // in any L1. This may occur after an eviction of a line from L1,
+  // but where the L2 has chosen to retain the line and forgo an
+  // immediate writeback.
+  bool has_owner() const {
+    return owner_ != nullptr;
   }
 
   // Set owning agent
@@ -177,6 +186,7 @@ struct LineUpdateAction : public CoherenceAction {
     switch (update_) {
       case LineUpdate::SetState: {
         r.add_field("action", "set_state");
+        r.add_field("state", to_string(line_->state()));
         r.add_field("next_state", to_string(state_));
       } break;
       case LineUpdate::SetOwner: {
@@ -354,11 +364,8 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         // has now started and commands are inflight. The transaction
         // itself is not complete at this point.
         cl.push_back(cb::from_opcode(L2Opcode::StartTransaction));
-        // Message is consumed at this point as the transaction has
-        // started.
-        cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
-        // Advance to next
-        cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpoch));
+        // Consume and advance
+        cl.next_and_do_consume(true);
       } break;
       case State::S: {
         L2CmdRspMsg* msg = new L2CmdRspMsg;
@@ -379,7 +386,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
             // Requester becomes owner
             issue_set_owner(cl, line, tstate->l1cache());
             // Invalid all other copies of line.
-            issue_set_l1_invalid_except(cl, tstate->l1cache());
+            issue_set_l1_invalid_except(cl, ctxt.addr(), tstate->l1cache());
             // Line becomes Exclusive
             issue_update_state(ctxt, cl, line, State::E);
           } break;
@@ -388,10 +395,8 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         }
         // Issue response back to requester.
         issue_msg(cl, l2_l1__rsp_q, msg);
-        // Consume L1Cmd as it can complete successfully.
-        cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
-        // Advance to next
-        cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpoch));
+        // Consume and advance
+        cl.next_and_do_consume(true);
       } break;
       case State::O: {
         switch (opcode) {
@@ -424,9 +429,8 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
             // message and install a new transaction object in the
             // transaction table.
             cl.push_back(cb::from_opcode(L2Opcode::StartTransaction));
-            cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
-            // Advance to next
-            cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpoch));
+            // Consume and advance
+            cl.next_and_do_consume(true);
           } break;
           default: {
           } break;
@@ -442,7 +446,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
               L2CmdRspMsg* msg = new L2CmdRspMsg;
               msg->set_t(cmd->t());
               // L1 lines become sharers
-              issue_set_l1_shared_except(cl, tstate->l1cache());
+              issue_set_l1_shared_except(cl, ctxt.addr(), tstate->l1cache());
               //cl.push_back(cb::from_opcode(L2Opcode::SetL1LinesShared));
               // Requester becomes sharer.
               msg->set_is(true);
@@ -460,7 +464,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
               // Requester becomes owner
               msg->set_is(false);
               // L1 lines become sharers
-              issue_set_l1_invalid_except(cl, tstate->l1cache());
+              issue_set_l1_invalid_except(cl, ctxt.addr(), tstate->l1cache());
               // Requester becomes owner
               issue_set_owner(cl, line, tstate->l1cache());
               // Line remains in Exclusive state
@@ -493,12 +497,8 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
               // Unknown command
             } break;
           }
-          // NOTE: no message to the cache controller therefore no
-          // transaction starts.
-          // Consume message; done
-          cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
-          // Advance to next
-          cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpoch));
+          // Consume and advance
+          cl.next_and_do_consume(true);
         } else {
           // Otherwise, somehow received a message from the owner
           // which (although unexpected) probably okay if not
@@ -507,17 +507,13 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
           L2CmdRspMsg* msg = new L2CmdRspMsg;
           msg->set_t(cmd->t());
           issue_msg(cl, l2_l1__rsp_q, msg);
-          // Consume message
-          cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
-          // Advance to next
-          cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpoch));
+          // Consume and advance
+          cl.next_and_do_consume(true);
         }
       } break;
       case State::M: {
         const bool requester_is_owner = false;
         if (!requester_is_owner) {
-          L2CmdRspMsg* msg = new L2CmdRspMsg;
-          msg->set_t(cmd->t());
           switch (opcode) {
             case L2CmdOpcode::L1GetS: {
               // Requester requests line in the Shared state. Owning
@@ -526,7 +522,12 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
               // write-through, L2 already has an up-to date copy of
               // the modified data therefore we can simply modify the
               // state in the owners L1.
+
+              // Issue response to requester.
+              L2CmdRspMsg* msg = new L2CmdRspMsg;
+              msg->set_t(cmd->t());
               msg->set_is(true);
+              issue_msg(cl, l2_l1__rsp_q, msg);
               // Current owner L1 relinqushes ownership.
               issue_del_owner(cl, line);
               // Add current requester to set of sharers for this
@@ -542,32 +543,63 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
               // its copy. Again, as the cache is write-through, L2
               // already has the most recent state in its memory.
               // Line is owned by requester
+
+              // Issue response to requester.
+              L2CmdRspMsg* msg = new L2CmdRspMsg;
+              msg->set_t(cmd->t());
               msg->set_is(false);
+              issue_msg(cl, l2_l1__rsp_q, msg);
               // Invalidate L1 copies.
-              issue_set_l1_invalid_except(cl, tstate->l1cache());
+              issue_set_l1_invalid_except(cl, ctxt.addr(), tstate->l1cache());
               // Requester becomes owner
               issue_set_owner(cl, line, tstate->l1cache());
               // State remains modified.
               issue_clr_sharer(cl, line);
             } break;
+            case L2CmdOpcode::L1Put: {
+              // The line is Modified and therefore resides in only
+              // one L1.
+              //
+              // Discussion:
+              //
+              // The Put operation simply informs L2 that L1 is
+              // removing its line, it does not necessarily invoke a
+              // writeback operation as hardware may choose to retain
+              // the line in the modified state, but without a
+              // designated L1 owner. Only once the line is itself
+              // evicted from L2 will the line be written back. For
+              // simplicity, we choose to evict the line on tht Put.
+              //
+              const bool writeback_on_put = true;
+              if (writeback_on_put) {
+                // Issue Writeback transaction to home directory.
+                AceCmdMsg* msg = new AceCmdMsg;
+                msg->set_t(cmd->t());
+                msg->set_addr(cmd->addr());
+                msg->set_opcode(AceCmdOpcode::WriteBack);
+                issue_msg(cl, ctxt.l2cache()->l2_cc__cmd_q(), msg);
+                // Update state Modified -> Invalid
+                issue_update_state(ctxt, cl, line, State::MI);
+                // Current command commits:
+                cl.push_back(cb::from_opcode(L2Opcode::StartTransaction));
+              } else {
+                // Retain line, but L1 is no longer an owner. Line is
+                // now orphaned and owned by the L2.
+                issue_del_owner(cl, line);
+              }
+            } break;
             default: {
             } break;
           }
-          // Issue response to requester.
-          issue_msg(cl, l2_l1__rsp_q, msg);
-          // Consume message; done
-          cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
-          // Advance to next
-          cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpoch));
+          // Consume and advance
+          cl.next_and_do_consume(true);
         } else {
           // Otherwise, requester is currently owner.
           L2CmdRspMsg* msg = new L2CmdRspMsg;
           msg->set_t(cmd->t());
           issue_msg(cl, l2_l1__rsp_q, msg);
-          // Consume message
-          cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
-          // Advance to next
-          cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpoch));
+          // Consume and advance
+          cl.next_and_do_consume(true);
         }
       } break;
       default: {
@@ -604,10 +636,8 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         }
         // Transaction complete
         cl.push_back(cb::from_opcode(L2Opcode::EndTransaction));
-        // Consume L1Cmd as it can complete successfully.
-        cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
-        // Advance to next
-        cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpoch));
+        // Consume and advance
+        cl.next_and_do_consume(true);
       } break;
       case State::IE: {
         // Transition to Exclusive state
@@ -626,10 +656,8 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         issue_update_state(ctxt, cl, line, next_state);
         // Transaction complete
         cl.push_back(cb::from_opcode(L2Opcode::EndTransaction));
-        // Consume L1Cmd as it can complete successfully.
-        cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
-        // Advance to next
-        cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpoch));
+        // Consume and advance
+        cl.next_and_do_consume(true);
       } break;
       case State::OE: {
         // TODO: should perform some additional qualificiation on the command type.
@@ -642,16 +670,14 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         issue_update_state(ctxt, cl, line, State::E);
         // Transaction complete
         cl.push_back(cb::from_opcode(L2Opcode::EndTransaction));
-        // Consume L1Cmd as it can complete successfully.
-        cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
-        // Advance to next
-        cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpoch));
+        // Consume and advance
+        cl.next_and_do_consume(true);
       } break;
       case State::EI: {
         // Exclusive -> Invalid:
         //
-        // ARC from Exclusive to Invalid state; in response from an
-        // eviction request from a line in the Exclusive state. ARC
+        // Edge from Exclusive to Invalid state; in response from an
+        // eviction request from a line in the Exclusive state. Edge
         // cannot be entered from a Write{Back,Clean} transaction as
         // this would imply that the line was dirty.
         //
@@ -671,11 +697,35 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
             cl.push_back(cb::from_opcode(L2Opcode::RemoveLine));
 
             // Transaction ends
-            cl.push_back(cb::from_opcode(L2Opcode::StartTransaction));
-            // Consume message
-            cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
-            // Advance to next
-            cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpoch));
+            cl.push_back(cb::from_opcode(L2Opcode::EndTransaction));
+            // Consume and advance
+            cl.next_and_do_consume(true);
+          } break;
+          default: {
+          } break;
+        }
+      } break;
+      case State::MI: {
+        // Modified -> Invalid
+        //
+        // In response to a WriteBack transaction.
+        switch (opcode) {
+          case L2CmdOpcode::L1Put: {
+            // Inform L2 requestor (as per. AMBA spec. a empty "dummy"
+            // response message is returned."
+            L2CmdRspMsg* rsp = new L2CmdRspMsg;
+            rsp->set_t(msg->t());
+            issue_msg(cl, l2_l1__rsp_q, rsp);
+
+            // Line becomes Invalid in the cache. The line is also
+            // subsequently removed from the cache.
+            issue_update_state(ctxt, cl, line, State::I);
+            cl.push_back(cb::from_opcode(L2Opcode::RemoveLine));
+
+            // Transaction ends
+            cl.push_back(cb::from_opcode(L2Opcode::EndTransaction));
+            // Consume and advance
+            cl.next_and_do_consume(true);
           } break;
           default: {
           } break;
@@ -749,7 +799,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
 
               // Write-through cache, demote lines back to shared
               // state.
-              issue_set_l1_shared_except(cl);
+              issue_set_l1_shared_except(cl, ctxt.addr());
             } else {
               rsp->set_dt(true);
               rsp->set_pd(true);
@@ -761,7 +811,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
 
               // Write-through cache, therefore immediately evict
               // lines from child L1 cache.
-              issue_set_l1_invalid_except(cl);
+              issue_set_l1_invalid_except(cl, ctxt.addr());
             }
           } break;
           default: {
@@ -771,9 +821,8 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         // Issue response to CC.
         L2CacheAgent* l2cache = ctxt.l2cache();
         issue_msg(cl, l2cache->l2_cc__snprsp_q(), rsp);
-        // Consume L1Cmd as it can complete successfully.
-        cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
-        cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpoch));
+        // Consume and advance
+        cl.next_and_do_consume(true);
       } break;
       case AceSnpOpcode::ReadUnique: {
         AceSnpRspMsg* rsp = new AceSnpRspMsg;
@@ -806,10 +855,9 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         // Final state is Invalid
         issue_update_state(ctxt, cl, line, State::I);
         cl.push_back(cb::from_opcode(L2Opcode::RemoveLine));
-        issue_set_l1_invalid_except(cl);
-        // Consume L1Cmd as it can complete successfully.
-        cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
-        cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpoch));
+        issue_set_l1_invalid_except(cl, ctxt.addr());
+        // Consume and advance
+        cl.next_and_do_consume(true);
       } break;
       case AceSnpOpcode::MakeInvalid:
       case AceSnpOpcode::CleanInvalid: {
@@ -849,10 +897,9 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         // Final state is Invalid
         issue_update_state(ctxt, cl, line, State::I);
         cl.push_back(cb::from_opcode(L2Opcode::RemoveLine));
-        issue_set_l1_invalid_except(cl);
-        // Consume L1Cmd as it can complete successfully.
-        cl.push_back(cb::from_opcode(L2Opcode::MsgConsume));
-        cl.push_back(cb::from_opcode(L2Opcode::WaitNextEpoch));
+        issue_set_l1_invalid_except(cl, ctxt.addr());
+        // Consume and advance
+        cl.next_and_do_consume(true);
       } break;
       default: {
         LogMessage lm("Unknown opcode received: ");
@@ -898,11 +945,13 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
   }
 
   template<typename ...AGENT>
-  void issue_set_l1_invalid_except(L2CommandList& cl, AGENT... excluded) const {
+  void issue_set_l1_invalid_except(L2CommandList& cl, addr_t addr,
+                                   AGENT... excluded) const {
     // Issue L1 invalidate of current line, but add "agent" to set of
     // keep out agents. The command therefore allows agent to retain
     // the line whereas all other will be invalidated.
     L2Command* cmd = cb::from_opcode(L2Opcode::SetL1LinesInvalid);
+    cmd->set_addr(addr);
     if constexpr (sizeof...(excluded) != 0) {
       std::vector<L1CacheAgent*>& agents = cmd->agents();
       for (const auto& agent : {excluded...}) {
@@ -913,10 +962,12 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
   }
 
   template<typename ...AGENT>
-  void issue_set_l1_shared_except(L2CommandList& cl, AGENT... excluded) const {
+  void issue_set_l1_shared_except(L2CommandList& cl, addr_t addr,
+                                  AGENT... excluded) const {
     // Demote L1 lines to Shared except Agents contains with in the
     // excluded set.
     L2Command* cmd = cb::from_opcode(L2Opcode::SetL1LinesShared);
+    cmd->set_addr(addr);
     if constexpr (sizeof...(excluded) != 0) {
       std::vector<L1CacheAgent*>& agents = cmd->agents();
       for (const auto& agent : {excluded...}) {

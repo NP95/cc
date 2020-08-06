@@ -435,6 +435,10 @@ class CCProtocol : public kernel::Module {
 
   //
   //
+  virtual bool is_complete(CCContext& ctxt, CCCommandList& cl) const = 0;
+
+  //
+  //
   virtual void apply(CCSnpContext& ctxt, CCSnpCommandList& cl) const = 0;
 
  protected:

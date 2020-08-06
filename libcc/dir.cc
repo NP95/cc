@@ -58,8 +58,8 @@ const char* to_string(DirOpcode opcode) {
       return "InvokeCoherenceAction";
     case DirOpcode::WaitOnMsg:
       return "WaitOnMsg";
-    case DirOpcode::WaitOnMsgOrNextEpoch:
-      return "WaitOnMsgOrNextEpoch";
+    case DirOpcode::WaitNextEpoch:
+      return "WaitNextEpoch";
     case DirOpcode::Invalid:
       return "Invalid";
     default:
@@ -119,7 +119,16 @@ DirCommandList::~DirCommandList() {
   }
 }
 
-void DirCommandList::push_back(DirCommand* cmd) { cmds_.push_back(cmd); }
+void DirCommandList::push_back(DirCommand* cmd) {
+  cmds_.push_back(cmd);
+}
+
+void DirCommandList::next_and_do_consume(bool do_consume) {
+  if (do_consume) {
+    push_back(DirCommandBuilder::from_opcode(DirOpcode::MsgConsume));
+  } 
+  push_back(DirCommandBuilder::from_opcode(DirOpcode::WaitNextEpoch));
+}
 
 DirTState::DirTState(kernel::Kernel* k) {
   transaction_start_ = new kernel::Event(k, "transaction_start");
@@ -167,8 +176,8 @@ class DirCommandInterpreter {
       case DirOpcode::WaitOnMsg: {
         execute_wait_on_msg(ctxt, cmd);
       } break;
-      case DirOpcode::WaitOnMsgOrNextEpoch: {
-        execute_wait_on_msg_or_next_epoch(ctxt, cmd);
+      case DirOpcode::WaitNextEpoch: {
+        execute_wait_next_epoch(ctxt, cmd);
       } break;
       default: {
       } break;
@@ -260,16 +269,8 @@ class DirCommandInterpreter {
     process_->wait_on(arb->request_arrival_event());
   }
 
-  void execute_wait_on_msg_or_next_epoch(DirContext& ctxt,
-                                         const DirCommand* cmd) const {
-    MQArb* arb = model_->arb();
-    MQArbTmt t = arb->tournament();
-    if (t.has_requester()) {
-      process_->wait_for(kernel::Time{10, 0});
-    } else {
-      // Otherwise, block process until a new message arrives.
-      execute_wait_on_msg(ctxt, cmd);
-    }
+  void execute_wait_next_epoch(DirContext& ctxt, const DirCommand* cmd) const {
+    process_->wait_for(kernel::Time{10, 0});
   }
 
   //
@@ -366,7 +367,9 @@ class DirModel::RdisProcess : public AgentProcess {
         // command.
         ctxt.set_tstate(tstate);
         cl.push_back(cb::from_opcode(DirOpcode::MqSetBlockedOnTransaction));
-        cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
+        // Advance
+        cl.next_and_do_consume(false);
+        //cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
       } else if (DirTTable* tt = model_->tt(); !tt->full()) {
         // Transaction has not already been initiated, there is no
         // pending transaction to this line, AND, there are free
@@ -378,7 +381,9 @@ class DirModel::RdisProcess : public AgentProcess {
         // transaction is full, therefore block Message Queue until
         // the transaction table becomes non-full.
         cl.push_back(cb::from_opcode(DirOpcode::MqSetBlockedOnTable));
-        cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
+        // Advance
+        cl.next_and_do_consume(false);
+        // cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
       }
     } else {
       // Transaction is already present in the transaction table;

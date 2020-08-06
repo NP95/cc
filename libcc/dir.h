@@ -56,7 +56,7 @@ enum class DirOpcode {
   MqSetBlockedOnTable,
   InvokeCoherenceAction,
   WaitOnMsg,
-  WaitOnMsgOrNextEpoch,
+  WaitNextEpoch,
   Invalid
 };
 
@@ -113,6 +113,10 @@ class DirCommandList {
   const_iterator end() const { return cmds_.end(); }
 
   void push_back(DirCommand* cmd);
+  
+  // Consume current message and advance agent to next simulation
+  // epoch.
+  void next_and_do_consume(bool do_consume = false);
 
  private:
   std::vector<DirCommand*> cmds_;

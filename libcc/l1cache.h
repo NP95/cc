@@ -162,15 +162,18 @@ class L1Command {
   std::string to_string() const;
 
   L1Opcode opcode() const { return opcode_; }
-  CoherenceAction* action() const { return oprands.coh.action; }
+  CoherenceAction* action() const { return oprands.action; }
+  addr_t addr() const { return oprands.addr; }
+
+  // Setters
+  void set_addr(addr_t addr) { oprands.addr = addr; }
 
  private:
   virtual ~L1Command();
   //
-  union {
-    struct {
-      CoherenceAction* action;
-    } coh;
+  struct {
+    CoherenceAction* action;
+    addr_t addr;
   } oprands;
   //
   L1Opcode opcode_;
@@ -183,6 +186,8 @@ class L1CommandBuilder {
   static L1Command* from_opcode(L1Opcode opcode);
 
   static L1Command* from_action(CoherenceAction* action);
+
+  static L1Command* build_remove_line(addr_t addr);
 };
 
 //

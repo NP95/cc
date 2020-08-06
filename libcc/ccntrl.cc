@@ -39,18 +39,18 @@ namespace cc {
 
 const char* to_string(CCOpcode opcode) {
   switch (opcode) {
-    case CCOpcode::StartTransaction:
-      return "StartTransaction";
-    case CCOpcode::EndTransaction:
-      return "EndTransaction";
+    case CCOpcode::TransactionStart:
+      return "TransactionStart";
+    case CCOpcode::TransactionEnd:
+      return "TransactionEnd";
     case CCOpcode::InvokeCoherenceAction:
       return "InvokeCoherenceAction";
     case CCOpcode::MsgConsume:
       return "MsgConsume";
     case CCOpcode::WaitOnMsg:
       return "WaitOnMsg";
-    case CCOpcode::WaitNextEpochOrWait:
-      return "WaitNextEpochOrWait";
+    case CCOpcode::WaitNextEpoch:
+      return "WaitNextEpoch";
     default:
       return "Invalid";
   }
@@ -59,7 +59,7 @@ const char* to_string(CCOpcode opcode) {
 CCCommand::~CCCommand() {
   switch (opcode()) {
     case CCOpcode::InvokeCoherenceAction:
-      oprands.coh.action->release();
+      oprands.action->release();
       break;
     default:
       break;
@@ -71,7 +71,7 @@ std::string CCCommand::to_string() const {
   r.add_field("opcode", cc::to_string(opcode()));
   switch (opcode()) {
     case CCOpcode::InvokeCoherenceAction: {
-      r.add_field("action", oprands.coh.action->to_string());
+      r.add_field("action", oprands.action->to_string());
     } break;
     default: {
     } break;
@@ -85,9 +85,16 @@ CCCommand* CCCommandBuilder::from_opcode(CCOpcode opcode) {
 
 CCCommand* CCCommandBuilder::from_action(CoherenceAction* action) {
   CCCommand* cmd = new CCCommand(CCOpcode::InvokeCoherenceAction);
-  cmd->oprands.coh.action = action;
+  cmd->oprands.action = action;
   return cmd;
 }
+
+CCCommand* CCCommandBuilder::build_transaction_end(Transaction* t) {
+  CCCommand* cmd = from_opcode(CCOpcode::TransactionEnd);
+  cmd->set_t(t);
+  return cmd;
+}
+
 
 CCContext::~CCContext() {
   if (owns_line_) {
@@ -101,6 +108,29 @@ CCCommandList::~CCCommandList() {
   }
 }
 
+// Transaction starts
+void CCCommandList::push_transaction_start() {
+  using cb = CCCommandBuilder;
+  push_back(cb::from_opcode(CCOpcode::TransactionStart));
+}
+
+// Transaction ends
+void CCCommandList::push_transaction_end(Transaction* t) {
+  using cb = CCCommandBuilder;
+  push_back(cb::build_transaction_end(t));
+}
+
+void CCCommandList::next_and_do_consume(bool do_consume) {
+  using cb = CCCommandBuilder;
+  if (do_consume) {
+    // Consume message
+    push_back(cb::from_opcode(CCOpcode::MsgConsume));
+  }
+  // Advance to next
+  push_back(cb::from_opcode(CCOpcode::WaitNextEpoch));
+}
+
+
 //
 //
 class CCCommandInterpreter {
@@ -112,11 +142,11 @@ class CCCommandInterpreter {
 
   void execute(CCContext& ctxt, const CCCommand* cmd) {
     switch (cmd->opcode()) {
-      case CCOpcode::StartTransaction: {
-        execute_start_transaction(ctxt, cmd);
+      case CCOpcode::TransactionStart: {
+        execute_transaction_start(ctxt, cmd);
       } break;
-      case CCOpcode::EndTransaction: {
-        execute_end_transaction(ctxt, cmd);
+      case CCOpcode::TransactionEnd: {
+        execute_transaction_end(ctxt, cmd);
       } break;
       case CCOpcode::InvokeCoherenceAction: {
         execute_invoke_coherence_action(ctxt, cmd);
@@ -127,8 +157,8 @@ class CCCommandInterpreter {
       case CCOpcode::WaitOnMsg: {
         execute_wait_on_msg(ctxt, cmd);
       } break;
-      case CCOpcode::WaitNextEpochOrWait: {
-        execute_wait_next_epoch_or_wait(ctxt, cmd);
+      case CCOpcode::WaitNextEpoch: {
+        execute_wait_next_epoch(ctxt, cmd);
       } break;
       default: {
         throw std::runtime_error("Invalid command encountered.");
@@ -137,7 +167,7 @@ class CCCommandInterpreter {
   }
  private:
 
-  void execute_start_transaction(CCContext& ctxt, const CCCommand* cmd) {
+  void execute_transaction_start(CCContext& ctxt, const CCCommand* cmd) {
     CCTTable* tt = model_->tt();
     CCTState* st = new CCTState();
     st->set_line(ctxt.line());
@@ -146,10 +176,11 @@ class CCCommandInterpreter {
     
   }
 
-  void execute_end_transaction(CCContext& ctxt, const CCCommand* cmd) {
+  void execute_transaction_end(CCContext& ctxt, const CCCommand* cmd) {
     CCTTable* tt = model_->tt();
-    Transaction* t = ctxt.msg()->t();
-    if (auto it = tt->find(t); it != tt->end()) {
+    Transaction* t = cmd->t();
+    if (auto it = tt->find(cmd->t()); it != tt->end()) {
+      // Would prefer to remove iterator.
       tt->remove(t);
     } else {
       throw std::runtime_error("Table entry for transaction does not exist.");
@@ -176,17 +207,8 @@ class CCCommandInterpreter {
     process_->wait_on(arb->request_arrival_event());
   }
 
-  void execute_wait_next_epoch_or_wait(CCContext& ctxt, const CCCommand* cmd) {
-    MQArb* arb = model_->arb();
-    MQArbTmt t = arb->tournament();
-    if (t.has_requester()) {
-      // Wait some delay
-      process_->wait_for(kernel::Time{10, 0});
-    } else {
-      // No further commands, block process until something
-      // arrives.
-      process_->wait_on(arb->request_arrival_event());
-    }
+  void execute_wait_next_epoch(CCContext& ctxt, const CCCommand* cmd) {
+    process_->wait_for(kernel::Time{10, 0});
   }
   //
   AgentProcess* process_ = nullptr;
@@ -259,7 +281,22 @@ class CCModel::RdisProcess : public AgentProcess {
       lm.level(Level::Debug);
       log(lm);
 
+      // Execute completed sequence.
       execute(ctxt, cl);
+
+      // After appling the compute state updates, check if the overall
+      // transaction has completed and if so, run the completion
+      // sequence.
+      //
+      // TODO: as part of the can_execute process; we should
+      // conservatively expect the termination sequence to run,
+      // therefore we should expect the AceCmdRsp MessageQueue to be
+      // non-full.
+      const CCProtocol* protocol = model_->protocol();
+      CCCommandList cs;
+      if (protocol->is_complete(ctxt, cs)) {
+        execute(ctxt, cs);
+      }      
     }
   }
 
@@ -287,6 +324,7 @@ class CCModel::RdisProcess : public AgentProcess {
 
   void process_dt(CCContext& ctxt, CCCommandList& cl) const {
     const CCTState* st = lookup_state_or_fail(ctxt.msg()->t()); 
+    ctxt.set_line(st->line());
     const CCProtocol* protocol = model_->protocol();
     protocol->apply(ctxt, cl);
   }  
@@ -296,7 +334,7 @@ class CCModel::RdisProcess : public AgentProcess {
   }
 
   void execute(CCContext& ctxt, const CCCommandList& cl) {
-      try {
+    try {
       CCCommandInterpreter interpreter;
       interpreter.set_cc(model_);
       interpreter.set_process(this);
@@ -309,12 +347,12 @@ class CCModel::RdisProcess : public AgentProcess {
 #endif
         interpreter.execute(ctxt, cmd);
       }
-      } catch (const std::runtime_error& ex) {
-        LogMessage lm("Interpreter encountered an error: ");
-        lm.append(ex.what());
-        lm.level(Level::Fatal);
-        log(lm);
-      }
+    } catch (const std::runtime_error& ex) {
+      LogMessage lm("Interpreter encountered an error: ");
+      lm.append(ex.what());
+      lm.level(Level::Fatal);
+      log(lm);
+    }
   }
 
   CCTState* lookup_state_or_fail(Transaction* t) const {
@@ -358,7 +396,7 @@ const char* to_string(CCSnpOpcode opcode) {
 CCSnpCommand::~CCSnpCommand() {
   switch (opcode()) {
     case CCSnpOpcode::InvokeCoherenceAction:
-      oprands.coh.action->release();
+      oprands.action->release();
       break;
     default: ;
   }
@@ -380,7 +418,7 @@ CCSnpCommand* CCSnpCommandBuilder::from_opcode(CCSnpOpcode opcode) {
 CCSnpCommand* CCSnpCommandBuilder::from_action(CoherenceAction* action) {
   CCSnpCommand* cmd = new CCSnpCommand;
   cmd->set_opcode(CCSnpOpcode::InvokeCoherenceAction);
-  cmd->oprands.coh.action = action;
+  cmd->oprands.action = action;
   return cmd;
 }
 

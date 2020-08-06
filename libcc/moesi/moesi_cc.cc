@@ -41,106 +41,181 @@ using namespace cc;
 
 //
 //
-enum class State {
-
-  // Invalid State
-  // 
-  I,
-
-
-  // State Transition: I -> S; Awaiting data from owner.
-  //
-  // Next states:
-  //
-  //    S:   On receipt of data (non-owning).
-  //
-  //    E:   On receipt of data (owning).
-  //
-  IS,
-
-  
-  IE,
-
-
-  // Shared State
-  //
-  S,
-
-
-  // Exclusive State
-  //
-  // Next state:
-  //
-  //    M:   On commit of CPU store instruction.
-  //
-  E,
-
-
-  // Owned State
-  //
-  O,
-
-
-  // Modified State
-  //
-  M
-};
-
-
-//
-//
-const char* to_string(State state) {
-  switch (state) {
-    case State::I: return "I";
-    case State::IS: return "IS";
-    case State::IE: return "IE";
-    case State::S: return "S";
-    case State::E: return "E";
-    case State::O: return "O";
-    case State::M: return "M";
-    default: return "Invalid";
-  }
-}
-
-
-//
-//
-bool is_stable(State state) {
-  switch (state) {
-    case State::I:
-    case State::S:
-    case State::E:
-    case State::O:
-    case State::M:
-      return true;
-    default:
-      return false;
-  }
-}
-
-
-//
-//
 class Line : public CCLineState {
  public:
   Line() = default;
-  ~Line() {}
+
+  // Accessors:
+  Transaction* t() const { return t_; }
+  bool is() const { return is_; }
+  bool pd() const { return pd_; }
+  std::size_t dt_n() const { return dt_n_; }
+  std::size_t dt_i() const { return dt_i_; }
+  bool awaiting_cohend() const { return awaiting_cohend_; }
+  bool awaiting_cohcmdrsp() const { return awaiting_cohcmdrsp_; }
+
+  // Setters:
+  void set_t(Transaction* t) { t_ = t; }
+  void set_is(bool is) { is_ = is; }
+  void set_pd(bool pd) { pd_ = pd; }
+  void set_dt_n(std::size_t dt_n) { dt_n_ = dt_n; }
+  void set_dt_i(std::size_t dt_i) { dt_i_ = dt_i; }
+  void set_awaiting_cohend(bool awaiting_cohend) {
+    awaiting_cohend_ = awaiting_cohend;
+  }
+  void set_awaiting_cohcmdrsp(bool awaiting_cohcmdrsp) {
+    awaiting_cohcmdrsp_ = awaiting_cohcmdrsp;
+  }
 
   //
-  State state() const { return state_; }
-  bool awaiting_cmdmsg_rsp() const { return awaiting_cmdmsg_rsp_; }
+  bool is_complete() const {
+    // If awaiting coherence end; not complete
+    if (awaiting_cohend()) return false;
+    // If awaiting coherence command response; not complete
+    if (awaiting_cohcmdrsp()) return false;
 
-  //
-  void set_state(State state) { state_ = state; }
-  void set_awaiting_cmdmsg_rsp(bool b) { awaiting_cmdmsg_rsp_ = b; }
+    // Otherwise, if the expected number of data transfers have
+    // arrived, we are free to compute the final response.
+    return dt_n() == dt_i();
+  }
 
  private:
-  //
-  bool awaiting_cmdmsg_rsp_ = false;
-  // Current line state
-  State state_ = State::I;
+  // Current Transaction (retained as the message which would
+  // otherwise retain it has been dequeued by the type the final
+  // CohEnd message has been emitted.
+  Transaction* t_ = nullptr;
+  // CohEnd indicates response is shared.
+  bool is_ = false;
+  // CohEnd indicates response was passed as dirty.
+  bool pd_ = false;
+  // The total number of expected data transfers.
+  std::size_t dt_n_ = 0;
+  // The total number of received data transfers.
+  std::size_t dt_i_ = 0;
+  // Flag indicating that CohEnd msg has been received/awaiting.
+  bool awaiting_cohend_ = false;
+  // Flag indicating that CohCmdRsp msg has been received/awaiting.
+  bool awaiting_cohcmdrsp_ = false;
 };
 
+
+//
+//
+class ApplyMsgAction : public CoherenceAction {
+ public:
+  ApplyMsgAction(const Message* msg, Line* line)
+      : msg_(msg), line_(line) {}
+
+  std::string to_string() const override {
+    return "TODO";
+  }
+  
+  bool execute() override {
+    const MessageClass cls = msg_->cls();
+
+    bool ret = false;
+    switch (cls) {
+      case MessageClass::AceCmd: {
+        ret = execute_apply(static_cast<const AceCmdMsg*>(msg_));
+      } break;
+      case MessageClass::CohEnd: {
+        ret = execute_apply(static_cast<const CohEndMsg*>(msg_));
+      } break;
+      case MessageClass::CohCmdRsp: {
+        ret = execute_apply(static_cast<const CohCmdRspMsg*>(msg_));
+      } break;
+      case MessageClass::Dt: {
+        ret = execute_apply(static_cast<const DtMsg*>(msg_));
+      } break;
+      default: {
+        // Other.
+      } break;
+    }
+    return ret;
+  }
+ private:
+  bool execute_apply(const AceCmdMsg* msg) const {
+    line_->set_t(msg->t());
+    return true;
+  }
+  
+  bool execute_apply(const CohEndMsg* msg) const {
+    line_->set_is(msg->is());
+    line_->set_pd(msg->pd());
+    line_->set_dt_n(msg->dt_n());
+    line_->set_awaiting_cohend(false);
+    return true;
+  }
+
+  bool execute_apply(const CohCmdRspMsg* msg) const {
+    line_->set_awaiting_cohcmdrsp(false);
+    return true;
+  }
+
+  bool execute_apply(const DtMsg* msg) const {
+    line_->set_dt_i(line_->dt_i() + 1);
+    return true;
+  }
+  
+  //
+  const Message* msg_ = nullptr;
+  // 
+  Line* line_ = nullptr;
+};
+
+
+//
+//
+enum class LineUpdate {
+  SetAwaitingCohEnd,
+  SetAwaitingCohCmdRsp,
+  Invalid
+};
+
+const char* to_string(LineUpdate update) {
+  switch (update) {
+    case LineUpdate::SetAwaitingCohEnd:
+      return "SetAwaitingCohEnd";
+    case LineUpdate::SetAwaitingCohCmdRsp:
+      return "SetAwaitingCohCmdRsp";
+    case LineUpdate::Invalid:
+      return "Invalid";
+    default:
+      return "Invalid";
+  }
+}
+
+struct LineUpdateAction : public CoherenceAction {
+  LineUpdateAction(Line* line, LineUpdate update)
+      : line_(line), update_(update)
+  {}
+  std::string to_string() const override {
+    using cc::to_string;
+    KVListRenderer r;
+    r.add_field("update", to_string(update_));
+    return r.to_string();
+  }
+  bool execute() override {
+    switch (update_) {
+      case LineUpdate::SetAwaitingCohEnd: {
+        line_->set_awaiting_cohend(true);
+      } break;
+      case LineUpdate::SetAwaitingCohCmdRsp: {
+        line_->set_awaiting_cohcmdrsp(true);
+      } break;
+      default: {
+      } break;
+    }
+    return true;
+  }
+ private:
+  Line* line_ = nullptr;
+  LineUpdate update_ = LineUpdate::Invalid;
+};
+
+
+//
+//
 class SnpLine : public CCSnpLineState {
  public:
   SnpLine() = default;
@@ -158,71 +233,6 @@ class SnpLine : public CCSnpLineState {
   Agent* origin_ = nullptr;
   // Requesting agent.
   Agent* agent_ = nullptr;
-};
-
-//
-//
-enum class LineUpdate {
-  SetAwaitingCmdMsgRsp,
-  ClrAwaitingCmdMsgRsp,
-  State,
-  Invalid
-};
-
-const char* to_string(LineUpdate update) {
-  switch (update) {
-    case LineUpdate::SetAwaitingCmdMsgRsp:
-      return "SetAwaitingCmdMsgRsp";
-    case LineUpdate::ClrAwaitingCmdMsgRsp:
-      return "ClrAwaitingCmdMsgRsp";
-    case LineUpdate::State:
-      return "State";
-    case LineUpdate::Invalid:
-    default:
-      return "Invalid";
-  }
-}
-
-struct LineUpdateAction : public CoherenceAction {
-  LineUpdateAction(Line* line, LineUpdate update)
-      : line_(line), update_(update)
-  {}
-  std::string to_string() const override {
-    using cc::to_string;
-    KVListRenderer r;
-    r.add_field("update", to_string(update_));
-    switch (update_) {
-      case LineUpdate::State: {
-        r.add_field("action", "update state");
-        r.add_field("current", to_string(line_->state()));
-        r.add_field("next", to_string(state_));
-      } break;
-      default: {
-      } break;
-    }
-    return r.to_string();
-  }
-  void set_state(State state) { state_ = state; }
-  bool execute() override {
-    switch (update_) {
-      case LineUpdate::SetAwaitingCmdMsgRsp: {
-        line_->set_awaiting_cmdmsg_rsp(true);
-      } break;
-      case LineUpdate::ClrAwaitingCmdMsgRsp: {
-        line_->set_awaiting_cmdmsg_rsp(false);
-      } break;
-      case LineUpdate::State: {
-        line_->set_state(state_);
-      } break;
-      default: {
-      } break;
-    }
-    return true;
-  }
- private:
-  State state_;
-  Line* line_ = nullptr;
-  LineUpdate update_ = LineUpdate::Invalid;
 };
 
 //
@@ -273,6 +283,27 @@ class MOESICCProtocol : public CCProtocol {
 
   //
   //
+  bool is_complete(CCContext& ctxt, CCCommandList& cl) const override {
+    Line* line = static_cast<Line*>(ctxt.line());
+
+    // Check line is complete, if not bail.
+    if (!line->is_complete()) return false;
+
+    AceCmdRspMsg* rsp = new AceCmdRspMsg;
+    rsp->set_t(line->t());
+    rsp->set_origin(ctxt.cc());
+    rsp->set_pd(line->pd());
+    rsp->set_is(line->is());
+    issue_msg(cl, ctxt.cc()->cc_l2__rsp_q(), rsp);
+
+    // Transaction is now complete; delete entry from transaction table.
+    cl.push_transaction_end(line->t());
+
+    return true;
+  }
+
+  //
+  //
   void apply(CCSnpContext& ctxt, CCSnpCommandList& cl) const override {
     const MessageClass cls = ctxt.msg()->cls();
     switch (cls) {
@@ -295,69 +326,81 @@ class MOESICCProtocol : public CCProtocol {
   }
 
   void eval_msg(CCContext& ctxt, CCCommandList& cl, const CohCmdRspMsg* msg) const {
-    // Clear waiting bit.
-    issue_field_update(ctxt, cl, LineUpdate::ClrAwaitingCmdMsgRsp);
-    cl.push_back(cb::from_opcode(CCOpcode::MsgConsume));
-    // Advance to next
-    cl.push_back(cb::from_opcode(CCOpcode::WaitNextEpochOrWait));
+    // Apply message to transaction state.
+    issue_apply_msg(ctxt, cl, msg);
+    // Consume and advance
+    cl.next_and_do_consume(true);
   }
 
   void eval_msg(CCContext& ctxt, CCCommandList& cl, const AceCmdMsg* msg) const {
+    // Apply message to transaction state.
+    issue_apply_msg(ctxt, cl, msg);
+
+    // TODO: a lot of this is redundant. Cleanup.
+
+    // Defaults
+    bool set_awaiting_cohend = false;
+    bool set_awaiting_cmdrsp = false;
+    
     const AceCmdOpcode opcode = msg->opcode();
     switch (opcode) {
       case AceCmdOpcode::ReadShared: {
         const DirMapper* dm = ctxt.cc()->dm();
-        
+
+        // Issue coherence start message
         CohSrtMsg* cohsrt = new CohSrtMsg;
         cohsrt->set_t(msg->t());
         cohsrt->set_origin(ctxt.cc());
         cohsrt->set_addr(msg->addr());
         issue_emit_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
 
+        // Issue coherence command message
         CohCmdMsg* cohcmd = new CohCmdMsg;
         cohcmd->set_t(msg->t());
         cohcmd->set_opcode(msg->opcode());
         cohcmd->set_origin(ctxt.cc());
         cohcmd->set_addr(msg->addr());
         issue_emit_to_noc(ctxt, cl, cohcmd, dm->lookup(msg->addr()));
-        issue_field_update(ctxt, cl, LineUpdate::SetAwaitingCmdMsgRsp);
+
+        // Set flags
+        set_awaiting_cohend = true;
+        set_awaiting_cmdrsp = true;
+
+        // Set flag indicating we are awaiting the command response.
 
         // ACE command advances to active state; install entry within
         // transaction table.
-        cl.push_back(cb::from_opcode(CCOpcode::StartTransaction));
-        // Consume ACE command
-        cl.push_back(cb::from_opcode(CCOpcode::MsgConsume));
-        // Advance to next
-        cl.push_back(cb::from_opcode(CCOpcode::WaitNextEpochOrWait));
-        // Update state
-        issue_update_state(ctxt, cl, State::IS);
+        cl.push_back(cb::from_opcode(CCOpcode::TransactionStart));
+        // Consume and advance
+        cl.next_and_do_consume(true);
       } break;
       case AceCmdOpcode::ReadUnique: {
         const DirMapper* dm = ctxt.cc()->dm();
-        
+
+        // Issue coherence start message
         CohSrtMsg* cohsrt = new CohSrtMsg;
         cohsrt->set_t(msg->t());
         cohsrt->set_origin(ctxt.cc());
         cohsrt->set_addr(msg->addr());
         issue_emit_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
 
+        // Issue coherence command message
         CohCmdMsg* cohcmd = new CohCmdMsg;
         cohcmd->set_t(msg->t());
         cohcmd->set_opcode(msg->opcode());
         cohcmd->set_origin(ctxt.cc());
         cohcmd->set_addr(msg->addr());
         issue_emit_to_noc(ctxt, cl, cohcmd, dm->lookup(msg->addr()));
-        issue_field_update(ctxt, cl, LineUpdate::SetAwaitingCmdMsgRsp);
+
+        // Set flags
+        set_awaiting_cohend = true;
+        set_awaiting_cmdrsp = true;
 
         // ACE command advances to active state; install entry within
         // transaction table.
-        cl.push_back(cb::from_opcode(CCOpcode::StartTransaction));
-        // Consume ACE command
-        cl.push_back(cb::from_opcode(CCOpcode::MsgConsume));
-        // Advance to next
-        cl.push_back(cb::from_opcode(CCOpcode::WaitNextEpochOrWait));
-        // Update state
-        issue_update_state(ctxt, cl, State::IE);
+        cl.push_back(cb::from_opcode(CCOpcode::TransactionStart));
+        // Consume and advance
+        cl.next_and_do_consume(true);
       } break;
       case AceCmdOpcode::CleanUnique: {
         // Agent has copy of cache line and requests promotion of the
@@ -376,42 +419,75 @@ class MOESICCProtocol : public CCProtocol {
         cohcmd->set_origin(ctxt.cc());
         cohcmd->set_addr(msg->addr());
         issue_emit_to_noc(ctxt, cl, cohcmd, dm->lookup(msg->addr()));
-        issue_field_update(ctxt, cl, LineUpdate::SetAwaitingCmdMsgRsp);
+
+        // Set flags
+        set_awaiting_cohend = true;
+        set_awaiting_cmdrsp = true;
 
         // ACE command advances to active state; install entry within
         // transaction table.
-        cl.push_back(cb::from_opcode(CCOpcode::StartTransaction));
-        // Consume ACE command
-        cl.push_back(cb::from_opcode(CCOpcode::MsgConsume));
-        // Advance to next
-        cl.push_back(cb::from_opcode(CCOpcode::WaitNextEpochOrWait));
-        // Update state
-        issue_update_state(ctxt, cl, State::IE);
+        cl.push_back(cb::from_opcode(CCOpcode::TransactionStart));
+        // Consume and advance
+        cl.next_and_do_consume(true);
       } break;
       case AceCmdOpcode::Evict: {
         const DirMapper* dm = ctxt.cc()->dm();
-        
+
+        // Issue cohernce start message
         CohSrtMsg* cohsrt = new CohSrtMsg;
         cohsrt->set_t(msg->t());
         cohsrt->set_origin(ctxt.cc());
         cohsrt->set_addr(msg->addr());
         issue_emit_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
 
+        // Issue cohernece command
         CohCmdMsg* cohcmd = new CohCmdMsg;
         cohcmd->set_t(msg->t());
         cohcmd->set_opcode(msg->opcode());
         cohcmd->set_origin(ctxt.cc());
         cohcmd->set_addr(msg->addr());
         issue_emit_to_noc(ctxt, cl, cohcmd, dm->lookup(msg->addr()));
-        issue_field_update(ctxt, cl, LineUpdate::SetAwaitingCmdMsgRsp);
+
+        // Set flags
+        set_awaiting_cohend = true;
+        set_awaiting_cmdrsp = true;
 
         // ACE command advances to active state; install entry within
         // transaction table.
-        cl.push_back(cb::from_opcode(CCOpcode::StartTransaction));
-        // Consume ACE command
-        cl.push_back(cb::from_opcode(CCOpcode::MsgConsume));
-        // Advance to next
-        cl.push_back(cb::from_opcode(CCOpcode::WaitNextEpochOrWait));
+        cl.push_back(cb::from_opcode(CCOpcode::TransactionStart));
+        // Consume and advance
+        cl.next_and_do_consume(true);
+      } break;
+      case AceCmdOpcode::WriteBack: {
+        // L2 evicts a line and initiates a write to memory.
+        const DirMapper* dm = ctxt.cc()->dm();
+
+        // Issue coherence start message
+        CohSrtMsg* cohsrt = new CohSrtMsg;
+        cohsrt->set_t(msg->t());
+        cohsrt->set_origin(ctxt.cc());
+        cohsrt->set_addr(msg->addr());
+        issue_emit_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
+
+        // Issue coherence command message
+        CohCmdMsg* cohcmd = new CohCmdMsg;
+        cohcmd->set_t(msg->t());
+        cohcmd->set_opcode(msg->opcode());
+        cohcmd->set_origin(ctxt.cc());
+        cohcmd->set_addr(msg->addr());
+        issue_emit_to_noc(ctxt, cl, cohcmd, dm->lookup(msg->addr()));
+
+        // Set flags
+        set_awaiting_cohend = true;
+        set_awaiting_cmdrsp = true;
+
+        // Set flag indicating we are awaiting the command response.
+
+        // ACE command advances to active state; install entry within
+        // transaction table.
+        cl.push_back(cb::from_opcode(CCOpcode::TransactionStart));
+        // Consume and advance
+        cl.next_and_do_consume(true);
       } break;
       default: {
         std::string name = "Unable to handle ACE command: ";
@@ -419,34 +495,36 @@ class MOESICCProtocol : public CCProtocol {
         issue_invalid_state_transition(cl, name);
       } break;
     }
+
+    if (set_awaiting_cohend) {
+      // Set "Awaiting CohEnd" flag
+      issue_line_update(ctxt, cl, LineUpdate::SetAwaitingCohEnd);
+    }
+
+    if (set_awaiting_cmdrsp) {
+      // Set "Awaiting CohCmdRsp" flag
+      issue_line_update(ctxt, cl, LineUpdate::SetAwaitingCohCmdRsp);
+    }
   }
 
   void eval_msg(CCContext& ctxt, CCCommandList& cl, const CohEndMsg* msg) const {
-    AceCmdRspMsg* rsp = new AceCmdRspMsg;
-    rsp->set_t(msg->t());
-    rsp->set_origin(ctxt.cc());
-    rsp->set_pd(msg->pd());
-    rsp->set_is(msg->is());
-    issue_msg(cl, ctxt.cc()->cc_l2__rsp_q(), rsp);
-
-    // Transaction is now complete; delete entry from transaction table.
-    cl.push_back(cb::from_opcode(CCOpcode::EndTransaction));
-    // Consume message
-    cl.push_back(cb::from_opcode(CCOpcode::MsgConsume));
-    // Advance to next
-    cl.push_back(cb::from_opcode(CCOpcode::WaitNextEpochOrWait));
+    // Apply message to transaction state.
+    issue_apply_msg(ctxt, cl, msg);
+    // Consume and advance
+    cl.next_and_do_consume(true);
   }
 
   void eval_msg(CCContext& ctxt, CCCommandList& cl, const DtMsg* msg) const {
+    // Apply message to transaction state.
+    issue_apply_msg(ctxt, cl, msg);
+
     // Issue Dt response to LLC/CC
     DtRspMsg* rsp = new DtRspMsg;
     rsp->set_t(msg->t());
     rsp->set_origin(ctxt.cc());
     issue_emit_to_noc(ctxt, cl, rsp, msg->origin());
-    // Consume message
-    cl.push_back(cb::from_opcode(CCOpcode::MsgConsume));
-    // Advance to next
-    cl.push_back(cb::from_opcode(CCOpcode::WaitNextEpochOrWait));
+    // Consume and advance
+    cl.next_and_do_consume(true);
   }
 
   void eval_msg(CCSnpContext& ctxt, CCSnpCommandList& cl, const CohSnpMsg* msg) const {
@@ -503,19 +581,20 @@ class MOESICCProtocol : public CCProtocol {
     cl.push_back(snpcb::from_opcode(CCSnpOpcode::NextEpoch));
   }
 
-  void issue_field_update(
+  void issue_apply_msg(
+      CCContext& ctxt,  CCCommandList& cl, const Message* msg) const {
+    Line* line = static_cast<Line*>(ctxt.line());
+    ApplyMsgAction* action = new ApplyMsgAction(msg, line);
+    cl.push_back(cb::from_action(action));
+  }
+  
+  void issue_line_update(
       CCContext& ctxt,  CCCommandList& cl, LineUpdate update) const {
     Line* line = static_cast<Line*>(ctxt.line());
     LineUpdateAction* action = new LineUpdateAction(line, update);
     cl.push_back(cb::from_action(action));
   }
 
-  void issue_update_state(CCContext& ctxt, CCCommandList& cl, State state) const {
-    Line* line = static_cast<Line*>(ctxt.line());
-    LineUpdateAction* action = new LineUpdateAction(line, LineUpdate::State);
-    action->set_state(state);
-    cl.push_back(cb::from_action(action));
-  }
 };
 
 } // namespace

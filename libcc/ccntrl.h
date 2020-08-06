@@ -43,21 +43,26 @@ class CCProtocol;
 class CCModel;
 class CCNocEndpoint;
 
-#define CCOPCODE_LIST(__func)                   \
-  __func(StartTransaction)                      \
-  __func(EndTransaction)                        \
-  __func(InvokeCoherenceAction)                 \
-  __func(MsgConsume)                            \
-  __func(WaitOnMsg)                             \
-  __func(WaitNextEpochOrWait)
-
 enum class CCOpcode {
-  StartTransaction,
-  EndTransaction,
-  InvokeCoherenceAction,
+  // Raise notification that a new transaction has begun.
+  TransactionStart,
+
+  // Raise notification that the current transactio has completed.
+  TransactionEnd,
+
+  // Consume message at the head of the currently selected message
+  // queue.
   MsgConsume,
+
+  // Invoke a coherence protocol defined action.
+  InvokeCoherenceAction,
+
+  // Wait on the arrival of a message from one of the agents ingress
+  // message queues.
   WaitOnMsg,
-  WaitNextEpochOrWait
+
+  // Re-evaluate agent after an 'Epoch' has elapsed.
+  WaitNextEpoch
 };
 
 const char* to_string(CCOpcode opcode);
@@ -73,16 +78,20 @@ class CCCommand {
 
   std::string to_string() const;
 
+  // Accessors
   CCOpcode opcode() const { return opcode_; }
-  CoherenceAction* action() const { return oprands.coh.action; }
+  CoherenceAction* action() const { return oprands.action; }
+  Transaction* t() const { return oprands.t; }
+
+  // Setters
+  void set_t(Transaction* t) { oprands.t = t; }
 
  private:
   virtual ~CCCommand();
   //
   union {
-    struct {
-      CoherenceAction* action;
-    } coh;
+    CoherenceAction* action;
+    Transaction* t;
   } oprands;
   //
   CCOpcode opcode_;
@@ -95,12 +104,15 @@ class CCCommandBuilder {
   static CCCommand* from_opcode(CCOpcode opcode);
 
   static CCCommand* from_action(CoherenceAction* action);
+
+  static CCCommand* build_transaction_end(Transaction* t);
 };
 
 
 //
 //
 class CCCommandList {
+  using cb = CCCommandBuilder;
   using vector_type = std::vector<CCCommand*>;
 
  public:
@@ -113,6 +125,16 @@ class CCCommandList {
   const_iterator end() const { return cmds_.end(); }
 
   void push_back(CCCommand* cmd) { cmds_.push_back(cmd); }
+
+  // Transaction starts
+  void push_transaction_start();
+
+  // Transaction ends
+  void push_transaction_end(Transaction* t);
+  
+  // Consume current message and advance agent to next simulation
+  // epoch.
+  void next_and_do_consume(bool do_consume = false);
 
  private:
   std::vector<CCCommand*> cmds_;
@@ -198,20 +220,18 @@ class CCSnpCommand {
 
   //
   CCSnpOpcode opcode() const { return opcode_; }
-  CoherenceAction* action() const { return oprands.coh.action; }
+  CoherenceAction* action() const { return oprands.action; }
 
   //
   void set_opcode(CCSnpOpcode opcode) { opcode_ = opcode; }
-  void set_action(CoherenceAction* action) { oprands.coh.action = action; }
+  void set_action(CoherenceAction* action) { oprands.action = action; }
 
  private:
   virtual ~CCSnpCommand();
   
   //
-  union {
-    struct {
-      CoherenceAction* action;
-    } coh;
+  struct {
+    CoherenceAction* action;
   } oprands;
   //
   CCSnpOpcode opcode_;

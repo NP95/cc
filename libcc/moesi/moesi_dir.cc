@@ -377,8 +377,8 @@ class MOESIDirProtocol : public DirProtocol {
 
   void apply(DirContext& ctxt, DirCommandList& cl, const CohSrtMsg* msg) const {
     cl.push_back(cb::from_opcode(DirOpcode::StartTransaction));
-    cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
-    cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
+    // Consume and advance
+    cl.next_and_do_consume(true);
   }
 
   void apply(DirContext& ctxt, DirCommandList& cl, const CohCmdMsg* msg) const {
@@ -413,9 +413,8 @@ class MOESIDirProtocol : public DirProtocol {
         // Update state
         issue_update_state(ctxt, cl, State::IE);
         issue_update_substate(ctxt, cl, SubState::AwaitingLLCFillRsp);
-
-        cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
-        cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
+        // Consume and advance
+        cl.next_and_do_consume(true);
       } break;
       case State::S: {
         switch (opcode) {
@@ -435,8 +434,8 @@ class MOESIDirProtocol : public DirProtocol {
             // Requester now becomes a sharer.
             issue_add_sharer(ctxt, cl, msg->origin());
             issue_update_substate(ctxt, cl, SubState::AwaitingLLCFwdRsp);
-            cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
-            cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
+            // Consume and advance
+            cl.next_and_do_consume(true);
           } break;
           case AceCmdOpcode::ReadUnique: {
             // Issue invalidation commands to sharing caches, if unique
@@ -466,14 +465,17 @@ class MOESIDirProtocol : public DirProtocol {
             snp->set_opcode(AceSnpOpcode::ReadShared);
             issue_emit_to_noc(ctxt, cl, snp, line->owner());
 
+            // Issue one snoop; therefore await one snoop response
+            issue_set_snoop_n(ctxt, cl, 1);
+
             // Directory has no notion of local modified status,
             // therefore when a line has been installed in the
             // Exclusive state, the directory asssumes that the cache
             // line has been modified by the owning agent.
             issue_update_state(ctxt, cl, State::EO);
             issue_update_substate(ctxt, cl, SubState::AwaitingCohSnpRsp);
-            cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
-            cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
+            // Consume and advance
+            cl.next_and_do_consume(true);
           } break;
           case AceCmdOpcode::ReadUnique: {
             // Owning cache may have line in either the E or the M
@@ -492,8 +494,8 @@ class MOESIDirProtocol : public DirProtocol {
 
             issue_update_state(ctxt, cl, State::EE);
             issue_update_substate(ctxt, cl, SubState::AwaitingCohSnpRsp);
-            cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
-            cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
+            // Consume and advance
+            cl.next_and_do_consume(true);
           } break;
           case AceCmdOpcode::Evict: {
             // Line is installed in the Exclusive state within the
@@ -503,14 +505,33 @@ class MOESIDirProtocol : public DirProtocol {
             // Issue coherence response, line has now been removed from cache.
             CohEndMsg* end = new CohEndMsg;
             end->set_t(msg->t());
+            // No data transfer associated with Evict transaction.
+            end->set_dt_n(0);
             issue_emit_to_noc(ctxt, cl, end, msg->origin());
 
             // Line becomes idle.
             issue_update_state(ctxt, cl, State::I);
             cl.push_back(cb::from_opcode(DirOpcode::RemoveLine));
             cl.push_back(cb::from_opcode(DirOpcode::EndTransaction));
-            cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
-            cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
+            // Consume and advance
+            cl.next_and_do_consume(true);
+          } break;
+          case AceCmdOpcode::WriteBack: {
+            // TOOD: form message to evict from LLC and write to
+            // memory.
+
+            // Form coherence result; should be gated on LLC response
+            // message.
+            CohEndMsg* end = new CohEndMsg;
+            end->set_t(msg->t());
+            end->set_dt_n(0);
+            issue_emit_to_noc(ctxt, cl, end, msg->origin());
+            // Line becomes idle.
+            issue_update_state(ctxt, cl, State::I);
+            cl.push_back(cb::from_opcode(DirOpcode::RemoveLine));
+            cl.push_back(cb::from_opcode(DirOpcode::EndTransaction));
+            // Consume and advance
+            cl.next_and_do_consume(true);
           } break;
           default: {
           } break;
@@ -551,8 +572,8 @@ class MOESIDirProtocol : public DirProtocol {
             // Update state: transition Owner -> Exclusive.
             issue_update_state(ctxt, cl, State::OE);
 
-            cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
-            cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
+            // Consume and advance
+            cl.next_and_do_consume(true);
           } break;
           default: {
           } break;
@@ -588,7 +609,8 @@ class MOESIDirProtocol : public DirProtocol {
             cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
 
             issue_update_substate(ctxt, cl, SubState::AwaitingLLCFwdRsp);
-            cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
+            // Advance
+            cl.next_and_do_consume(false);
           } break;
           case SubState::AwaitingLLCFwdRsp: {
             // Requesting cache now has the line, issue notification
@@ -597,6 +619,7 @@ class MOESIDirProtocol : public DirProtocol {
             CohEndMsg* end = new CohEndMsg;
             end->set_t(msg->t());
             end->set_origin(ctxt.dir());
+            end->set_dt_n(1);
             issue_emit_to_noc(ctxt, cl, end, line->owner());
             const State next_state =
                 (line->state() == State::IS) ? State::S : State::E;
@@ -605,8 +628,8 @@ class MOESIDirProtocol : public DirProtocol {
             issue_update_substate(ctxt, cl, SubState::None);
 
             cl.push_back(cb::from_opcode(DirOpcode::EndTransaction));
-            cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
-            cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
+            // Consume and advance
+            cl.next_and_do_consume(true);
           } break;
           default: {
           }
@@ -618,14 +641,15 @@ class MOESIDirProtocol : public DirProtocol {
             CohEndMsg* end = new CohEndMsg;
             end->set_t(msg->t());
             end->set_origin(ctxt.dir());
+            end->set_dt_n(1);
             issue_emit_to_noc(ctxt, cl, end, ctxt.tstate()->origin());
             issue_update_state(ctxt, cl, State::S);
             // Return to stable/non-transient state.
             issue_update_substate(ctxt, cl, SubState::None);
 
             cl.push_back(cb::from_opcode(DirOpcode::EndTransaction));
-            cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
-            cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
+            // Consume and advance
+            cl.next_and_do_consume(true);
           } break;
           default: {
           } break;
@@ -641,22 +665,25 @@ class MOESIDirProtocol : public DirProtocol {
   void apply(DirContext& ctxt, DirCommandList& cl, const CohSnpRspMsg* msg) const {
     LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
 
+    // Obtain transaction object.
     DirTState* tstate = ctxt.tstate();
+
+    // Transition from Owned (with some number of sharers) to
+    // the exclusive state. Directory is awaiting response(s)
+    // from all of the sharing agents in the system. Snooped
+    // agents may or may not transfer data to the requester
+    // (preferrably not), however since they may do so, send
+    // the final DT count to the requester so that it may
+    // await all DT which may be in flight.
+    const bool is_final_snprsp =
+        (tstate->snoop_n() == 1 + tstate->snoop_i());
+
     const AceCmdOpcode opcode = tstate->opcode();
     const State state = line->state();
     switch (opcode) {
       case AceCmdOpcode::CleanUnique: {
         switch (state) {
           case State::OE: {
-            // Transition from Owned (with some number of sharers) to
-            // the exclusive state. Directory is awaiting response(s)
-            // from all of the sharing agents in the system. Snooped
-            // agents may or may not transfer data to the requester
-            // (preferrably not), however since they may do so, send
-            // the final DT count to the requester so that it may
-            // await all DT which may be in flight.
-            const bool is_final_snprsp =
-                (tstate->snoop_n() == 1 + tstate->snoop_i());
 
             // Issue snoop count increment.
             issue_inc_snoop_i(ctxt, cl);
@@ -686,8 +713,8 @@ class MOESIDirProtocol : public DirProtocol {
               // response has been computed.
               cl.push_back(cb::from_opcode(DirOpcode::EndTransaction));
             }
-            cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
-            cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
+            // Consume and advance
+            cl.next_and_do_consume(true);
           } break;
           default: {
             // TODO
@@ -698,6 +725,9 @@ class MOESIDirProtocol : public DirProtocol {
         //
         switch (state) {
           case State::EO: {
+            // CHECK: expect this to be the final snoop response; only
+            // one snoop should have been issued.
+            
             // Line was in Exclusive state in owning cache. Upon
             // completion of the ReadShared the owning cache may have
             // either invalidated the line, retained the line as the
@@ -714,6 +744,7 @@ class MOESIDirProtocol : public DirProtocol {
               // Requesting agent becomes owner.
               end->set_is(false);
               end->set_pd(false);
+              end->set_dt_n(1);
               issue_set_owner(ctxt, cl, tstate->origin());
               // Line is no longer present in response cache.
               next_state = State::E;
@@ -721,6 +752,7 @@ class MOESIDirProtocol : public DirProtocol {
               // Requesting agent becomes owner.
               end->set_is(false);
               end->set_pd(true);
+              end->set_dt_n(1);
               issue_set_owner(ctxt, cl, tstate->origin());
               // Line is no longer present in responder cache.
               next_state = State::M;
@@ -728,6 +760,7 @@ class MOESIDirProtocol : public DirProtocol {
               // Requester becomes Sharer.
               end->set_is(true);
               end->set_pd(false);
+              end->set_dt_n(1);
               issue_add_sharer(ctxt, cl, tstate->origin());
               // Responder becomes owner of assumed dirty line.
               next_state = State::O;
@@ -735,6 +768,7 @@ class MOESIDirProtocol : public DirProtocol {
               // Requester becomes Owner; responder retains Shared.
               end->set_is(true);
               end->set_pd(true);
+              end->set_dt_n(1);
               issue_set_owner(ctxt, cl, tstate->origin());
               // Responder retains line in Shared state, line is dirty
               // with respect to memory therefore requester gains line
@@ -751,8 +785,8 @@ class MOESIDirProtocol : public DirProtocol {
             issue_emit_to_noc(ctxt, cl, end, tstate->origin());
 
             cl.push_back(cb::from_opcode(DirOpcode::EndTransaction));
-            cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
-            cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
+            // Consume and advance
+            cl.next_and_do_consume(true);
           } break;
           default: {
           } break;
@@ -782,6 +816,7 @@ class MOESIDirProtocol : public DirProtocol {
               // Line is clean. The requesting agent can evict the
               // line without having first written it back.
               end->set_pd(false);
+              end->set_dt_n(1);
               next_state = State::E;
             } else if ( dt &&  pd) {
               issue_set_owner(ctxt, cl, tstate->origin());
@@ -789,9 +824,11 @@ class MOESIDirProtocol : public DirProtocol {
               // ownership state and must writeback the line before
               // eviction.
               end->set_pd(true);
+              end->set_dt_n(1);
               next_state = State::O;
             } else {
-              // 
+              //
+              // TODO: agent does not forward data
             }
             issue_update_state(ctxt, cl, next_state);
 
@@ -803,8 +840,8 @@ class MOESIDirProtocol : public DirProtocol {
             // now awaits 1 DT either from responding agent or the
             // LLC.
             cl.push_back(cb::from_opcode(DirOpcode::EndTransaction));
-            cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
-            cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
+            // Consume and advance
+            cl.next_and_do_consume(true);
           } break;
           default: {
             // TODO
@@ -812,6 +849,7 @@ class MOESIDirProtocol : public DirProtocol {
         }
       } break;
       default: {
+        // Unhandled AMBA command
       } break;
     }
   }

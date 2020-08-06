@@ -68,7 +68,7 @@ class SocModel {
   cc::Stimulus* stimulus_ = nullptr;
 };
 
-
+/*
 TEST(Evict111, LoadEvictOneLine) {
   cc::kernel::Kernel k;
   cc::SocConfig cfg;
@@ -104,6 +104,44 @@ TEST(Evict111, LoadEvictOneLine) {
     EXPECT_TRUE(checker.has_line());
     // Validate that cache line is in a readable state.
     EXPECT_TRUE(checker.line_is_readable());
+  }
+}
+*/
+
+TEST(Evict111, StoreEvictOneLine) {
+  cc::kernel::Kernel k;
+  cc::SocConfig cfg;
+
+  const std::vector<const char*> trace = {
+    "+200",
+    "C:0,ST,0x00000",
+    "+200",
+    "C:0,ST,0x10000",
+    "+200",
+    "C:0,ST,0x20000",
+    "+200",
+    "C:0,ST,0x30000",
+    "+200",
+    "C:0,ST,0x40000"
+  };
+  // Build simple test configuration.
+  test::build_config(cfg, 1, 1, 1, trace);
+  SocModel soc(&k, cfg);
+  soc.run();
+
+  // Lookup L1 cache model instance where we expect to find the line.
+  const cc::L1CacheAgent* l1cache =
+      soc.get_object_as<cc::L1CacheAgent*>("top.cluster0.l1cache0");
+  EXPECT_NE(l1cache, nullptr);
+
+
+  // Presently assumes that this first address is evicted, which may
+  // not be the case in other eviction policies.
+  for (std::size_t addr : {0x10000, 0x20000, 0x30000, 0x40000}) {
+    test::LineChecker checker(l1cache->cache(), addr);
+    EXPECT_TRUE(checker.has_line());
+    EXPECT_TRUE(checker.line_is_readable());
+    EXPECT_TRUE(checker.line_is_writeable());
   }
 }
 
