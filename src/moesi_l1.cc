@@ -198,7 +198,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
         // (when silent evictions are not allowed).
 
         // Issue command notification to L2.
-        L2CmdMsg* cmd = new L2CmdMsg;
+        L2CmdMsg* cmd = Pool<L2CmdMsg>::construct();
         cmd->set_t(ctxt.msg()->t());
         cmd->set_addr(ctxt.addr());
         cmd->set_opcode(L2CmdOpcode::L1Put);
@@ -247,7 +247,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
     switch (state) {
       case State::I: {
         // Emit request to L2.
-        L2CmdMsg* l2cmdmsg = new L2CmdMsg();
+        L2CmdMsg* l2cmdmsg = Pool<L2CmdMsg>::construct();
         l2cmdmsg->set_t(msg->t());
         l2cmdmsg->set_addr(msg->addr());
         switch (msg->opcode()) {
@@ -298,7 +298,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             // the E state before the transaction can complete.
 
             // Issue GetE message to owning L2 cache.
-            L2CmdMsg* l2cmdmsg = new L2CmdMsg();
+            L2CmdMsg* l2cmdmsg = Pool<L2CmdMsg>::construct();
             l2cmdmsg->set_t(msg->t());
             l2cmdmsg->set_addr(msg->addr());
             l2cmdmsg->set_opcode(L2CmdOpcode::L1GetE);

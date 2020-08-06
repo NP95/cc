@@ -368,7 +368,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         cl.next_and_do_consume(true);
       } break;
       case State::S: {
-        L2CmdRspMsg* msg = new L2CmdRspMsg;
+        L2CmdRspMsg* msg = Pool<L2CmdRspMsg>::construct();
         msg->set_t(cmd->t());
         switch (opcode) {
           case L2CmdOpcode::L1GetS: {
@@ -443,7 +443,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
             case L2CmdOpcode::L1GetS: {
               // Demote line in owner to Shared state, add requester to
               // set of sharers
-              L2CmdRspMsg* msg = new L2CmdRspMsg;
+              L2CmdRspMsg* msg = Pool<L2CmdRspMsg>::construct();
               msg->set_t(cmd->t());
               // L1 lines become sharers
               issue_set_l1_shared_except(cl, ctxt.addr(), tstate->l1cache());
@@ -459,7 +459,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
               issue_msg(cl, l2_l1__rsp_q, msg);
             } break;
             case L2CmdOpcode::L1GetE: {
-              L2CmdRspMsg* msg = new L2CmdRspMsg;
+              L2CmdRspMsg* msg = Pool<L2CmdRspMsg>::construct();
               msg->set_t(cmd->t());
               // Requester becomes owner
               msg->set_is(false);
@@ -504,7 +504,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
           // which (although unexpected) probably okay if not
           // redundant. Command completes immediately as it is simply
           // a NOP.
-          L2CmdRspMsg* msg = new L2CmdRspMsg;
+          L2CmdRspMsg* msg = Pool<L2CmdRspMsg>::construct();
           msg->set_t(cmd->t());
           issue_msg(cl, l2_l1__rsp_q, msg);
           // Consume and advance
@@ -524,7 +524,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
               // state in the owners L1.
 
               // Issue response to requester.
-              L2CmdRspMsg* msg = new L2CmdRspMsg;
+              L2CmdRspMsg* msg = Pool<L2CmdRspMsg>::construct();
               msg->set_t(cmd->t());
               msg->set_is(true);
               issue_msg(cl, l2_l1__rsp_q, msg);
@@ -545,7 +545,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
               // Line is owned by requester
 
               // Issue response to requester.
-              L2CmdRspMsg* msg = new L2CmdRspMsg;
+              L2CmdRspMsg* msg = Pool<L2CmdRspMsg>::construct();
               msg->set_t(cmd->t());
               msg->set_is(false);
               issue_msg(cl, l2_l1__rsp_q, msg);
@@ -595,7 +595,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
           cl.next_and_do_consume(true);
         } else {
           // Otherwise, requester is currently owner.
-          L2CmdRspMsg* msg = new L2CmdRspMsg;
+          L2CmdRspMsg* msg = Pool<L2CmdRspMsg>::construct();
           msg->set_t(cmd->t());
           issue_msg(cl, l2_l1__rsp_q, msg);
           // Consume and advance
@@ -618,7 +618,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
     const State state = line->state();
     switch (state) {
       case State::IS: {
-        L2CmdRspMsg* rsp = new L2CmdRspMsg;
+        L2CmdRspMsg* rsp = Pool<L2CmdRspMsg>::construct();
         rsp->set_t(msg->t());
         // Always sending to the zeroth L1
         issue_msg(cl, l2_l1__rsp_q, rsp);
@@ -641,7 +641,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
       } break;
       case State::IE: {
         // Transition to Exclusive state
-        L2CmdRspMsg* rsp = new L2CmdRspMsg;
+        L2CmdRspMsg* rsp = Pool<L2CmdRspMsg>::construct();
         rsp->set_t(msg->t());
         // Always sending to the zeroth L1
         issue_msg(cl, l2_l1__rsp_q, rsp);
@@ -662,7 +662,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
       case State::OE: {
         // TODO: should perform some additional qualificiation on the command type.
         
-        L2CmdRspMsg* rsp = new L2CmdRspMsg;
+        L2CmdRspMsg* rsp = Pool<L2CmdRspMsg>::construct();
         rsp->set_t(msg->t());
         // Always sending to the zeroth L1
         issue_msg(cl, l2_l1__rsp_q, rsp);
@@ -687,7 +687,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
           case L2CmdOpcode::L1Put: {
             // Inform L2 requestor (as per. AMBA spec. a empty "dummy"
             // response message is returned."
-            L2CmdRspMsg* rsp = new L2CmdRspMsg;
+            L2CmdRspMsg* rsp = Pool<L2CmdRspMsg>::construct();
             rsp->set_t(msg->t());
             issue_msg(cl, l2_l1__rsp_q, rsp);
 
@@ -713,7 +713,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
           case L2CmdOpcode::L1Put: {
             // Inform L2 requestor (as per. AMBA spec. a empty "dummy"
             // response message is returned."
-            L2CmdRspMsg* rsp = new L2CmdRspMsg;
+            L2CmdRspMsg* rsp = Pool<L2CmdRspMsg>::construct();
             rsp->set_t(msg->t());
             issue_msg(cl, l2_l1__rsp_q, rsp);
 

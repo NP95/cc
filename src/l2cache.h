@@ -67,8 +67,10 @@ const char* to_string(L2CmdOpcode opcode);
 //
 //
 class L2CmdMsg : public Message {
- public:
+  template<typename> friend class PooledItem;
+
   L2CmdMsg();
+ public:
 
   //
   std::string to_string() const override;
@@ -98,9 +100,9 @@ const char* to_string(L2RspOpcode opcode);
 //
 //
 class L2CmdRspMsg : public Message {
- public:
+  template<typename> friend class PooledItem;
   L2CmdRspMsg();
-
+ public:
   //
   std::string to_string() const override;
 
