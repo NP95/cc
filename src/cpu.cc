@@ -85,7 +85,8 @@ class Cpu::ProducerProcess : public kernel::Process {
     // A new transaction starts.
     Transaction* t = cpu_->start_transaction();
     // Free space in the issue queue, form a message and issue.
-    L1CmdMsg* msg = new L1CmdMsg;
+    // L1CmdMsg* msg = new L1CmdMsg;
+    L1CmdMsg* msg = Pool<L1CmdMsg>::construct();
     const Command& cmd = f.cmd;
     msg->set_opcode(to_l1cache_opcode(cmd.opcode()));
     msg->set_addr(cmd.addr());

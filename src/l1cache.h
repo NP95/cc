@@ -35,6 +35,7 @@
 #include "msg.h"
 #include "primitives.h"
 #include "sim.h"
+#include "utility.h"
 
 namespace cc {
 
@@ -61,9 +62,10 @@ enum class L1CmdOpcode {
 //
 //
 class L1CmdMsg : public Message {
- public:
-  L1CmdMsg();
+  template<typename> friend class PooledItem;
 
+  L1CmdMsg();
+ public:
   //
   std::string to_string() const override;
 
@@ -86,8 +88,10 @@ class L1CmdMsg : public Message {
 //
 //
 class L1CmdRspMsg : public Message {
- public:
+  template<typename> friend class PooledItem;
+
   L1CmdRspMsg();
+ public:
 
   //
   std::string to_string() const override;

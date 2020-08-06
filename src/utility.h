@@ -121,6 +121,59 @@ void split(IT it, const std::string& name, const char* sep = ".") {
 // Convert some '.' separated path and replace with '_'
 std::string flatten_path(const std::string& path);
 
+
+template<typename> class Pool;
+
+// PooledItem is a Facade over a poolable base type T. Facade override
+// base-types release method such that when called, the object is
+// returned to a Pool instead of being deallocated.
+//
+template<typename T>
+class PooledItem : public T {
+  friend class Pool<T>;
+  virtual ~PooledItem() = default;
+  PooledItem() = default;
+ public:
+  virtual void release() const override { Pool<T>::release(this); }
+};
+
+//
+//
+template<typename T>
+class Pool {
+ public:
+
+  // Construct new item from pool.
+  static PooledItem<T>* construct() {
+    PooledItem<T>* t = nullptr;
+    if (!ts_.empty()) {
+      // Invoke constructor
+      t = new (ts_.back()) PooledItem<T>{};
+      ts_.pop_back();
+    } else {
+      t = new PooledItem<T>{};
+    }
+    return t;
+  }
+
+  // Release item back to pool.
+  static void release(const PooledItem<T>* t) {
+    // Invoke destructor
+    t->~T();
+    // Magic, T is usually a const Message (by convention) but we wish
+    // to retain this is in an non-constant form within the pool such
+    // tha ancilliary may be added to it as required.
+    PooledItem<T>* ut = const_cast<PooledItem<T>* >(t);
+    ts_.push_back(ut);
+  }
+
+ private:
+  static inline std::vector<PooledItem<T>*> ts_;
+};
+
+
+//
+//
 struct Hexer {
   explicit Hexer() = default;
 

@@ -287,7 +287,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
           case L1CmdOpcode::CpuLoad: {
             // LD to line in S-state can complete immediately. Forward
             // the response to the CPU.
-            L1CmdRspMsg* rsp = new L1CmdRspMsg;
+            L1CmdRspMsg* rsp = Pool<L1CmdRspMsg>::construct();
             rsp->set_t(msg->t());
             issue_msg(cl, ctxt.l1cache()->l1_cpu__rsp_q(), rsp);
             // Advance to next
@@ -327,7 +327,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
         switch (msg->opcode()) {
           case L1CmdOpcode::CpuLoad: {
             // Ld from M-state; commits immediately
-            L1CmdRspMsg* rsp = new L1CmdRspMsg;
+            L1CmdRspMsg* rsp = Pool<L1CmdRspMsg>::construct();
             rsp->set_t(msg->t());
             // Issue response to CPU.
             issue_msg(cl, ctxt.l1cache()->l1_cpu__rsp_q(), rsp);
@@ -336,7 +336,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
           } break;
           case L1CmdOpcode::CpuStore: {
             // St to M-state; commits immediate.
-            L1CmdRspMsg* rsp = new L1CmdRspMsg;
+            L1CmdRspMsg* rsp = Pool<L1CmdRspMsg>::construct();
             rsp->set_t(msg->t());
             // Issue response to CPU.
             issue_msg(cl, ctxt.l1cache()->l1_cpu__rsp_q(), rsp);
@@ -353,7 +353,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
           case L1CmdOpcode::CpuLoad: {
             // Load to line in the exclusive state; instruction can complete
             // successfully.
-            L1CmdRspMsg* rsp = new L1CmdRspMsg;
+            L1CmdRspMsg* rsp = Pool<L1CmdRspMsg>::construct();
             rsp->set_t(msg->t());
             issue_msg(cl, ctxt.l1cache()->l1_cpu__rsp_q(), rsp);
             // Advance to next and consume
@@ -362,7 +362,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
           case L1CmdOpcode::CpuStore: {
             // Store to line the exclusive state; instruction can complete
             // but line must transition to the modified state.
-            L1CmdRspMsg* rsp = new L1CmdRspMsg;
+            L1CmdRspMsg* rsp = Pool<L1CmdRspMsg>::construct();
             rsp->set_t(msg->t());
             issue_msg(cl, ctxt.l1cache()->l1_cpu__rsp_q(), rsp);
             issue_update_state(cl, line, State::M);
