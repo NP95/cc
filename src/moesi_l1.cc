@@ -432,7 +432,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
         issue_update_state(cl, line, State::I);
         // Remove line from cache as now invalid.
         const addr_t addr = ctxt.tstate()->addr();
-        cl.push_back(cb::build_remove_line(addrx));
+        cl.push_back(cb::build_remove_line(addr));
         // Transaction ends
         cl.transaction_end();
         // Advance to next and consume

@@ -27,13 +27,13 @@
 
 add_library(utilities STATIC test_utilities.cc)
 target_include_directories(utilities PRIVATE
-    ${CMAKE_SOURCE_DIR}/libcc
+    ${CMAKE_SOURCE_DIR}/src
     )  
 
 macro (create_sim_test testname testfile)
   add_executable(test_${testname} ${testfile})
   target_include_directories(test_${testname} PRIVATE
-    ${CMAKE_SOURCE_DIR}/libcc
+    ${CMAKE_SOURCE_DIR}/src
     ${VerilatorDpi_INCLUDE_DIR}
     ${Verilator_INCLUDE_DIR}
     )

@@ -46,6 +46,11 @@ add_library(cc SHARED
   soc.cc
   msg.cc
   stimulus.cc
+  moesi.cc
+  moesi_l1.cc
+  moesi_l2.cc
+  moesi_cc.cc
+  moesi_dir.cc
   )
 
 target_include_directories(cc PRIVATE ${CMAKE_SOURCE_DIR}/include/cc)

@@ -36,7 +36,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_subdirectory(third_party)
 include_directories(include)
-add_subdirectory(libcc)
+add_subdirectory(src)
 add_subdirectory(driver)
 enable_testing()
 add_subdirectory(tests)
