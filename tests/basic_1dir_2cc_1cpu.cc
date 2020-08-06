@@ -65,7 +65,7 @@ class SocModel {
   cc::SocTop* top_ = nullptr;
   cc::Stimulus* stimulus_ = nullptr;
 };
-/*
+
 TEST(Basic121, SimpleRead) {
   cc::kernel::Kernel k;
   cc::SocConfig cfg;
@@ -274,7 +274,7 @@ TEST(Basic121, SimpleWriteWrite) {
   // Validate that cache line is in a writeable state.
   EXPECT_TRUE(checker1.line_is_writeable());
 }
-*/
+
 TEST(Basic121, SimpleWriteReadWrite) {
   cc::kernel::Kernel k;
   cc::SocConfig cfg;

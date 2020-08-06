@@ -68,7 +68,7 @@ class SocModel {
   cc::Stimulus* stimulus_ = nullptr;
 };
 
-/*
+
 TEST(Evict111, LoadEvictOneLine) {
   cc::kernel::Kernel k;
   cc::SocConfig cfg;
@@ -106,7 +106,6 @@ TEST(Evict111, LoadEvictOneLine) {
     EXPECT_TRUE(checker.line_is_readable());
   }
 }
-*/
 
 TEST(Evict111, StoreEvictOneLine) {
   cc::kernel::Kernel k;
