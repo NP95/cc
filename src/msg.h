@@ -186,6 +186,7 @@ enum class MessageClass {
 
   // Memory Command; agent -> memory (read/write)
   MemCmd,
+
   // Memory Response; memory -> agent (read data/write acknowledgement)
   MemRsp,
 
@@ -203,6 +204,7 @@ enum class MessageClass {
 
   // Message denoting the transfer of a complete L2 cache line of data.
   Dt,
+
   //
   DtRsp
 };

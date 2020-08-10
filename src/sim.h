@@ -134,20 +134,28 @@ class MessageQueueProxy : public Agent {
   MessageQueueProxy(MessageQueue* mq);
 
  public:
+  ~MessageQueueProxy();
+  
   // Target Message Queue is full.
   bool full() const { return credits_ == 0; }
+  // Message Queue has at least 'N' free slots
+  bool has_at_least(std::size_t n) const { return (credits_ >= n); }
   // Total credits available in Message Queue
   std::size_t credits() const { return credits_; }
   // Return credit to proxy.
   void add_credit() { credits_++; }
   // Issue message to target
   bool issue(const Message* msg, epoch_t epoch = 0);
+  //
+  kernel::Event* add_credit_event() const { return add_credit_event_; }
 
  private:
+  //
+  kernel::Event* add_credit_event_ = nullptr;
   // Associated Message Queue
   MessageQueue* mq_ = nullptr;
   // Credit counter.
-  std::size_t credits_;
+  std::size_t credits_ = 0;
 };
 
 //

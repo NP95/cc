@@ -147,8 +147,16 @@ void MessageQueue::build(std::size_t n) {
 
 MessageQueueProxy::MessageQueueProxy(MessageQueue* mq)
     : Agent(mq->k(), mq->path() + "_proxy"), mq_(mq) {
+  //
   credits_ = mq->n();
+
+  add_credit_event_ = new kernel::Event(mq->k(), "add_credit_event");
 }
+
+MessageQueueProxy::~MessageQueueProxy() {
+  delete add_credit_event_;
+}
+
 
 bool MessageQueueProxy::issue(const Message* msg, epoch_t epoch) {
   bool success = false;

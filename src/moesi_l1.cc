@@ -145,6 +145,21 @@ class MOESIL1LineState : public L1LineState {
   State state_ = State::I;
 };
 
+enum class L1EgressQueue {
+  L2CmdQ,
+  CpuRspQ,
+  Invalid
+};
+
+const char* to_string(L1EgressQueue q) {
+  switch (q) {
+    case L1EgressQueue::L2CmdQ: return "L2CmdQ";
+    case L1EgressQueue::CpuRspQ: return "CpuRspQ";
+    case L1EgressQueue::Invalid: return "Invalid";
+    default: return "Invalid";
+  }
+}
+
 //
 //
 class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
@@ -212,7 +227,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
         cmd->set_addr(ctxt.addr());
         cmd->set_opcode(L2CmdOpcode::L1Put);
         cmd->set_l1cache(ctxt.l1cache());
-        issue_msg(cl, ctxt.l1cache()->l1_l2__cmd_q(), cmd);
+        issue_msg_to_queue(L1EgressQueue::L2CmdQ, cl, ctxt, cmd);
         // Line transition to Invalid state.
         const State next_state = (state == State::M) ? State::MI : State::EI;
         issue_update_state(cl, line, next_state);
@@ -275,7 +290,8 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
         }
         l2cmdmsg->set_l1cache(ctxt.l1cache());
         // Issue L2 command
-        issue_msg(cl, ctxt.l1cache()->l1_l2__cmd_q(), l2cmdmsg);
+        //issue_msg(cl, ctxt.l1cache()->l1_l2__cmd_q(), l2cmdmsg);
+        issue_msg_to_queue(L1EgressQueue::L2CmdQ, cl, ctxt, l2cmdmsg);
         // Message is stalled on lookup transaction.
         // Install new entry in transaction table as the transaction
         // has now started and commands are inflight. The transaction
@@ -296,7 +312,8 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             // the response to the CPU.
             L1CmdRspMsg* rsp = Pool<L1CmdRspMsg>::construct();
             rsp->set_t(msg->t());
-            issue_msg(cl, ctxt.l1cache()->l1_cpu__rsp_q(), rsp);
+            // issue_msg(cl, ctxt.l1cache()->l1_cpu__rsp_q(), rsp);
+            issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp); 
             // Advance to next
             cl.next_and_do_consume(true);
           } break;
@@ -311,7 +328,8 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             l2cmdmsg->set_opcode(L2CmdOpcode::L1GetE);
             l2cmdmsg->set_l1cache(ctxt.l1cache());
             // Issue L2 command
-            issue_msg(cl, ctxt.l1cache()->l1_l2__cmd_q(), l2cmdmsg);
+            // issue_msg(cl, ctxt.l1cache()->l1_l2__cmd_q(), l2cmdmsg);
+            issue_msg_to_queue(L1EgressQueue::L2CmdQ, cl, ctxt, l2cmdmsg);
             // Start new transaction
             cl.transaction_start();
             // cl.push_back(cb::from_opcode(L1Opcode::StartTransaction));
@@ -337,7 +355,8 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             L1CmdRspMsg* rsp = Pool<L1CmdRspMsg>::construct();
             rsp->set_t(msg->t());
             // Issue response to CPU.
-            issue_msg(cl, ctxt.l1cache()->l1_cpu__rsp_q(), rsp);
+            // issue_msg(cl, ctxt.l1cache()->l1_cpu__rsp_q(), rsp);
+            issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp); 
             // Advance to next and consume
             cl.next_and_do_consume(true);
           } break;
@@ -346,7 +365,8 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             L1CmdRspMsg* rsp = Pool<L1CmdRspMsg>::construct();
             rsp->set_t(msg->t());
             // Issue response to CPU.
-            issue_msg(cl, ctxt.l1cache()->l1_cpu__rsp_q(), rsp);
+            // issue_msg(cl, ctxt.l1cache()->l1_cpu__rsp_q(), rsp);
+            issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp); 
             // Advance to next and consume
             cl.next_and_do_consume(true);
           } break;
@@ -361,7 +381,8 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             // successfully.
             L1CmdRspMsg* rsp = Pool<L1CmdRspMsg>::construct();
             rsp->set_t(msg->t());
-            issue_msg(cl, ctxt.l1cache()->l1_cpu__rsp_q(), rsp);
+            // issue_msg(cl, ctxt.l1cache()->l1_cpu__rsp_q(), rsp);
+            issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp); 
             // Advance to next and consume
             cl.next_and_do_consume(true);
           } break;
@@ -370,7 +391,8 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             // but line must transition to the modified state.
             L1CmdRspMsg* rsp = Pool<L1CmdRspMsg>::construct();
             rsp->set_t(msg->t());
-            issue_msg(cl, ctxt.l1cache()->l1_cpu__rsp_q(), rsp);
+            // issue_msg(cl, ctxt.l1cache()->l1_cpu__rsp_q(), rsp);
+            issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp); 
             issue_update_state(cl, line, State::M);
             // Write through to L2. such that L2 sees the transition
             // to M immediately.
@@ -450,9 +472,70 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
     }
   }
 
+  void issue_msg_to_queue(L1EgressQueue eq, L1CommandList& cl,
+                          L1CacheContext & ctxt, const Message* msg) const {
+    struct EmitMessageActionProxy : public L1CoherenceAction {
+      EmitMessageActionProxy() = default;
+      std::string to_string() const override {
+        KVListRenderer r;
+        r.add_field("action", "emit message");
+        r.add_field("mq", mq_->path());
+        r.add_field("msg", msg_->to_string());
+        return r.to_string();
+      }
+
+      void set_eq(L1EgressQueue eq) { eq_ = eq; }
+      void set_mq(MessageQueueProxy* mq) { mq_ = mq; }
+      void set_msg(const Message* msg) { msg_ = msg; }
+
+
+      void set_resources(L1Resources& r) const override {
+        switch (eq_) {
+          case L1EgressQueue::L2CmdQ: {
+            r.set_l2_cmd_n(1 + r.l2_cmd_n());
+          } break;
+          case L1EgressQueue::CpuRspQ: {
+            r.set_cpu_rsp_n(1 + r.cpu_rsp_n());
+          } break;
+          default: {
+            // No cost
+          } break;
+        }
+      }
+      
+      //
+      bool execute() override {
+        return mq_->issue(msg_);
+      }
+
+     private:
+      //
+      L1EgressQueue eq_ = L1EgressQueue::Invalid;
+      //
+      MessageQueueProxy* mq_ = nullptr;
+      //
+      const Message* msg_ = nullptr;
+    };
+
+    EmitMessageActionProxy* action = new EmitMessageActionProxy;
+    action->set_eq(eq);
+    action->set_msg(msg);
+    switch (eq) {
+      case L1EgressQueue::L2CmdQ: {
+        action->set_mq(ctxt.l1cache()->l1_l2__cmd_q());
+      } break;
+      case L1EgressQueue::CpuRspQ: {
+        action->set_mq(ctxt.l1cache()->l1_cpu__rsp_q());
+      } break;
+      default: {
+      } break;
+    }
+    cl.push_back(L1CommandBuilder::from_action(action));
+  }
+
   void issue_update_state(L1CommandList& cl, MOESIL1LineState* line,
                           State state) const {
-    struct UpdateStateAction : public CoherenceAction {
+    struct UpdateStateAction : public L1CoherenceAction {
       UpdateStateAction(MOESIL1LineState* line, State state)
           : line_(line), state_(state) {}
       std::string to_string() const override {
@@ -464,6 +547,9 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
         r.add_field("next", to_string(state_));
         return r.to_string();
       }
+      void set_resources(L1Resources& r) const override {
+        // No resources required for state update.
+      }
       bool execute() override {
         line_->set_state(state_);
         return true;
@@ -473,7 +559,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
       MOESIL1LineState* line_ = nullptr;
       State state_;
     };
-    CoherenceAction* action = new UpdateStateAction(line, state);
+    L1CoherenceAction* action = new UpdateStateAction(line, state);
     cl.push_back(cb::from_action(action));
   }
 };

@@ -44,7 +44,7 @@ class Cpu;
 class L1CacheAgent;
 class L2CacheAgent;
 class L1LineState;
-class CoherenceAction;
+class L1CoherenceAction;
 
 enum class L1CmdOpcode {
   // CPU initiates a Load to a region of memory of some unspecified
@@ -116,6 +116,12 @@ enum class L1Opcode {
   // Raise notification that the current transactio has completed.
   EndTransaction,
 
+  // Set blocked status of the currently selected message queue, to
+  // be subsequently cleared upon notification of the event given as
+  // an argument to the command.
+  //
+  MqBlockedOnEvent,
+
   // Set blocked status of the currently selected message queue on
   // a prior transaction to the same line.
   MqSetBlockedOnTransaction,
@@ -169,18 +175,21 @@ class L1Command {
   std::string to_string() const;
 
   L1Opcode opcode() const { return opcode_; }
-  CoherenceAction* action() const { return oprands.action; }
+  L1CoherenceAction* action() const { return oprands.action; }
   addr_t addr() const { return oprands.addr; }
+  kernel::Event* event() const { return oprands.event; }
 
   // Setters
   void set_addr(addr_t addr) { oprands.addr = addr; }
+  void set_event(kernel::Event* event) { oprands.event = event; }
 
  private:
   virtual ~L1Command();
   //
   struct {
-    CoherenceAction* action;
+    L1CoherenceAction* action;
     addr_t addr;
+    kernel::Event* event;
   } oprands;
   //
   L1Opcode opcode_;
@@ -190,11 +199,15 @@ class L1Command {
 //
 class L1CommandBuilder {
  public:
+  // Build command object instance from opcode.
   static L1Command* from_opcode(L1Opcode opcode);
-
-  static L1Command* from_action(CoherenceAction* action);
-
+  // Build protocol defined command from action instance.
+  static L1Command* from_action(L1CoherenceAction* action);
+  // Build remove line command from address addr.
   static L1Command* build_remove_line(addr_t addr);
+  //
+  static L1Command* build_blocked_on_event(
+      MessageQueue* mq, kernel::Event* e);
 };
 
 //
@@ -211,6 +224,8 @@ class L1CommandList {
   // List accessors.
   const_iterator begin() const { return cmds_.begin(); }
   const_iterator end() const { return cmds_.end(); }
+
+  void clear();
 
   // Add item.
   void push_back(L1Command* cmd);
@@ -230,6 +245,49 @@ class L1CommandList {
 };
 
 //
+//
+class L1Resources {
+ public:
+  L1Resources(const L1CommandList& l);
+
+  // Getters
+  std::size_t tt_entry_n() const { return tt_entry_n_; }
+  std::size_t l2_cmd_n() const { return l2_cmd_n_; }
+  std::size_t cpu_rsp_n() const { return cpu_rsp_n_; }
+
+  // Setters
+  void set_tt_entry_n(std::size_t tt_entry_n) { tt_entry_n_ = tt_entry_n; }
+  void set_l2_cmd_n(std::size_t l2_cmd_n) { l2_cmd_n_ = l2_cmd_n; }
+  void set_cpu_rsp_n(std::size_t cpu_rsp_n) { cpu_rsp_n_ = cpu_rsp_n; }
+
+ private:
+  void build(const L1CommandList& l);
+
+  // Transaction Table entry
+  std::size_t tt_entry_n_ = 0;
+  // L2 Command Queue entry
+  std::size_t l2_cmd_n_ = 0;
+  // Cpu Response Queue entry
+  std::size_t cpu_rsp_n_ = 0;
+};
+
+//
+//
+class L1CoherenceAction {
+ public:
+  virtual std::string to_string() const = 0;
+
+  // Set Resources object for current action.
+  virtual void set_resources(L1Resources& r) const {}
+  
+  // Invoke/Execute coherence action
+  virtual bool execute() = 0;
+
+  virtual void release() { delete this; }
+
+ protected:
+  virtual ~L1CoherenceAction() = default;
+};
 
 //
 class L1TState {

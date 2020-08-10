@@ -294,7 +294,12 @@ class Table : public kernel::Module {
   // Accessors:
   std::size_t n() const { return n_; }
   std::size_t size() const { return m_.size(); }
+
   bool full() const { return size() == n(); }
+
+  // Flag denoting whether current table instance has at least 'i'
+  // free entries.
+  bool has_at_least(std::size_t i) { return n() - size() >= i; }
 
   iterator begin() { return m_.begin(); }
   const_iterator begin() const { return m_.begin(); }

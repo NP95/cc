@@ -237,20 +237,6 @@ enum class L1UpdateStatus { CanCommit, IsBlocked };
 
 //
 //
-class CoherenceAction {
- public:
-  virtual std::string to_string() const = 0;
-  virtual bool execute() = 0;
-  virtual void release() { delete this; }
-
- protected:
-  virtual ~CoherenceAction() = default;
-};
-
-using CoherenceActionList = std::vector<CoherenceAction*>;
-
-//
-//
 class L1CacheAgentProtocol : public kernel::Module {
  public:
   L1CacheAgentProtocol(kernel::Kernel* k, const std::string& name);
@@ -274,8 +260,23 @@ class L1CacheAgentProtocol : public kernel::Module {
                                           bool shared) const = 0;
 
  protected:
-  virtual void issue_msg(L1CommandList& cl, MessageQueueProxy* mq,
-                         const Message* msg) const;
+  //  virtual void issue_msg(L1CommandList& cl, MessageQueueProxy* mq,
+  //                         const Message* msg) const;
+};
+
+//
+//
+class CoherenceAction {
+ public:
+  virtual std::string to_string() const = 0;
+
+  // Invoke/Execute coherence action
+  virtual bool execute() = 0;
+
+  virtual void release() { delete this; }
+
+ protected:
+  virtual ~CoherenceAction() = default;
 };
 
 //

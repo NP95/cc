@@ -150,7 +150,7 @@ L1Command* L1CommandBuilder::from_opcode(L1Opcode opcode) {
   return new L1Command(opcode);
 }
 
-L1Command* L1CommandBuilder::from_action(CoherenceAction* action) {
+L1Command* L1CommandBuilder::from_action(L1CoherenceAction* action) {
   L1Command* cmd = new L1Command(L1Opcode::InvokeCoherenceAction);
   cmd->oprands.action = action;
   return cmd;
@@ -162,7 +162,19 @@ L1Command* L1CommandBuilder::build_remove_line(addr_t addr) {
   return cmd;
 }
 
+L1Command* L1CommandBuilder::build_blocked_on_event(MessageQueue* mq,
+                                                    kernel::Event* e) {
+  L1Command* cmd = new L1Command(L1Opcode::MqBlockedOnEvent);
+  cmd->set_event(e);
+  return cmd;
+}
+
+
 L1CommandList::~L1CommandList() {
+  clear();
+}
+
+void L1CommandList::clear() {
   for (L1Command* cmd : cmds_) {
     cmd->release();
   }
@@ -183,6 +195,28 @@ void L1CommandList::next_and_do_consume(bool do_consume) {
     push_back(L1CommandBuilder::from_opcode(L1Opcode::MsgConsume));
   }
   push_back(L1CommandBuilder::from_opcode(L1Opcode::WaitNextEpoch));
+}
+
+L1Resources::L1Resources(const L1CommandList& list) {
+  build(list);
+}
+
+void L1Resources::build(const L1CommandList& list) {
+  for (L1Command* cmd : list) {
+    const L1Opcode opcode = cmd->opcode();
+    switch (opcode) {
+      case L1Opcode::StartTransaction: {
+        ++tt_entry_n_;
+      } break;
+      case L1Opcode::InvokeCoherenceAction: {
+        L1CoherenceAction* action = cmd->action();
+        action->set_resources(*this);
+      } break;
+      default:
+        // No resources required.
+        break;
+    }
+  }
 }
 
 L1TState::L1TState(kernel::Kernel* k) {
@@ -207,6 +241,9 @@ class L1CommandInterpreter {
       } break;
       case L1Opcode::EndTransaction: {
         execute_end_transaction(ctxt, cmd);
+      } break;
+      case L1Opcode::MqBlockedOnEvent: {
+        execute_mq_blocked_on_event(ctxt, cmd);
       } break;
       case L1Opcode::MqSetBlockedOnTransaction: {
         execute_mq_set_blocked_on_transaction(ctxt, cmd);
@@ -283,14 +320,21 @@ class L1CommandInterpreter {
     tstate->release();
   }
 
+  void execute_mq_blocked_on_event(L1CacheContext& ctxt, const L1Command* cmd) {
+    // Message Queue is blocked until event is notified.
+    ctxt.mq()->set_blocked_until(cmd->event());
+  }
+
   void execute_mq_set_blocked_on_transaction(L1CacheContext& ctxt,
                                              const L1Command* cmd) {
+    // TODO: implement in terms of blocked on event
     L1TState* tstate = ctxt.tstate();
     ctxt.mq()->set_blocked_until(tstate->transaction_end());
   }
 
   void execute_mq_set_blocked_on_table(L1CacheContext& ctxt,
                                        const L1Command* cmd) {
+    // TODO: implement in terms of blocked on event
     L1TTable* tt = ctxt.l1cache()->tt();
     ctxt.mq()->set_blocked_until(tt->non_full_event());
   }
@@ -315,7 +359,7 @@ class L1CommandInterpreter {
 
   void execute_invoke_coherence_action(L1CacheContext& ctxt,
                                        const L1Command* cmd) {
-    CoherenceAction* action = cmd->action();
+    L1CoherenceAction* action = cmd->action();
     action->execute();
   }
 
@@ -394,14 +438,13 @@ class L1CacheAgent::MainProcess : public AgentProcess {
       } break;
     }
 
-    if (can_execute(cl)) {
-      LogMessage lm("Execute message: ");
-      lm.append(ctxt.msg()->to_string());
-      lm.level(Level::Debug);
-      log(lm);
+    LogMessage lm("Execute message: ");
+    lm.append(ctxt.msg()->to_string());
+    lm.level(Level::Debug);
+    log(lm);
 
-      execute(ctxt, cl);
-    }
+    check_resources(ctxt, cl);
+    execute(ctxt, cl);
   }
 
   void set_cache_line_shared_or_invalid(addr_t addr, bool shared) {
@@ -485,7 +528,53 @@ class L1CacheAgent::MainProcess : public AgentProcess {
     }
   }
 
-  bool can_execute(L1CommandList& cl) const { return true; }
+  void check_resources(L1CacheContext& ctxt, L1CommandList& cl) const {
+    // Compute the Agent resources required to execute the command
+    // list given by 'cl'. If the agent has insufficient resources,
+    // the ENTIRE command list must be killed and the agent blocked
+    // awaiting the arrival of sufficient resources. The command list
+    // must execute atomically, otherwise if it was to become blocked
+    // after a partial application and deadlock could occur.
+    
+    const L1Resources res(cl);
+
+    L1TTable* tt = model_->tt();
+    if (!tt->has_at_least(res.tt_entry_n())) {
+      // No transaction table entries available. Block Process until
+      // sufficient space has been attained.
+
+      // Destroy prior CommandList and issue new command to block
+      // current process.
+      cl.clear();
+
+      // Current Message(Queue) becomes belocked on the Transaction
+      // Table.
+      cl.push_back(cb::from_opcode(L1Opcode::MqSetBlockedOnTable));
+      return;
+    }
+
+    auto check_mq_credits = [&](const MessageQueueProxy* mq, std::size_t n) -> bool {
+      bool ret = true;
+      if (!mq->has_at_least(n)) {
+        // Insufficient space in L2 command queue.
+      
+        // Destory old command list.
+        cl.clear();
+
+        // Message Queue becomes blocked awaiting credit to destination
+        // queue.
+        cl.push_back(cb::build_blocked_on_event(ctxt.mq(), mq->add_credit_event()));
+        ret = false;
+      }
+      return ret;
+    };
+
+    if (!check_mq_credits(model_->l1_l2__cmd_q(), res.l2_cmd_n())) return;
+    if (!check_mq_credits(model_->l1_cpu__rsp_q(), res.cpu_rsp_n())) return;
+
+    // Resources have been attained; command list is ready to be
+    // executed and committed to the agent's state.
+  }
 
   void execute(L1CacheContext& ctxt, const L1CommandList& cl) {
     try {
