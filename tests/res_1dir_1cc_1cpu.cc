@@ -81,7 +81,7 @@ TEST(Res111, BlockedOnTT) {
   test::build_config(cfg, 1, 1, 1, trace);
   for (cc::CpuClusterConfig& cpu_cfg : cfg.ccls) {
     for (cc::L1CacheAgentConfig& l1_cfg : cpu_cfg.l1c_configs) {
-      l1_cfg.tt_entries_n = 10;
+      l1_cfg.tt_entries_n = 1;
       l1_cfg.is_blocking_cache = false;
     }
   }

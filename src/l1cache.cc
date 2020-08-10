@@ -197,6 +197,7 @@ void L1CommandList::clear() {
   for (L1Command* cmd : cmds_) {
     cmd->release();
   }
+  cmds_.clear();
 }
 
 void L1CommandList::push_back(L1Command* cmd) { cmds_.push_back(cmd); }
@@ -607,8 +608,10 @@ class L1CacheAgent::MainProcess : public AgentProcess {
     // awaiting the arrival of sufficient resources. The command list
     // must execute atomically, otherwise if it was to become blocked
     // after a partial application and deadlock could occur.
-    
     const L1Resources res(cl);
+
+    // Flag denoting that resource requirements have not been met.
+    bool fail = false;
 
     L1TTable* tt = model_->tt();
     if (!tt->has_at_least(res.tt_entry_n())) {
@@ -622,11 +625,10 @@ class L1CacheAgent::MainProcess : public AgentProcess {
       // Current Message(Queue) becomes belocked on the Transaction
       // Table.
       cl.push_back(cb::from_opcode(L1Opcode::MqSetBlockedOnTable));
-      return;
+      fail = true;
     }
 
-    auto check_mq_credits = [&](const MessageQueueProxy* mq, std::size_t n) -> bool {
-      bool ret = true;
+    auto check_mq_credits = [&](const MessageQueueProxy* mq, std::size_t n) {
       if (!mq->has_at_least(n)) {
         // Insufficient space in L2 command queue.
       
@@ -636,16 +638,16 @@ class L1CacheAgent::MainProcess : public AgentProcess {
         // Message Queue becomes blocked awaiting credit to destination
         // queue.
         cl.push_back(cb::build_blocked_on_event(ctxt.mq(), mq->add_credit_event()));
-        ret = false;
+        fail = true;
       }
-      return ret;
     };
 
-    if (!check_mq_credits(model_->l1_l2__cmd_q(), res.l2_cmd_n())) return;
-    if (!check_mq_credits(model_->l1_cpu__rsp_q(), res.cpu_rsp_n())) return;
+    if (!fail) { check_mq_credits(model_->l1_l2__cmd_q(), res.l2_cmd_n()); }
+    if (!fail) { check_mq_credits(model_->l1_cpu__rsp_q(), res.cpu_rsp_n()); }
 
     // Resources have been attained; command list is ready to be
     // executed and committed to the agent's state.
+    if (fail) { cl.push_back(cb::from_opcode(L1Opcode::WaitNextEpoch)); }
   }
 
   void execute(L1CacheContext& ctxt, const L1CommandList& cl) {
