@@ -167,8 +167,13 @@ class Pool {
     check_free_set();
     PooledItem<T>* t = nullptr;
     if (!fs_->empty()) {
-      // Invoke constructor
-      t = new (fs_->back()) PooledItem<T>{};
+      // Review for UB: Pool contains old items. We wish to recover
+      // the memory without performing the memory allocation more than
+      // once. Therefore, invoke the destructor on the old item and
+      // then invoke placement new over the old item.
+      t = fs_->back();
+      t->~T();
+      t = new (t) PooledItem<T>{};
       fs_->pop_back();
     } else {
       t = new PooledItem<T>{};
@@ -179,8 +184,6 @@ class Pool {
   // Release item back to pool.
   static void release(const PooledItem<T>* t) {
     check_free_set();
-    // Invoke destructor
-    t->~T();
     // Magic, T is usually a const Message (by convention) but we wish
     // to retain this is in an non-constant form within the pool such
     // tha ancilliary may be added to it as required.
