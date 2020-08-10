@@ -76,13 +76,21 @@ struct L1CacheAgentConfig {
   std::string name = "l1cache";
 
   // Number of slots in the command queue.
-  std::size_t l1_cmdq_slots_n = 3;
+  std::size_t cpu_l1__cmd_n = 3;
+
+  // L1 command replay queue
+  std::size_t replay__cmd_n = 3;
 
   // Number of credits/slots reserved to the L2 cache command queue.
-  std::size_t l2_cmdq_credits_n = 3;
+  std::size_t l2_l1__rsp_n = 3;
 
-  // LD/ST pipe flush penalty (cycles)
-  std::size_t ldst_flush_penalty_n = 3;
+  // Transaction table entries.
+  std::size_t tt_entries_n = 16;
+
+  // Flag denoting whether the cache blocks until completion of the
+  // current transaction; otherwise, cache issues upto tt_entries_n in
+  // flight transactions.
+  bool is_blocking_cache = true;
 
   // Cache configuration.
   CacheModelConfig cconfig;

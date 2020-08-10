@@ -85,12 +85,18 @@ const char* to_string(L1Opcode opcode) {
       return "StartTransaction";
     case L1Opcode::EndTransaction:
       return "EndTransaction";
+    case L1Opcode::MqSetBlockedOnEvent:
+      return "MqSetBlockedOnEvent";
     case L1Opcode::MqSetBlockedOnTransaction:
       return "MqSetBlockedOnTransaction";
     case L1Opcode::MqSetBlockedOnTable:
       return "MqSetBlockedOnTable";
+    case L1Opcode::MsgDequeue:
+      return "MsgDequeue";
     case L1Opcode::MsgConsume:
       return "MsgConsume";
+    case L1Opcode::MsgReissue:
+      return "MsgReissue";
     case L1Opcode::RemoveLine:
       return "RemoveLine";
     case L1Opcode::InvokeCoherenceAction:
@@ -101,6 +107,8 @@ const char* to_string(L1Opcode opcode) {
       return "WaitNextEpoch";
     case L1Opcode::SetL2LineModified:
       return "SetL2LineModified";
+    case L1Opcode::ReserveReplaySlot:
+      return "ReserveReplaySlot";
     case L1Opcode::Invalid:
       return "Invalid";
     default:
@@ -164,11 +172,22 @@ L1Command* L1CommandBuilder::build_remove_line(addr_t addr) {
 
 L1Command* L1CommandBuilder::build_blocked_on_event(MessageQueue* mq,
                                                     kernel::Event* e) {
-  L1Command* cmd = new L1Command(L1Opcode::MqBlockedOnEvent);
+  L1Command* cmd = new L1Command(L1Opcode::MqSetBlockedOnEvent);
   cmd->set_event(e);
   return cmd;
 }
 
+L1Command* L1CommandBuilder::build_start_transaction(Transaction* t) {
+  L1Command* cmd = new L1Command(L1Opcode::StartTransaction);
+  cmd->set_t(t);
+  return cmd;
+}
+
+L1Command* L1CommandBuilder::build_end_transaction(Transaction* t) {
+  L1Command* cmd = new L1Command(L1Opcode::EndTransaction);
+  cmd->set_t(t);
+  return cmd;
+}
 
 L1CommandList::~L1CommandList() {
   clear();
@@ -182,12 +201,39 @@ void L1CommandList::clear() {
 
 void L1CommandList::push_back(L1Command* cmd) { cmds_.push_back(cmd); }
 
-void L1CommandList::transaction_start() {
-  push_back(L1CommandBuilder::from_opcode(L1Opcode::StartTransaction));
+void L1CommandList::transaction_start(Transaction* t, bool is_blocking) {
+  if (is_blocking) {
+    // Blocking cache implementation:
+
+    // MQ is blocked until the completion of the current command.
+    push_back(cb::from_opcode(L1Opcode::MqSetBlockedOnTransaction));
+
+    // Advance agent state to next epoch, but do not consume message
+    // has this sits blocked at the head of the issue queue.
+    next_and_do_consume(false);
+  } else {
+    // Reserve replay queue slot.
+    push_back(cb::from_opcode(L1Opcode::ReserveReplaySlot));
+    // Dequeue message, but do not release.
+    push_back(cb::from_opcode(L1Opcode::MsgDequeue));
+    // Advance to next epoch
+    push_back(cb::from_opcode(L1Opcode::WaitNextEpoch));
+  }
+
+  // Transaction starts; install associated state in transaction
+  // table.
+  push_back(cb::build_start_transaction(t));
 }
 
-void L1CommandList::transaction_end() {
-  push_back(L1CommandBuilder::from_opcode(L1Opcode::EndTransaction));
+void L1CommandList::transaction_end(Transaction* t, bool was_blocking) {
+  if (!was_blocking) {
+    // If non-blocking command, re-issue command now that the
+    // dependent transaction has completed.
+    push_back(cb::from_opcode(L1Opcode::MsgReissue));
+  }
+  push_back(cb::build_end_transaction(t));
+  // Advance to next epoch
+  push_back(cb::from_opcode(L1Opcode::WaitNextEpoch));
 }
 
 void L1CommandList::next_and_do_consume(bool do_consume) {
@@ -242,8 +288,8 @@ class L1CommandInterpreter {
       case L1Opcode::EndTransaction: {
         execute_end_transaction(ctxt, cmd);
       } break;
-      case L1Opcode::MqBlockedOnEvent: {
-        execute_mq_blocked_on_event(ctxt, cmd);
+      case L1Opcode::MqSetBlockedOnEvent: {
+        execute_mq_set_blocked_on_event(ctxt, cmd);
       } break;
       case L1Opcode::MqSetBlockedOnTransaction: {
         execute_mq_set_blocked_on_transaction(ctxt, cmd);
@@ -251,8 +297,14 @@ class L1CommandInterpreter {
       case L1Opcode::MqSetBlockedOnTable: {
         execute_mq_set_blocked_on_table(ctxt, cmd);
       } break;
+      case L1Opcode::MsgDequeue: {
+        execute_msg_dequeue(ctxt, cmd, false);
+      } break;
       case L1Opcode::MsgConsume: {
-        execute_msg_consume(ctxt, cmd);
+        execute_msg_dequeue(ctxt, cmd, true);
+      } break;
+      case L1Opcode::MsgReissue: {
+        execute_msg_reissue(ctxt, cmd);
       } break;
       case L1Opcode::RemoveLine: {
         execute_remove_line(ctxt, cmd);
@@ -269,6 +321,9 @@ class L1CommandInterpreter {
       case L1Opcode::SetL2LineModified: {
         execute_set_l2_line_modified(ctxt, cmd);
       } break;
+      case L1Opcode::ReserveReplaySlot: {
+        execute_reserve_replay_slot(ctxt, cmd);
+      } break;
       default: {
         throw std::runtime_error("Invalid opcode");
       } break;
@@ -279,7 +334,7 @@ class L1CommandInterpreter {
   void execute_start_transaction(L1CacheContext& ctxt, const L1Command* cmd) {
     L1TState* tstate = ctxt.tstate();
     L1TTable* tt = ctxt.l1cache()->tt();
-    tt->install(ctxt.msg()->t(), tstate);
+    tt->install(cmd->t(), tstate);
     ctxt.set_owns_tstate(false);
 
     if (ctxt.owns_line()) {
@@ -316,11 +371,11 @@ class L1CommandInterpreter {
     tstate->transaction_end()->notify();
     // Delete transaction from transaction table.
     L1TTable* tt = ctxt.l1cache()->tt();
-    tt->remove(ctxt.msg()->t());
+    tt->remove(cmd->t());
     tstate->release();
   }
 
-  void execute_mq_blocked_on_event(L1CacheContext& ctxt, const L1Command* cmd) {
+  void execute_mq_set_blocked_on_event(L1CacheContext& ctxt, const L1Command* cmd) {
     // Message Queue is blocked until event is notified.
     ctxt.mq()->set_blocked_until(cmd->event());
   }
@@ -339,11 +394,23 @@ class L1CommandInterpreter {
     ctxt.mq()->set_blocked_until(tt->non_full_event());
   }
 
-  void execute_msg_consume(L1CacheContext& ctxt, const L1Command* cmd) {
+  void execute_msg_dequeue(L1CacheContext& ctxt, const L1Command* cmd,
+                           bool do_release = false) {
     const Message* msg = ctxt.mq()->dequeue();
-    msg->release();
+    if (do_release) { msg->release(); }
     ctxt.t().advance();
   }
+
+  void execute_msg_reissue(L1CacheContext& ctxt, const L1Command* cmd) {
+    // Issue message contained within transaction object to message queue.
+    const Message* msg = ctxt.tstate()->msg();
+    MessageQueue* mq = ctxt.l1cache()->replay__cmd_q();
+    if (!mq->issue(msg)) {
+      throw std::runtime_error(
+          "Attempt to replay message, but message queue is full.");
+    }
+  }
+  
   // Derive addr from command opcode.
   void execute_remove_line(L1CacheContext& ctxt, const L1Command* cmd) {
     L1CacheModel* cache = ctxt.l1cache()->cache();
@@ -376,6 +443,11 @@ class L1CommandInterpreter {
                                     const L1Command* cmd) {
     L2CacheAgent* l2cache = ctxt.l1cache()->l2cache();
     l2cache->set_cache_line_modified(ctxt.tstate()->addr());
+  }
+
+  void execute_reserve_replay_slot(L1CacheContext& ctxt,
+                                   const L1Command* cmd) {
+    // TODO
   }
 };
 
@@ -605,6 +677,7 @@ L1CacheAgent::L1CacheAgent(kernel::Kernel* k, const L1CacheAgentConfig& config)
 
 L1CacheAgent::~L1CacheAgent() {
   delete cpu_l1__cmd_q_;
+  delete replay__cmd_q_;
   delete l2_l1__rsp_q_;
   delete l1_l2__cmd_q_;
   delete l1_cpu__rsp_q_;
@@ -617,16 +690,19 @@ L1CacheAgent::~L1CacheAgent() {
 
 void L1CacheAgent::build() {
   // Construct command request queue
-  cpu_l1__cmd_q_ = new MessageQueue(k(), "cpu_l1__cmd_q", 16);
+  cpu_l1__cmd_q_ = new MessageQueue(k(), "cpu_l1__cmd_q", config_.cpu_l1__cmd_n);
   add_child_module(cpu_l1__cmd_q_);
+  // Construct replay queue
+  replay__cmd_q_ = new MessageQueue(k(), "replay__cmd_q", config_.replay__cmd_n);
+  add_child_module(replay__cmd_q_);
   // Construct L2 -> L1 response queue
-  l2_l1__rsp_q_ = new MessageQueue(k(), "l2_l1__rsp_q", 16);
+  l2_l1__rsp_q_ = new MessageQueue(k(), "l2_l1__rsp_q", config_.l2_l1__rsp_n);
   add_child_module(l2_l1__rsp_q_);
   // Arbiter
   arb_ = new MQArb(k(), "arb");
   add_child_module(arb_);
   // Transaction table.
-  tt_ = new L1TTable(k(), "tt", 16);
+  tt_ = new L1TTable(k(), "tt", config_.tt_entries_n);
   add_child_module(tt_);
   // Main thread of execution
   main_ = new MainProcess(k(), "main", this);
@@ -650,6 +726,7 @@ void L1CacheAgent::set_l1_cpu__rsp_q(MessageQueueProxy* mq) {
 
 void L1CacheAgent::elab() {
   arb_->add_requester(cpu_l1__cmd_q_);
+  arb_->add_requester(replay__cmd_q_);
   arb_->add_requester(l2_l1__rsp_q_);
 }
 

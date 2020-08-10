@@ -277,3 +277,4 @@ TEST(Basic112, Read0Read1Write0) {
   // Validate that cache has line installed.
   EXPECT_TRUE(!checker1.has_line());
 }
+

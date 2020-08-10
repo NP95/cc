@@ -113,7 +113,7 @@ class MessageQueue : public Agent {
   // Set blocked status of requestor.
   void set_blocked(bool blocked) { blocked_ = blocked; }
 
- private:
+  // private:
   // Construct module
   void build(std::size_t n);
   // Issue message to queue after 'epoch' agent epochs.

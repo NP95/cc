@@ -100,12 +100,12 @@ class SocConfigBuilderJson {
   void build(L1CacheAgentConfig& c, json j) {
     // Set .name
     CHECK_AND_SET(name);
-    // Set .l1_cmdq_slots_n
-    CHECK_AND_SET_OPTIONAL(l1_cmdq_slots_n);
-    // Set .l2_cmdq_credits_n
-    CHECK_AND_SET_OPTIONAL(l2_cmdq_credits_n);
-    // Set .ldst_flush_penalty_n
-    CHECK_AND_SET_OPTIONAL(ldst_flush_penalty_n);
+    // Set .cpu_l1__cmd_n
+    CHECK_AND_SET_OPTIONAL(cpu_l1__cmd_n);
+    // Set .l2_l1__rsp_n
+    CHECK_AND_SET_OPTIONAL(l2_l1__rsp_n);
+    // Set .tt_entries_n
+    CHECK_AND_SET_OPTIONAL(tt_entries_n);
     // Set .cconfig
     CHECK(cconfig);
     build(c.cconfig, j["cconfig"]);

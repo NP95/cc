@@ -53,7 +53,14 @@ create_test(utility utility.cc)
 create_test(kernel kernel.cc)
 create_test(primitives primitives.cc)
 create_test(cache cache.cc)
+
+# Basic protocol/sanity tests
 create_test(basic_1dir_1cc_1cpu basic_1dir_1cc_1cpu.cc)
 create_test(basic_1dir_1cc_2cpu basic_1dir_1cc_2cpu.cc)
 create_test(basic_1dir_2cc_1cpu basic_1dir_2cc_1cpu.cc)
+
+# Basic eviction tests
 create_test(evict_1dir_1cc_1cpu evict_1dir_1cc_1cpu.cc)
+
+# Basic resource allocation/reservation tests
+create_test(res_1dir_1cc_1cpu res_1dir_1cc_1cpu.cc)

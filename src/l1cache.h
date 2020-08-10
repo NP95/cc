@@ -120,7 +120,7 @@ enum class L1Opcode {
   // be subsequently cleared upon notification of the event given as
   // an argument to the command.
   //
-  MqBlockedOnEvent,
+  MqSetBlockedOnEvent,
 
   // Set blocked status of the currently selected message queue on
   // a prior transaction to the same line.
@@ -131,9 +131,16 @@ enum class L1Opcode {
   // table.
   MqSetBlockedOnTable,
 
+  // Dequeue message from associated Message Queue, but do not release
+  // as it has now been installed in the transaction table.
+  MsgDequeue,
+  
   // Consume message at the head of the currently selected message
   // queue.
   MsgConsume,
+
+  // Reissue message contained within transaction state object.
+  MsgReissue,
 
   // Remove a line given by the current line address in the
   // Transaction State object.
@@ -155,6 +162,10 @@ enum class L1Opcode {
   // would typically be carried out by the store queue hardware in a
   // hardware implementation.
   SetL2LineModified,
+
+  // Reserve location in replay queue for use upon transaction end.
+  //
+  ReserveReplaySlot,
 
   // Invalid opcode; placeholder for default bad state.
   Invalid
@@ -178,10 +189,12 @@ class L1Command {
   L1CoherenceAction* action() const { return oprands.action; }
   addr_t addr() const { return oprands.addr; }
   kernel::Event* event() const { return oprands.event; }
+  Transaction* t() const { return oprands.t; }
 
   // Setters
   void set_addr(addr_t addr) { oprands.addr = addr; }
   void set_event(kernel::Event* event) { oprands.event = event; }
+  void set_t(Transaction* t) { oprands.t = t; }
 
  private:
   virtual ~L1Command();
@@ -190,6 +203,7 @@ class L1Command {
     L1CoherenceAction* action;
     addr_t addr;
     kernel::Event* event;
+    Transaction* t;
   } oprands;
   //
   L1Opcode opcode_;
@@ -208,12 +222,17 @@ class L1CommandBuilder {
   //
   static L1Command* build_blocked_on_event(
       MessageQueue* mq, kernel::Event* e);
+  //
+  static L1Command* build_start_transaction(Transaction* t);
+  //
+  static L1Command* build_end_transaction(Transaction* t);
 };
 
 //
 //
 class L1CommandList {
   using vector_type = std::vector<L1Command*>;
+  using cb = L1CommandBuilder;
 
  public:
   using const_iterator = vector_type::const_iterator;
@@ -231,10 +250,10 @@ class L1CommandList {
   void push_back(L1Command* cmd);
 
   // Transaction starts
-  void transaction_start();
+  void transaction_start(Transaction* t, bool is_blocking = true);
 
   // Transaction ends
-  void transaction_end();
+  void transaction_end(Transaction* t, bool was_blocking = true);
 
   // Consume current message and advance agent to next simulation
   // epoch.
@@ -308,6 +327,10 @@ class L1TState {
   addr_t addr() const { return addr_; }
   // Command opcode
   L1CmdOpcode opcode() const { return opcode_; }
+  // Message should be replayed on end
+  bool do_replay() const { return do_replay_; }
+  // Current message
+  const Message* msg() const { return msg_; }
 
   // Set current cache line
   void set_line(L1LineState* line) { line_ = line; }
@@ -315,6 +338,10 @@ class L1TState {
   void set_addr(addr_t addr) { addr_ = addr; }
   // Command opcode.
   void set_opcode(L1CmdOpcode opcode) { opcode_ = opcode; }
+  // Set do replay flag
+  void set_do_replay(bool do_replay) { do_replay_ = do_replay; }
+  // Set current message
+  void set_msg(const Message* msg) { msg_ = msg; }
 
  private:
   virtual ~L1TState();
@@ -330,6 +357,11 @@ class L1TState {
   // otherwise be recovered from the address, but this simply saves
   // the lookup into the cache structure).
   L1LineState* line_ = nullptr;
+  // Flag indicating that upon completion of the transaction, the
+  // message should be issued to the replay queue.
+  bool do_replay_ = false;
+  // Current initiating message.
+  const Message* msg_ = nullptr;
 };
 
 //
@@ -419,8 +451,10 @@ class L1CacheAgent : public Agent {
   MessageQueueProxy* l1_cpu__rsp_q() const { return l1_cpu__rsp_q_; }
   // L1 -> L2 command queue
   MessageQueueProxy* l1_l2__cmd_q() const { return l1_l2__cmd_q_; }
-  // L2 -> L1 response queeu
+  // L2 -> L1 response queue
   MessageQueue* l2_l1__rsp_q() const { return l2_l1__rsp_q_; }
+  // Message replay queue.
+  MessageQueue* replay__cmd_q() const { return replay__cmd_q_; }
 
  protected:
   // Accessors:
@@ -446,8 +480,6 @@ class L1CacheAgent : public Agent {
   void set_cpu(Cpu* cpu) { cpu_ = cpu; }
   // Set L1 -> L2 Command Queue
   void set_l1_l2__cmd_q(MessageQueueProxy* mq);
-  //
-  void set_l2_l1__cmd_q(MessageQueue* mq) { l2_l1__cmd_q_ = mq; }
   // Set L1 -> CPU Response Queue
   void set_l1_cpu__rsp_q(MessageQueueProxy* mq);
 
@@ -469,12 +501,12 @@ class L1CacheAgent : public Agent {
   Cpu* cpu_ = nullptr;
   // CPU -> L1 Command Queue (L1 owned)
   MessageQueue* cpu_l1__cmd_q_ = nullptr;
+  // Replay Queue 
+  MessageQueue* replay__cmd_q_ = nullptr;
   // L1 -> L2 Command Queue (L2 owned)
   MessageQueueProxy* l1_l2__cmd_q_ = nullptr;
   // L2 -> L1 Response Queue (L1 owned)
   MessageQueue* l2_l1__rsp_q_ = nullptr;
-  // L2 -> L1 Command Queue (L1 owned)
-  MessageQueue* l2_l1__cmd_q_ = nullptr;
   // L1 -> CPU Response Queue (CPU owned)
   MessageQueueProxy* l1_cpu__rsp_q_ = nullptr;
   // Message servicing arbiter.

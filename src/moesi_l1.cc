@@ -198,6 +198,9 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
   //
   //
   void evict(L1CacheContext& ctxt, L1CommandList& cl) const override {
+    // Current invoke L1 cache instance configuration.
+    const L1CacheAgentConfig& config = ctxt.l1cache()->config();
+
     // Update Transaction State with data snooped from command message.
     L1TState* tstate = ctxt.tstate();
     // Address becomes eviction address
@@ -222,8 +225,9 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
         // (when silent evictions are not allowed).
 
         // Issue command notification to L2.
+        Transaction* t = ctxt.msg()->t();
         L2CmdMsg* cmd = Pool<L2CmdMsg>::construct();
-        cmd->set_t(ctxt.msg()->t());
+        cmd->set_t(t);
         cmd->set_addr(ctxt.addr());
         cmd->set_opcode(L2CmdOpcode::L1Put);
         cmd->set_l1cache(ctxt.l1cache());
@@ -233,12 +237,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
         issue_update_state(cl, line, next_state);
         // Start new transaction as we are awaiting the response from
         // L2 before the line is evicted from the cache.
-        cl.transaction_start();
-        // Source Message Queue is blocked until the current
-        // transaction (lookup to L2) has completed.
-        cl.push_back(cb::from_opcode(L1Opcode::MqSetBlockedOnTransaction));
-        // Advance to next
-        cl.next_and_do_consume(false);
+        cl.transaction_start(t, config.is_blocking_cache);
       } break;
       default: {
       } break;
@@ -259,6 +258,9 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
  private:
   void apply(L1CacheContext& ctxt, L1CommandList& cl, MOESIL1LineState* line,
              const L1CmdMsg* msg) const {
+    // Current invoke L1 cache instance.
+    const L1CacheAgentConfig& config = ctxt.l1cache()->config();
+    
     // Update Transaction State with data snooped from command message.
     L1TState* tstate = ctxt.tstate();
     tstate->set_line(ctxt.line());
@@ -290,19 +292,22 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
         }
         l2cmdmsg->set_l1cache(ctxt.l1cache());
         // Issue L2 command
-        //issue_msg(cl, ctxt.l1cache()->l1_l2__cmd_q(), l2cmdmsg);
         issue_msg_to_queue(L1EgressQueue::L2CmdQ, cl, ctxt, l2cmdmsg);
+
+        // In the non-blocking cache, the transaction state takes
+        // ownership of the message at the head of the command queue
+        // as this is subsequently dequeued to prevent head-of-line
+        // blocking.
+        if (!config.is_blocking_cache) {
+          tstate->set_do_replay(true);
+          tstate->set_msg(msg);
+        }
+
         // Message is stalled on lookup transaction.
         // Install new entry in transaction table as the transaction
         // has now started and commands are inflight. The transaction
         // itself is not complete at this point.
-        cl.transaction_start();
-        // cl.push_back(cb::from_opcode(L1Opcode::StartTransaction));
-        // Source Message Queue is blocked until the current
-        // transaction (lookup to L2) has completed.
-        cl.push_back(cb::from_opcode(L1Opcode::MqSetBlockedOnTransaction));
-        // Advance to next
-        cl.next_and_do_consume(false);
+        cl.transaction_start(msg->t(), config.is_blocking_cache);
       } break;
       case State::S: {
         // Line is present in the cache.
@@ -331,15 +336,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             // issue_msg(cl, ctxt.l1cache()->l1_l2__cmd_q(), l2cmdmsg);
             issue_msg_to_queue(L1EgressQueue::L2CmdQ, cl, ctxt, l2cmdmsg);
             // Start new transaction
-            cl.transaction_start();
-            // cl.push_back(cb::from_opcode(L1Opcode::StartTransaction));
-            // Source Message Queue is blocked until the current
-            // transaction (lookup to L2) has completed.
-            // Set blocked status in Message Queue to rescind requestor
-            // status.
-            cl.push_back(cb::from_opcode(L1Opcode::MqSetBlockedOnTransaction));
-            // Advance to next
-            cl.next_and_do_consume(false);
+            cl.transaction_start(msg->t(), config.is_blocking_cache);
             // State transitions to SE state.
             issue_update_state(cl, line, State::SE);
           } break;
@@ -355,7 +352,6 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             L1CmdRspMsg* rsp = Pool<L1CmdRspMsg>::construct();
             rsp->set_t(msg->t());
             // Issue response to CPU.
-            // issue_msg(cl, ctxt.l1cache()->l1_cpu__rsp_q(), rsp);
             issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp); 
             // Advance to next and consume
             cl.next_and_do_consume(true);
@@ -365,7 +361,6 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             L1CmdRspMsg* rsp = Pool<L1CmdRspMsg>::construct();
             rsp->set_t(msg->t());
             // Issue response to CPU.
-            // issue_msg(cl, ctxt.l1cache()->l1_cpu__rsp_q(), rsp);
             issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp); 
             // Advance to next and consume
             cl.next_and_do_consume(true);
@@ -381,7 +376,6 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             // successfully.
             L1CmdRspMsg* rsp = Pool<L1CmdRspMsg>::construct();
             rsp->set_t(msg->t());
-            // issue_msg(cl, ctxt.l1cache()->l1_cpu__rsp_q(), rsp);
             issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp); 
             // Advance to next and consume
             cl.next_and_do_consume(true);
@@ -391,7 +385,6 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             // but line must transition to the modified state.
             L1CmdRspMsg* rsp = Pool<L1CmdRspMsg>::construct();
             rsp->set_t(msg->t());
-            // issue_msg(cl, ctxt.l1cache()->l1_cpu__rsp_q(), rsp);
             issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp); 
             issue_update_state(cl, line, State::M);
             // Write through to L2. such that L2 sees the transition
@@ -413,6 +406,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
 
   void apply(L1CacheContext& ctxt, L1CommandList& cl, MOESIL1LineState* line,
              const L2CmdRspMsg* msg) const {
+    Transaction* t = msg->t();
     const State state = line->state();
     switch (state) {
       case State::IS: {
@@ -421,7 +415,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
 
         // Update transaction table; wake all blocked Message Queues
         // and delete context.
-        cl.transaction_end();
+        cl.transaction_end(t);
         // Advance to next and consume
         cl.next_and_do_consume(true);
       } break;
@@ -430,7 +424,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
         issue_update_state(cl, line, State::E);
         // Update transaction table; wake all blocked Message Queues
         // and delete context.
-        cl.transaction_end();
+        cl.transaction_end(t);
         // Advance to next and consume
         cl.next_and_do_consume(true);
       } break;
@@ -439,7 +433,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
         issue_update_state(cl, line, State::E);
         // Update transaction table; wake all blocked Message Queues
         // and delete context.
-        cl.transaction_end();
+        cl.transaction_end(t);
         // Advance to next and consume
         cl.next_and_do_consume(true);
       } break;
@@ -462,7 +456,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
         const addr_t addr = ctxt.tstate()->addr();
         cl.push_back(cb::build_remove_line(addr));
         // Transaction ends
-        cl.transaction_end();
+        cl.transaction_end(t);
         // Advance to next and consume
         cl.next_and_do_consume(true);
       } break;
