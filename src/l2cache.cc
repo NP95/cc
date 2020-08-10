@@ -26,9 +26,9 @@
 //========================================================================== //
 
 #include "l2cache.h"
-
 #include "l1cache.h"
 #include "utility.h"
+#include <algorithm>
 
 namespace cc {
 
