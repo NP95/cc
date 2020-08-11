@@ -83,7 +83,7 @@ CCCommand* CCCommandBuilder::from_opcode(CCOpcode opcode) {
   return new CCCommand(opcode);
 }
 
-CCCommand* CCCommandBuilder::from_action(CoherenceAction* action) {
+CCCommand* CCCommandBuilder::from_action(CCCoherenceAction* action) {
   CCCommand* cmd = new CCCommand(CCOpcode::InvokeCoherenceAction);
   cmd->oprands.action = action;
   return cmd;
@@ -109,8 +109,11 @@ CCCommandList::~CCCommandList() {
 
 // Transaction starts
 void CCCommandList::push_transaction_start() {
-  using cb = CCCommandBuilder;
   push_back(cb::from_opcode(CCOpcode::TransactionStart));
+}
+
+void CCCommandList::push_back(CCCoherenceAction* action) {
+  push_back(cb::from_action(action));
 }
 
 // Transaction ends
@@ -127,6 +130,45 @@ void CCCommandList::next_and_do_consume(bool do_consume) {
   }
   // Advance to next
   push_back(cb::from_opcode(CCOpcode::WaitNextEpoch));
+}
+
+std::size_t CCResources::coh_srt_n(const Agent* agent) const {
+  std::size_t ret = 0;
+  if (auto it = coh_srt_.find(agent); it != coh_srt_.end()) {
+    ret = it->second;
+  }
+  return ret;
+}
+
+std::size_t CCResources::coh_cmd_n(const Agent* agent) const {
+  std::size_t ret = 0;
+  if (auto it = coh_cmd_.find(agent); it != coh_cmd_.end()) {
+    ret = it->second;
+  }
+  return ret;
+}
+
+std::size_t CCResources::dt_n(const Agent* agent) const {
+  std::size_t ret = 0;
+  if (auto it = dt_.find(agent); it != dt_.end()) {
+    ret = it->second;
+  }
+  return ret;
+}
+
+void CCResources::set_coh_srt_n(const Agent* agent, std::size_t coh_srt_n) {
+  coh_srt_[agent] = coh_srt_n;
+}
+
+void CCResources::set_coh_cmd_n(const Agent* agent, std::size_t coh_cmd_n) {
+  coh_cmd_[agent] = coh_cmd_n;
+}
+
+void CCResources::set_dt_n(const Agent* agent, std::size_t dt_n) {
+  dt_[agent] = dt_n;
+}
+
+void CCResources::build(const CCCommandList& cl) {
 }
 
 //
@@ -185,7 +227,7 @@ class CCCommandInterpreter {
   }
 
   void execute_invoke_coherence_action(CCContext& ctxt, const CCCommand* cmd) {
-    CoherenceAction* action = cmd->action();
+    CCCoherenceAction* action = cmd->action();
     action->execute();
   }
 
@@ -273,11 +315,24 @@ class CCModel::RdisProcess : public AgentProcess {
       } break;
     }
 
-    if (can_execute(cl)) {
+    // Check resources of computed CommandList.
+    const bool has_resources = check_resources(cl);
+
+    if (has_resources) {
       LogMessage lm("Execute message: ");
       lm.append(ctxt.msg()->to_string());
       lm.level(Level::Debug);
       log(lm);
+
+      // Execution is a two-phased process.
+      //
+      // Firstly, the current message is applied to the transactions
+      // state. Secondly, once the state has been updated, a second
+      // round is performed to determine whether the transaction has
+      // now reached a state where it can complete. If the transaction
+      // is complete, a response is passed to the originating L2 and
+      // transaction removed from the table.
+      //
 
       // Execute completed sequence.
       execute(ctxt, cl);
@@ -295,6 +350,12 @@ class CCModel::RdisProcess : public AgentProcess {
       if (protocol->is_complete(ctxt, cs)) {
         execute(ctxt, cs);
       }
+    } else {
+      // Otherwise, insufficient resources. Execute the "Wait"
+      // sequence which the check_resources method has now placed in
+      // the CommandList object.
+      execute(ctxt, cl);
+
     }
   }
 
@@ -327,7 +388,9 @@ class CCModel::RdisProcess : public AgentProcess {
     protocol->apply(ctxt, cl);
   }
 
-  bool can_execute(const CCCommandList& cl) const { return true; }
+  bool check_resources(const CCCommandList& cl) const {
+    return true;
+  }
 
   void execute(CCContext& ctxt, const CCCommandList& cl) {
     try {
@@ -403,13 +466,17 @@ std::string CCSnpCommand::to_string() const {
   return r.to_string();
 }
 
+void CCSnpCommandList::push_back(CCCoherenceAction* action) {
+  push_back(cb::from_action(action));
+}
+
 CCSnpCommand* CCSnpCommandBuilder::from_opcode(CCSnpOpcode opcode) {
   CCSnpCommand* cmd = new CCSnpCommand;
   cmd->set_opcode(opcode);
   return cmd;
 }
 
-CCSnpCommand* CCSnpCommandBuilder::from_action(CoherenceAction* action) {
+CCSnpCommand* CCSnpCommandBuilder::from_action(CCCoherenceAction* action) {
   CCSnpCommand* cmd = new CCSnpCommand;
   cmd->set_opcode(CCSnpOpcode::InvokeCoherenceAction);
   cmd->oprands.action = action;
@@ -474,7 +541,7 @@ class CCSnpCommandInterpreter {
 
   void execute_invoke_coherence_action(CCSnpContext& ctxt,
                                        const CCSnpCommand* cmd) {
-    CoherenceAction* action = cmd->action();
+    CCCoherenceAction* action = cmd->action();
     action->execute();
   }
 

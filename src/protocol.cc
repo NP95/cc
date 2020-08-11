@@ -125,6 +125,25 @@ struct EmitMessageActionProxy : public CoherenceAction {
   const Message* msg_ = nullptr;
 };
 
+//
+//
+struct EmitMessageActionProxyCC : public CCCoherenceAction {
+  EmitMessageActionProxyCC(MessageQueueProxy* mq, const Message* msg)
+      : mq_(mq), msg_(msg) {}
+  std::string to_string() const override {
+    KVListRenderer r;
+    r.add_field("action", "emit message");
+    r.add_field("mq", mq_->path());
+    r.add_field("msg", msg_->to_string());
+    return r.to_string();
+  }
+  bool execute() override { return mq_->issue(msg_); }
+
+ private:
+  MessageQueueProxy* mq_ = nullptr;
+  const Message* msg_ = nullptr;
+};
+
 L1CacheAgentProtocol::L1CacheAgentProtocol(kernel::Kernel* k,
                                            const std::string& name)
     : Module(k, name) {}
@@ -138,13 +157,13 @@ CCProtocol::CCProtocol(kernel::Kernel* k, const std::string& name)
 
 void CCProtocol::issue_msg(CCCommandList& cl, MessageQueueProxy* mq,
                            const Message* msg) const {
-  CoherenceAction* action = new EmitMessageActionProxy(mq, msg);
+  CCCoherenceAction* action = new EmitMessageActionProxyCC(mq, msg);
   cl.push_back(CCCommandBuilder::from_action(action));
 }
 
 void CCProtocol::issue_msg(CCSnpCommandList& cl, MessageQueueProxy* mq,
                            const Message* msg) const {
-  CoherenceAction* action = new EmitMessageActionProxy(mq, msg);
+  CCCoherenceAction* action = new EmitMessageActionProxyCC(mq, msg);
   cl.push_back(CCSnpCommandBuilder::from_action(action));
 }
 
@@ -167,8 +186,8 @@ void CCProtocol::issue_emit_to_noc(CCContext& ctxt, CCCommandList& cl,
   nocmsg->set_origin(cc);
   nocmsg->set_dest(dest);
   // Issue Message Emit action.
-  CoherenceAction* action =
-      new EmitMessageActionProxy(cc->cc_noc__msg_q(), nocmsg);
+  CCCoherenceAction* action =
+      new EmitMessageActionProxyCC(cc->cc_noc__msg_q(), nocmsg);
   cl.push_back(CCCommandBuilder::from_action(action));
 }
 
@@ -191,14 +210,14 @@ void CCProtocol::issue_emit_to_noc(CCSnpContext& ctxt, CCSnpCommandList& cl,
   nocmsg->set_origin(cc);
   nocmsg->set_dest(dest);
   // Issue Message Emit action.
-  CoherenceAction* action =
-      new EmitMessageActionProxy(cc->cc_noc__msg_q(), nocmsg);
+  CCCoherenceAction* action =
+      new EmitMessageActionProxyCC(cc->cc_noc__msg_q(), nocmsg);
   cl.push_back(CCSnpCommandBuilder::from_action(action));
 }
 
 void CCProtocol::issue_invalid_state_transition(CCCommandList& cl,
                                                 const std::string& desc) const {
-  struct InvalidStateTransition : CoherenceAction {
+  struct InvalidStateTransition : CCCoherenceAction {
     InvalidStateTransition(const std::string& desc) : desc_(desc) {}
     std::string to_string() const override {
       const std::string msg = "Invalid state transition: " + desc_;

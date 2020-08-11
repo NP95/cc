@@ -42,6 +42,7 @@ class CCLineState;
 class CCProtocol;
 class CCModel;
 class CCNocEndpoint;
+class CCCoherenceAction;
 
 enum class CCOpcode {
   // Raise notification that a new transaction has begun.
@@ -80,7 +81,7 @@ class CCCommand {
 
   // Accessors
   CCOpcode opcode() const { return opcode_; }
-  CoherenceAction* action() const { return oprands.action; }
+  CCCoherenceAction* action() const { return oprands.action; }
   Transaction* t() const { return oprands.t; }
 
   // Setters
@@ -90,7 +91,7 @@ class CCCommand {
   virtual ~CCCommand();
   //
   union {
-    CoherenceAction* action;
+    CCCoherenceAction* action;
     Transaction* t;
   } oprands;
   //
@@ -103,7 +104,7 @@ class CCCommandBuilder {
  public:
   static CCCommand* from_opcode(CCOpcode opcode);
 
-  static CCCommand* from_action(CoherenceAction* action);
+  static CCCommand* from_action(CCCoherenceAction* action);
 
   static CCCommand* build_transaction_end(Transaction* t);
 };
@@ -123,6 +124,10 @@ class CCCommandList {
   const_iterator begin() const { return cmds_.begin(); }
   const_iterator end() const { return cmds_.end(); }
 
+  // Push back from coherence action.
+  void push_back(CCCoherenceAction* action);
+  
+  // Push back from command instance.
   void push_back(CCCommand* cmd) { cmds_.push_back(cmd); }
 
   // Transaction starts
@@ -137,6 +142,65 @@ class CCCommandList {
 
  private:
   std::vector<CCCommand*> cmds_;
+};
+
+//
+//
+class CCResources {
+  using key_map = std::map<const Agent*, std::size_t>;
+  
+ public:
+  CCResources(const CCCommandList& cl) { build(cl); }
+
+  // Accessors:
+  std::size_t noc_credit_n() const { return noc_credit_n_; }
+  std::size_t cmd_q_n() const { return cmd_q_n_; }
+  std::size_t rsp_q_n() const { return rsp_q_n_; }
+  std::size_t coh_srt_n(const Agent* agent) const;
+  std::size_t coh_cmd_n(const Agent* agent) const;
+  std::size_t dt_n(const Agent* agent) const;
+
+  // Setters:
+  void set_noc_credit_n(std::size_t noc_credit_n) { noc_credit_n_ = noc_credit_n; }
+  void set_cmd_q_n(std::size_t cmd_q_n) { cmd_q_n_ = cmd_q_n; }
+  void set_rsp_q_n(std::size_t rsp_q_n) { rsp_q_n_ = rsp_q_n; }
+  void set_coh_srt_n(const Agent* agent, std::size_t coh_srt_n);
+  void set_coh_cmd_n(const Agent* agent, std::size_t coh_cmd_n);
+  void set_dt_n(const Agent* agent, std::size_t dt_n);
+
+ private:
+  void build(const CCCommandList& cl);
+
+  // NOC credits required (Messages Emitted).
+  std::size_t noc_credit_n_ = 0;
+  //
+  std::size_t cmd_q_n_ = 0;
+  //
+  std::size_t rsp_q_n_ = 0;
+  //
+  key_map coh_srt_;
+  //
+  key_map coh_cmd_;
+  //
+  key_map dt_;
+};
+
+//
+//
+class CCCoherenceAction {
+ public:
+  virtual std::string to_string() const = 0;
+
+  // Set Resources object for current action.
+  virtual void set_resources(CCResources& r) const {}
+  
+  // Invoke/Execute coherence action
+  virtual bool execute() = 0;
+
+  virtual void release() { delete this; }
+
+ protected:
+  virtual ~CCCoherenceAction() = default;
 };
 
 //
@@ -220,18 +284,18 @@ class CCSnpCommand {
 
   //
   CCSnpOpcode opcode() const { return opcode_; }
-  CoherenceAction* action() const { return oprands.action; }
+  CCCoherenceAction* action() const { return oprands.action; }
 
   //
   void set_opcode(CCSnpOpcode opcode) { opcode_ = opcode; }
-  void set_action(CoherenceAction* action) { oprands.action = action; }
+  void set_action(CCCoherenceAction* action) { oprands.action = action; }
 
  private:
   virtual ~CCSnpCommand();
 
   //
   struct {
-    CoherenceAction* action;
+    CCCoherenceAction* action;
   } oprands;
   //
   CCSnpOpcode opcode_;
@@ -239,7 +303,17 @@ class CCSnpCommand {
 
 //
 //
+class CCSnpCommandBuilder {
+ public:
+  static CCSnpCommand* from_opcode(CCSnpOpcode opcode);
+
+  static CCSnpCommand* from_action(CCCoherenceAction* action);
+};
+
+//
+//
 class CCSnpCommandList {
+  using cb = CCSnpCommandBuilder;
   using vector_type = std::vector<CCSnpCommand*>;
 
  public:
@@ -251,19 +325,14 @@ class CCSnpCommandList {
   const_iterator begin() const { return cmds_.begin(); }
   const_iterator end() const { return cmds_.end(); }
 
+  // Push back from coherence action instance.
+  void push_back(CCCoherenceAction* action);
+
+  // Push back from command instance
   void push_back(CCSnpCommand* cmd) { cmds_.push_back(cmd); }
 
  private:
   std::vector<CCSnpCommand*> cmds_;
-};
-
-//
-//
-class CCSnpCommandBuilder {
- public:
-  static CCSnpCommand* from_opcode(CCSnpOpcode opcode);
-
-  static CCSnpCommand* from_action(CoherenceAction* action);
 };
 
 //

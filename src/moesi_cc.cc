@@ -100,7 +100,7 @@ class Line : public CCLineState {
 
 //
 //
-class ApplyMsgAction : public CoherenceAction {
+class ApplyMsgAction : public CCCoherenceAction {
  public:
   ApplyMsgAction(const Message* msg, Line* line) : msg_(msg), line_(line) {}
 
@@ -177,7 +177,7 @@ const char* to_string(LineUpdate update) {
   }
 }
 
-struct LineUpdateAction : public CoherenceAction {
+struct LineUpdateAction : public CCCoherenceAction {
   LineUpdateAction(Line* line, LineUpdate update)
       : line_(line), update_(update) {}
   std::string to_string() const override {
@@ -225,6 +225,26 @@ class SnpLine : public CCSnpLineState {
   // Requesting agent.
   Agent* agent_ = nullptr;
 };
+
+// Destination egress queue definition
+enum class CCEgressQueue {
+  L2RspQ,
+  L2CmdQ,
+  Invalid
+};
+
+const char* to_string(CCEgressQueue q) {
+  switch (q) {
+    case CCEgressQueue::L2RspQ:
+      return "L2RspQ";
+    case CCEgressQueue::L2CmdQ:
+      return "L2CmdQ";
+    case CCEgressQueue::Invalid:
+      [[fallthrough]];
+    default:
+      return "Invalid";
+  }
+}
 
 //
 //
@@ -586,6 +606,136 @@ class MOESICCProtocol : public CCProtocol {
     Line* line = static_cast<Line*>(ctxt.line());
     LineUpdateAction* action = new LineUpdateAction(line, update);
     cl.push_back(cb::from_action(action));
+  }
+
+  void issue_msg_to_queue(CCEgressQueue eq, CCContext& ctxt, CCCommandList& cl,
+                          const Message* msg) {
+    struct EmitMessageActionProxy : CCCoherenceAction {
+      EmitMessageActionProxy() = default;
+
+      std::string to_string() const override {
+        KVListRenderer r;
+        r.add_field("action", "emit message");
+        r.add_field("mq", mq_->path());
+        r.add_field("msg", msg_->to_string());
+        return r.to_string();
+      }
+      
+      // Setters
+      void set_eq(CCEgressQueue eq) { eq_ = eq; }
+      void set_mq(MessageQueueProxy* mq) { mq_ = mq; }
+      void set_msg(const Message* msg) { msg_ = msg; }
+
+      void set_resources(CCResources& r) const override {
+        switch (eq_) {
+          case CCEgressQueue::L2CmdQ: {
+            r.set_cmd_q_n(r.cmd_q_n() + 1);
+          } break;
+          case CCEgressQueue::L2RspQ: {
+            r.set_rsp_q_n(r.rsp_q_n() + 1);
+          } break;
+          default: {
+            // No resource requirement
+          } break;
+        }
+      }
+
+      bool execute() override { return mq_->issue(msg_); };
+      
+     private:
+      // Desintation Egress Queue
+      CCEgressQueue eq_ = CCEgressQueue::Invalid;
+      // Destination message queue
+      MessageQueueProxy* mq_ = nullptr;
+      // Message to issue
+      const Message* msg_ = nullptr;
+    };
+    EmitMessageActionProxy* action = new EmitMessageActionProxy;
+    action->set_eq(eq);
+    action->set_msg(msg);
+    MessageQueueProxy* mq = nullptr;
+    switch (eq) {
+      case CCEgressQueue::L2CmdQ: {
+      } break;
+      case CCEgressQueue::L2RspQ: {
+      } break;
+      default: {
+        LogMessage lm("Unknown destination message queue: ");
+        lm.append(to_string(eq));
+        log(lm);
+      } break;
+    }
+    action->set_mq(mq);
+    cl.push_back(action);
+  }
+
+  template<typename CONTEXT, typename LIST>
+  void issue_msg_to_noc(CONTEXT& ctxt, LIST& cl, const Message* msg,
+                        Agent* dest) {
+    struct EmitMessageToNocAction : CCCoherenceAction {
+      EmitMessageToNocAction() = default;
+
+      std::string to_string() const override {
+        KVListRenderer r;
+        r.add_field("action", "emit message to noc");
+        r.add_field("mq", mq_->path());
+        r.add_field("msg", msg_->to_string());
+        return r.to_string();
+      }
+
+      void set_mq(MessageQueueProxy* mq) { mq_ = mq; }
+      void set_msg(const NocMsg* msg) { msg_ = msg; }
+
+      void set_resources(CCResources& r) const override {
+        // Always require a NOC credit.
+        r.set_noc_credit_n(r.noc_credit_n() + 1);
+
+        const Agent* dest = msg_->dest();
+        const Message* payload = msg_->payload();
+        switch (payload->cls()) {
+          case MessageClass::CohSrt: {
+            // Require Coherence Start message resource.
+            r.set_coh_srt_n(dest, r.coh_srt_n(dest) + 1);
+          } break;
+          case MessageClass::CohCmd: {
+            // Require Coherence Command message resource.
+            r.set_coh_cmd_n(dest, r.coh_cmd_n(dest) + 1);
+          } break;
+          case MessageClass::Dt: {
+            // Require Data message resource.
+            r.set_dt_n(dest, r.dt_n(dest) + 1);
+          } break;
+          default: {
+            // No resources required;
+            //
+            // DtRsp, CohSnpRsp are assumed to either have resources
+            // reserved upon issue of their originator commands (Dt,
+            // CohSnp), or are otherwise guarenteed to make forward
+            // progress.
+          } break;
+        }
+      }
+
+      bool execute() override { return mq_->issue(msg_); }
+
+     private:
+      // Message to issue to NOC.
+      const NocMsg* msg_ = nullptr;
+      // Destination Message Queue
+      MessageQueueProxy* mq_ = nullptr;
+    };
+    // Encapsulate message in NOC transport protocol.
+    NocMsg* nocmsg = new NocMsg;
+    nocmsg->set_t(msg->t());
+    nocmsg->set_payload(msg);
+    nocmsg->set_origin(ctxt.cc());
+    nocmsg->set_dest(dest);
+    // Issue Message Emit action.
+    EmitMessageToNocAction* action =
+        new EmitMessageToNocAction;
+    action->set_mq(ctxt.cc()->cc_noc__msg_q());
+    action->set_msg(nocmsg);
+    cl.push_back(action);
   }
 };
 
