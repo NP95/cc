@@ -301,7 +301,7 @@ class MOESICCProtocol : public CCProtocol {
     rsp->set_origin(ctxt.cc());
     rsp->set_pd(line->pd());
     rsp->set_is(line->is());
-    issue_msg(cl, ctxt.cc()->cc_l2__rsp_q(), rsp);
+    issue_msg_to_queue(CCEgressQueue::L2RspQ, ctxt, cl, rsp);
 
     // Transaction is now complete; delete entry from transaction table.
     cl.push_transaction_end(line->t());
@@ -546,7 +546,7 @@ class MOESICCProtocol : public CCProtocol {
     acesnp->set_t(msg->t());
     acesnp->set_opcode(msg->opcode());
     acesnp->set_addr(msg->addr());
-    issue_msg(cl, ctxt.cc()->cc_l2__cmd_q(), acesnp);
+    issue_msg_to_queue(CCEgressQueue::L2CmdQ, ctxt, cl, acesnp);
 
     SnpLine* snpline = static_cast<SnpLine*>(ctxt.tstate()->line());
     snpline->set_origin(msg->origin());
@@ -608,8 +608,9 @@ class MOESICCProtocol : public CCProtocol {
     cl.push_back(cb::from_action(action));
   }
 
-  void issue_msg_to_queue(CCEgressQueue eq, CCContext& ctxt, CCCommandList& cl,
-                          const Message* msg) {
+  template<typename CONTEXT, typename LIST>
+  void issue_msg_to_queue(CCEgressQueue eq, CONTEXT& ctxt, LIST& cl,
+                          const Message* msg) const {
     struct EmitMessageActionProxy : CCCoherenceAction {
       EmitMessageActionProxy() = default;
 
@@ -656,8 +657,10 @@ class MOESICCProtocol : public CCProtocol {
     MessageQueueProxy* mq = nullptr;
     switch (eq) {
       case CCEgressQueue::L2CmdQ: {
+        mq = ctxt.cc()->cc_l2__cmd_q();
       } break;
       case CCEgressQueue::L2RspQ: {
+        mq = ctxt.cc()->cc_l2__rsp_q();
       } break;
       default: {
         LogMessage lm("Unknown destination message queue: ");
