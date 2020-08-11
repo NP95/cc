@@ -361,7 +361,7 @@ class MOESICCProtocol : public CCProtocol {
         cohsrt->set_t(msg->t());
         cohsrt->set_origin(ctxt.cc());
         cohsrt->set_addr(msg->addr());
-        issue_emit_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
+        issue_msg_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
 
         // Issue coherence command message
         CohCmdMsg* cohcmd = new CohCmdMsg;
@@ -369,7 +369,7 @@ class MOESICCProtocol : public CCProtocol {
         cohcmd->set_opcode(msg->opcode());
         cohcmd->set_origin(ctxt.cc());
         cohcmd->set_addr(msg->addr());
-        issue_emit_to_noc(ctxt, cl, cohcmd, dm->lookup(msg->addr()));
+        issue_msg_to_noc(ctxt, cl, cohcmd, dm->lookup(msg->addr()));
 
         // Set flags
         set_awaiting_cohend = true;
@@ -391,7 +391,7 @@ class MOESICCProtocol : public CCProtocol {
         cohsrt->set_t(msg->t());
         cohsrt->set_origin(ctxt.cc());
         cohsrt->set_addr(msg->addr());
-        issue_emit_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
+        issue_msg_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
 
         // Issue coherence command message
         CohCmdMsg* cohcmd = new CohCmdMsg;
@@ -399,7 +399,7 @@ class MOESICCProtocol : public CCProtocol {
         cohcmd->set_opcode(msg->opcode());
         cohcmd->set_origin(ctxt.cc());
         cohcmd->set_addr(msg->addr());
-        issue_emit_to_noc(ctxt, cl, cohcmd, dm->lookup(msg->addr()));
+        issue_msg_to_noc(ctxt, cl, cohcmd, dm->lookup(msg->addr()));
 
         // Set flags
         set_awaiting_cohend = true;
@@ -420,14 +420,14 @@ class MOESICCProtocol : public CCProtocol {
         cohsrt->set_t(msg->t());
         cohsrt->set_origin(ctxt.cc());
         cohsrt->set_addr(msg->addr());
-        issue_emit_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
+        issue_msg_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
 
         CohCmdMsg* cohcmd = new CohCmdMsg;
         cohcmd->set_t(msg->t());
         cohcmd->set_opcode(msg->opcode());
         cohcmd->set_origin(ctxt.cc());
         cohcmd->set_addr(msg->addr());
-        issue_emit_to_noc(ctxt, cl, cohcmd, dm->lookup(msg->addr()));
+        issue_msg_to_noc(ctxt, cl, cohcmd, dm->lookup(msg->addr()));
 
         // Set flags
         set_awaiting_cohend = true;
@@ -447,7 +447,7 @@ class MOESICCProtocol : public CCProtocol {
         cohsrt->set_t(msg->t());
         cohsrt->set_origin(ctxt.cc());
         cohsrt->set_addr(msg->addr());
-        issue_emit_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
+        issue_msg_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
 
         // Issue cohernece command
         CohCmdMsg* cohcmd = new CohCmdMsg;
@@ -455,7 +455,7 @@ class MOESICCProtocol : public CCProtocol {
         cohcmd->set_opcode(msg->opcode());
         cohcmd->set_origin(ctxt.cc());
         cohcmd->set_addr(msg->addr());
-        issue_emit_to_noc(ctxt, cl, cohcmd, dm->lookup(msg->addr()));
+        issue_msg_to_noc(ctxt, cl, cohcmd, dm->lookup(msg->addr()));
 
         // Set flags
         set_awaiting_cohend = true;
@@ -476,7 +476,7 @@ class MOESICCProtocol : public CCProtocol {
         cohsrt->set_t(msg->t());
         cohsrt->set_origin(ctxt.cc());
         cohsrt->set_addr(msg->addr());
-        issue_emit_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
+        issue_msg_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
 
         // Issue coherence command message
         CohCmdMsg* cohcmd = new CohCmdMsg;
@@ -484,7 +484,7 @@ class MOESICCProtocol : public CCProtocol {
         cohcmd->set_opcode(msg->opcode());
         cohcmd->set_origin(ctxt.cc());
         cohcmd->set_addr(msg->addr());
-        issue_emit_to_noc(ctxt, cl, cohcmd, dm->lookup(msg->addr()));
+        issue_msg_to_noc(ctxt, cl, cohcmd, dm->lookup(msg->addr()));
 
         // Set flags
         set_awaiting_cohend = true;
@@ -501,7 +501,7 @@ class MOESICCProtocol : public CCProtocol {
       default: {
         std::string name = "Unable to handle ACE command: ";
         name += to_string(msg->opcode());
-        issue_invalid_state_transition(cl, name);
+        //        issue_invalid_state_transition(cl, name);
       } break;
     }
 
@@ -532,7 +532,7 @@ class MOESICCProtocol : public CCProtocol {
     DtRspMsg* rsp = new DtRspMsg;
     rsp->set_t(msg->t());
     rsp->set_origin(ctxt.cc());
-    issue_emit_to_noc(ctxt, cl, rsp, msg->origin());
+    issue_msg_to_noc(ctxt, cl, rsp, msg->origin());
     // Consume and advance
     cl.next_and_do_consume(true);
   }
@@ -572,7 +572,7 @@ class MOESICCProtocol : public CCProtocol {
     rsp->set_pd(msg->pd());
     rsp->set_is(msg->is());
     rsp->set_wu(msg->wu());
-    issue_emit_to_noc(ctxt, cl, rsp, snpline->origin());
+    issue_msg_to_noc(ctxt, cl, rsp, snpline->origin());
 
     if (msg->dt()) {
       // Data transfer, send data to requester.
@@ -580,7 +580,7 @@ class MOESICCProtocol : public CCProtocol {
       dt->set_t(msg->t());
       dt->set_origin(ctxt.cc());
 
-      issue_emit_to_noc(ctxt, cl, dt, snpline->agent());
+      issue_msg_to_noc(ctxt, cl, dt, snpline->agent());
     }
     cl.push_back(snpcb::from_opcode(CCSnpOpcode::ConsumeMsg));
     cl.push_back(snpcb::from_opcode(CCSnpOpcode::NextEpoch));
@@ -674,7 +674,7 @@ class MOESICCProtocol : public CCProtocol {
 
   template<typename CONTEXT, typename LIST>
   void issue_msg_to_noc(CONTEXT& ctxt, LIST& cl, const Message* msg,
-                        Agent* dest) {
+                        Agent* dest) const {
     struct EmitMessageToNocAction : CCCoherenceAction {
       EmitMessageToNocAction() = default;
 
