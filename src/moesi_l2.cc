@@ -90,6 +90,23 @@ bool is_stable(State state) {
 
 //
 //
+enum class L2EgressQueue {
+  CCCmdQ,
+  CCSnpRspQ,
+  L1RspQ,
+  Invalid
+};
+
+const char* to_string(L2EgressQueue q) {
+  switch (q) {
+    case L2EgressQueue::Invalid:
+    default:
+      return "Invalid";
+  }
+}
+
+//
+//
 class LineState : public L2LineState {
  public:
   // Stable state status. deprecate
@@ -174,7 +191,7 @@ const char* to_string(LineUpdate update) {
 
 //
 //
-struct LineUpdateAction : public CoherenceAction {
+struct LineUpdateAction : public L2CoherenceAction {
   LineUpdateAction(LineState* line, LineUpdate update)
       : line_(line), update_(update) {}
 
@@ -358,12 +375,12 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
           } break;
         }
         // Issue ACE command to the cache controller.
-        issue_msg(cl, ctxt.l2cache()->l2_cc__cmd_q(), msg);
+        issue_msg_to_queue(L2EgressQueue::CCCmdQ, cl, ctxt, msg, tstate);
         // Message is stalled on lookup transaction.
         // Install new entry in transaction table as the transaction
         // has now started and commands are inflight. The transaction
         // itself is not complete at this point.
-        cl.push_back(cb::from_opcode(L2Opcode::StartTransaction));
+        cl.push_back(L2Opcode::StartTransaction);
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
@@ -394,7 +411,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
           } break;
         }
         // Issue response back to requester.
-        issue_msg(cl, l2_l1__rsp_q, msg);
+        issue_msg_to_queue(L2EgressQueue::L1RspQ, cl, ctxt, msg, tstate);
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
@@ -422,13 +439,13 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
             msg->set_t(cmd->t());
             msg->set_addr(cmd->addr());
             msg->set_opcode(AceCmdOpcode::CleanUnique);
-            issue_msg(cl, ctxt.l2cache()->l2_cc__cmd_q(), msg);
+            issue_msg_to_queue(L2EgressQueue::CCCmdQ, cl, ctxt, msg);
             // Update state: transitional Owner to Exclusive.
             issue_update_state(ctxt, cl, line, State::OE);
             // Command initiates a transaction, therefore consume the
             // message and install a new transaction object in the
             // transaction table.
-            cl.push_back(cb::from_opcode(L2Opcode::StartTransaction));
+            cl.push_back(L2Opcode::StartTransaction);
             // Consume and advance
             cl.next_and_do_consume(true);
           } break;
@@ -456,7 +473,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
               // Line becomes Shared
               issue_update_state(ctxt, cl, line, State::S);
               // Issue response to L1.
-              issue_msg(cl, l2_l1__rsp_q, msg);
+              issue_msg_to_queue(L2EgressQueue::L1RspQ, cl, ctxt, msg, tstate);
             } break;
             case L2CmdOpcode::L1GetE: {
               L2CmdRspMsg* msg = Pool<L2CmdRspMsg>::construct();
@@ -469,7 +486,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
               issue_set_owner(cl, line, tstate->l1cache());
               // Line remains in Exclusive state
               // Issue response to L1.
-              issue_msg(cl, l2_l1__rsp_q, msg);
+              issue_msg_to_queue(L2EgressQueue::L1RspQ, cl, ctxt, msg, tstate);
             } break;
             case L2CmdOpcode::L1Put: {
               const bool opt_silently_evict = false;
@@ -482,12 +499,12 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
                 msg->set_t(cmd->t());
                 msg->set_addr(cmd->addr());
                 msg->set_opcode(AceCmdOpcode::Evict);
-                issue_msg(cl, ctxt.l2cache()->l2_cc__cmd_q(), msg);
+                issue_msg_to_queue(L2EgressQueue::CCCmdQ, cl, ctxt, msg);
                 // Transition to Exclusive -> Invalid state; awaiting
                 // receipt of AceCmdRspMsg for the Evict.
                 issue_update_state(ctxt, cl, line, State::EI);
                 // Current command commits:
-                cl.push_back(cb::from_opcode(L2Opcode::StartTransaction));
+                cl.push_back(L2Opcode::StartTransaction);
               } else {
                 // Silently evict the cache line; line is clean with
                 // respect to memory therefore no writeback required.
@@ -506,7 +523,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
           // a NOP.
           L2CmdRspMsg* msg = Pool<L2CmdRspMsg>::construct();
           msg->set_t(cmd->t());
-          issue_msg(cl, l2_l1__rsp_q, msg);
+          issue_msg_to_queue(L2EgressQueue::L1RspQ, cl, ctxt, msg, tstate);
           // Consume and advance
           cl.next_and_do_consume(true);
         }
@@ -527,7 +544,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
               L2CmdRspMsg* msg = Pool<L2CmdRspMsg>::construct();
               msg->set_t(cmd->t());
               msg->set_is(true);
-              issue_msg(cl, l2_l1__rsp_q, msg);
+              issue_msg_to_queue(L2EgressQueue::L1RspQ, cl, ctxt, msg, tstate);
               // Current owner L1 relinqushes ownership.
               issue_del_owner(cl, line);
               // Add current requester to set of sharers for this
@@ -548,7 +565,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
               L2CmdRspMsg* msg = Pool<L2CmdRspMsg>::construct();
               msg->set_t(cmd->t());
               msg->set_is(false);
-              issue_msg(cl, l2_l1__rsp_q, msg);
+              issue_msg_to_queue(L2EgressQueue::L1RspQ, cl, ctxt, msg, tstate);
               // Invalidate L1 copies.
               issue_set_l1_invalid_except(cl, ctxt.addr(), tstate->l1cache());
               // Requester becomes owner
@@ -577,11 +594,11 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
                 msg->set_t(cmd->t());
                 msg->set_addr(cmd->addr());
                 msg->set_opcode(AceCmdOpcode::WriteBack);
-                issue_msg(cl, ctxt.l2cache()->l2_cc__cmd_q(), msg);
+                issue_msg_to_queue(L2EgressQueue::CCCmdQ, cl, ctxt, msg, tstate);
                 // Update state Modified -> Invalid
                 issue_update_state(ctxt, cl, line, State::MI);
                 // Current command commits:
-                cl.push_back(cb::from_opcode(L2Opcode::StartTransaction));
+                cl.push_back(L2Opcode::StartTransaction);
               } else {
                 // Retain line, but L1 is no longer an owner. Line is
                 // now orphaned and owned by the L2.
@@ -597,7 +614,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
           // Otherwise, requester is currently owner.
           L2CmdRspMsg* msg = Pool<L2CmdRspMsg>::construct();
           msg->set_t(cmd->t());
-          issue_msg(cl, l2_l1__rsp_q, msg);
+          issue_msg_to_queue(L2EgressQueue::L1RspQ, cl, ctxt, msg, tstate);
           // Consume and advance
           cl.next_and_do_consume(true);
         }
@@ -621,7 +638,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         L2CmdRspMsg* rsp = Pool<L2CmdRspMsg>::construct();
         rsp->set_t(msg->t());
         // Always sending to the zeroth L1
-        issue_msg(cl, l2_l1__rsp_q, rsp);
+        issue_msg_to_queue(L2EgressQueue::L1RspQ, cl, ctxt, rsp, tstate);
         // Compute final line state
         const bool is = msg->is(), pd = msg->pd();
         if (is && pd) {
@@ -635,7 +652,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
           issue_update_state(ctxt, cl, line, State::S);
         }
         // Transaction complete
-        cl.push_back(cb::from_opcode(L2Opcode::EndTransaction));
+        cl.push_back(L2Opcode::EndTransaction);
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
@@ -643,10 +660,10 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         // Transition to Exclusive state
         L2CmdRspMsg* rsp = Pool<L2CmdRspMsg>::construct();
         rsp->set_t(msg->t());
-        // Always sending to the zeroth L1
-        issue_msg(cl, l2_l1__rsp_q, rsp);
-        // Compute final line state
         rsp->set_is(false);
+        // Always sending to the zeroth L1
+        issue_msg_to_queue(L2EgressQueue::L1RspQ, cl, ctxt, rsp, tstate);
+        // Compute final line state
         if (msg->is()) {
           // Throw error cannot receive in the shared state.
         }
@@ -655,7 +672,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         const State next_state = msg->pd() ? State::O : State::E;
         issue_update_state(ctxt, cl, line, next_state);
         // Transaction complete
-        cl.push_back(cb::from_opcode(L2Opcode::EndTransaction));
+        cl.push_back(L2Opcode::EndTransaction);
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
@@ -666,11 +683,11 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         L2CmdRspMsg* rsp = Pool<L2CmdRspMsg>::construct();
         rsp->set_t(msg->t());
         // Always sending to the zeroth L1
-        issue_msg(cl, l2_l1__rsp_q, rsp);
+        issue_msg_to_queue(L2EgressQueue::L1RspQ, cl, ctxt, rsp, tstate);
 
         issue_update_state(ctxt, cl, line, State::E);
         // Transaction complete
-        cl.push_back(cb::from_opcode(L2Opcode::EndTransaction));
+        cl.push_back(L2Opcode::EndTransaction);
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
@@ -690,15 +707,15 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
             // response message is returned."
             L2CmdRspMsg* rsp = Pool<L2CmdRspMsg>::construct();
             rsp->set_t(msg->t());
-            issue_msg(cl, l2_l1__rsp_q, rsp);
+            issue_msg_to_queue(L2EgressQueue::L1RspQ, cl, ctxt, rsp, tstate);
 
             // Line becomes Invalid in the cache. The line is also
             // subsequently removed from the cache.
             issue_update_state(ctxt, cl, line, State::I);
-            cl.push_back(cb::from_opcode(L2Opcode::RemoveLine));
+            cl.push_back(L2Opcode::RemoveLine);
 
             // Transaction ends
-            cl.push_back(cb::from_opcode(L2Opcode::EndTransaction));
+            cl.push_back(L2Opcode::EndTransaction);
             // Consume and advance
             cl.next_and_do_consume(true);
           } break;
@@ -716,15 +733,15 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
             // response message is returned."
             L2CmdRspMsg* rsp = Pool<L2CmdRspMsg>::construct();
             rsp->set_t(msg->t());
-            issue_msg(cl, l2_l1__rsp_q, rsp);
+            issue_msg_to_queue(L2EgressQueue::L1RspQ, cl, ctxt, rsp, tstate);
 
             // Line becomes Invalid in the cache. The line is also
             // subsequently removed from the cache.
             issue_update_state(ctxt, cl, line, State::I);
-            cl.push_back(cb::from_opcode(L2Opcode::RemoveLine));
+            cl.push_back(L2Opcode::RemoveLine);
 
             // Transaction ends
-            cl.push_back(cb::from_opcode(L2Opcode::EndTransaction));
+            cl.push_back(L2Opcode::EndTransaction);
             // Consume and advance
             cl.next_and_do_consume(true);
           } break;
@@ -773,7 +790,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
               // TODO: update L1 states.
               // Demote line to S state.
               issue_update_state(ctxt, cl, line, State::I);
-              cl.push_back(cb::from_opcode(L2Opcode::RemoveLine));
+              cl.push_back(L2Opcode::RemoveLine);
             }
           } break;
           case State::S: {
@@ -808,7 +825,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
               rsp->set_wu(true);
 
               issue_update_state(ctxt, cl, line, State::I);
-              cl.push_back(cb::from_opcode(L2Opcode::RemoveLine));
+              cl.push_back(L2Opcode::RemoveLine);
 
               // Write-through cache, therefore immediately evict
               // lines from child L1 cache.
@@ -821,7 +838,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         }
         // Issue response to CC.
         L2CacheAgent* l2cache = ctxt.l2cache();
-        issue_msg(cl, l2cache->l2_cc__snprsp_q(), rsp);
+        issue_msg_to_queue(L2EgressQueue::CCSnpRspQ, cl, ctxt, rsp);
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
@@ -852,10 +869,10 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         }
         // Issue response to CC.
         L2CacheAgent* l2cache = ctxt.l2cache();
-        issue_msg(cl, l2cache->l2_cc__snprsp_q(), rsp);
+        issue_msg_to_queue(L2EgressQueue::CCSnpRspQ, cl, ctxt, rsp);
         // Final state is Invalid
         issue_update_state(ctxt, cl, line, State::I);
-        cl.push_back(cb::from_opcode(L2Opcode::RemoveLine));
+        cl.push_back(L2Opcode::RemoveLine);
         issue_set_l1_invalid_except(cl, ctxt.addr());
         // Consume and advance
         cl.next_and_do_consume(true);
@@ -894,10 +911,10 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
           } break;
         }
         // Issue response to CC.
-        issue_msg(cl, ctxt.l2cache()->l2_cc__snprsp_q(), rsp);
+        issue_msg_to_queue(L2EgressQueue::CCSnpRspQ, cl, ctxt, rsp);
         // Final state is Invalid
         issue_update_state(ctxt, cl, line, State::I);
-        cl.push_back(cb::from_opcode(L2Opcode::RemoveLine));
+        cl.push_back(L2Opcode::RemoveLine);
         issue_set_l1_invalid_except(cl, ctxt.addr());
         // Consume and advance
         cl.next_and_do_consume(true);
@@ -974,6 +991,76 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
       }
     }
     cl.push_back(cmd);
+  }
+
+  void issue_msg_to_queue(L2EgressQueue eq, L2CommandList& cl,
+                          L2CacheContext& ctxt, const Message* msg,
+                          L2TState* tstate = nullptr) const {
+    struct EmitMessageActionProxy : L2CoherenceAction {
+      EmitMessageActionProxy() = default;
+
+      std::string to_string() const override {
+        KVListRenderer r;
+        r.add_field("action", "emit message");
+        r.add_field("mq", mq_->path());
+        r.add_field("msg", msg_->to_string());
+        return r.to_string();
+      }
+
+      // Setters:
+      void set_eq(L2EgressQueue eq) { eq_ = eq; }
+      void set_mq(MessageQueueProxy* mq) { mq_ = mq; }
+      void set_msg(const Message* msg) { msg_ = msg; }
+
+      void set_resources(L2Resources& r) const override {
+        switch (eq_) {
+          case L2EgressQueue::CCCmdQ: {
+            r.set_cc_cmd_n(r.cc_cmd_n() + 1);
+          } break;
+          case L2EgressQueue::CCSnpRspQ: {
+            r.set_cc_snp_rsp_n(r.cc_snp_rsp_n() + 1);
+          } break;
+          case L2EgressQueue::L1RspQ: {
+            r.set_l1_rsp_n(r.l1_rsp_n() + 1);
+          } break;
+          default: {
+            // No resource requirement.
+          } break;
+        }
+      }
+      //
+      bool execute() override { return mq_->issue(msg_); }
+
+     private:
+      //
+      L2EgressQueue eq_ = L2EgressQueue::Invalid;
+      //
+      MessageQueueProxy* mq_ = nullptr;
+      //
+      const Message* msg_ = nullptr;
+    };
+    EmitMessageActionProxy* action = new EmitMessageActionProxy;
+    action->set_eq(eq);
+    action->set_msg(msg);
+    MessageQueueProxy* mq = nullptr;
+    switch (eq) {
+      case L2EgressQueue::CCCmdQ: {
+        mq = ctxt.l2cache()->l2_cc__cmd_q();
+      } break;
+      case L2EgressQueue::CCSnpRspQ: {
+        mq = ctxt.l2cache()->l2_cc__snprsp_q();
+      } break;
+      case L2EgressQueue::L1RspQ: {
+        mq = ctxt.l2cache()->l2_l1__rsp_q(tstate->l1cache());
+      } break;
+      default: {
+        LogMessage lm("Unknown Egress Queue: ");
+        lm.append(to_string(eq));
+        log(lm);
+      } break;
+    }
+    action->set_mq(mq);
+    cl.push_back(L2CommandBuilder::from_action(action));
   }
 };
 

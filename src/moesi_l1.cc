@@ -467,9 +467,10 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
   }
 
   void issue_msg_to_queue(L1EgressQueue eq, L1CommandList& cl,
-                          L1CacheContext & ctxt, const Message* msg) const {
+                          L1CacheContext& ctxt, const Message* msg) const {
     struct EmitMessageActionProxy : public L1CoherenceAction {
       EmitMessageActionProxy() = default;
+
       std::string to_string() const override {
         KVListRenderer r;
         r.add_field("action", "emit message");

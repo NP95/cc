@@ -618,7 +618,7 @@ class L1CacheAgent::MainProcess : public AgentProcess {
       // No transaction table entries available. Block Process until
       // sufficient space has been attained.
 
-      // Destroy prior CommandList and issue new command to block
+      // Destroy prior CommandList and pissue new command to block
       // current process.
       cl.clear();
 

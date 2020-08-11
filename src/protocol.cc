@@ -129,23 +129,9 @@ L1CacheAgentProtocol::L1CacheAgentProtocol(kernel::Kernel* k,
                                            const std::string& name)
     : Module(k, name) {}
 
-/*
-void L1CacheAgentProtocol::issue_msg(L1CommandList& cl, MessageQueueProxy* mq,
-                                     const Message* msg) const {
-  CoherenceAction* action = new EmitMessageActionProxy(mq, msg);
-  cl.push_back(L1CommandBuilder::from_action(action));
-}
-*/
-
 L2CacheAgentProtocol::L2CacheAgentProtocol(kernel::Kernel* k,
                                            const std::string& name)
     : Module(k, name) {}
-
-void L2CacheAgentProtocol::issue_msg(L2CommandList& cl, MessageQueueProxy* mq,
-                                     const Message* msg) const {
-  CoherenceAction* action = new EmitMessageActionProxy(mq, msg);
-  cl.push_back(L2CommandBuilder::from_action(action));
-}
 
 CCProtocol::CCProtocol(kernel::Kernel* k, const std::string& name)
     : Module(k, name) {}

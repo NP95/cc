@@ -155,7 +155,7 @@ L2Command* L2CommandBuilder::from_opcode(L2Opcode opcode) {
   return new L2Command(opcode);
 }
 
-L2Command* L2CommandBuilder::from_action(CoherenceAction* action) {
+L2Command* L2CommandBuilder::from_action(L2CoherenceAction* action) {
   L2Command* cmd = new L2Command(L2Opcode::InvokeCoherenceAction);
   cmd->oprands.action = action;
   return cmd;
@@ -167,13 +167,43 @@ L2CommandList::~L2CommandList() {
   }
 }
 
+void L2CommandList::push_back(L2Opcode opcode) {
+  push_back(L2CommandBuilder::from_opcode(opcode));
+}
+
 void L2CommandList::push_back(L2Command* cmd) { cmds_.push_back(cmd); }
 
 void L2CommandList::next_and_do_consume(bool do_consume) {
   if (do_consume) {
-    push_back(L2CommandBuilder::from_opcode(L2Opcode::MsgConsume));
+    push_back(L2Opcode::MsgConsume);
   }
-  push_back(L2CommandBuilder::from_opcode(L2Opcode::WaitNextEpoch));
+  push_back(L2Opcode::WaitNextEpoch);
+}
+
+void L2CommandList::clear() {
+  for (L2Command* cmd : cmds_) {
+    cmd->release();
+  }
+  cmds_.clear();
+}
+
+void L2Resources::build(const L2CommandList& cl) {
+  // Compute set of resources required for current Command List.
+  for (L2Command* cmd : cl) {
+    const L2Opcode opcode = cmd->opcode();
+    switch (opcode) {
+      case L2Opcode::StartTransaction: {
+        ++tt_entry_n_;
+      } break;
+      case L2Opcode::InvokeCoherenceAction: {
+        L2CoherenceAction* action = cmd->action();
+        action->set_resources(*this);
+      } break;
+      default: {
+        // No resources required
+      } break;
+    }
+  }
 }
 
 L2TState::L2TState(kernel::Kernel* k) {
@@ -307,7 +337,7 @@ class L2CommandInterpreter {
 
   void execute_invoke_coherence_action(L2CacheContext& ctxt,
                                        const L2Command* cmd) const {
-    CoherenceAction* action = cmd->action();
+    L2CoherenceAction* action = cmd->action();
     action->execute();
   }
 
@@ -377,7 +407,7 @@ class L2CacheAgent::MainProcess : public AgentProcess {
   void init() override {
     L2CacheContext c;
     L2CommandList cl;
-    cl.push_back(cb::from_opcode(L2Opcode::WaitOnMsg));
+    cl.push_back(L2Opcode::WaitOnMsg);
     execute(c, cl);
   }
 
@@ -395,7 +425,7 @@ class L2CacheAgent::MainProcess : public AgentProcess {
     // arrives at the arbiter. Process should ideally not wake in the
     // absence of requesters.
     if (!ctxt.t().has_requester()) {
-      cl.push_back(cb::from_opcode(L2Opcode::WaitOnMsg));
+      cl.push_back(L2Opcode::WaitOnMsg);
       execute(ctxt, cl);
       return;
     }
@@ -423,14 +453,13 @@ class L2CacheAgent::MainProcess : public AgentProcess {
       } break;
     }
 
-    if (can_execute(cl)) {
-      LogMessage lm("Execute message: ");
-      lm.append(ctxt.msg()->to_string());
-      lm.level(Level::Debug);
-      log(lm);
+    LogMessage lm("Execute message: ");
+    lm.append(ctxt.msg()->to_string());
+    lm.level(Level::Debug);
+    log(lm);
 
-      execute(ctxt, cl);
-    }
+    check_resources(ctxt, cl);
+    execute(ctxt, cl);
   }
 
   void set_cache_line_modified(addr_t addr) {
@@ -571,7 +600,31 @@ class L2CacheAgent::MainProcess : public AgentProcess {
     protocol->apply(ctxt, cl);
   }
 
-  bool can_execute(const L2CommandList& cl) const { return true; }
+  void check_resources(L2CacheContext& ctxt, L2CommandList& cl) const {
+    const L2Resources res(cl);
+
+    // Flag denoting that resource requirements have not been met.
+    bool fail = false;
+
+    L2TTable* tt = model_->tt();
+    if (!tt->has_at_least(res.tt_entry_n())) {
+      // Destory prior CommandList.
+      cl.clear();
+      // Message Queue becomes blocks awaiting the availability of an
+      // entry in the transaction table.
+      cl.push_back(L2Opcode::MqSetBlockedOnTable);
+      // Resource requirement not attained.
+      fail = true;
+    }
+
+    // On fail, inject WaitNextEpoch to retry.
+    //
+    // TODO: may wish to extend this with some cost which blocks the
+    // agent for some time. This would serve to model the lookup
+    // penalty associated with a failed transasction.
+    //
+    if (fail) { cl.push_back(L2Opcode::WaitNextEpoch); }
+  }
 
   void execute(L2CacheContext& ctxt, const L2CommandList& cl) {
     try {

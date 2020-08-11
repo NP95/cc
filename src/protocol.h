@@ -258,10 +258,6 @@ class L1CacheAgentProtocol : public kernel::Module {
   //
   virtual void set_line_shared_or_invalid(L1CacheContext& c, L1CommandList& cl,
                                           bool shared) const = 0;
-
- protected:
-  //  virtual void issue_msg(L1CommandList& cl, MessageQueueProxy* mq,
-  //                         const Message* msg) const;
 };
 
 //
@@ -318,10 +314,6 @@ class L2CacheAgentProtocol : public kernel::Module {
   //
   virtual void set_modified_status(L2CacheContext& ctxt,
                                    L2CommandList& cl) const = 0;
-
- protected:
-  virtual void issue_msg(L2CommandList& cl, MessageQueueProxy* mq,
-                         const Message* msg) const;
 };
 
 //

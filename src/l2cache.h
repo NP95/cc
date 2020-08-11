@@ -48,6 +48,7 @@ template <typename>
 class CacheModel;
 class CCModel;
 class L2TState;
+class L2CoherenceAction;
 
 //
 //
@@ -160,7 +161,7 @@ class L2Command {
   // Command opcode
   L2Opcode opcode() const { return opcode_; }
   // Command Coherence action
-  CoherenceAction* action() const { return oprands.action; }
+  L2CoherenceAction* action() const { return oprands.action; }
   // "Agent" keep out list.
   std::vector<L1CacheAgent*>& agents() { return oprands.agents; }
   const std::vector<L1CacheAgent*>& agents() const { return oprands.agents; }
@@ -174,7 +175,7 @@ class L2Command {
   //
   struct {
     addr_t addr;
-    CoherenceAction* action;
+    L2CoherenceAction* action;
     std::vector<L1CacheAgent*> agents;
   } oprands;
   //
@@ -187,7 +188,7 @@ class L2CommandBuilder {
  public:
   static L2Command* from_opcode(L2Opcode opcode);
 
-  static L2Command* from_action(CoherenceAction* action);
+  static L2Command* from_action(L2CoherenceAction* action);
 };
 
 //
@@ -204,7 +205,13 @@ class L2CommandList {
   const_iterator begin() const { return cmds_.begin(); }
   const_iterator end() const { return cmds_.end(); }
 
-  //
+  // Clear (and destroy) all commands contained in the list.
+  void clear();
+
+  // Push opcode (also construct the associated command object).
+  void push_back(L2Opcode opcode);
+
+  // Push command object.
   void push_back(L2Command* cmd);
 
   // Consume current message and advance agent to next simulation
@@ -214,6 +221,55 @@ class L2CommandList {
  private:
   // Command List
   std::vector<L2Command*> cmds_;
+};
+
+//
+//
+class L2Resources {
+ public:
+  L2Resources(const L2CommandList& cl) { build(cl); }
+
+  // Accessors:
+  std::size_t tt_entry_n() const { return tt_entry_n_; }
+  std::size_t cc_cmd_n() const { return cc_cmd_n_; }
+  std::size_t cc_snp_rsp_n() const { return cc_snp_rsp_n_; }
+  std::size_t l1_rsp_n() const { return l1_rsp_n_; }
+
+  // Setters:
+  void set_tt_entry_n(std::size_t tt_entry_n) { tt_entry_n_ = tt_entry_n; }
+  void set_cc_cmd_n(std::size_t cc_cmd_n) { cc_cmd_n_ = cc_cmd_n; }
+  void set_cc_snp_rsp_n(std::size_t cc_snp_rsp_n) { cc_snp_rsp_n_ = cc_snp_rsp_n; }
+  void set_l1_rsp_n(std::size_t l1_rsp_n) { l1_rsp_n_ = l1_rsp_n; }
+
+ private:
+  void build(const L2CommandList& cl);
+
+  // Transaction Table entry.
+  std::size_t tt_entry_n_ = 0;
+  // Cache Controller Command Queue 
+  std::size_t cc_cmd_n_ = 0;
+  // Cache Controller Snoop Response Queue
+  std::size_t cc_snp_rsp_n_ = 0;
+  // L1 Response Queue.
+  std::size_t l1_rsp_n_ = 0;
+};
+
+//
+//
+class L2CoherenceAction {
+ public:
+  virtual std::string to_string() const = 0;
+
+  // Set Resources object for current action.
+  virtual void set_resources(L2Resources& r) const {}
+  
+  // Invoke/Execute coherence action
+  virtual bool execute() = 0;
+
+  virtual void release() { delete this; }
+
+ protected:
+  virtual ~L2CoherenceAction() = default;
 };
 
 //
