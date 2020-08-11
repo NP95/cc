@@ -160,6 +160,10 @@ class CCResources {
   std::size_t coh_cmd_n(const Agent* agent) const;
   std::size_t dt_n(const Agent* agent) const;
 
+  const key_map& coh_srt() const { return coh_srt_; }
+  const key_map& coh_cmd() const { return coh_cmd_; }
+  const key_map& dt() const { return dt_; }
+
   // Setters:
   void set_noc_credit_n(std::size_t noc_credit_n) { noc_credit_n_ = noc_credit_n; }
   void set_cmd_q_n(std::size_t cmd_q_n) { cmd_q_n_ = cmd_q_n; }
@@ -406,6 +410,8 @@ class CCModel : public Agent {
   class SnpProcess;
 
  public:
+  using ccntr_map = std::map<const Agent*, CreditCounter*>;
+
   CCModel(kernel::Kernel* k, const CCConfig& config);
   ~CCModel();
 
@@ -427,6 +433,10 @@ class CCModel : public Agent {
   DirMapper* dm() const { return dm_; }
   // L2 cache model
   L2CacheAgent* l2c() const { return l2c_; }
+  // Credit Counters
+  const std::map<MessageClass, ccntr_map>& ccntrs_map() const {
+    return ccntrs_map_;
+  }
 
  protected:
   // Accessors:
@@ -456,6 +466,9 @@ class CCModel : public Agent {
   void set_cc_l2__cmd_q(MessageQueueProxy* mq);
   // Set CC -> L2 response queue
   void set_cc_l2__rsp_q(MessageQueueProxy* mq);
+  // Register credit counter for MessageClass 'cls' in Agent 'agent' with
+  // an initial value of 'n' credits.
+  void register_credit_counter(MessageClass cls, Agent* dest, std::size_t n);
   // Transaction table
   CCTTable* tt() const { return tt_; }
   //
@@ -485,6 +498,8 @@ class CCModel : public Agent {
   MessageQueue* cc_cc__rsp_q_ = nullptr;
   // {LLC, CC} -> CC Data (dt) queue
   MessageQueue* cc__dt_q_ = nullptr;
+  // Agent credit counters (keyed on Message class)
+  std::map<MessageClass, ccntr_map> ccntrs_map_;
   // Queue selection arbiter
   MQArb* arb_ = nullptr;
   // Snoop Queue Selection Arbiter instance

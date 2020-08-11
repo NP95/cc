@@ -688,6 +688,7 @@ class MOESICCProtocol : public CCProtocol {
 
       void set_mq(MessageQueueProxy* mq) { mq_ = mq; }
       void set_msg(const NocMsg* msg) { msg_ = msg; }
+      void set_cc(const CCModel* cc) { cc_ = cc; }
 
       void set_resources(CCResources& r) const override {
         // Always require a NOC credit.
@@ -719,13 +720,38 @@ class MOESICCProtocol : public CCProtocol {
         }
       }
 
-      bool execute() override { return mq_->issue(msg_); }
+      bool execute() override {
+        // If a credit counter exists for at the destination for the current
+        // MessageClass, deduct one credit, otherwise ignore.
+        const Message* payload = msg_->payload();
+        // Lookup counter map for current message class.
+        const auto& cntrs_map = cc_->ccntrs_map();
+        if (auto ccntr_map_it = cntrs_map.find(payload->cls());
+            ccntr_map_it != cntrs_map.end()) {
+          // Lookup map to determine if a credit counter for the
+          // destination agent is present.
+          const CCModel::ccntr_map& agent_counter = ccntr_map_it->second;
+          if (auto it = agent_counter.find(msg_->dest());
+              it != agent_counter.end()) {
+            // Credit counter is present, therefore deduct a credit before
+            // message is issued.
+            CreditCounter* cc = it->second;
+            cc->debit();
+          }
+          // Otherwise, no credit counter can be found for the current
+          // { MessageClass, Agent* } pair, therefore disregard.
+        }
+        // Issue message to queue.
+        return mq_->issue(msg_);
+      }
 
      private:
       // Message to issue to NOC.
       const NocMsg* msg_ = nullptr;
       // Destination Message Queue
       MessageQueueProxy* mq_ = nullptr;
+      // Cache controller model
+      const CCModel* cc_ = nullptr;
     };
     // Encapsulate message in NOC transport protocol.
     NocMsg* nocmsg = new NocMsg;
@@ -738,6 +764,7 @@ class MOESICCProtocol : public CCProtocol {
         new EmitMessageToNocAction;
     action->set_mq(ctxt.cc()->cc_noc__msg_q());
     action->set_msg(nocmsg);
+    action->set_cc(ctxt.cc());
     cl.push_back(action);
   }
 };

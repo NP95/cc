@@ -185,6 +185,39 @@ class TransactionTable : public Table<const Transaction*, STATE> {
       : Table<const Transaction*, STATE>(k, name, n) {}
 };
 
+//
+//
+class CreditCounter : public kernel::Module {
+ public:
+  CreditCounter(kernel::Kernel* k, const std::string& name);
+  ~CreditCounter();
+
+  // Accessors:
+  // Credit capacity
+  std::size_t n() const { return n_; }
+  // Credit count
+  std::size_t i() const { return i_; }
+  // Credit "credited" event.
+  kernel::Event* credit_event() const { return credit_event_; }
+
+  // Setters:
+  // Set credit capacity
+  void set_n(std::size_t n) { n_ = n; set_i(n); }
+  // Set credit count
+  void set_i(std::size_t i) { i_ = i; }
+
+  // Credit counter
+  void credit();
+  // Debit counter
+  void debit();
+
+ private:
+  // Credit "credited" event.
+  kernel::Event* credit_event_ = nullptr;
+  // Credit counter.
+  std::size_t n_ = 0, i_ = 0;
+};
+
 }  // namespace cc
 
 #endif

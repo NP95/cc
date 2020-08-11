@@ -389,7 +389,70 @@ class CCModel::RdisProcess : public AgentProcess {
   }
 
   bool check_resources(const CCCommandList& cl) const {
-    return true;
+    const CCResources res(cl);
+
+    MessageQueueProxy* mq = nullptr;
+    
+    // Flag denoting whether resource requirement has been attained.
+    bool has_resources = true;
+
+    // Check NOC (if applicable)
+    mq = model_->cc_noc__msg_q();
+    if (has_resources && !mq->has_at_least(res.noc_credit_n())) {
+      // Resources not attained.
+      has_resources = false;
+    }
+
+    // Check L2 Command Queue
+    mq = model_->cc_l2__cmd_q();
+    if (has_resources && !mq->has_at_least(res.cmd_q_n())) {
+      // Resources not attained.
+      has_resources = false;
+    }
+
+    // Check L2 Response Queue
+    mq = model_->cc_l2__rsp_q();
+    if (has_resources && !mq->has_at_least(res.rsp_q_n())) {
+      // Resources not attained.
+      has_resources = false;
+    }
+
+    // Check if the credit counter for agent 'agent' has at least 'n'
+    // credits.
+    auto check_credits = [&](const CCModel::ccntr_map& ccntrs,
+                             const Agent* agent, std::size_t n) -> bool {
+      bool success = true;
+      // If a credit exists for the destination agent, credit count
+      // requirement must be attained, otherwise the requirement is ignored.
+      if (auto it = ccntrs.find(agent); it != ccntrs.end()) {
+        CreditCounter* cc = it->second;
+        success = (cc->i() >= n);
+      }
+      return success;
+    };
+
+    auto check_credit_counter = [&](MessageClass cls, const auto& res) {
+      if (!has_resources) return;
+
+      auto& ccntrs_map = model_->ccntrs_map();
+      if (auto it = ccntrs_map.find(cls); it != ccntrs_map.end()) {
+        for (const auto& resp : res) {
+          if (!check_credits(it->second, resp.first, resp.second)) {
+            has_resources = false;
+            break;
+          }
+        }
+      }
+    };
+    
+    // Check Coherence Start Command credits
+    check_credit_counter(MessageClass::CohSrt, res.coh_srt());
+    // Check Coherence Command credits
+    check_credit_counter(MessageClass::CohCmd, res.coh_cmd());
+    // Check Data Transfer credits
+    check_credit_counter(MessageClass::Dt, res.dt());
+
+    return has_resources;
   }
 
   void execute(CCContext& ctxt, const CCCommandList& cl) {
@@ -734,8 +797,11 @@ CCModel::~CCModel() {
   delete protocol_;
   delete cc_l2__rsp_q_;
   delete cc_noc__msg_q_;
-  for (MessageQueueProxy* p : endpoints_) {
-    delete p;
+  for (MessageQueueProxy* p : endpoints_) { delete p; }
+  for (const auto& class_map : ccntrs_map_) {
+    for (const auto& agent_counter : class_map.second) {
+      delete agent_counter.second;
+    }
   }
 }
 
@@ -842,6 +908,18 @@ void CCModel::set_cc_l2__cmd_q(MessageQueueProxy* mq) {
 void CCModel::set_cc_l2__rsp_q(MessageQueueProxy* mq) {
   cc_l2__rsp_q_ = mq;
   add_child_module(cc_l2__rsp_q_);
+}
+
+//
+void CCModel::register_credit_counter(MessageClass cls, Agent* dest,
+                                      std::size_t n) {
+  const std::string name = dest->path() + to_string(cls);
+  // Construct new credit counter.
+  CreditCounter* cc = new CreditCounter(k(), name);
+  cc->set_n(n);
+  add_child_module(cc);
+  // Install credit counter.
+  ccntrs_map_[cls].insert(std::make_pair(dest, cc));
 }
 
 //

@@ -215,4 +215,46 @@ void AgentProcess::invoke_eval() {
 
 Agent::Agent(kernel::Kernel* k, const std::string& name) : Module(k, name) {}
 
+CreditCounter::CreditCounter(kernel::Kernel* k, const std::string& name)
+    : Module(k, name) {
+  credit_event_ = new kernel::Event(k, "credit_event");
+  add_child(credit_event_);
+}
+
+CreditCounter::~CreditCounter() {
+  delete credit_event_;
+}
+
+void CreditCounter::credit() {
+  using std::to_string;
+
+  if (i_ >= n_) {
+    LogMessage msg("Credit overflow: ");
+    KVListRenderer r;
+    r.add_field("i", to_string(i()));
+    r.add_field("n", to_string(n()));
+    msg.append(r.to_string());
+    msg.level(Level::Fatal);
+    log(msg);
+  }
+  // Add credit
+  ++i_;
+  // Notify awaitees
+  credit_event_->notify();
+}
+
+void CreditCounter::debit() {
+  if (i_ == 0) {
+    LogMessage msg("Credit underflow: ");
+    KVListRenderer r;
+    r.add_field("i", to_string(i()));
+    r.add_field("n", to_string(n()));
+    msg.append(r.to_string());
+    msg.level(Level::Fatal);
+    log(msg);
+  }
+  // Deduct credit
+  --i_;
+}
+
 }  // namespace cc
