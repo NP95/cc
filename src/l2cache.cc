@@ -718,13 +718,14 @@ void L2CacheAgent::build() {
   add_child_module(protocol_);
 }
 
-void L2CacheAgent::elab() {
+bool L2CacheAgent::elab() {
   // Add command queues to arbiter
   arb_->add_requester(cc_l2__cmd_q_);
   arb_->add_requester(cc_l2__rsp_q_);
   for (MessageQueue* msgq : l1_l2__cmd_qs_) {
     arb_->add_requester(msgq);
   }
+  return false;
 }
 
 void L2CacheAgent::set_l2_cc__cmd_q(MessageQueue* mq) {

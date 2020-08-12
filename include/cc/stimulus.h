@@ -141,7 +141,7 @@ class TraceStimulus : public Stimulus {
 
   // Phases
   void build();
-  void elab() override;
+  bool elab() override;
   void drc() override;
 
   // Stimulus: 

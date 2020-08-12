@@ -244,7 +244,7 @@ void MemCntrlModel::register_agent(Agent* agent) {
   rdis_mq_.insert(std::make_pair(agent, mq));
 }
 
-void MemCntrlModel::elab() {
+bool MemCntrlModel::elab() {
   for (const std::pair<Agent*, MessageQueue*>& pp : rdis_mq_) {
     MessageQueue* mq = pp.second;
     rdis_arb_->add_requester(mq);
@@ -253,6 +253,8 @@ void MemCntrlModel::elab() {
   for (const std::pair<Agent*, MessageQueue*> pp : rdis_mq_) {
     noc_endpoint_->register_agent(pp.first, pp.second);
   }
+
+  return false;
 }
 
 void MemCntrlModel::set_mem_noc__msg_q(MessageQueue* mq) {

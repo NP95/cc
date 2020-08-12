@@ -59,14 +59,14 @@ class CpuCluster : public Agent {
   // Construction
   void build();
   // Elaboration
-  void elab();
+  bool elab() override;
   // Set CC -> NOC message queue instance (NOC owned)
   void set_cc_noc__msg_q(MessageQueue* mq);
   // Set directory mapper
   void set_dm(DirMapper* dm);
 
   // Design Rule Check (DRC)
-  void drc();
+  void drc() override;
 
   //
   CCModel* cc_ = nullptr;

@@ -136,7 +136,7 @@ class MemCntrlModel : public Agent {
   void register_agent(Agent* agent);
 
   // Elaboration
-  void elab() override;
+  bool elab() override;
   //
   void set_mem_noc__msg_q(MessageQueue* mq);
 

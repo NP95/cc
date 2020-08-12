@@ -137,7 +137,7 @@ class NocModel : public Agent {
   void register_agent(Agent* agent);
 
   // Elaboration Phase
-  virtual void elab() override;
+  bool elab() override;
 
   // Design Rule Check Phase
   virtual void drc() override;

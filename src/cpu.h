@@ -76,8 +76,6 @@ class Cpu : public Agent {
   // Set CPU instance stimulus context
   void set_stimulus(StimulusContext* stimulus);
 
-  // Elaboration:
-  void elab() override;
   // Set parent L1 cache instance.
   void set_l1c(L1CacheAgent* l1c) { l1c_ = l1c; }
   // Set CPU -> L1 command queue

@@ -211,7 +211,7 @@ enum class TStateAction { Invalid, SetSnoopN, IncSnoopN, IncDt };
 
 //
 //
-struct TStateUpdateAction : public CoherenceAction {
+struct TStateUpdateAction : public DirCoherenceAction {
   TStateUpdateAction(DirTState* tstate, TStateAction action)
       : tstate_(tstate), action_(action) {}
   std::string to_string() const override {
@@ -269,7 +269,7 @@ struct TStateUpdateAction : public CoherenceAction {
 
 //
 //
-struct LineUpdateAction : public CoherenceAction {
+struct LineUpdateAction : public DirCoherenceAction {
   LineUpdateAction(LineState* line, LineUpdate update)
       : line_(line), update_(update) {}
 
@@ -394,7 +394,7 @@ class MOESIDirProtocol : public DirProtocol {
     // Issue command message response (returns credit).
     CohCmdRspMsg* rsp = new CohCmdRspMsg;
     rsp->set_t(msg->t());
-    issue_emit_to_noc(ctxt, cl, rsp, msg->origin());
+    issue_msg_to_noc(ctxt, cl, rsp, msg->origin());
 
     //
     const State state = line->state();
@@ -408,7 +408,7 @@ class MOESIDirProtocol : public DirProtocol {
         cmd->set_addr(msg->addr());
 
         // Issue Fill command to LLC.
-        issue_emit_to_noc(ctxt, cl, cmd, ctxt.dir()->llc());
+        issue_msg_to_noc(ctxt, cl, cmd, ctxt.dir()->llc());
         // Originator becomes owner.
         issue_set_owner(ctxt, cl, msg->origin());
         // Update state
@@ -431,7 +431,7 @@ class MOESIDirProtocol : public DirProtocol {
             cmd->set_opcode(LLCCmdOpcode::PutLine);
             cmd->set_addr(tstate->addr());
             cmd->set_agent(tstate->origin());
-            issue_emit_to_noc(ctxt, cl, cmd, ctxt.dir()->llc());
+            issue_msg_to_noc(ctxt, cl, cmd, ctxt.dir()->llc());
             // Requester now becomes a sharer.
             issue_add_sharer(ctxt, cl, msg->origin());
             issue_update_substate(ctxt, cl, SubState::AwaitingLLCFwdRsp);
@@ -464,7 +464,7 @@ class MOESIDirProtocol : public DirProtocol {
             // ReadShared; owning agent can relinquish the line or
             // retain it in the shared state.
             snp->set_opcode(AceSnpOpcode::ReadShared);
-            issue_emit_to_noc(ctxt, cl, snp, line->owner());
+            issue_msg_to_noc(ctxt, cl, snp, line->owner());
 
             // Issue one snoop; therefore await one snoop response
             issue_set_snoop_n(ctxt, cl, 1);
@@ -491,7 +491,7 @@ class MOESIDirProtocol : public DirProtocol {
             snp->set_agent(msg->origin());
 
             snp->set_opcode(AceSnpOpcode::ReadUnique);
-            issue_emit_to_noc(ctxt, cl, snp, line->owner());
+            issue_msg_to_noc(ctxt, cl, snp, line->owner());
 
             issue_update_state(ctxt, cl, State::EE);
             issue_update_substate(ctxt, cl, SubState::AwaitingCohSnpRsp);
@@ -508,7 +508,7 @@ class MOESIDirProtocol : public DirProtocol {
             end->set_t(msg->t());
             // No data transfer associated with Evict transaction.
             end->set_dt_n(0);
-            issue_emit_to_noc(ctxt, cl, end, msg->origin());
+            issue_msg_to_noc(ctxt, cl, end, msg->origin());
 
             // Line becomes idle.
             issue_update_state(ctxt, cl, State::I);
@@ -526,7 +526,7 @@ class MOESIDirProtocol : public DirProtocol {
             CohEndMsg* end = new CohEndMsg;
             end->set_t(msg->t());
             end->set_dt_n(0);
-            issue_emit_to_noc(ctxt, cl, end, msg->origin());
+            issue_msg_to_noc(ctxt, cl, end, msg->origin());
             // Line becomes idle.
             issue_update_state(ctxt, cl, State::I);
             cl.push_back(cb::from_opcode(DirOpcode::RemoveLine));
@@ -561,7 +561,7 @@ class MOESIDirProtocol : public DirProtocol {
               snp->set_origin(ctxt.dir());
               snp->set_agent(msg->origin());
               snp->set_opcode(to_snp_opcode(opcode));
-              issue_emit_to_noc(ctxt, cl, snp, agent);
+              issue_msg_to_noc(ctxt, cl, snp, agent);
               snoop_n++;
             }
 
@@ -606,7 +606,7 @@ class MOESIDirProtocol : public DirProtocol {
             DirTState* tstate = ctxt.tstate();
             cmd->set_addr(tstate->addr());
             cmd->set_agent(tstate->origin());
-            issue_emit_to_noc(ctxt, cl, cmd, ctxt.dir()->llc());
+            issue_msg_to_noc(ctxt, cl, cmd, ctxt.dir()->llc());
             cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
 
             issue_update_substate(ctxt, cl, SubState::AwaitingLLCFwdRsp);
@@ -621,7 +621,7 @@ class MOESIDirProtocol : public DirProtocol {
             end->set_t(msg->t());
             end->set_origin(ctxt.dir());
             end->set_dt_n(1);
-            issue_emit_to_noc(ctxt, cl, end, line->owner());
+            issue_msg_to_noc(ctxt, cl, end, line->owner());
             const State next_state =
                 (line->state() == State::IS) ? State::S : State::E;
             issue_update_state(ctxt, cl, next_state);
@@ -643,7 +643,7 @@ class MOESIDirProtocol : public DirProtocol {
             end->set_t(msg->t());
             end->set_origin(ctxt.dir());
             end->set_dt_n(1);
-            issue_emit_to_noc(ctxt, cl, end, ctxt.tstate()->origin());
+            issue_msg_to_noc(ctxt, cl, end, ctxt.tstate()->origin());
             issue_update_state(ctxt, cl, State::S);
             // Return to stable/non-transient state.
             issue_update_substate(ctxt, cl, SubState::None);
@@ -709,7 +709,7 @@ class MOESIDirProtocol : public DirProtocol {
                   tstate->dt_i() + (msg->dt() ? 1 : 0);
               end->set_dt_n(final_dt_n);
 
-              issue_emit_to_noc(ctxt, cl, end, tstate->origin());
+              issue_msg_to_noc(ctxt, cl, end, tstate->origin());
 
               // Transaction is complete once overall transaction
               // response has been computed.
@@ -784,7 +784,7 @@ class MOESIDirProtocol : public DirProtocol {
             }
             issue_update_state(ctxt, cl, next_state);
 
-            issue_emit_to_noc(ctxt, cl, end, tstate->origin());
+            issue_msg_to_noc(ctxt, cl, end, tstate->origin());
 
             cl.push_back(cb::from_opcode(DirOpcode::EndTransaction));
             // Consume and advance
@@ -835,7 +835,7 @@ class MOESIDirProtocol : public DirProtocol {
             issue_update_state(ctxt, cl, next_state);
 
             // Issue completed response to the requester.
-            issue_emit_to_noc(ctxt, cl, end, tstate->origin());
+            issue_msg_to_noc(ctxt, cl, end, tstate->origin());
 
             // Transaction ends at this point, as the final state of
             // the line is now known. The requesters cache controller
@@ -913,6 +913,93 @@ class MOESIDirProtocol : public DirProtocol {
     TStateUpdateAction* action =
         new TStateUpdateAction(ctxt.tstate(), TStateAction::IncDt);
     cl.push_back(cb::from_action(action));
+  }
+
+  void issue_msg_to_noc(DirContext& ctxt, DirCommandList& cl,
+                        const Message* msg, Agent* dest) const {
+    struct EmitMessageToNocAction : DirCoherenceAction {
+      EmitMessageToNocAction() = default;
+
+      std::string to_string() const override {
+        KVListRenderer r;
+        r.add_field("action", "emit message to noc");
+        r.add_field("mq", mq_->path());
+        r.add_field("msg", msg_->to_string());
+        return r.to_string();
+      }
+
+      void set_mq(MessageQueue* mq) { mq_ = mq; }
+      void set_msg(const NocMsg* msg) { msg_ = msg; }
+      void set_dir(const DirModel* dir) { dir_ = dir; }
+
+      void set_resources(DirResources& r) const override {
+
+        // Always require a NOC credit.
+        r.set_noc_credit_n(r.noc_credit_n() + 1);
+
+        const Agent* dest = msg_->dest();
+        const Message* payload = msg_->payload();
+        switch (payload->cls()) {
+          case MessageClass::CohSnp: {
+            r.set_coh_snp_n(dest, r.coh_snp_n(dest) + 1);
+          } break;
+          default: {
+            // No resources required;
+            //
+            // DtRsp, CohSnpRsp are assumed to either have resources
+            // reserved upon issue of their originator commands (Dt,
+            // CohSnp), or are otherwise guarenteed to make forward
+            // progress.
+          } break;
+        }
+      }
+
+      bool execute() override {
+        // If a credit counter exists for at the destination for the current
+        // MessageClass, deduct one credit, otherwise ignore.
+        const Message* payload = msg_->payload();
+        // Lookup counter map for current message class.
+        const auto& cntrs_map = dir_->ccntrs_map();
+        if (auto ccntr_map_it = cntrs_map.find(payload->cls());
+            ccntr_map_it != cntrs_map.end()) {
+          // Lookup map to determine if a credit counter for the
+          // destination agent is present.
+          const auto& agent_counter = ccntr_map_it->second;
+          if (auto it = agent_counter.find(msg_->dest());
+              it != agent_counter.end()) {
+            // Credit counter is present, therefore deduct a credit before
+            // message is issued.
+            CreditCounter* cc = it->second;
+            cc->debit();
+          }
+          // Otherwise, no credit counter can be found for the current
+          // { MessageClass, Agent* } pair, therefore disregard.
+        }
+        // Issue message to queue.
+        return mq_->issue(msg_);
+      }
+
+     private:
+      // Message to issue to NOC.
+      const NocMsg* msg_ = nullptr;
+      // Destination Message Queue
+      MessageQueue* mq_ = nullptr;
+      // Cache controller model
+      const DirModel* dir_ = nullptr;
+    };
+    // Encapsulate message in NOC transport protocol.
+    NocMsg* nocmsg = new NocMsg;
+    nocmsg->set_t(msg->t());
+    nocmsg->set_payload(msg);
+    nocmsg->set_origin(ctxt.dir());
+    nocmsg->set_dest(dest);
+    // Issue Message Emit action.
+    EmitMessageToNocAction* action =
+        new EmitMessageToNocAction;
+    action->set_mq(ctxt.dir()->dir_noc__msg_q());
+    action->set_msg(nocmsg);
+    action->set_dir(ctxt.dir());
+    cl.push_back(action);
   }
 };
 

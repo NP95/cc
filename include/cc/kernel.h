@@ -391,8 +391,9 @@ class Module : public ProcessHost {
  public:
   virtual ~Module();
 
-  // Invoke elaboration.
-  virtual void elab() {}
+  // Invoke elaboration. Returns true if requests a repeated
+  // invocation.
+  virtual bool elab() { return false; }
   // Run Design Rule Check.
   virtual void drc() {}
 

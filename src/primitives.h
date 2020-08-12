@@ -65,7 +65,7 @@ template <typename T>
 class Queue : public kernel::Module {
  public:
   Queue(kernel::Kernel* k, const std::string& name, std::size_t n)
-      : kernel::Module(k, name), n_(n) {
+      : kernel::Module(k, name) {
     ts_.resize(n);
     reset_state();
 
@@ -82,7 +82,7 @@ class Queue : public kernel::Module {
   }
 
   // The capacity of the queue.
-  std::size_t n() const { return n_; }
+  std::size_t n() const { return ts_.size(); }
   // The number of free entries in the queue.
   std::size_t free() const { return n() - size(); }
   // The occupancy of the queue.
@@ -112,7 +112,7 @@ class Queue : public kernel::Module {
     if (empty()) non_empty_event_->notify();
 
     empty_ = false;
-    full_ = (++size_ == n_);
+    full_ = (++size_ == n());
 
     enqueue_event_->notify();
     return true;
@@ -157,10 +157,15 @@ class Queue : public kernel::Module {
     rd_ptr_ = 0;
     size_ = 0;
   }
-  
-  bool full_, empty_;
-  std::size_t wr_ptr_, rd_ptr_;
-  std::size_t n_, size_;
+
+  // Occupancy flags.
+  bool full_ = false, empty_ = true;
+  // Write and read pointer
+  std::size_t wr_ptr_ = 0, rd_ptr_ = 0;
+  // Total number of entries in the queue; some integer smaller than
+  // or equal to the total capacity of the queue.
+  std::size_t size_;
+  // Underlying queue state.
   std::vector<T> ts_;
 
   kernel::Event* enqueue_event_ = nullptr;
@@ -256,7 +261,7 @@ class Arbiter : public kernel::Module {
     add_child(request_arrival_event_);
   }
 
-  void elab() override {
+  bool elab() override {
     if (!ts_.empty()) {
       // Construct EventOr denoting the event which is notified when the
       // arbiter goes from having no requestors to having non-zero
@@ -270,6 +275,7 @@ class Arbiter : public kernel::Module {
                            Level::Error};
       log(msg);
     }
+    return false;
   }
 
   void drc() override {}

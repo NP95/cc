@@ -193,8 +193,6 @@ void Cpu::set_stimulus(StimulusContext* stimulus) {
   add_child_process(cp_);
 }
 
-void Cpu::elab() {}
-
 void Cpu::set_cpu_l1__cmd_q(MessageQueue* mq) {
   cpu_l1__cmd_q_ = mq;
   add_child_module(cpu_l1__cmd_q_);

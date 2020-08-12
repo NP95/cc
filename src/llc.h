@@ -144,7 +144,7 @@ class LLCModel : public Agent {
   void register_cc(CpuCluster* cc);
 
   // Elaboration
-  void elab() override;
+  bool elab() override;
   // NOC -> LLC message queue
   void set_llc_noc__msg_q(MessageQueue* mq);
   // Set memory controller.

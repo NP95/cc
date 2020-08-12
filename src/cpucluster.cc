@@ -84,7 +84,7 @@ void CpuCluster::build() {
 }
 
 //
-void CpuCluster::elab() {
+bool CpuCluster::elab() {
   // Elabration occurs top-down; therefore ensure that all agents are
   // Bind Cache Controller to L2 instanceappropriately bound before an
   // attempt is made to elaborate down the hierarchy.
@@ -129,6 +129,8 @@ void CpuCluster::elab() {
     MessageQueue* l1_cpu__rsp_q = cpu->l1_cpu__rsp_q();
     l1c->set_l1_cpu__rsp_q(l1_cpu__rsp_q);
   }
+
+  return false;
 }
 
 //

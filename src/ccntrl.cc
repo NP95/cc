@@ -900,7 +900,7 @@ void CCModel::build() {
 
 //
 //
-void CCModel::elab() {
+bool CCModel::elab() {
   // Add ingress queues to arbitrator.
   arb_->add_requester(l2_cc__cmd_q_);
   arb_->add_requester(dir_cc__rsp_q_);
@@ -920,6 +920,8 @@ void CCModel::elab() {
   noc_endpoint_->register_endpoint(MessageClass::CohSnp, dir_cc__snpcmd_q_);
   noc_endpoint_->register_endpoint(MessageClass::AceSnoopRsp, l2_cc__snprsp_q_);
   noc_endpoint_->register_endpoint(MessageClass::DtRsp, cc_cc__rsp_q_);
+
+  return false;
 }
 
 // Set CC -> NOC message queue

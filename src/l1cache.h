@@ -473,7 +473,7 @@ class L1CacheAgent : public Agent {
   void build();
 
   // Elaboration Phase:
-  virtual void elab() override;
+  bool elab() override;
   // Set parent L2Cache (Elaboration-Phase)
   void set_l2cache(L2CacheAgent* l2cache) { l2cache_ = l2cache; }
   // Set CPU (Elaboration-Phase)

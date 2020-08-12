@@ -54,6 +54,8 @@ const char* to_string(DirOpcode opcode) {
       return "MqSetBlockedOnTransaction";
     case DirOpcode::MqSetBlockedOnTable:
       return "MqSetBlockedOnTable";
+    case DirOpcode::MqSetBlockedOnEvt:
+      return "MqSetBlockedOnEvt";
     case DirOpcode::InvokeCoherenceAction:
       return "InvokeCoherenceAction";
     case DirOpcode::WaitOnMsg:
@@ -70,7 +72,7 @@ const char* to_string(DirOpcode opcode) {
 DirCommand::~DirCommand() {
   switch (opcode()) {
     case DirOpcode::InvokeCoherenceAction:
-      oprands.coh.action->release();
+      oprands.action->release();
       break;
     default:
       break;
@@ -82,7 +84,7 @@ std::string DirCommand::to_string() const {
   r.add_field("opcode", cc::to_string(opcode()));
   switch (opcode()) {
     case DirOpcode::InvokeCoherenceAction: {
-      r.add_field("action", oprands.coh.action->to_string());
+      r.add_field("action", oprands.action->to_string());
     } break;
     default: {
     } break;
@@ -94,13 +96,33 @@ DirCommand* DirCommandBuilder::from_opcode(DirOpcode opcode) {
   return new DirCommand(opcode);
 }
 
-DirCommand* DirCommandBuilder::from_action(CoherenceAction* action) {
+DirCommand* DirCommandBuilder::from_action(DirCoherenceAction* action) {
   DirCommand* cmd = new DirCommand(DirOpcode::InvokeCoherenceAction);
-  cmd->oprands.coh.action = action;
+  cmd->oprands.action = action;
+  return cmd;
+}
+
+DirCommand* DirCommandBuilder::build_blocked_on_event(MessageQueue* mq,
+                                                      kernel::Event* e) {
+  DirCommand* cmd = new DirCommand(DirOpcode::MqSetBlockedOnEvt);
+  cmd->set_event(e);
   return cmd;
 }
 
 void DirTState::release() { delete this; }
+
+std::size_t DirResources::coh_snp_n(const Agent* agent) const {
+  std::size_t n = 0;
+  if (auto it = coh_snp_n_.find(agent); it != coh_snp_n_.end()) {
+    n = it->second;
+  }
+  return n;
+}
+
+void DirResources::set_coh_snp_n(const Agent* agent, std::size_t n) {
+  coh_snp_n_[agent] = n;
+}
+
 
 DirContext::~DirContext() {
   if (owns_line()) {
@@ -112,9 +134,23 @@ DirContext::~DirContext() {
 }
 
 DirCommandList::~DirCommandList() {
+  clear();
+}
+
+void DirCommandList::clear() {
   for (DirCommand* cmd : cmds_) {
     cmd->release();
   }
+  cmds_.clear();
+}
+
+
+void DirCommandList::push_back(DirOpcode opcode) {
+  push_back(DirCommandBuilder::from_opcode(opcode));
+}
+
+void DirCommandList::push_back(DirCoherenceAction* action) {
+  push_back(DirCommandBuilder::from_action(action));
 }
 
 void DirCommandList::push_back(DirCommand* cmd) { cmds_.push_back(cmd); }
@@ -165,6 +201,9 @@ class DirCommandInterpreter {
       } break;
       case DirOpcode::MqSetBlockedOnTable: {
         execute_mq_set_blocked_on_table(ctxt, cmd);
+      } break;
+      case DirOpcode::MqSetBlockedOnEvt: {
+        execute_mq_set_blocked_on_event(ctxt, cmd);
       } break;
       case DirOpcode::InvokeCoherenceAction: {
         execute_invoke_coherence_action(ctxt, cmd);
@@ -247,7 +286,7 @@ class DirCommandInterpreter {
 
   void execute_invoke_coherence_action(DirContext& ctxt,
                                        const DirCommand* cmd) {
-    CoherenceAction* action = cmd->action();
+    DirCoherenceAction* action = cmd->action();
     action->execute();
   }
 
@@ -259,6 +298,11 @@ class DirCommandInterpreter {
   void execute_mq_set_blocked_on_table(DirContext& ctxt,
                                        const DirCommand* cmd) {
     ctxt.mq()->set_blocked_until(model_->tt()->non_full_event());
+  }
+
+  void execute_mq_set_blocked_on_event(DirContext& ctxt,
+                                       const DirCommand* cmd) {
+    ctxt.mq()->set_blocked_until(cmd->event());
   }
 
   void execute_wait_on_msg(DirContext& ctxt, const DirCommand* cmd) const {
@@ -279,6 +323,27 @@ class DirCommandInterpreter {
   //
   DirModel* model_ = nullptr;
 };
+
+//
+//
+DirResources::DirResources(const DirCommandList& cl) {
+  build(cl);
+}
+
+void DirResources::build(const DirCommandList& cl) {
+  for (DirCommand* cmd : cl) {
+    const DirOpcode opcode = cmd->opcode();
+    switch (opcode) {
+      case DirOpcode::StartTransaction: {
+        tt_entry_n_++;
+      } break;
+      default: {
+        // No resources required.
+      } break;
+    }
+  }
+}
+
 
 //
 //
@@ -343,14 +408,14 @@ class DirModel::RdisProcess : public AgentProcess {
       } break;
     }
 
-    if (can_execute(cl)) {
-      LogMessage lm("Execute message: ");
-      lm.append(ctxt.msg()->to_string());
-      lm.level(Level::Debug);
-      log(lm);
+    check_resources(ctxt, cl);
 
-      execute(ctxt, cl);
-    }
+    LogMessage lm("Execute message: ");
+    lm.append(ctxt.msg()->to_string());
+    lm.level(Level::Debug);
+    log(lm);
+
+    execute(ctxt, cl);
   }
 
   void process(DirContext& ctxt, DirCommandList& cl, const CohSrtMsg* msg) {
@@ -447,7 +512,58 @@ class DirModel::RdisProcess : public AgentProcess {
     protocol->apply(ctxt, cl);
   }
 
-  bool can_execute(const DirCommandList& cl) const { return true; }
+  void check_resources(const DirContext& ctxt, DirCommandList& cl) const {
+    const DirResources res(cl);
+
+    bool has_resources = true;
+
+    // Check table resources
+    DirTTable* tt = model_->tt();
+    if (!tt->has_at_least(res.tt_entry_n())) {
+      cl.clear();
+      // Blocks on table occupancy; wait until table becomes free.
+      cl.push_back(DirOpcode::MqSetBlockedOnTable);
+      has_resources = false;
+    }
+
+    // Check if the credit counter for agent 'agent' has at least 'n'
+    // credits.
+    auto check_credits = [&](const auto& ccntrs, const Agent* agent,
+                             std::size_t n) -> bool {
+                             
+      bool success = true;
+      // If a credit exists for the destination agent, credit count
+      // requirement must be attained, otherwise the requirement is ignored.
+      if (auto it = ccntrs.find(agent); it != ccntrs.end()) {
+        CreditCounter* cc = it->second;
+        if (cc->i() < n) {
+          cl.clear();
+          cl.push_back(cb::build_blocked_on_event(ctxt.mq(), cc->credit_event()));
+          success = false;
+        }
+      }
+      return success;
+    };
+
+    auto check_credit_counter = [&](MessageClass cls, const auto& res) {
+      if (!has_resources) return;
+
+      auto& ccntrs_map = model_->ccntrs_map();
+      if (auto it = ccntrs_map.find(cls); it != ccntrs_map.end()) {
+        for (const auto& resp : res) {
+          if (!check_credits(it->second, resp.first, resp.second)) {
+            has_resources = false;
+            break;
+          }
+        }
+      }
+    };
+    
+    // Check Coherence Snoop credits
+    check_credit_counter(MessageClass::CohSnp, res.coh_snp_n());
+
+    if (!has_resources) { cl.push_back(DirOpcode::WaitNextEpoch); }
+  }
 
   void execute(DirContext& ctxt, const DirCommandList& cl) {
     try {
@@ -591,7 +707,7 @@ void DirModel::build() {
 
 //
 //
-void DirModel::elab() {
+bool DirModel::elab() {
   // Register message queue end-points
   arb_->add_requester(cpu_dir__cmd_q_);
   arb_->add_requester(llc_dir__rsp_q_);
@@ -601,6 +717,8 @@ void DirModel::elab() {
   noc_endpoint_->register_endpoint(MessageClass::CohCmd, cpu_dir__cmd_q_);
   noc_endpoint_->register_endpoint(MessageClass::LLCCmdRsp, llc_dir__rsp_q_);
   noc_endpoint_->register_endpoint(MessageClass::CohSnpRsp, cc_dir__snprsp_q_);
+
+  return false;
 }
 
 void DirModel::set_dir_noc__msg_q(MessageQueue* mq) {

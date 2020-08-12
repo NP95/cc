@@ -60,7 +60,7 @@ class SocTop : public kernel::TopModule {
   void build(const SocConfig& cfg);
 
   // Elaborate
-  void elab() override;
+  bool elab() override;
 
   // Bind top-level ports
   void elab_bind_ports();
@@ -84,6 +84,8 @@ class SocTop : public kernel::TopModule {
   std::vector<MemCntrlModel*> mms_;
   // Stimulus "module" instance.
   Stimulus* stimulus_;
+  // Elaboration pass
+  std::size_t elab_pass_ = 0;
   // SOC configuration.
   SocConfig cfg_;
 };

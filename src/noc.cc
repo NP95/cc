@@ -326,11 +326,12 @@ void NocModel::register_agent(Agent* agent) {
   ports_.insert(std::make_pair(agent, port));
 }
 
-void NocModel::elab() {
+bool NocModel::elab() {
   for (std::pair<Agent*, NocPort*> pp : ports_) {
     NocPort* port = pp.second;
     arb_->add_requester(port->ingress());
   }
+  return false;
 }
 
 void NocModel::drc() {

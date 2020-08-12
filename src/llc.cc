@@ -377,7 +377,7 @@ void LLCModel::register_cc(CpuCluster* cc) {
   cc_llc__rsp_qs_.push_back(mq);
 }
 
-void LLCModel::elab() {
+bool LLCModel::elab() {
   arb_->add_requester(dir_llc__cmd_q_);
   arb_->add_requester(mem_llc__rsp_q_);
   for (MessageQueue* mq : cc_llc__rsp_qs_) {
@@ -390,6 +390,7 @@ void LLCModel::elab() {
   for (MessageQueue* mq : cc_llc__rsp_qs_) {
     noc_endpoint_->register_endpoint(MessageClass::DtRsp, mq);
   }
+  return false;
 }
 
 void LLCModel::drc() {

@@ -96,7 +96,10 @@ TraceStimulus::~TraceStimulus() { delete is_; }
 
 void TraceStimulus::build() { is_ = config().is; }
 
-void TraceStimulus::elab() { parse_tracefile(); }
+bool TraceStimulus::elab() {
+  parse_tracefile();
+  return false;
+}
 
 void TraceStimulus::drc() {}
 

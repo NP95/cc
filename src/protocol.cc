@@ -158,12 +158,7 @@ CCProtocol::CCProtocol(kernel::Kernel* k, const std::string& name)
 DirProtocol::DirProtocol(kernel::Kernel* k, const std::string& name)
     : Module(k, name) {}
 
-void DirProtocol::issue_msg(DirCommandList& cl, MessageQueue* mq,
-                            const Message* msg) const {
-  CoherenceAction* action = new EmitMessageActionProxy(mq, msg);
-  cl.push_back(DirCommandBuilder::from_action(action));
-}
-
+/*
 void DirProtocol::issue_emit_to_noc(DirContext& ctxt, DirCommandList& cl,
                                     const Message* msg, Agent* dest) const {
   if (dest == nullptr) {
@@ -186,5 +181,6 @@ void DirProtocol::issue_emit_to_noc(DirContext& ctxt, DirCommandList& cl,
       new EmitMessageActionProxy(ctxt.dir()->dir_noc__msg_q(), nocmsg);
   cl.push_back(DirCommandBuilder::from_action(action));
 }
+*/
 
 }  // namespace cc

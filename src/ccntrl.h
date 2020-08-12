@@ -477,7 +477,7 @@ class CCModel : public Agent {
   void build();
 
   // Elaboration
-  void elab() override;
+  bool elab() override;
   // Set slave L2C instance.
   void set_l2c(L2CacheAgent* l2c) { l2c_ = l2c; }
   // Set directory mapper.

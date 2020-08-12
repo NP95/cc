@@ -115,9 +115,45 @@ void SocTop::build(const SocConfig& cfg) {
   }
 }
 
-void SocTop::elab() {
-  elab_bind_ports();
-  elab_credit_counts();
+bool SocTop::elab() {
+  // Two-pass elaboration discussion:
+  //
+  // First pass:
+  //
+  // Perform port-binding between Agents and NOC. This from this,
+  // various NOC related Message Queues may/are constructed and
+  // registered as end-points within their owning agents.
+  //
+  // Second pass:
+  //
+  // Traverse NOC clients in the SOC and resize associated Message
+  // Queues so that they have sufficient space to handle all credits
+  // previously allocated to them. For this to occur, the mapping
+  // between end-point to agent Message Queue in the endpoint
+  // ("register_endpoint") must have taken place.
+  //
+  // Notes: Multiple passes is perhaps undesirable, however it is a
+  // simplification overall since this prevents the uncessary
+  // proliferation of elab-states and/or the enforcement of
+  // strict-ordering on the overall, global elaobration process.
+  
+  bool do_retry = false;
+  switch (elab_pass_++) {
+    case 0: {
+      // First pass; bind ports
+      elab_bind_ports();
+      do_retry = true;
+    } break;
+    case 1: {
+      // Second pass; update credit counters.
+      elab_credit_counts();
+    } break;
+    default: {
+      // Never reached.
+      do_retry = false;
+    } break;
+  }
+  return do_retry;
 }
 
 void SocTop::elab_bind_ports() {
@@ -232,9 +268,6 @@ void SocTop::elab_credit_counts() {
     }
 
   }
-
-  // TODO:
-
 
   // Now that credit counters have been set, update the capacity of
   // the destination Message Queues.

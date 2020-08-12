@@ -44,8 +44,9 @@ class DirModel;
 class DirLineState;
 class MessageQueue;
 class CoherenceList;
-class CoherenceAction;
+class DirCoherenceAction;
 class DirNocEndpoint;
+class DirResources;
 
 enum class DirOpcode {
   StartTransaction,
@@ -54,6 +55,7 @@ enum class DirOpcode {
   RemoveLine,
   MqSetBlockedOnTransaction,
   MqSetBlockedOnTable,
+  MqSetBlockedOnEvt,
   InvokeCoherenceAction,
   WaitOnMsg,
   WaitNextEpoch,
@@ -73,16 +75,20 @@ class DirCommand {
 
   std::string to_string() const;
 
+  // Accessors:
   DirOpcode opcode() const { return opcode_; }
-  CoherenceAction* action() const { return oprands.coh.action; }
+  DirCoherenceAction* action() const { return oprands.action; }
+  kernel::Event* event() const { return oprands.e; }
+
+  // Setters
+  void set_event(kernel::Event* e) { oprands.e = e; }
 
  private:
   virtual ~DirCommand();
   //
-  union {
-    struct {
-      CoherenceAction* action;
-    } coh;
+  struct {
+    DirCoherenceAction* action;
+    kernel::Event* e;
   } oprands;
   //
   DirOpcode opcode_;
@@ -94,7 +100,10 @@ class DirCommandBuilder {
  public:
   static DirCommand* from_opcode(DirOpcode opcode);
 
-  static DirCommand* from_action(CoherenceAction* action);
+  static DirCommand* from_action(DirCoherenceAction* action);
+
+  static DirCommand* build_blocked_on_event(MessageQueue* mq,
+                                            kernel::Event* e);
 };
 
 //
@@ -111,6 +120,16 @@ class DirCommandList {
   const_iterator begin() const { return cmds_.begin(); }
   const_iterator end() const { return cmds_.end(); }
 
+  // Remove all commands from list.
+  void clear();
+
+  // Push back from opcode.
+  void push_back(DirOpcode opcode);
+
+  // Push back from coherence action
+  void push_back(DirCoherenceAction* action);
+  
+  // Push back from command instance
   void push_back(DirCommand* cmd);
 
   // Consume current message and advance agent to next simulation
@@ -119,6 +138,24 @@ class DirCommandList {
 
  private:
   std::vector<DirCommand*> cmds_;
+};
+
+//
+//
+class DirCoherenceAction {
+ public:
+  virtual std::string to_string() const = 0;
+
+  // Set Resources object for current action.
+  virtual void set_resources(DirResources& r) const {}
+  
+  // Invoke/Execute coherence action
+  virtual bool execute() = 0;
+
+  virtual void release() { delete this; }
+
+ protected:
+  virtual ~DirCoherenceAction() = default;
 };
 
 //
@@ -171,6 +208,36 @@ class DirTState {
   std::size_t snoop_i_ = 0;
   // The total number of data transfers
   std::size_t dt_i_ = 0;
+};
+
+//
+//
+class DirResources {
+  using key_map = std::map<const Agent*, std::size_t>;
+  
+ public:
+  DirResources(const DirCommandList& cl);
+
+  // Accessors:
+  std::size_t tt_entry_n() const { return tt_entry_n_; }
+  std::size_t noc_credit_n() const { return noc_credit_n_; }
+  std::size_t coh_snp_n(const Agent* agent) const;
+
+  const key_map& coh_snp_n() const { return coh_snp_n_; }
+
+  // Setters
+  void set_noc_credit_n(std::size_t n ) { noc_credit_n_ = n; }
+  void set_coh_snp_n(const Agent* agent, std::size_t n);
+
+ private:
+  void build(const DirCommandList& cl);
+
+  // Transaction table entries required.
+  std::size_t tt_entry_n_ = 0;
+  // NOC credits required
+  std::size_t noc_credit_n_ = 0;
+  // Coherence snoops requires to agent.
+  key_map coh_snp_n_;
 };
 
 // Cache data type
@@ -265,7 +332,7 @@ class DirModel : public Agent {
   //
   void set_llc(LLCModel* llc) { llc_ = llc; }
   // Elaboration
-  void elab() override;
+  bool elab() override;
   // Set Dir -> NOC message queue (NOC owned).
   void set_dir_noc__msg_q(MessageQueue* mq);
   // Register credit counter for MessageClass 'cls' in Agent 'agent' with

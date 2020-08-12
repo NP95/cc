@@ -426,7 +426,7 @@ class L2CacheAgent : public Agent {
   void add_l1c(L1CacheAgent* l1c);
 
   // Elaboration:
-  virtual void elab() override;
+  bool elab() override;
   //
   // Set parent cache controlle
   void set_cc(CCModel* cc) { cc_ = cc; }

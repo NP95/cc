@@ -724,10 +724,11 @@ void L1CacheAgent::set_l1_cpu__rsp_q(MessageQueue* mq) {
   add_child_module(l1_cpu__rsp_q_);
 }
 
-void L1CacheAgent::elab() {
+bool L1CacheAgent::elab() {
   arb_->add_requester(cpu_l1__cmd_q_);
   arb_->add_requester(replay__cmd_q_);
   arb_->add_requester(l2_l1__rsp_q_);
+  return false;
 }
 
 void L1CacheAgent::drc() {

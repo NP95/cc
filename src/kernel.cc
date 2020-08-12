@@ -30,6 +30,7 @@
 #include <algorithm>
 #include <exception>
 #include <iostream>
+#include <set>
 
 #include "utility.h"
 
@@ -161,11 +162,7 @@ void Kernel::run(RunMode r, Time t) {
 
 void Kernel::add_action(Time t, Action* a) {
   eq_.push_back(Event{t, a});
-  if (eq_.size() > 1) {
-    // EventComparer has undefined behavior unless event-queue has at
-    // least two entries.
-    std::push_heap(eq_.begin(), eq_.end(), EventComparer{});
-  }
+  std::push_heap(eq_.begin(), eq_.end(), EventComparer{});
 }
 
 void Kernel::set_seed(seed_type seed) { random_source_ = RandomSource(seed); }
@@ -173,10 +170,31 @@ void Kernel::set_seed(seed_type seed) { random_source_ = RandomSource(seed); }
 void Kernel::invoke_elab() {
   set_phase(Phase::Elab);
   struct InvokeElabVisitor : ObjectVisitor {
-    void visit(Module* o) override { o->elab(); }
+    InvokeElabVisitor() = default;
+    bool retry_required() const { return !do_retry_next_.empty(); }
+    void retry_begin() {
+      doing_retry_ = true;
+      do_retry_ = do_retry_next_;
+      do_retry_next_.clear();
+    }
+    
+    void visit(Module* o) override {
+      const bool invoke_elab = !doing_retry_ || (do_retry_.count(o) != 0);
+      
+      if (invoke_elab && o->elab()) {
+          do_retry_next_.insert(o);
+      }
+    }
+   private:
+    bool doing_retry_ = false;
+    std::set<Module*> do_retry_, do_retry_next_;
   };
   InvokeElabVisitor visitor;
   visitor.iterate(top());
+  while (visitor.retry_required()) {
+    visitor.retry_begin();
+    visitor.iterate(top());
+  }
 }
 
 void Kernel::invoke_drc() {
@@ -210,11 +228,7 @@ void Kernel::invoke_run(RunMode r, Time t) {
       // If simulation time has elapsed, terminate.
       if (r == RunMode::ForTime && t < e.time) break;
 
-      if (eq_.size() > 1) {
-        // EventComparer has undefined behavior unless greater than or
-        // equal to two entries.
-        std::pop_heap(eq_.begin(), eq_.end(), EventComparer{});
-      }
+      std::pop_heap(eq_.begin(), eq_.end(), EventComparer{});
       eq_.pop_back();
       if (e.time < current_time) {
         // TODO: Kernel should eventually become the top-level module.

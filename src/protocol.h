@@ -367,15 +367,6 @@ class DirProtocol : public kernel::Module {
   //
   //
   virtual void apply(DirContext& ctxt, DirCommandList& cl) const = 0;
-
- protected:
-  //
-  virtual void issue_msg(DirCommandList& lc, MessageQueue* mq,
-                         const Message* msg) const;
-
-  //
-  virtual void issue_emit_to_noc(DirContext& ctxt, DirCommandList& lc,
-                                 const Message* msg, Agent* dest) const;
 };
 
 //
