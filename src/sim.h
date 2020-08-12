@@ -143,7 +143,7 @@ class MessageQueueProxy : public Agent {
   // Total credits available in Message Queue
   std::size_t credits() const { return credits_; }
   // Return credit to proxy.
-  void add_credit() { credits_++; }
+  void add_credit();
   // Issue message to target
   bool issue(const Message* msg, epoch_t epoch = 0);
   //

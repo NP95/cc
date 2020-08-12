@@ -158,6 +158,12 @@ MessageQueueProxy::~MessageQueueProxy() {
 }
 
 
+void MessageQueueProxy::add_credit() {
+  credits_++;
+  add_credit_event_->notify();
+}
+
+
 bool MessageQueueProxy::issue(const Message* msg, epoch_t epoch) {
   bool success = false;
   if (credits_ > 0) {

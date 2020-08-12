@@ -58,6 +58,10 @@ enum class CCOpcode {
   // Invoke a coherence protocol defined action.
   InvokeCoherenceAction,
 
+  // Set blocked status of Message Queue awaiting notification of
+  // event.
+  MqSetBlockedOnEvt,
+
   // Wait on the arrival of a message from one of the agents ingress
   // message queues.
   WaitOnMsg,
@@ -81,19 +85,22 @@ class CCCommand {
 
   // Accessors
   CCOpcode opcode() const { return opcode_; }
-  CCCoherenceAction* action() const { return oprands.action; }
-  Transaction* t() const { return oprands.t; }
+  CCCoherenceAction* action() const { return oprands_.action; }
+  Transaction* t() const { return oprands_.t; }
+  kernel::Event* event() const { return oprands_.e; }
 
   // Setters
-  void set_t(Transaction* t) { oprands.t = t; }
+  void set_t(Transaction* t) { oprands_.t = t; }
+  void set_event(kernel::Event* e) { oprands_.e = e; }
 
  private:
   virtual ~CCCommand();
   //
-  union {
+  struct {
     CCCoherenceAction* action;
     Transaction* t;
-  } oprands;
+    kernel::Event* e;
+  } oprands_;
   //
   CCOpcode opcode_;
 };
@@ -107,6 +114,9 @@ class CCCommandBuilder {
   static CCCommand* from_action(CCCoherenceAction* action);
 
   static CCCommand* build_transaction_end(Transaction* t);
+
+  static CCCommand* build_blocked_on_event(MessageQueue* mq,
+                                           kernel::Event* evt);
 };
 
 //
@@ -124,6 +134,12 @@ class CCCommandList {
   const_iterator begin() const { return cmds_.begin(); }
   const_iterator end() const { return cmds_.end(); }
 
+  // Destry contents of command list.
+  void clear();
+
+  // Push back from opcode.
+  void push_back(CCOpcode opcode);
+  
   // Push back from coherence action.
   void push_back(CCCoherenceAction* action);
   
@@ -288,11 +304,11 @@ class CCSnpCommand {
 
   //
   CCSnpOpcode opcode() const { return opcode_; }
-  CCCoherenceAction* action() const { return oprands.action; }
+  CCCoherenceAction* action() const { return oprands_.action; }
 
   //
   void set_opcode(CCSnpOpcode opcode) { opcode_ = opcode; }
-  void set_action(CCCoherenceAction* action) { oprands.action = action; }
+  void set_action(CCCoherenceAction* action) { oprands_.action = action; }
 
  private:
   virtual ~CCSnpCommand();
@@ -300,7 +316,7 @@ class CCSnpCommand {
   //
   struct {
     CCCoherenceAction* action;
-  } oprands;
+  } oprands_;
   //
   CCSnpOpcode opcode_;
 };
@@ -328,6 +344,9 @@ class CCSnpCommandList {
 
   const_iterator begin() const { return cmds_.begin(); }
   const_iterator end() const { return cmds_.end(); }
+
+  // Push back from opcode.
+  void push_back(CCSnpOpcode opcode);
 
   // Push back from coherence action instance.
   void push_back(CCCoherenceAction* action);

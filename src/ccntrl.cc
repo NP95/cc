@@ -47,6 +47,8 @@ const char* to_string(CCOpcode opcode) {
       return "InvokeCoherenceAction";
     case CCOpcode::MsgConsume:
       return "MsgConsume";
+    case CCOpcode::MqSetBlockedOnEvt:
+      return "MqSetBlockedOnEvt";
     case CCOpcode::WaitOnMsg:
       return "WaitOnMsg";
     case CCOpcode::WaitNextEpoch:
@@ -59,7 +61,7 @@ const char* to_string(CCOpcode opcode) {
 CCCommand::~CCCommand() {
   switch (opcode()) {
     case CCOpcode::InvokeCoherenceAction:
-      oprands.action->release();
+      oprands_.action->release();
       break;
     default:
       break;
@@ -71,7 +73,7 @@ std::string CCCommand::to_string() const {
   r.add_field("opcode", cc::to_string(opcode()));
   switch (opcode()) {
     case CCOpcode::InvokeCoherenceAction: {
-      r.add_field("action", oprands.action->to_string());
+      r.add_field("action", oprands_.action->to_string());
     } break;
     default: {
     } break;
@@ -85,7 +87,7 @@ CCCommand* CCCommandBuilder::from_opcode(CCOpcode opcode) {
 
 CCCommand* CCCommandBuilder::from_action(CCCoherenceAction* action) {
   CCCommand* cmd = new CCCommand(CCOpcode::InvokeCoherenceAction);
-  cmd->oprands.action = action;
+  cmd->oprands_.action = action;
   return cmd;
 }
 
@@ -95,6 +97,14 @@ CCCommand* CCCommandBuilder::build_transaction_end(Transaction* t) {
   return cmd;
 }
 
+CCCommand* CCCommandBuilder::build_blocked_on_event(MessageQueue* mq,
+                                                    kernel::Event* evt) {
+  CCCommand* cmd = new CCCommand(CCOpcode::MqSetBlockedOnEvt);
+  cmd->set_event(evt);
+  return cmd;
+}
+
+
 CCContext::~CCContext() {
   if (owns_line_) {
     line_->release();
@@ -102,14 +112,24 @@ CCContext::~CCContext() {
 }
 
 CCCommandList::~CCCommandList() {
+  clear();
+}
+
+void CCCommandList::clear() {
   for (CCCommand* cmd : cmds_) {
     cmd->release();
   }
+  cmds_.clear();
 }
+
 
 // Transaction starts
 void CCCommandList::push_transaction_start() {
-  push_back(cb::from_opcode(CCOpcode::TransactionStart));
+  push_back(CCOpcode::TransactionStart);
+}
+
+void CCCommandList::push_back(CCOpcode opcode) {
+  push_back(cb::from_opcode(opcode));
 }
 
 void CCCommandList::push_back(CCCoherenceAction* action) {
@@ -126,10 +146,10 @@ void CCCommandList::next_and_do_consume(bool do_consume) {
   using cb = CCCommandBuilder;
   if (do_consume) {
     // Consume message
-    push_back(cb::from_opcode(CCOpcode::MsgConsume));
+    push_back(CCOpcode::MsgConsume);
   }
   // Advance to next
-  push_back(cb::from_opcode(CCOpcode::WaitNextEpoch));
+  push_back(CCOpcode::WaitNextEpoch);
 }
 
 std::size_t CCResources::coh_srt_n(const Agent* agent) const {
@@ -197,6 +217,9 @@ class CCCommandInterpreter {
       case CCOpcode::WaitOnMsg: {
         execute_wait_on_msg(ctxt, cmd);
       } break;
+      case CCOpcode::MqSetBlockedOnEvt: {
+        execute_mq_set_blocked_on_evt(ctxt, cmd);
+      } break;
       case CCOpcode::WaitNextEpoch: {
         execute_wait_next_epoch(ctxt, cmd);
       } break;
@@ -246,9 +269,14 @@ class CCCommandInterpreter {
     process_->wait_on(arb->request_arrival_event());
   }
 
+  void execute_mq_set_blocked_on_evt(CCContext& ctxt, const CCCommand* cmd) {
+    ctxt.mq()->set_blocked_until(cmd->event());
+  }
+  
   void execute_wait_next_epoch(CCContext& ctxt, const CCCommand* cmd) {
     process_->wait_for(kernel::Time{10, 0});
   }
+
   //
   AgentProcess* process_ = nullptr;
   //
@@ -269,7 +297,7 @@ class CCModel::RdisProcess : public AgentProcess {
   void init() override {
     CCContext ctxt;
     CCCommandList cl;
-    cl.push_back(cb::from_opcode(CCOpcode::WaitOnMsg));
+    cl.push_back(CCOpcode::WaitOnMsg);
     execute(ctxt, cl);
   }
 
@@ -285,7 +313,7 @@ class CCModel::RdisProcess : public AgentProcess {
     // arrives at the arbiter. Process should ideally not wake in the
     // absence of requesters.
     if (!ctxt.t().has_requester()) {
-      cl.push_back(cb::from_opcode(CCOpcode::WaitOnMsg));
+      cl.push_back(CCOpcode::WaitOnMsg);
       execute(ctxt, cl);
       return;
     }
@@ -316,7 +344,7 @@ class CCModel::RdisProcess : public AgentProcess {
     }
 
     // Check resources of computed CommandList.
-    const bool has_resources = check_resources(cl);
+    const bool has_resources = check_resources(ctxt, cl);
 
     if (has_resources) {
       LogMessage lm("Execute message: ");
@@ -388,18 +416,19 @@ class CCModel::RdisProcess : public AgentProcess {
     protocol->apply(ctxt, cl);
   }
 
-  bool check_resources(const CCCommandList& cl) const {
+  bool check_resources(const CCContext& ctxt, CCCommandList& cl) const {
     const CCResources res(cl);
-
-    MessageQueueProxy* mq = nullptr;
     
     // Flag denoting whether resource requirement has been attained.
     bool has_resources = true;
 
     // Check NOC (if applicable)
+    MessageQueueProxy* mq = nullptr;
     mq = model_->cc_noc__msg_q();
     if (has_resources && !mq->has_at_least(res.noc_credit_n())) {
       // Resources not attained.
+      cl.clear();
+      cl.push_back(cb::build_blocked_on_event(ctxt.mq(), mq->add_credit_event()));
       has_resources = false;
     }
 
@@ -407,6 +436,8 @@ class CCModel::RdisProcess : public AgentProcess {
     mq = model_->cc_l2__cmd_q();
     if (has_resources && !mq->has_at_least(res.cmd_q_n())) {
       // Resources not attained.
+      cl.clear();
+      cl.push_back(cb::build_blocked_on_event(ctxt.mq(), mq->add_credit_event()));
       has_resources = false;
     }
 
@@ -414,6 +445,8 @@ class CCModel::RdisProcess : public AgentProcess {
     mq = model_->cc_l2__rsp_q();
     if (has_resources && !mq->has_at_least(res.rsp_q_n())) {
       // Resources not attained.
+      cl.clear();
+      cl.push_back(cb::build_blocked_on_event(ctxt.mq(), mq->add_credit_event()));
       has_resources = false;
     }
 
@@ -426,7 +459,11 @@ class CCModel::RdisProcess : public AgentProcess {
       // requirement must be attained, otherwise the requirement is ignored.
       if (auto it = ccntrs.find(agent); it != ccntrs.end()) {
         CreditCounter* cc = it->second;
-        success = (cc->i() >= n);
+        if (cc->i() < n) {
+          cl.clear();
+          cl.push_back(cb::build_blocked_on_event(ctxt.mq(), cc->credit_event()));
+          success = false;
+        }
       }
       return success;
     };
@@ -451,6 +488,8 @@ class CCModel::RdisProcess : public AgentProcess {
     check_credit_counter(MessageClass::CohCmd, res.coh_cmd());
     // Check Data Transfer credits
     check_credit_counter(MessageClass::Dt, res.dt());
+
+    if (!has_resources) { cl.push_back(CCOpcode::WaitNextEpoch); }
 
     return has_resources;
   }
@@ -517,7 +556,7 @@ const char* to_string(CCSnpOpcode opcode) {
 CCSnpCommand::~CCSnpCommand() {
   switch (opcode()) {
     case CCSnpOpcode::InvokeCoherenceAction:
-      oprands.action->release();
+      oprands_.action->release();
       break;
     default:;
   }
@@ -527,6 +566,10 @@ std::string CCSnpCommand::to_string() const {
   KVListRenderer r;
   r.add_field("opcode", cc::to_string(opcode()));
   return r.to_string();
+}
+
+void CCSnpCommandList::push_back(CCSnpOpcode opcode) {
+  push_back(CCSnpCommandBuilder::from_opcode(opcode));
 }
 
 void CCSnpCommandList::push_back(CCCoherenceAction* action) {
@@ -542,7 +585,7 @@ CCSnpCommand* CCSnpCommandBuilder::from_opcode(CCSnpOpcode opcode) {
 CCSnpCommand* CCSnpCommandBuilder::from_action(CCCoherenceAction* action) {
   CCSnpCommand* cmd = new CCSnpCommand;
   cmd->set_opcode(CCSnpOpcode::InvokeCoherenceAction);
-  cmd->oprands.action = action;
+  cmd->oprands_.action = action;
   return cmd;
 }
 
@@ -657,7 +700,7 @@ class CCModel::SnpProcess : public AgentProcess {
     // arrives at the arbiter. Process should ideally not wake in the
     // absence of requesters.
     if (!ctxt.t().has_requester()) {
-      cl.push_back(cb::from_opcode(CCSnpOpcode::WaitOnMsg));
+      cl.push_back(CCSnpOpcode::WaitOnMsg);
       execute(ctxt, cl);
       return;
     }

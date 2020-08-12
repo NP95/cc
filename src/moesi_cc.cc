@@ -379,7 +379,7 @@ class MOESICCProtocol : public CCProtocol {
 
         // ACE command advances to active state; install entry within
         // transaction table.
-        cl.push_back(cb::from_opcode(CCOpcode::TransactionStart));
+        cl.push_back(CCOpcode::TransactionStart);
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
@@ -407,7 +407,7 @@ class MOESICCProtocol : public CCProtocol {
 
         // ACE command advances to active state; install entry within
         // transaction table.
-        cl.push_back(cb::from_opcode(CCOpcode::TransactionStart));
+        cl.push_back(CCOpcode::TransactionStart);
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
@@ -435,7 +435,7 @@ class MOESICCProtocol : public CCProtocol {
 
         // ACE command advances to active state; install entry within
         // transaction table.
-        cl.push_back(cb::from_opcode(CCOpcode::TransactionStart));
+        cl.push_back(CCOpcode::TransactionStart);
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
@@ -463,7 +463,7 @@ class MOESICCProtocol : public CCProtocol {
 
         // ACE command advances to active state; install entry within
         // transaction table.
-        cl.push_back(cb::from_opcode(CCOpcode::TransactionStart));
+        cl.push_back(CCOpcode::TransactionStart);
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
@@ -494,7 +494,7 @@ class MOESICCProtocol : public CCProtocol {
 
         // ACE command advances to active state; install entry within
         // transaction table.
-        cl.push_back(cb::from_opcode(CCOpcode::TransactionStart));
+        cl.push_back(CCOpcode::TransactionStart);
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
@@ -553,9 +553,9 @@ class MOESICCProtocol : public CCProtocol {
     snpline->set_agent(msg->agent());
 
     // Consume message
-    cl.push_back(snpcb::from_opcode(CCSnpOpcode::TransactionStart));
-    cl.push_back(snpcb::from_opcode(CCSnpOpcode::ConsumeMsg));
-    cl.push_back(snpcb::from_opcode(CCSnpOpcode::NextEpoch));
+    cl.push_back(CCSnpOpcode::TransactionStart);
+    cl.push_back(CCSnpOpcode::ConsumeMsg);
+    cl.push_back(CCSnpOpcode::NextEpoch);
   }
 
   void eval_msg(CCSnpContext& ctxt, CCSnpCommandList& cl,
@@ -582,16 +582,16 @@ class MOESICCProtocol : public CCProtocol {
 
       issue_msg_to_noc(ctxt, cl, dt, snpline->agent());
     }
-    cl.push_back(snpcb::from_opcode(CCSnpOpcode::ConsumeMsg));
-    cl.push_back(snpcb::from_opcode(CCSnpOpcode::NextEpoch));
+    cl.push_back(CCSnpOpcode::ConsumeMsg);
+    cl.push_back(CCSnpOpcode::NextEpoch);
   }
 
   void eval_msg(CCSnpContext& ctxt, CCSnpCommandList& cl,
                 const DtRspMsg* msg) const {
     using snpcb = CCSnpCommandBuilder;
-    cl.push_back(snpcb::from_opcode(CCSnpOpcode::TransactionEnd));
-    cl.push_back(snpcb::from_opcode(CCSnpOpcode::ConsumeMsg));
-    cl.push_back(snpcb::from_opcode(CCSnpOpcode::NextEpoch));
+    cl.push_back(CCSnpOpcode::TransactionEnd);
+    cl.push_back(CCSnpOpcode::ConsumeMsg);
+    cl.push_back(CCSnpOpcode::NextEpoch);
   }
 
   void issue_apply_msg(CCContext& ctxt, CCCommandList& cl,
