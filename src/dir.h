@@ -234,6 +234,8 @@ class DirModel : public Agent {
   class RdisProcess;
 
  public:
+  using ccntr_map = std::map<const Agent*, CreditCounter*>;
+
   DirModel(kernel::Kernel* k, const DirModelConfig& config);
   ~DirModel();
 
@@ -250,6 +252,10 @@ class DirModel : public Agent {
   DirProtocol* protocol() const { return protocol_; }
   // Transaction table.
   DirTTable* tt() const { return tt_; }
+  // Credit Counters
+  const std::map<MessageClass, ccntr_map>& ccntrs_map() const {
+    return ccntrs_map_;
+  }
   // Lookup Message Queue instance by class.
   MessageQueue* mq_by_msg_cls(MessageClass cls) const override;
 
@@ -260,8 +266,11 @@ class DirModel : public Agent {
   void set_llc(LLCModel* llc) { llc_ = llc; }
   // Elaboration
   void elab() override;
-  //
+  // Set Dir -> NOC message queue (NOC owned).
   void set_dir_noc__msg_q(MessageQueue* mq);
+  // Register credit counter for MessageClass 'cls' in Agent 'agent' with
+  // an initial value of 'n' credits.
+  void register_credit_counter(MessageClass cls, Agent* dest, std::size_t n);
 
   // Design Rule Check (DRC)
   void drc() override;
@@ -284,6 +293,8 @@ class DirModel : public Agent {
   MessageQueue* llc_dir__rsp_q_ = nullptr;
   // CC -> DIR snoop response queue.
   MessageQueue* cc_dir__snprsp_q_ = nullptr;
+  // Agent credit counters (keyed on Message class)
+  std::map<MessageClass, ccntr_map> ccntrs_map_;
   // NOC endpoint
   DirNocEndpoint* noc_endpoint_ = nullptr;
   // request dispatcher process

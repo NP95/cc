@@ -77,10 +77,22 @@ bool MessageQueue::issue(const Message* msg, epoch_t epoch) {
   // Issue action:
   kernel::Time t;
   const kernel::Time execute_time = k()->time() + t;
-  --credits_;
   k()->add_action(execute_time, new EnqueueAction(k(), q_, msg));
 
   return true;
+}
+
+void MessageQueue::resize(std::size_t n) {
+  if (!empty()) {
+    // Cannot call resize when there are outstanding entries within
+    // the queue as this method should only be called before the start
+    // of the simulation.
+    LogMessage msg("Attempt to resize Message Queue but is currently "
+                   "non-empty.");
+    msg.level(Level::Fatal);
+    log(msg);
+  }
+  q_->resize(n);
 }
 
 void MessageQueue::set_blocked_until(kernel::Event* event) {
@@ -127,22 +139,12 @@ const Message* MessageQueue::dequeue() {
     lm.level(Level::Debug);
     log(lm);
   }
-
-  if (credits_ >= n()) {
-    LogMessage lm("Credit overflow", Level::Error);
-    log(lm);
-  }
-
-  // Return credits
-  credits_++;
   return msg;
 }
 
 void MessageQueue::build(std::size_t n) {
   q_ = new Queue<const Message*>(k(), "queue", n);
   add_child_module(q_);
-
-  credits_ = n;
 }
 
 AgentProcess::AgentProcess(kernel::Kernel* k, const std::string& name)

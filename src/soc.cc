@@ -182,13 +182,13 @@ void SocTop::elab_bind_ports() {
 }
 
 void SocTop::elab_credit_counts() {
+  MessageQueue* mq = nullptr;
 
   // Map of credits allocated to a given Message Queue.
   std::map<MessageQueue*, std::size_t> mqcredits;
 
   // Update CPU Cluster to Directory credit paths.
   for (CpuCluster* cpuc : ccs_) {
-    MessageQueue* mq = nullptr;
     CCModel* cc = cpuc->cc();
 
     // Register edge from Cpu Cluster to directories
@@ -220,6 +220,18 @@ void SocTop::elab_credit_counts() {
   }
 
   // Set Directory to CPU Cluster (Snoops) credit paths
+  for (DirModel* dm : dms_) {
+
+    for (CpuCluster* cpuc : ccs_) {
+      CCModel* cc = cpuc->cc();
+      const std::size_t credits_n = 16;
+      
+      dm->register_credit_counter(MessageClass::CohSnp, cc, credits_n);
+      mq = cc->mq_by_msg_cls(MessageClass::CohSnp);
+      if (mq != nullptr) { mqcredits[mq] += credits_n; }
+    }
+
+  }
 
   // TODO:
 
@@ -229,9 +241,7 @@ void SocTop::elab_credit_counts() {
   for (const auto& mqcredit : mqcredits) {
     MessageQueue* mq = mqcredit.first;
     const std::size_t credits = mqcredit.second;
-
-    // TODO: Set credits
-    // mq->set_size_and_update(credits);
+    mq->resize(credits);
   }
 }
 

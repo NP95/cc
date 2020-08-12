@@ -551,6 +551,12 @@ DirModel::~DirModel() {
   delete rdis_proc_;
   delete protocol_;
   delete tt_;
+  // Destroy credit counters.
+  for (const auto& cls_dest_cc : ccntrs_map_) {
+    for (const auto& dest_cc : cls_dest_cc.second) {
+      delete dest_cc.second;
+    }
+  }
 }
 
 void DirModel::build() {
@@ -609,6 +615,17 @@ void DirModel::drc() {
     LogMessage lmsg("Dir to NOC message queue is unbound.", Level::Fatal);
     log(lmsg);
   }
+}
+
+void DirModel::register_credit_counter(MessageClass cls, Agent* dest,
+                                       std::size_t n) {
+  const std::string name = dest->path() + to_string(cls);
+  // Construct new credit counter.
+  CreditCounter* cc = new CreditCounter(k(), name);
+  cc->set_n(n);
+  add_child_module(cc);
+  // Install credit counter.
+  ccntrs_map_[cls].insert(std::make_pair(dest, cc));
 }
 
 MessageQueue* DirModel::endpoint() { return noc_endpoint_->ingress_mq(); }

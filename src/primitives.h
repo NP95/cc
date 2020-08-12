@@ -66,12 +66,8 @@ class Queue : public kernel::Module {
  public:
   Queue(kernel::Kernel* k, const std::string& name, std::size_t n)
       : kernel::Module(k, name), n_(n) {
-    empty_ = true;
-    full_ = false;
-    wr_ptr_ = 0;
-    rd_ptr_ = 0;
-    size_ = 0;
     ts_.resize(n);
+    reset_state();
 
     enqueue_event_ = new kernel::Event(k, "enqueue_event");
     dequeue_event_ = new kernel::Event(k, "dequeue_event");
@@ -147,7 +143,21 @@ class Queue : public kernel::Module {
     return true;
   }
 
+  // Resize queue to 'n'.
+  void resize(std::size_t n) {
+    ts_.resize(n);
+    reset_state();
+  }
+
  private:
+  void reset_state() {
+    empty_ = true;
+    full_ = false;
+    wr_ptr_ = 0;
+    rd_ptr_ = 0;
+    size_ = 0;
+  }
+  
   bool full_, empty_;
   std::size_t wr_ptr_, rd_ptr_;
   std::size_t n_, size_;
