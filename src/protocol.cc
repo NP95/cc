@@ -109,7 +109,7 @@ ProtocolBuilder* ProtocolBuilderRegistry::build(const std::string& name) {
 //
 //
 struct EmitMessageActionProxy : public CoherenceAction {
-  EmitMessageActionProxy(MessageQueueProxy* mq, const Message* msg)
+  EmitMessageActionProxy(MessageQueue* mq, const Message* msg)
       : mq_(mq), msg_(msg) {}
   std::string to_string() const override {
     KVListRenderer r;
@@ -121,14 +121,14 @@ struct EmitMessageActionProxy : public CoherenceAction {
   bool execute() override { return mq_->issue(msg_); }
 
  private:
-  MessageQueueProxy* mq_ = nullptr;
+  MessageQueue* mq_ = nullptr;
   const Message* msg_ = nullptr;
 };
 
 //
 //
 struct EmitMessageActionProxyCC : public CCCoherenceAction {
-  EmitMessageActionProxyCC(MessageQueueProxy* mq, const Message* msg)
+  EmitMessageActionProxyCC(MessageQueue* mq, const Message* msg)
       : mq_(mq), msg_(msg) {}
   std::string to_string() const override {
     KVListRenderer r;
@@ -140,7 +140,7 @@ struct EmitMessageActionProxyCC : public CCCoherenceAction {
   bool execute() override { return mq_->issue(msg_); }
 
  private:
-  MessageQueueProxy* mq_ = nullptr;
+  MessageQueue* mq_ = nullptr;
   const Message* msg_ = nullptr;
 };
 
@@ -158,7 +158,7 @@ CCProtocol::CCProtocol(kernel::Kernel* k, const std::string& name)
 DirProtocol::DirProtocol(kernel::Kernel* k, const std::string& name)
     : Module(k, name) {}
 
-void DirProtocol::issue_msg(DirCommandList& cl, MessageQueueProxy* mq,
+void DirProtocol::issue_msg(DirCommandList& cl, MessageQueue* mq,
                             const Message* msg) const {
   CoherenceAction* action = new EmitMessageActionProxy(mq, msg);
   cl.push_back(DirCommandBuilder::from_action(action));

@@ -133,19 +133,16 @@ void SocTop::elab_bind_ports() {
       log(msg);
     }
     // NOC -> CC message queue
-    MessageQueue* noc_cc__msg_q = cpuc->noc_cc__msg_q();
-    port->set_egress(noc_cc__msg_q->construct_proxy());
+    port->set_egress(cpuc->noc_cc__msg_q());
     // CC -> NOC message queue
-    MessageQueue* ingress_mq = port->ingress();
-    cpuc->set_cc_noc__msg_q(ingress_mq->construct_proxy());
+    cpuc->set_cc_noc__msg_q(port->ingress());
   }
   for (DirModel* dm : dms_) {
     NocPort* dm_port = noc_->get_agent_port(dm);
     // NOC -> DIR message queue
-    dm_port->set_egress(dm->endpoint()->construct_proxy());
+    dm_port->set_egress(dm->endpoint());
     // DIR -> NOC message queue
-    MessageQueue* dm_port_ingress = dm_port->ingress();
-    dm->set_dir_noc__msg_q(dm_port_ingress->construct_proxy());
+    dm->set_dir_noc__msg_q(dm_port->ingress());
 
     const DirModelConfig& cfg = dm->config();
     if (!cfg.is_null_filter) {
@@ -158,18 +155,17 @@ void SocTop::elab_bind_ports() {
       // Bind associated LLC to NOC
       NocPort* llc_port = noc_->get_agent_port(llc);
       // NOC -> LLC
-      llc_port->set_egress(llc->endpoint()->construct_proxy());
+      llc_port->set_egress(llc->endpoint());
       // LLC -> NOC
-      MessageQueue* llc_port_ingress = llc_port->ingress();
-      llc->set_llc_noc__msg_q(llc_port_ingress->construct_proxy());
+      llc->set_llc_noc__msg_q(llc_port->ingress());
     }
   }
   for (MemCntrlModel* mm : mms_) {
     NocPort* port = noc_->get_agent_port(mm);
     // NOC -> MEM
-    port->set_egress(mm->endpoint()->construct_proxy());
+    port->set_egress(mm->endpoint());
     // MEM -> NOC
-    mm->set_mem_noc__msg_q(port->ingress()->construct_proxy());
+    mm->set_mem_noc__msg_q(port->ingress());
   }
   // Construct directory mapper
   dm_ = new SingleDirMapper(*dms_.begin());
@@ -188,11 +184,11 @@ void SocTop::elab_bind_ports() {
 void SocTop::elab_credit_counts() {
 
   // Map of credits allocated to a given Message Queue.
-  std::map<MessageQueueProxy*, std::size_t> mqcredits;
+  std::map<MessageQueue*, std::size_t> mqcredits;
 
   // Update CPU Cluster to Directory credit paths.
   for (CpuCluster* cpuc : ccs_) {
-    MessageQueueProxy* mq = nullptr;
+    MessageQueue* mq = nullptr;
     CCModel* cc = cpuc->cc();
 
     // Register edge from Cpu Cluster to directories
@@ -231,7 +227,7 @@ void SocTop::elab_credit_counts() {
   // Now that credit counters have been set, update the capacity of
   // the destination Message Queues.
   for (const auto& mqcredit : mqcredits) {
-    MessageQueueProxy* mq = mqcredit.first;
+    MessageQueue* mq = mqcredit.first;
     const std::size_t credits = mqcredit.second;
 
     // TODO: Set credits

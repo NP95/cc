@@ -61,7 +61,7 @@ class AgentProcess : public kernel::Process {
   bool wait_set_ = false;
 };
 
-class MessageQueueProxy;
+class MessageQueue;
 
 //
 //
@@ -69,7 +69,7 @@ class Agent : public kernel::Module {
  public:
   Agent(kernel::Kernel* k, const std::string& name);
 
-  virtual MessageQueueProxy* mq_by_msg_cls(MessageClass cls) const {
+  virtual MessageQueue* mq_by_msg_cls(MessageClass cls) const {
     return nullptr;
   }
 };
@@ -78,7 +78,7 @@ class Agent : public kernel::Module {
 //
 //
 class MessageQueue : public Agent {
-  friend class MessageQueueProxy;
+  friend class MessageQueue;
 
  public:
   MessageQueue(kernel::Kernel* k, const std::string& name, std::size_t n);
@@ -86,12 +86,13 @@ class MessageQueue : public Agent {
 
   std::string to_string() const;
 
-  MessageQueueProxy* construct_proxy();
+  //  MessageQueueProxy* construct_proxy();
 
   // Queue depth.
   std::size_t n() const { return q_->n(); }
 
   std::size_t credits() { return credits_; }
+  bool has_at_least(std::size_t n) const;
 
   bool empty() const { return q_->empty(); }
   bool full() const { return credits_ == 0; }
@@ -106,6 +107,10 @@ class MessageQueue : public Agent {
   // Event notified when Message Queue transitions from full to
   // non-full state.
   kernel::Event* non_full_event() const { return q_->non_full_event(); }
+
+  // Event notified when a Message has been dequeued from the Message
+  // Queue.
+  kernel::Event* dequeue_event() const { return q_->dequeue_event(); }
 
   // Peek head message, nullptr on empty.
   const Message* peek() const;
@@ -130,38 +135,6 @@ class MessageQueue : public Agent {
   bool blocked_ = false;
   // Queue credit count.
   std::size_t credits_;
-};
-
-//
-//
-class MessageQueueProxy : public Agent {
-  friend class MessageQueue;
-
-  MessageQueueProxy(MessageQueue* mq);
-
- public:
-  ~MessageQueueProxy();
-  
-  // Target Message Queue is full.
-  bool full() const { return credits_ == 0; }
-  // Message Queue has at least 'N' free slots
-  bool has_at_least(std::size_t n) const { return (credits_ >= n); }
-  // Total credits available in Message Queue
-  std::size_t credits() const { return credits_; }
-  // Return credit to proxy.
-  void add_credit();
-  // Issue message to target
-  bool issue(const Message* msg, epoch_t epoch = 0);
-  // Event indicating that a credit has been added to the queue.
-  kernel::Event* add_credit_event() const { return add_credit_event_; }
-
- private:
-  //
-  kernel::Event* add_credit_event_ = nullptr;
-  // Associated Message Queue
-  MessageQueue* mq_ = nullptr;
-  // Credit counter.
-  std::size_t credits_ = 0;
 };
 
 //

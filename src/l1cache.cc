@@ -628,7 +628,7 @@ class L1CacheAgent::MainProcess : public AgentProcess {
       fail = true;
     }
 
-    auto check_mq_credits = [&](const MessageQueueProxy* mq, std::size_t n) {
+    auto check_mq_credits = [&](const MessageQueue* mq, std::size_t n) {
       if (!mq->has_at_least(n)) {
         // Insufficient space in L2 command queue.
       
@@ -637,7 +637,7 @@ class L1CacheAgent::MainProcess : public AgentProcess {
 
         // Message Queue becomes blocked awaiting credit to destination
         // queue.
-        cl.push_back(cb::build_blocked_on_event(ctxt.mq(), mq->add_credit_event()));
+        cl.push_back(cb::build_blocked_on_event(ctxt.mq(), mq->non_full_event()));
         fail = true;
       }
     };
@@ -681,8 +681,6 @@ L1CacheAgent::~L1CacheAgent() {
   delete cpu_l1__cmd_q_;
   delete replay__cmd_q_;
   delete l2_l1__rsp_q_;
-  delete l1_l2__cmd_q_;
-  delete l1_cpu__rsp_q_;
   delete arb_;
   delete tt_;
   delete main_;
@@ -716,12 +714,12 @@ void L1CacheAgent::build() {
   add_child_module(protocol_);
 }
 
-void L1CacheAgent::set_l1_l2__cmd_q(MessageQueueProxy* mq) {
+void L1CacheAgent::set_l1_l2__cmd_q(MessageQueue* mq) {
   l1_l2__cmd_q_ = mq;
   add_child_module(l1_l2__cmd_q_);
 }
 
-void L1CacheAgent::set_l1_cpu__rsp_q(MessageQueueProxy* mq) {
+void L1CacheAgent::set_l1_cpu__rsp_q(MessageQueue* mq) {
   l1_cpu__rsp_q_ = mq;
   add_child_module(l1_cpu__rsp_q_);
 }

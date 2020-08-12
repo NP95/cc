@@ -245,13 +245,13 @@ class DirModel : public Agent {
   // NOC -> DIR message queue
   MessageQueue* endpoint();
   // DIR -> NOC message queue
-  MessageQueueProxy* dir_noc__msg_q() const { return dir_noc__msg_q_; }
+  MessageQueue* dir_noc__msg_q() const { return dir_noc__msg_q_; }
   // Coherence protocol
   DirProtocol* protocol() const { return protocol_; }
   // Transaction table.
   DirTTable* tt() const { return tt_; }
   // Lookup Message Queue instance by class.
-  MessageQueueProxy* mq_by_msg_cls(MessageClass cls) const override;
+  MessageQueue* mq_by_msg_cls(MessageClass cls) const override;
 
  protected:
   // Build
@@ -261,7 +261,7 @@ class DirModel : public Agent {
   // Elaboration
   void elab() override;
   //
-  void set_dir_noc__msg_q(MessageQueueProxy* mq);
+  void set_dir_noc__msg_q(MessageQueue* mq);
 
   // Design Rule Check (DRC)
   void drc() override;
@@ -277,7 +277,7 @@ class DirModel : public Agent {
   // Queue selection arbiter
   MQArb* arb_ = nullptr;
   // DIR -> NOC message queue (owned by NOC)
-  MessageQueueProxy* dir_noc__msg_q_ = nullptr;
+  MessageQueue* dir_noc__msg_q_ = nullptr;
   // CPU -> DIR command queue (owned by DIR)
   MessageQueue* cpu_dir__cmd_q_ = nullptr;
   // LLC -> DIR response queue (owned by DIR)
@@ -286,8 +286,6 @@ class DirModel : public Agent {
   MessageQueue* cc_dir__snprsp_q_ = nullptr;
   // NOC endpoint
   DirNocEndpoint* noc_endpoint_ = nullptr;
-  // NOC endpoint proxies.
-  std::vector<MessageQueueProxy*> endpoints_;
   // request dispatcher process
   RdisProcess* rdis_proc_ = nullptr;
   // Last Level Cache instance (where applicable).

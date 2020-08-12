@@ -506,20 +506,20 @@ class DirNocEndpoint : public NocEndpoint {
   DirNocEndpoint(kernel::Kernel* k, const std::string& name)
       : NocEndpoint(k, name) {}
   //
-  void register_endpoint(MessageClass cls, MessageQueueProxy* p) {
+  void register_endpoint(MessageClass cls, MessageQueue* p) {
     endpoints_.insert(std::make_pair(cls, p));
   }
 
   // Lookup canonical MessageClass to MessageQueue mapping.
-  MessageQueueProxy* lookup_endpoint(MessageClass cls) const {
-    MessageQueueProxy* mq = nullptr;
+  MessageQueue* lookup_endpoint(MessageClass cls) const {
+    MessageQueue* mq = nullptr;
     if (auto it = endpoints_.find(cls); it != endpoints_.end()) {
       mq = it->second;
     }
     return mq;
   }
 
-  MessageQueueProxy* lookup_mq(const Message* msg) const override {
+  MessageQueue* lookup_mq(const Message* msg) const override {
     if (auto it = endpoints_.find(msg->cls()); it != endpoints_.end()) {
       return it->second;
     } else {
@@ -533,7 +533,7 @@ class DirNocEndpoint : public NocEndpoint {
 
  private:
   //
-  std::map<MessageClass, MessageQueueProxy*> endpoints_;
+  std::map<MessageClass, MessageQueue*> endpoints_;
 };
 
 DirModel::DirModel(kernel::Kernel* k, const DirModelConfig& config)
@@ -550,10 +550,6 @@ DirModel::~DirModel() {
   delete noc_endpoint_;
   delete rdis_proc_;
   delete protocol_;
-  for (MessageQueueProxy* p : endpoints_) {
-    delete p;
-  }
-  delete dir_noc__msg_q_;
   delete tt_;
 }
 
@@ -595,23 +591,13 @@ void DirModel::elab() {
   arb_->add_requester(llc_dir__rsp_q_);
   arb_->add_requester(cc_dir__snprsp_q_);
 
-  MessageQueueProxy* p = nullptr;
-
-  p = cpu_dir__cmd_q_->construct_proxy();
-  noc_endpoint_->register_endpoint(MessageClass::CohSrt, p);
-  noc_endpoint_->register_endpoint(MessageClass::CohCmd, p);
-  endpoints_.push_back(p);
-
-  p = llc_dir__rsp_q_->construct_proxy();
-  noc_endpoint_->register_endpoint(MessageClass::LLCCmdRsp, p);
-  endpoints_.push_back(p);
-
-  p = cc_dir__snprsp_q_->construct_proxy();
-  noc_endpoint_->register_endpoint(MessageClass::CohSnpRsp, p);
-  endpoints_.push_back(p);
+  noc_endpoint_->register_endpoint(MessageClass::CohSrt, cpu_dir__cmd_q_);
+  noc_endpoint_->register_endpoint(MessageClass::CohCmd, cpu_dir__cmd_q_);
+  noc_endpoint_->register_endpoint(MessageClass::LLCCmdRsp, llc_dir__rsp_q_);
+  noc_endpoint_->register_endpoint(MessageClass::CohSnpRsp, cc_dir__snprsp_q_);
 }
 
-void DirModel::set_dir_noc__msg_q(MessageQueueProxy* mq) {
+void DirModel::set_dir_noc__msg_q(MessageQueue* mq) {
   dir_noc__msg_q_ = mq;
   add_child_module(dir_noc__msg_q_);
 }
@@ -627,7 +613,7 @@ void DirModel::drc() {
 
 MessageQueue* DirModel::endpoint() { return noc_endpoint_->ingress_mq(); }
 
-MessageQueueProxy* DirModel::mq_by_msg_cls(MessageClass cls) const {
+MessageQueue* DirModel::mq_by_msg_cls(MessageClass cls) const {
   return noc_endpoint_->lookup_endpoint(cls);
 }
 

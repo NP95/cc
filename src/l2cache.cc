@@ -666,24 +666,19 @@ L2CacheAgent::~L2CacheAgent() {
   for (MessageQueue* mq : l1_l2__cmd_qs_) {
     delete mq;
   }
-  delete l2_cc__cmd_q_;
-  for (auto it : l2_l1__rsp_qs_) {
-    delete it.second;
-  }
-  delete l2_cc__snprsp_q_;
   delete tt_;
 }
 
-MessageQueueProxy* L2CacheAgent::l2_l1__rsp_q(L1CacheAgent* l1cache) const {
-  MessageQueueProxy* proxy = nullptr;
+MessageQueue* L2CacheAgent::l2_l1__rsp_q(L1CacheAgent* l1cache) const {
+  MessageQueue* mq = nullptr;
   if (auto it = l2_l1__rsp_qs_.find(l1cache); it != l2_l1__rsp_qs_.end()) {
-    proxy = it->second;
+    mq = it->second;
   } else {
     LogMessage msg("Cannot find l2_lq__rsp_qs proxy instance for l1cache.");
     msg.level(Level::Fatal);
     log(msg);
   }
-  return proxy;
+  return mq;
 }
 
 void L2CacheAgent::add_l1c(L1CacheAgent* l1c) {
@@ -732,18 +727,16 @@ void L2CacheAgent::elab() {
   }
 }
 
-void L2CacheAgent::set_l2_cc__cmd_q(MessageQueueProxy* mq) {
+void L2CacheAgent::set_l2_cc__cmd_q(MessageQueue* mq) {
   l2_cc__cmd_q_ = mq;
   add_child_module(l2_cc__cmd_q_);
 }
 
-void L2CacheAgent::set_l2_l1__rsp_q(L1CacheAgent* l1cache,
-                                    MessageQueueProxy* mq) {
+void L2CacheAgent::set_l2_l1__rsp_q(L1CacheAgent* l1cache, MessageQueue* mq) {
   l2_l1__rsp_qs_[l1cache] = mq;
-  add_child_module(l2_l1__rsp_qs_[l1cache]);
 }
 
-void L2CacheAgent::set_l2_cc__snprsp_q(MessageQueueProxy* mq) {
+void L2CacheAgent::set_l2_cc__snprsp_q(MessageQueue* mq) {
   l2_cc__snprsp_q_ = mq;
   add_child_module(l2_cc__snprsp_q_);
 }

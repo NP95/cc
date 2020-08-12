@@ -175,7 +175,7 @@ class MemCntrlModel::RequestDispatcherProcess : public AgentProcess {
     nocmsg->set_origin(model_);
     nocmsg->set_dest(dest);
     // Issue to NOC
-    MessageQueueProxy* mq = model_->mem_noc__msg_q();
+    MessageQueue* mq = model_->mem_noc__msg_q();
     mq->issue(nocmsg);
   }
 
@@ -191,11 +191,11 @@ class MemNocEndpoint : public NocEndpoint {
   MemNocEndpoint(kernel::Kernel* k, const std::string& name)
       : NocEndpoint(k, name) {}
   //
-  void register_agent(Agent* agent, MessageQueueProxy* proxy) {
+  void register_agent(Agent* agent, MessageQueue* proxy) {
     endpoints_.insert(std::make_pair(agent, proxy));
   }
   //
-  MessageQueueProxy* lookup_mq(const Message* msg) const override {
+  MessageQueue* lookup_mq(const Message* msg) const override {
     if (auto it = endpoints_.find(msg->origin()); it != endpoints_.end()) {
       return it->second;
     } else {
@@ -209,7 +209,7 @@ class MemNocEndpoint : public NocEndpoint {
 
  private:
   //
-  std::map<Agent*, MessageQueueProxy*> endpoints_;
+  std::map<Agent*, MessageQueue*> endpoints_;
 };
 
 MemCntrlModel::MemCntrlModel(kernel::Kernel* k) : Agent(k, "mem") { build(); }
@@ -223,10 +223,6 @@ MemCntrlModel::~MemCntrlModel() {
     delete mq;
   }
   delete noc_endpoint_;
-  for (MessageQueueProxy* p : endpoints_) {
-    delete p;
-  }
-  delete mem_noc__msg_q_;
 }
 
 void MemCntrlModel::build() {
@@ -255,13 +251,11 @@ void MemCntrlModel::elab() {
   }
 
   for (const std::pair<Agent*, MessageQueue*> pp : rdis_mq_) {
-    MessageQueueProxy* proxy = pp.second->construct_proxy();
-    noc_endpoint_->register_agent(pp.first, proxy);
-    endpoints_.push_back(proxy);
+    noc_endpoint_->register_agent(pp.first, pp.second);
   }
 }
 
-void MemCntrlModel::set_mem_noc__msg_q(MessageQueueProxy* mq) {
+void MemCntrlModel::set_mem_noc__msg_q(MessageQueue* mq) {
   mem_noc__msg_q_ = mq;
   add_child_module(mem_noc__msg_q_);
 }

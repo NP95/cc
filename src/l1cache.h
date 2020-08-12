@@ -448,9 +448,9 @@ class L1CacheAgent : public Agent {
   // CPU -> l1 command queue
   MessageQueue* cpu_l1__cmd_q() const { return cpu_l1__cmd_q_; }
   // L1 -> CPU response queue
-  MessageQueueProxy* l1_cpu__rsp_q() const { return l1_cpu__rsp_q_; }
+  MessageQueue* l1_cpu__rsp_q() const { return l1_cpu__rsp_q_; }
   // L1 -> L2 command queue
-  MessageQueueProxy* l1_l2__cmd_q() const { return l1_l2__cmd_q_; }
+  MessageQueue* l1_l2__cmd_q() const { return l1_l2__cmd_q_; }
   // L2 -> L1 response queue
   MessageQueue* l2_l1__rsp_q() const { return l2_l1__rsp_q_; }
   // Message replay queue.
@@ -479,9 +479,9 @@ class L1CacheAgent : public Agent {
   // Set CPU (Elaboration-Phase)
   void set_cpu(Cpu* cpu) { cpu_ = cpu; }
   // Set L1 -> L2 Command Queue
-  void set_l1_l2__cmd_q(MessageQueueProxy* mq);
+  void set_l1_l2__cmd_q(MessageQueue* mq);
   // Set L1 -> CPU Response Queue
-  void set_l1_cpu__rsp_q(MessageQueueProxy* mq);
+  void set_l1_cpu__rsp_q(MessageQueue* mq);
 
   // Design Rule Check (DRC) Phase
   virtual void drc() override;
@@ -504,11 +504,11 @@ class L1CacheAgent : public Agent {
   // Replay Queue 
   MessageQueue* replay__cmd_q_ = nullptr;
   // L1 -> L2 Command Queue (L2 owned)
-  MessageQueueProxy* l1_l2__cmd_q_ = nullptr;
+  MessageQueue* l1_l2__cmd_q_ = nullptr;
   // L2 -> L1 Response Queue (L1 owned)
   MessageQueue* l2_l1__rsp_q_ = nullptr;
   // L1 -> CPU Response Queue (CPU owned)
-  MessageQueueProxy* l1_cpu__rsp_q_ = nullptr;
+  MessageQueue* l1_cpu__rsp_q_ = nullptr;
   // Message servicing arbiter.
   MQArb* arb_ = nullptr;
   // Transaction table.

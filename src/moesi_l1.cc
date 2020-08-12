@@ -480,7 +480,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
       }
 
       void set_eq(L1EgressQueue eq) { eq_ = eq; }
-      void set_mq(MessageQueueProxy* mq) { mq_ = mq; }
+      void set_mq(MessageQueue* mq) { mq_ = mq; }
       void set_msg(const Message* msg) { msg_ = msg; }
 
 
@@ -507,7 +507,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
       //
       L1EgressQueue eq_ = L1EgressQueue::Invalid;
       //
-      MessageQueueProxy* mq_ = nullptr;
+      MessageQueue* mq_ = nullptr;
       //
       const Message* msg_ = nullptr;
     };

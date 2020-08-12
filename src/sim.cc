@@ -42,16 +42,16 @@ MessageQueue::MessageQueue(kernel::Kernel* k, const std::string& name,
 
 MessageQueue::~MessageQueue() { delete q_; }
 
-MessageQueueProxy* MessageQueue::construct_proxy() {
-  return new MessageQueueProxy(this);
-}
-
 std::string MessageQueue::to_string() const {
   using cc::to_string;
   KVListRenderer r;
   r.add_field("empty", to_string(empty()));
   r.add_field("full", to_string(full()));
   return r.to_string();
+}
+
+bool MessageQueue::has_at_least(std::size_t n) const {
+  return q_->free() >= n;
 }
 
 bool MessageQueue::issue(const Message* msg, epoch_t epoch) {
@@ -143,39 +143,6 @@ void MessageQueue::build(std::size_t n) {
   add_child_module(q_);
 
   credits_ = n;
-}
-
-MessageQueueProxy::MessageQueueProxy(MessageQueue* mq)
-    : Agent(mq->k(), mq->path() + "_proxy"), mq_(mq) {
-  //
-  credits_ = mq->n();
-
-  add_credit_event_ = new kernel::Event(mq->k(), "add_credit_event");
-}
-
-MessageQueueProxy::~MessageQueueProxy() {
-  delete add_credit_event_;
-}
-
-
-void MessageQueueProxy::add_credit() {
-  credits_++;
-  add_credit_event_->notify();
-}
-
-
-bool MessageQueueProxy::issue(const Message* msg, epoch_t epoch) {
-  bool success = false;
-  if (credits_ > 0) {
-    credits_--;
-    mq_->issue(msg, epoch);
-    success = true;
-  } else {
-    LogMessage l("Attempt to issue when credits are exhausted.");
-    l.level(Level::Fatal);
-    log(l);
-  }
-  return success;
 }
 
 AgentProcess::AgentProcess(kernel::Kernel* k, const std::string& name)

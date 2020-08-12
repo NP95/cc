@@ -55,7 +55,6 @@ class CCSnpContext;
 class DirCommandList;
 class DirContext;
 
-class MessageQueueProxy;
 class MessageQueue;
 class Agent;
 
@@ -371,7 +370,7 @@ class DirProtocol : public kernel::Module {
 
  protected:
   //
-  virtual void issue_msg(DirCommandList& lc, MessageQueueProxy* mq,
+  virtual void issue_msg(DirCommandList& lc, MessageQueue* mq,
                          const Message* msg) const;
 
   //

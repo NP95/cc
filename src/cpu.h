@@ -63,7 +63,7 @@ class Cpu : public Agent {
   // Accessors;
 
   // CPU -> L1 command queue (L1 owned)
-  MessageQueueProxy* cpu_l1__cmd_q() const { return cpu_l1__cmd_q_; }
+  MessageQueue* cpu_l1__cmd_q() const { return cpu_l1__cmd_q_; }
   // L1 -> CPU response queue (CPU owned)
   MessageQueue* l1_cpu__rsp_q() const { return l1_cpu__rsp_q_; }
   // Current stimulus context instance.
@@ -81,7 +81,7 @@ class Cpu : public Agent {
   // Set parent L1 cache instance.
   void set_l1c(L1CacheAgent* l1c) { l1c_ = l1c; }
   // Set CPU -> L1 command queue
-  void set_cpu_l1__cmd_q(MessageQueueProxy* mq);
+  void set_cpu_l1__cmd_q(MessageQueue* mq);
 
   // Design Rule Check (DRC):
   void drc() override;
@@ -94,7 +94,7 @@ class Cpu : public Agent {
   //
   StimulusContext* stimulus_ = nullptr;
   // CPU -> L1 message queue.
-  MessageQueueProxy* cpu_l1__cmd_q_ = nullptr;
+  MessageQueue* cpu_l1__cmd_q_ = nullptr;
   // L1 -> CPU message queue
   MessageQueue* l1_cpu__rsp_q_ = nullptr;
   // Producer thread of execution.

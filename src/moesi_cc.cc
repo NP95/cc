@@ -624,7 +624,7 @@ class MOESICCProtocol : public CCProtocol {
       
       // Setters
       void set_eq(CCEgressQueue eq) { eq_ = eq; }
-      void set_mq(MessageQueueProxy* mq) { mq_ = mq; }
+      void set_mq(MessageQueue* mq) { mq_ = mq; }
       void set_msg(const Message* msg) { msg_ = msg; }
 
       void set_resources(CCResources& r) const override {
@@ -647,14 +647,14 @@ class MOESICCProtocol : public CCProtocol {
       // Desintation Egress Queue
       CCEgressQueue eq_ = CCEgressQueue::Invalid;
       // Destination message queue
-      MessageQueueProxy* mq_ = nullptr;
+      MessageQueue* mq_ = nullptr;
       // Message to issue
       const Message* msg_ = nullptr;
     };
     EmitMessageActionProxy* action = new EmitMessageActionProxy;
     action->set_eq(eq);
     action->set_msg(msg);
-    MessageQueueProxy* mq = nullptr;
+    MessageQueue* mq = nullptr;
     switch (eq) {
       case CCEgressQueue::L2CmdQ: {
         mq = ctxt.cc()->cc_l2__cmd_q();
@@ -686,7 +686,7 @@ class MOESICCProtocol : public CCProtocol {
         return r.to_string();
       }
 
-      void set_mq(MessageQueueProxy* mq) { mq_ = mq; }
+      void set_mq(MessageQueue* mq) { mq_ = mq; }
       void set_msg(const NocMsg* msg) { msg_ = msg; }
       void set_cc(const CCModel* cc) { cc_ = cc; }
 
@@ -749,7 +749,7 @@ class MOESICCProtocol : public CCProtocol {
       // Message to issue to NOC.
       const NocMsg* msg_ = nullptr;
       // Destination Message Queue
-      MessageQueueProxy* mq_ = nullptr;
+      MessageQueue* mq_ = nullptr;
       // Cache controller model
       const CCModel* cc_ = nullptr;
     };

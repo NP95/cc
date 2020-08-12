@@ -42,7 +42,6 @@ class MemCntrlModel;
 class DirModel;
 class Message;
 class MessageQueue;
-class MessageQueueProxy;
 class LLCNocEndpoint;
 class CpuCluster;
 
@@ -132,7 +131,7 @@ class LLCModel : public Agent {
   // NOC -> LLC message queue
   MessageQueue* endpoint() const;
   // LLC -> NOC message queue
-  MessageQueueProxy* llc_noc__msg_q() const { return llc_noc__msg_q_; }
+  MessageQueue* llc_noc__msg_q() const { return llc_noc__msg_q_; }
   // Home memory controller
   MemCntrlModel* mc() const { return mc_; }
   // Directory model instance.
@@ -147,7 +146,7 @@ class LLCModel : public Agent {
   // Elaboration
   void elab() override;
   // NOC -> LLC message queue
-  void set_llc_noc__msg_q(MessageQueueProxy* mq);
+  void set_llc_noc__msg_q(MessageQueue* mq);
   // Set memory controller.
   void set_mc(MemCntrlModel* mc) { mc_ = mc; }
   // Set owner directory.
@@ -164,7 +163,7 @@ class LLCModel : public Agent {
 
  private:
   // LLC -> NOC command queue (NOC owned)
-  MessageQueueProxy* llc_noc__msg_q_ = nullptr;
+  MessageQueue* llc_noc__msg_q_ = nullptr;
   // DIR -> LLC command queue (LLC owned)
   MessageQueue* dir_llc__cmd_q_ = nullptr;
   // MEM -> LLC response queue (LLC owned)
@@ -183,8 +182,6 @@ class LLCModel : public Agent {
   RdisProcess* rdis_proc_ = nullptr;
   // NOC endpoint
   LLCNocEndpoint* noc_endpoint_ = nullptr;
-  // NOC endpoint proxies.
-  std::vector<MessageQueueProxy*> endpoints_;
   // LLC Cache configuration
   LLCModelConfig config_;
 };

@@ -348,7 +348,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
     tstate->set_opcode(cmd->opcode());
 
     // Lookup L2 to L1 response queue keyed on origin agent.
-    MessageQueueProxy* l2_l1__rsp_q =
+    MessageQueue* l2_l1__rsp_q =
         ctxt.l2cache()->l2_l1__rsp_q(tstate->l1cache());
 
     const L2CmdOpcode opcode = cmd->opcode();
@@ -628,7 +628,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
              const AceCmdRspMsg* msg) const {
     L2TState* tstate = ctxt.tstate();
     // Lookup L2 to L1 response queue keyed on origin agent.
-    MessageQueueProxy* l2_l1__rsp_q =
+    MessageQueue* l2_l1__rsp_q =
         ctxt.l2cache()->l2_l1__rsp_q(tstate->l1cache());
 
     const L2CmdOpcode opcode = tstate->opcode();
@@ -1009,7 +1009,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
 
       // Setters:
       void set_eq(L2EgressQueue eq) { eq_ = eq; }
-      void set_mq(MessageQueueProxy* mq) { mq_ = mq; }
+      void set_mq(MessageQueue* mq) { mq_ = mq; }
       void set_msg(const Message* msg) { msg_ = msg; }
 
       void set_resources(L2Resources& r) const override {
@@ -1035,14 +1035,14 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
       //
       L2EgressQueue eq_ = L2EgressQueue::Invalid;
       //
-      MessageQueueProxy* mq_ = nullptr;
+      MessageQueue* mq_ = nullptr;
       //
       const Message* msg_ = nullptr;
     };
     EmitMessageActionProxy* action = new EmitMessageActionProxy;
     action->set_eq(eq);
     action->set_msg(msg);
-    MessageQueueProxy* mq = nullptr;
+    MessageQueue* mq = nullptr;
     switch (eq) {
       case L2EgressQueue::CCCmdQ: {
         mq = ctxt.l2cache()->l2_cc__cmd_q();

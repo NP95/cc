@@ -158,7 +158,7 @@ class NocModel::MainProcess : public kernel::Process {
 
         // Issue message to destination agent ingress queue.
         // const Message* payload = nocmsg->payload();
-        MessageQueueProxy* egress = port->egress();
+        MessageQueue* egress = port->egress();
         egress->issue(nocmsg);
 
         // Message has now been issued to destination. Destroy
@@ -201,7 +201,6 @@ NocPort::NocPort(kernel::Kernel* k, const std::string& name) : Module(k, name) {
 
 NocPort::~NocPort() {
   delete ingress_;
-  delete egress_;
 }
 
 void NocPort::build() {
@@ -239,7 +238,7 @@ class NocEndpoint::MainProcess : public AgentProcess {
 
     const Message* msg = nocmsg->payload();
 
-    MessageQueueProxy* proxy = ep_->lookup_mq(msg);
+    MessageQueue* proxy = ep_->lookup_mq(msg);
     if (proxy == nullptr) {
       LogMessage lmsg("Message queue not found for class: ");
       lmsg.append(cc::to_string(msg->cls()));

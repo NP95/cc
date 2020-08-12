@@ -423,12 +423,12 @@ class CCModel::RdisProcess : public AgentProcess {
     bool has_resources = true;
 
     // Check NOC (if applicable)
-    MessageQueueProxy* mq = nullptr;
+    MessageQueue* mq = nullptr;
     mq = model_->cc_noc__msg_q();
     if (has_resources && !mq->has_at_least(res.noc_credit_n())) {
       // Resources not attained.
       cl.clear();
-      cl.push_back(cb::build_blocked_on_event(ctxt.mq(), mq->add_credit_event()));
+      cl.push_back(cb::build_blocked_on_event(ctxt.mq(), mq->dequeue_event()));
       has_resources = false;
     }
 
@@ -437,7 +437,7 @@ class CCModel::RdisProcess : public AgentProcess {
     if (has_resources && !mq->has_at_least(res.cmd_q_n())) {
       // Resources not attained.
       cl.clear();
-      cl.push_back(cb::build_blocked_on_event(ctxt.mq(), mq->add_credit_event()));
+      cl.push_back(cb::build_blocked_on_event(ctxt.mq(), mq->dequeue_event()));
       has_resources = false;
     }
 
@@ -446,7 +446,7 @@ class CCModel::RdisProcess : public AgentProcess {
     if (has_resources && !mq->has_at_least(res.rsp_q_n())) {
       // Resources not attained.
       cl.clear();
-      cl.push_back(cb::build_blocked_on_event(ctxt.mq(), mq->add_credit_event()));
+      cl.push_back(cb::build_blocked_on_event(ctxt.mq(), mq->dequeue_event()));
       has_resources = false;
     }
 
@@ -797,19 +797,19 @@ class CCNocEndpoint : public NocEndpoint {
   CCNocEndpoint(kernel::Kernel* k, const std::string& name)
       : NocEndpoint(k, name) {}
   //
-  void register_endpoint(MessageClass cls, MessageQueueProxy* p) {
+  void register_endpoint(MessageClass cls, MessageQueue* p) {
     endpoints_.insert(std::make_pair(cls, p));
   }
   //
-  MessageQueueProxy* lookup_endpoint(MessageClass cls) {
-    MessageQueueProxy* mq = nullptr;
+  MessageQueue* lookup_endpoint(MessageClass cls) {
+    MessageQueue* mq = nullptr;
     if (auto it = endpoints_.find(cls); it != endpoints_.end()) {
       mq = it->second;
     }
     return mq;
   }
   //
-  MessageQueueProxy* lookup_mq(const Message* msg) const override {
+  MessageQueue* lookup_mq(const Message* msg) const override {
     if (auto it = endpoints_.find(msg->cls()); it != endpoints_.end()) {
       return it->second;
     } else {
@@ -823,7 +823,7 @@ class CCNocEndpoint : public NocEndpoint {
 
  private:
   //
-  std::map<MessageClass, MessageQueueProxy*> endpoints_;
+  std::map<MessageClass, MessageQueue*> endpoints_;
 };
 
 CCModel::CCModel(kernel::Kernel* k, const CCConfig& config)
@@ -846,9 +846,6 @@ CCModel::~CCModel() {
   delete tt_;
   delete snp_tt_;
   delete protocol_;
-  delete cc_l2__rsp_q_;
-  delete cc_noc__msg_q_;
-  for (MessageQueueProxy* p : endpoints_) { delete p; }
   for (const auto& class_map : ccntrs_map_) {
     for (const auto& agent_counter : class_map.second) {
       delete agent_counter.second;
@@ -909,54 +906,36 @@ void CCModel::elab() {
   arb_->add_requester(dir_cc__rsp_q_);
   arb_->add_requester(cc__dt_q_);
 
-  MessageQueueProxy* p = nullptr;
-
   // Fix up ingress queues for the NOC ingress process.
-  p = cc__dt_q_->construct_proxy();
-  noc_endpoint_->register_endpoint(MessageClass::Dt, p);
-  endpoints_.push_back(p);
-
-  p = l2_cc__cmd_q_->construct_proxy();
-  noc_endpoint_->register_endpoint(MessageClass::L2Cmd, p);
-  endpoints_.push_back(p);
-
-  p = dir_cc__rsp_q_->construct_proxy();
-  noc_endpoint_->register_endpoint(MessageClass::CohCmdRsp, p);
-  noc_endpoint_->register_endpoint(MessageClass::CohEnd, p);
-  endpoints_.push_back(p);
+  noc_endpoint_->register_endpoint(MessageClass::Dt, cc__dt_q_);
+  noc_endpoint_->register_endpoint(MessageClass::L2Cmd, l2_cc__cmd_q_);
+  noc_endpoint_->register_endpoint(MessageClass::CohCmdRsp, dir_cc__rsp_q_);
+  noc_endpoint_->register_endpoint(MessageClass::CohEnd, dir_cc__rsp_q_);
 
   // Snoop commands
   snp_arb_->add_requester(dir_cc__snpcmd_q_);
   snp_arb_->add_requester(l2_cc__snprsp_q_);
   snp_arb_->add_requester(cc_cc__rsp_q_);
 
-  p = dir_cc__snpcmd_q_->construct_proxy();
-  noc_endpoint_->register_endpoint(MessageClass::CohSnp, p);
-  endpoints_.push_back(p);
-
-  p = l2_cc__snprsp_q_->construct_proxy();
-  noc_endpoint_->register_endpoint(MessageClass::AceSnoopRsp, p);
-  endpoints_.push_back(p);
-
-  p = cc_cc__rsp_q_->construct_proxy();
-  noc_endpoint_->register_endpoint(MessageClass::DtRsp, p);
-  endpoints_.push_back(p);
+  noc_endpoint_->register_endpoint(MessageClass::CohSnp, dir_cc__snpcmd_q_);
+  noc_endpoint_->register_endpoint(MessageClass::AceSnoopRsp, l2_cc__snprsp_q_);
+  noc_endpoint_->register_endpoint(MessageClass::DtRsp, cc_cc__rsp_q_);
 }
 
 // Set CC -> NOC message queue
-void CCModel::set_cc_noc__msg_q(MessageQueueProxy* mq) {
+void CCModel::set_cc_noc__msg_q(MessageQueue* mq) {
   cc_noc__msg_q_ = mq;
   add_child_module(cc_noc__msg_q_);
 }
 
 // Set CC -> L2 response queue
-void CCModel::set_cc_l2__cmd_q(MessageQueueProxy* mq) {
+void CCModel::set_cc_l2__cmd_q(MessageQueue* mq) {
   cc_l2__cmd_q_ = mq;
   add_child_module(cc_l2__cmd_q_);
 }
 
 // Set CC -> L2 response queue
-void CCModel::set_cc_l2__rsp_q(MessageQueueProxy* mq) {
+void CCModel::set_cc_l2__rsp_q(MessageQueue* mq) {
   cc_l2__rsp_q_ = mq;
   add_child_module(cc_l2__rsp_q_);
 }
@@ -989,7 +968,7 @@ void CCModel::drc() {
 
 MessageQueue* CCModel::endpoint() const { return noc_endpoint_->ingress_mq(); }
 
-MessageQueueProxy* CCModel::mq_by_msg_cls(MessageClass cls) const {
+MessageQueue* CCModel::mq_by_msg_cls(MessageClass cls) const {
   return noc_endpoint_->lookup_endpoint(cls);
 }
 

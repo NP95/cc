@@ -440,15 +440,15 @@ class CCModel : public Agent {
   // L2 -> Controller (Transaction) Command Queue (owning)
   MessageQueue* l2_cc__cmd_q() const { return l2_cc__cmd_q_; }
   // CC -> L2 Command Queue (Snoops)
-  MessageQueueProxy* cc_l2__cmd_q() const { return cc_l2__cmd_q_; }
+  MessageQueue* cc_l2__cmd_q() const { return cc_l2__cmd_q_; }
   // CC -> L2 Response Queue
-  MessageQueueProxy* cc_l2__rsp_q() const { return cc_l2__rsp_q_; }
+  MessageQueue* cc_l2__rsp_q() const { return cc_l2__rsp_q_; }
   // L2 -> CC Snoop Response
   MessageQueue* l2_cc__snprsp_q() const { return l2_cc__snprsp_q_; }
   // NOC -> CC Ingress Queue
   MessageQueue* endpoint() const;
   // CC -> NOC Egress Queue
-  MessageQueueProxy* cc_noc__msg_q() const { return cc_noc__msg_q_; }
+  MessageQueue* cc_noc__msg_q() const { return cc_noc__msg_q_; }
   // Directory Mapper instance.
   DirMapper* dm() const { return dm_; }
   // L2 cache model
@@ -458,7 +458,7 @@ class CCModel : public Agent {
     return ccntrs_map_;
   }
   // Lookup Message Queue by Message Class
-  MessageQueueProxy* mq_by_msg_cls(MessageClass cls) const override;
+  MessageQueue* mq_by_msg_cls(MessageClass cls) const override;
 
  protected:
   // Accessors:
@@ -483,11 +483,11 @@ class CCModel : public Agent {
   // Set directory mapper.
   void set_dm(DirMapper* dm) { dm_ = dm; }
   // Set CC -> NOC message queue
-  void set_cc_noc__msg_q(MessageQueueProxy* mq);
+  void set_cc_noc__msg_q(MessageQueue* mq);
   // Set CC -> L2 message
-  void set_cc_l2__cmd_q(MessageQueueProxy* mq);
+  void set_cc_l2__cmd_q(MessageQueue* mq);
   // Set CC -> L2 response queue
-  void set_cc_l2__rsp_q(MessageQueueProxy* mq);
+  void set_cc_l2__rsp_q(MessageQueue* mq);
   // Register credit counter for MessageClass 'cls' in Agent 'agent' with
   // an initial value of 'n' credits.
   void register_credit_counter(MessageClass cls, Agent* dest, std::size_t n);
@@ -502,23 +502,23 @@ class CCModel : public Agent {
  private:
   // L2 Cache Model to which this controller is bound.
   L2CacheAgent* l2c_ = nullptr;
-  // L2 -> Controller (Transaction) Command Queue (owning)
+  // L2 -> Controller (Transaction) Command Queue (CC owned)
   MessageQueue* l2_cc__cmd_q_ = nullptr;
-  // CC -> L2 command queue
-  MessageQueueProxy* cc_l2__cmd_q_ = nullptr;
-  // CC -> L2 response queue
-  MessageQueueProxy* cc_l2__rsp_q_ = nullptr;
-  // CC -> NOC Egress Queue
-  MessageQueueProxy* cc_noc__msg_q_ = nullptr;
-  // DIR -> CC Ingress Queue
+  // CC -> L2 command queue (L2 owned)
+  MessageQueue* cc_l2__cmd_q_ = nullptr;
+  // CC -> L2 response queue (L2 owned)
+  MessageQueue* cc_l2__rsp_q_ = nullptr;
+  // CC -> NOC Egress Queue (noc owned)
+  MessageQueue* cc_noc__msg_q_ = nullptr;
+  // DIR -> CC Ingress Queue (cc owned)
   MessageQueue* dir_cc__rsp_q_ = nullptr;
-  // DIR -> CC Command Queue (snoops)
+  // DIR -> CC Command Queue (snoops) (cc owned)
   MessageQueue* dir_cc__snpcmd_q_ = nullptr;
-  // L2 -> CC snoop response queue
+  // L2 -> CC snoop response queue (cc owned)
   MessageQueue* l2_cc__snprsp_q_ = nullptr;
-  // CC -> CC response queue.
+  // CC -> CC response queue. (cc owned)
   MessageQueue* cc_cc__rsp_q_ = nullptr;
-  // {LLC, CC} -> CC Data (dt) queue
+  // {LLC, CC} -> CC Data (dt) queue (cc owned)
   MessageQueue* cc__dt_q_ = nullptr;
   // Agent credit counters (keyed on Message class)
   std::map<MessageClass, ccntr_map> ccntrs_map_;
@@ -534,8 +534,6 @@ class CCModel : public Agent {
   SnpProcess* snp_proc_ = nullptr;
   // NOC endpoint
   CCNocEndpoint* noc_endpoint_ = nullptr;
-  // NOC endpoint proxies.
-  std::vector<MessageQueueProxy*> endpoints_;
   // Transaction table instance.
   CCTTable* tt_ = nullptr;
   // Snoop transaction table instance.

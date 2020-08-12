@@ -74,7 +74,7 @@ class Cpu::ProducerProcess : public kernel::Process {
     Frontier f;
     if (!stimulus->front(f)) return;
 
-    MessageQueueProxy* mq = cpu_->cpu_l1__cmd_q();
+    MessageQueue* mq = cpu_->cpu_l1__cmd_q();
     if (mq->full()) {
       // Cpu issue queue has backpressured, therefore await notification
       // that the queue has become non-full.
@@ -168,7 +168,6 @@ Cpu::~Cpu() {
   }
   delete stimulus_;
   delete l1_cpu__rsp_q_;
-  delete cpu_l1__cmd_q_;
 }
 
 void Cpu::build() {
@@ -196,7 +195,7 @@ void Cpu::set_stimulus(StimulusContext* stimulus) {
 
 void Cpu::elab() {}
 
-void Cpu::set_cpu_l1__cmd_q(MessageQueueProxy* mq) {
+void Cpu::set_cpu_l1__cmd_q(MessageQueue* mq) {
   cpu_l1__cmd_q_ = mq;
   add_child_module(cpu_l1__cmd_q_);
 }

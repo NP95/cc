@@ -297,7 +297,7 @@ class LLCModel::RdisProcess : public AgentProcess {
     nocmsg->set_dest(dest);
     nocmsg->set_payload(msg);
 
-    MessageQueueProxy* mq = model_->llc_noc__msg_q();
+    MessageQueue* mq = model_->llc_noc__msg_q();
     mq->issue(nocmsg);
   }
 
@@ -312,11 +312,11 @@ class LLCNocEndpoint : public NocEndpoint {
   LLCNocEndpoint(kernel::Kernel* k, const std::string& name)
       : NocEndpoint(k, name) {}
   //
-  void register_endpoint(MessageClass cls, MessageQueueProxy* p) {
+  void register_endpoint(MessageClass cls, MessageQueue* p) {
     endpoints_.insert(std::make_pair(cls, p));
   }
   //
-  MessageQueueProxy* lookup_mq(const Message* msg) const override {
+  MessageQueue* lookup_mq(const Message* msg) const override {
     if (auto it = endpoints_.find(msg->cls()); it != endpoints_.end()) {
       return it->second;
     } else {
@@ -330,7 +330,7 @@ class LLCNocEndpoint : public NocEndpoint {
 
  private:
   //
-  std::map<MessageClass, MessageQueueProxy*> endpoints_;
+  std::map<MessageClass, MessageQueue*> endpoints_;
 };
 
 LLCModel::LLCModel(kernel::Kernel* k, const LLCModelConfig& config)
@@ -347,10 +347,6 @@ LLCModel::~LLCModel() {
   for (MessageQueue* mq : cc_llc__rsp_qs_) {
     delete mq;
   }
-  for (MessageQueueProxy* p : endpoints_) {
-    delete p;
-  }
-  delete llc_noc__msg_q_;
   delete tt_;
 }
 
@@ -388,21 +384,11 @@ void LLCModel::elab() {
     arb_->add_requester(mq);
   }
 
-  MessageQueueProxy* p = nullptr;
-
   //
-  p = dir_llc__cmd_q_->construct_proxy();
-  noc_endpoint_->register_endpoint(MessageClass::LLCCmd, p);
-  endpoints_.push_back(p);
-  //
-  p = mem_llc__rsp_q_->construct_proxy();
-  noc_endpoint_->register_endpoint(MessageClass::MemRsp, p);
-  endpoints_.push_back(p);
-
+  noc_endpoint_->register_endpoint(MessageClass::LLCCmd, dir_llc__cmd_q_);
+  noc_endpoint_->register_endpoint(MessageClass::MemRsp, mem_llc__rsp_q_);
   for (MessageQueue* mq : cc_llc__rsp_qs_) {
-    p = mq->construct_proxy();
-    noc_endpoint_->register_endpoint(MessageClass::DtRsp, p);
-    endpoints_.push_back(p);
+    noc_endpoint_->register_endpoint(MessageClass::DtRsp, mq);
   }
 }
 
@@ -416,7 +402,7 @@ void LLCModel::drc() {
 
 MessageQueue* LLCModel::endpoint() const { return noc_endpoint_->ingress_mq(); }
 
-void LLCModel::set_llc_noc__msg_q(MessageQueueProxy* mq) {
+void LLCModel::set_llc_noc__msg_q(MessageQueue* mq) {
   llc_noc__msg_q_ = mq;
   add_child_module(llc_noc__msg_q_);
 }

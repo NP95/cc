@@ -61,7 +61,7 @@ class CpuCluster : public Agent {
   // Elaboration
   void elab();
   // Set CC -> NOC message queue instance (NOC owned)
-  void set_cc_noc__msg_q(MessageQueueProxy* mq);
+  void set_cc_noc__msg_q(MessageQueue* mq);
   // Set directory mapper
   void set_dm(DirMapper* dm);
 

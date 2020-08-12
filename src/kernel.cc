@@ -244,11 +244,20 @@ void Kernel::invoke_fini() {
   visitor.iterate(top());
 }
 
-Object::Object(Kernel* k, const std::string& name) : k_(k), name_(name) {}
+Object::Object(Kernel* k, const std::string& name) : k_(k), name_(name) {
+}
 
 Object::~Object() {}
 
 std::string Object::path() const {
+  // Chicken-and-egg situation: to construct the full-paht, we would
+  // typically like to do this from within the constructor. We cannot
+  // do this but the Object's location within the design heirarchy is
+  // not necessarily known at the time it is constructed. To fix this,
+  // we would need to pass the parent during the construction
+  // process. This is not something that is done at present, but is
+  // something that should be added.
+  
   if (path_.empty()) {
     // Construct path;
     std::vector<std::string> vs;
