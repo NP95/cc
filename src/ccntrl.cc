@@ -801,6 +801,14 @@ class CCNocEndpoint : public NocEndpoint {
     endpoints_.insert(std::make_pair(cls, p));
   }
   //
+  MessageQueueProxy* lookup_endpoint(MessageClass cls) {
+    MessageQueueProxy* mq = nullptr;
+    if (auto it = endpoints_.find(cls); it != endpoints_.end()) {
+      mq = it->second;
+    }
+    return mq;
+  }
+  //
   MessageQueueProxy* lookup_mq(const Message* msg) const override {
     if (auto it = endpoints_.find(msg->cls()); it != endpoints_.end()) {
       return it->second;
@@ -980,5 +988,9 @@ void CCModel::drc() {
 }
 
 MessageQueue* CCModel::endpoint() const { return noc_endpoint_->ingress_mq(); }
+
+MessageQueueProxy* CCModel::mq_by_msg_cls(MessageClass cls) const {
+  return noc_endpoint_->lookup_endpoint(cls);
+}
 
 }  // namespace cc

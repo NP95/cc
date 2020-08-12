@@ -59,7 +59,14 @@ class SocTop : public kernel::TopModule {
  private:
   void build(const SocConfig& cfg);
 
+  // Elaborate
   void elab() override;
+
+  // Bind top-level ports
+  void elab_bind_ports();
+
+  // Compute credit counts
+  void elab_credit_counts();
 
   void drc() override;
 

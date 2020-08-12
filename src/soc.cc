@@ -116,6 +116,11 @@ void SocTop::build(const SocConfig& cfg) {
 }
 
 void SocTop::elab() {
+  elab_bind_ports();
+  elab_credit_counts();
+}
+
+void SocTop::elab_bind_ports() {
   // Bind interconnect:
   for (CpuCluster* cpuc : ccs_) {
     NocPort* port = noc_->get_agent_port(cpuc->cc());
@@ -177,6 +182,60 @@ void SocTop::elab() {
     for (CpuCluster* cc : ccs_) {
       llc->register_cc(cc);
     }
+  }
+}
+
+void SocTop::elab_credit_counts() {
+
+  // Map of credits allocated to a given Message Queue.
+  std::map<MessageQueueProxy*, std::size_t> mqcredits;
+
+  // Update CPU Cluster to Directory credit paths.
+  for (CpuCluster* cpuc : ccs_) {
+    MessageQueueProxy* mq = nullptr;
+    CCModel* cc = cpuc->cc();
+
+    // Register edge from Cpu Cluster to directories
+    for (DirModel* dm : dms_) {
+      const std::size_t credits_n = 16;
+      // Coherence start message
+      cc->register_credit_counter(MessageClass::CohSrt, dm, credits_n);
+      mq = dm->mq_by_msg_cls(MessageClass::CohSrt);
+      if (mq != nullptr) { mqcredits[mq] += credits_n; }
+
+      // Coherence command message
+      cc->register_credit_counter(MessageClass::CohCmd, dm, credits_n);
+      mq = dm->mq_by_msg_cls(MessageClass::CohCmd);
+      if (mq != nullptr) { mqcredits[mq] += credits_n; }
+    }
+
+    // Register edge from Cpu Cluster to all other Cpu clusters (Dt
+    // transfers).
+    for (CpuCluster* cpuc_dest : ccs_) {
+      // No edge from self to self. (A Cpu Cluster will never send
+      // a Dt to itself).
+      if (cpuc_dest == cpuc) continue;
+
+      const std::size_t credits_n = 16;
+      cc->register_credit_counter(MessageClass::Dt, cpuc_dest, credits_n);
+      mq = cc->mq_by_msg_cls(MessageClass::Dt);
+      if (mq != nullptr) { mqcredits[mq] += credits_n; }
+    }
+  }
+
+  // Set Directory to CPU Cluster (Snoops) credit paths
+
+  // TODO:
+
+
+  // Now that credit counters have been set, update the capacity of
+  // the destination Message Queues.
+  for (const auto& mqcredit : mqcredits) {
+    MessageQueueProxy* mq = mqcredit.first;
+    const std::size_t credits = mqcredit.second;
+
+    // TODO: Set credits
+    // mq->set_size_and_update(credits);
   }
 }
 

@@ -421,6 +421,7 @@ class CCSnpContext {
 //
 //
 class CCModel : public Agent {
+  friend class SocTop;
   friend class CpuCluster;
   friend class CCCommandInterpreter;
   friend class CCSnpCommandInterpreter;
@@ -456,6 +457,8 @@ class CCModel : public Agent {
   const std::map<MessageClass, ccntr_map>& ccntrs_map() const {
     return ccntrs_map_;
   }
+  // Lookup Message Queue by Message Class
+  MessageQueueProxy* mq_by_msg_cls(MessageClass cls) const override;
 
  protected:
   // Accessors:
@@ -474,7 +477,7 @@ class CCModel : public Agent {
   void build();
 
   // Elaboration
-  void elab();
+  void elab() override;
   // Set slave L2C instance.
   void set_l2c(L2CacheAgent* l2c) { l2c_ = l2c; }
   // Set directory mapper.
@@ -494,7 +497,7 @@ class CCModel : public Agent {
   CCSnpTTable* snp_tt() const { return snp_tt_; }
 
   // Design Rule Check (DRC)
-  void drc();
+  void drc() override;
 
  private:
   // L2 Cache Model to which this controller is bound.

@@ -29,6 +29,7 @@
 #define CC_LIBCC_SIM_H
 
 #include "primitives.h"
+#include "msg.h"
 
 namespace cc {
 
@@ -60,14 +61,19 @@ class AgentProcess : public kernel::Process {
   bool wait_set_ = false;
 };
 
+class MessageQueueProxy;
+
 //
 //
 class Agent : public kernel::Module {
  public:
   Agent(kernel::Kernel* k, const std::string& name);
+
+  virtual MessageQueueProxy* mq_by_msg_cls(MessageClass cls) const {
+    return nullptr;
+  }
 };
 
-class MessageQueueProxy;
 
 //
 //
@@ -146,7 +152,7 @@ class MessageQueueProxy : public Agent {
   void add_credit();
   // Issue message to target
   bool issue(const Message* msg, epoch_t epoch = 0);
-  //
+  // Event indicating that a credit has been added to the queue.
   kernel::Event* add_credit_event() const { return add_credit_event_; }
 
  private:

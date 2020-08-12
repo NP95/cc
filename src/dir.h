@@ -250,6 +250,8 @@ class DirModel : public Agent {
   DirProtocol* protocol() const { return protocol_; }
   // Transaction table.
   DirTTable* tt() const { return tt_; }
+  // Lookup Message Queue instance by class.
+  MessageQueueProxy* mq_by_msg_cls(MessageClass cls) const override;
 
  protected:
   // Build
