@@ -118,6 +118,9 @@ void split(IT it, const std::string& name, const char* sep = ".") {
 // Convert some '.' separated path and replace with '_'
 std::string flatten_path(const std::string& path);
 
+// Join two strings to form path: a.b.c and d becomes a.b.c.d
+std::string join_path(const std::string& base, const std::string& item);
+
 template <typename>
 class Pool;
 

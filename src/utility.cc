@@ -77,6 +77,10 @@ std::string flatten_path(const std::string& path) {
   return ret;
 }
 
+std::string join_path(const std::string& base, const std::string& item) {
+  return base + "." + item;
+}
+
 std::string Hexer::to_hex(std::uint64_t x, std::size_t bits) const {
   return to_hex(reinterpret_cast<const char*>(std::addressof(x)), bits);
 }

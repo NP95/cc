@@ -619,7 +619,7 @@ void DirModel::drc() {
 
 void DirModel::register_credit_counter(MessageClass cls, Agent* dest,
                                        std::size_t n) {
-  const std::string name = flatten_path(dest->path()) + to_string(cls);
+  const std::string name = join_path(flatten_path(dest->path()), to_string(cls));
   // Construct new credit counter.
   CreditCounter* cc = new CreditCounter(k(), name);
   cc->set_n(n);
