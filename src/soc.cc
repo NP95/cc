@@ -249,7 +249,7 @@ void SocTop::elab_credit_counts() {
       if (cpuc_dest == cpuc) continue;
 
       cc->register_credit_counter(MessageClass::Dt, cpuc_dest, credits_n);
-      mq = cc->mq_by_msg_cls(MessageClass::Dt);
+      mq = cpuc_dest->mq_by_msg_cls(MessageClass::Dt);
       if (mq != nullptr) { mqcredits[mq] += credits_n; }
     }
   }
@@ -270,7 +270,7 @@ void SocTop::elab_credit_counts() {
   // Now that credit counters have been set, update the capacity of
   // the destination Message Queues.
   for (const auto& mqcredit : mqcredits) {
-    MessageQueue* mq = mqcredit.first;
+    mq = mqcredit.first;
     const std::size_t credits = mqcredit.second;
     mq->resize(credits);
   }

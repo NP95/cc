@@ -54,9 +54,9 @@ class AgentProcess : public kernel::Process {
   void wait_on(kernel::Event* event) override;
 
  private:
-  void invoke_init() override final;
+  void invoke_init() final;
 
-  void invoke_eval() override final;
+  void invoke_eval() final;
 
   bool wait_set_ = false;
 };
@@ -78,7 +78,6 @@ class Agent : public kernel::Module {
 //
 //
 class MessageQueue : public Agent {
-  friend class MessageQueue;
   friend class UnblockAction;
 
  public:
