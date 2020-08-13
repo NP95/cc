@@ -94,7 +94,7 @@ class Cpu::ProducerProcess : public kernel::Process {
     // Issue message
     mq->issue(msg);
     // Consume stimulus.
-    stimulus->consume();
+    stimulus->issue();
     // Terminate here if stimulus has been exhausted.
     if (stimulus->done()) return;
 
@@ -129,12 +129,14 @@ class Cpu::ConsumerProcess : public kernel::Process {
       const Message* msg = mq->dequeue();
       switch (msg->cls()) {
         case MessageClass::L1CmdRsp: {
+          StimulusContext* stimulus = cpu_->stimulus();
           const L1CmdRspMsg* l1rspmsg = static_cast<const L1CmdRspMsg*>(msg);
 
           Transaction* t = l1rspmsg->t();
           // Transaction is complete.
           cpu_->end_transaction(t);
           l1rspmsg->release();
+          stimulus->retire();
         } break;
         default: {
         } break;

@@ -46,18 +46,29 @@ std::string to_string(CpuOpcode opcode) {
   }
 }
 
+StimulusContext::StimulusContext(Stimulus* parent, kernel::Kernel* k,
+                                 const std::string& name)
+    : parent_(parent), Module(k, name) {}
+
+void StimulusContext::issue() { parent_->issue(this); }
+
+// Retire transaction
+void StimulusContext::retire() { parent_->retire(this); }
+
 Stimulus::Stimulus(kernel::Kernel* k, const StimulusConfig& config)
     : Module(k, config.name), config_(config) {}
 
-StimulusContext::StimulusContext(kernel::Kernel* k, const std::string& name)
-    : Module(k, name) {}
+void Stimulus::issue(StimulusContext* context) { ++issue_n_; }
+
+void Stimulus::retire(StimulusContext* context) { ++retire_n_; }
 
 class TraceStimulusContext : public StimulusContext {
   friend class TraceStimulus;
 
  public:
-  TraceStimulusContext(kernel::Kernel* k, const std::string& name)
-      : StimulusContext(k, name) {}
+  TraceStimulusContext(Stimulus* parent, kernel::Kernel* k,
+                       const std::string& name)
+      : StimulusContext(parent, k, name) {}
 
   // Stimulus: Flag indicate that stimulus is complete
   bool done() const override { return fs_.empty(); }
@@ -73,10 +84,9 @@ class TraceStimulusContext : public StimulusContext {
 
   // Stimulus: Consume current head of queue, or NOP if already
   // exhausted.
-  void consume() override {
-    if (!done()) {
-      fs_.pop_front();
-    }
+  void issue() override {
+    if (!done()) { fs_.pop_front(); }
+    StimulusContext::issue();
   }
 
  private:
@@ -318,7 +328,7 @@ std::vector<TraceStimulusContext*> TraceStimulus::compute_index_table() {
 
 StimulusContext* TraceStimulus::register_cpu(Cpu* cpu) {
   TraceStimulusContext* ctxt =
-      new TraceStimulusContext(k(), "stimulus_context");
+      new TraceStimulusContext(this, k(), "stimulus_context");
   cpumap_.insert(std::make_pair(cpu, ctxt));
   return ctxt;
 }

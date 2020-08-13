@@ -340,7 +340,7 @@ class MOESICCProtocol : public CCProtocol {
     // Apply message to transaction state.
     issue_apply_msg(ctxt, cl, msg);
     // Return credit
-    issue_add_credit(ctxt, cl, MessageClass::CohCmdRsp);
+    issue_add_credit(ctxt, cl, to_cmd_type(msg->cls()));
     // Consume and advance
     cl.next_and_do_consume(true);
   }
@@ -526,7 +526,7 @@ class MOESICCProtocol : public CCProtocol {
     // Apply message to transaction state.
     issue_apply_msg(ctxt, cl, msg);
     // Return credit to CohSrt pool.
-    issue_add_credit(ctxt, cl, MessageClass::CohSrt);
+    issue_add_credit(ctxt, cl, to_cmd_type(msg->cls()));
     // Consume and advance
     cl.next_and_do_consume(true);
   }
@@ -546,7 +546,7 @@ class MOESICCProtocol : public CCProtocol {
 
   void eval_msg(CCContext& ctxt, CCCommandList& cl, const DtRspMsg* msg) const {
     // Return credit.
-    issue_add_credit(ctxt, cl, MessageClass::DtRsp);
+    issue_add_credit(ctxt, cl, to_cmd_type(msg->cls()));
     // Consume and next.
     cl.next_and_do_consume(true);
   }

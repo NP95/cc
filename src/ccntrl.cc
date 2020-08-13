@@ -942,7 +942,8 @@ void CCModel::set_cc_l2__rsp_q(MessageQueue* mq) {
 //
 void CCModel::register_credit_counter(MessageClass cls, Agent* dest,
                                       std::size_t n) {
-  const std::string name = join_path(flatten_path(dest->path()), to_string(cls));
+  std::string name = "cc_";
+  name += flatten_path(dest->path()) + "_" + to_string(cls);
   // Construct new credit counter.
   CreditCounter* cc = new CreditCounter(k(), name);
   cc->set_n(n);

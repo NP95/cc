@@ -151,6 +151,12 @@ struct DirModelConfig {
   // have and associated LLC).
   bool is_null_filter = false;
 
+  // CohSrt credits (number of Coherence Starts to CC agent).
+  std::size_t coh_srt_credits_n = 4;
+
+  // CohCmd credits (number of Coherence Commands to CC agent).
+  std::size_t coh_cmd_credits_n = 4;
+
   // Cache configuratioh (non-Null Filter case).
   CacheModelConfig cconfig;
 
@@ -167,6 +173,12 @@ struct DirModelConfig {
 struct CCConfig {
   // Controller name
   std::string name = "ccntrl";
+
+  // SnpMsg credits (number of Snoops in flight to CC agent per Directory).
+  std::size_t snp_credits_n = 4;
+
+  // DTMsg credits (number of DT in flight to CC agent per other L2).
+  std::size_t dt_credits_n = 4;
 
   // Protocol builder instance.
   ProtocolBuilder* pbuilder = nullptr;

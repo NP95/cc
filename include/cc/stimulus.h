@@ -74,8 +74,13 @@ struct Frontier {
 //
 class StimulusContext : public kernel::Module {
  public:
-  StimulusContext(kernel::Kernel* k, const std::string& name);
+  //
+  StimulusContext(Stimulus* parent, kernel::Kernel* k, const std::string& name);
+  //
   virtual ~StimulusContext() = default;
+
+  // Pointer to parent Stimulus instance.
+  Stimulus* parent() const { return parent_; }
 
   // Flag denoting whether the transaction source has been exhausted.
   virtual bool done() const { return true; }
@@ -85,8 +90,14 @@ class StimulusContext : public kernel::Module {
   virtual bool front(Frontier& f) const = 0;
 
   // Consume transaction at the head of the source queue.
-  virtual void consume() {}
-  
+  virtual void issue();
+
+  // Retire transaction
+  virtual void retire();
+
+ private:
+  // Stimulus parent.
+  Stimulus* parent_ = nullptr;
 };
 
 // Abstract base class encapsulating the concept of a transaction
@@ -94,6 +105,7 @@ class StimulusContext : public kernel::Module {
 // of load or store instructions to a cache.
 //
 class Stimulus : public kernel::Module {
+  friend class StimulusContext;
  public:
   Stimulus(kernel::Kernel* k, const StimulusConfig& config);
   virtual ~Stimulus() = default;
@@ -104,7 +116,23 @@ class Stimulus : public kernel::Module {
   // Register a new CPU instance.
   virtual StimulusContext* register_cpu(Cpu* cpu) { return nullptr; }
 
+  // Total issue count
+  std::size_t issue_n() const { return issue_n_; }
+
+  // Total retire count
+  std::size_t retire_n() const { return retire_n_; }
+
  private:
+  // 'context' issues a transaction.
+  virtual void issue(StimulusContext* context);
+
+  // 'context' retires a transaction.
+  virtual void retire(StimulusContext* context);
+
+  // Total issue count
+  std::size_t issue_n_ = 0;
+  // Total retire count
+  std::size_t retire_n_ = 0;
   // Configuration
   StimulusConfig config_;
 };

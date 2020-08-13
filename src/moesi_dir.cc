@@ -394,6 +394,7 @@ class MOESIDirProtocol : public DirProtocol {
     // Issue command message response (returns credit).
     CohCmdRspMsg* rsp = new CohCmdRspMsg;
     rsp->set_t(msg->t());
+    rsp->set_origin(ctxt.dir());
     issue_msg_to_noc(ctxt, cl, rsp, msg->origin());
 
     //

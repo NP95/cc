@@ -219,7 +219,6 @@ void SocTop::elab_bind_ports() {
 
 void SocTop::elab_credit_counts() {
   MessageQueue* mq = nullptr;
-  std::size_t credits_n = 16;
 
   // Map of credits allocated to a given Message Queue.
   std::map<MessageQueue*, std::size_t> mqcredits;
@@ -227,18 +226,23 @@ void SocTop::elab_credit_counts() {
   // Update CPU Cluster to Directory credit paths.
   for (CpuCluster* cpuc : ccs_) {
     CCModel* cc = cpuc->cc();
+    const CCConfig& ccfg = cc->config();
 
     // Register edge from Cpu Cluster to directories
     for (DirModel* dm : dms_) {
+      // Directory model configuration.
+      const DirModelConfig& dcfg = dm->config();
       // Coherence start message
-      cc->register_credit_counter(MessageClass::CohSrt, dm, credits_n);
+      cc->register_credit_counter(MessageClass::CohSrt, dm,
+                                  dcfg.coh_srt_credits_n);
       mq = dm->mq_by_msg_cls(MessageClass::CohSrt);
-      if (mq != nullptr) { mqcredits[mq] += credits_n; }
+      if (mq != nullptr) { mqcredits[mq] += dcfg.coh_cmd_credits_n; }
 
       // Coherence command message
-      cc->register_credit_counter(MessageClass::CohCmd, dm, credits_n);
+      cc->register_credit_counter(MessageClass::CohCmd, dm,
+                                  dcfg.coh_cmd_credits_n);
       mq = dm->mq_by_msg_cls(MessageClass::CohCmd);
-      if (mq != nullptr) { mqcredits[mq] += credits_n; }
+      if (mq != nullptr) { mqcredits[mq] += dcfg.coh_cmd_credits_n; }
     }
 
     // Register edge from Cpu Cluster to all other Cpu clusters (Dt
@@ -248,9 +252,9 @@ void SocTop::elab_credit_counts() {
       // a Dt to itself).
       if (cpuc_dest == cpuc) continue;
 
-      cc->register_credit_counter(MessageClass::Dt, cpuc_dest, credits_n);
+      cc->register_credit_counter(MessageClass::Dt, cpuc_dest, ccfg.dt_credits_n);
       mq = cpuc_dest->mq_by_msg_cls(MessageClass::Dt);
-      if (mq != nullptr) { mqcredits[mq] += credits_n; }
+      if (mq != nullptr) { mqcredits[mq] += ccfg.dt_credits_n; }
     }
   }
 
@@ -259,10 +263,11 @@ void SocTop::elab_credit_counts() {
 
     for (CpuCluster* cpuc : ccs_) {
       CCModel* cc = cpuc->cc();
+      const CCConfig& ccfg = cc->config();
       
-      dm->register_credit_counter(MessageClass::CohSnp, cc, credits_n);
+      dm->register_credit_counter(MessageClass::CohSnp, cc, ccfg.snp_credits_n);
       mq = cc->mq_by_msg_cls(MessageClass::CohSnp);
-      if (mq != nullptr) { mqcredits[mq] += credits_n; }
+      if (mq != nullptr) { mqcredits[mq] += ccfg.snp_credits_n; }
     }
 
   }

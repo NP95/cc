@@ -44,7 +44,7 @@ class SocModel {
     delete top_;
   }
 
-  const cc::SocConfig& cfg() const { return top_->cfg(); }
+  const cc::SocConfig& config() const { return top_->config(); }
 
   void set_stimulus(cc::Stimulus* stimulus) { stimulus_ = stimulus; }
 

@@ -40,13 +40,13 @@ class SocModel {
     top_ = new cc::SocTop(k_, cfg);
   }
 
-  ~SocModel() {
-    delete top_;
-  }
+  ~SocModel() { delete top_; }
 
-  const cc::SocConfig& cfg() const { return top_->cfg(); }
+  //
+  const cc::SocConfig& config() const { return top_->config(); }
 
-  void set_stimulus(cc::Stimulus* stimulus) { stimulus_ = stimulus; }
+  // Stimulus instance.
+  cc::Stimulus* stimulus() const { return top_->stimulus(); }
 
   template<typename T>
   T get_object_as(const std::string& name) {
@@ -63,9 +63,10 @@ class SocModel {
   }
 
  private:
+  // Simulation Kernel
   cc::kernel::Kernel* k_ = nullptr;
+  // SOC top instance
   cc::SocTop* top_ = nullptr;
-  cc::Stimulus* stimulus_ = nullptr;
 };
 
 TEST(Res111, BlockedOnTT) {
@@ -73,8 +74,14 @@ TEST(Res111, BlockedOnTT) {
 
   const std::vector<const char*> trace = {
     "+200",
-    "C:0,LD,0x00000",
-    "C:0,LD,0x10000"
+    "C:0,LD,0x000", // 1
+    "C:0,LD,0x100", // 2
+    "C:0,LD,0x200", // 3
+    "C:0,LD,0x300", // 4
+    "C:0,LD,0x400", // 5
+    "C:0,LD,0x500", // 6
+    "C:0,LD,0x600", // 7
+    "C:0,LD,0x700"  // 8
   };
   // Build simple test configuration.
   cc::SocConfig cfg;
@@ -82,11 +89,19 @@ TEST(Res111, BlockedOnTT) {
   for (cc::CpuClusterConfig& cpu_cfg : cfg.ccls) {
     for (cc::L1CacheAgentConfig& l1_cfg : cpu_cfg.l1c_configs) {
       l1_cfg.tt_entries_n = 1;
-      l1_cfg.is_blocking_cache = false;
+      //l1_cfg.is_blocking_cache = false;
     }
   }
   SocModel soc(&k, cfg);
   soc.run();
+
+  const cc::Stimulus* stimulus = soc.stimulus();
+
+  // Validate expected transaction count.
+  EXPECT_EQ(stimulus->issue_n(), 8);
+
+  // Validate that all transactions have retired at end-of-sim.
+  EXPECT_EQ(stimulus->issue_n(), stimulus->retire_n());
 }
 
 int main(int argc, char** argv) {

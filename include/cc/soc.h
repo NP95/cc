@@ -49,14 +49,20 @@ class Stimulus;
 //
 class SocTop : public kernel::TopModule {
  public:
+  //
   SocTop(kernel::Kernel* k, const SocConfig& cfg);
 
+  //
   ~SocTop();
 
-  //
-  const SocConfig& cfg() const { return cfg_; }
+  // Top-level SOC configuration.
+  const SocConfig& config() const { return cfg_; }
+
+  // Stimulus instance.
+  Stimulus* stimulus() const { return stimulus_; }
 
  private:
+  // Build phase; construct simulation environment.
   void build(const SocConfig& cfg);
 
   // Elaborate
@@ -68,39 +74,54 @@ class SocTop : public kernel::TopModule {
   // Compute credit counts
   void elab_credit_counts();
 
+  // Run Design Rule Check (DRC)
   void drc() override;
+
 
   // Directory Mapper instance
   DirMapper* dm_;
+
   // NOC/Interconnect instance
   NocModel* noc_ = nullptr;
+
   // Directory model instance
   std::vector<DirModel*> dms_;
+
   // LLC Models 1-to-1 relationship with non-Null Filter directories.
   std::vector<LLCModel*> llcs_;
+
   // CPU Cluster instances
   std::vector<CpuCluster*> ccs_;
+
   // Memory Controller instances.
   std::vector<MemCntrlModel*> mms_;
+
   // Stimulus "module" instance.
   Stimulus* stimulus_;
+
   // Elaboration pass
   std::size_t elab_pass_ = 0;
+
   // SOC configuration.
   SocConfig cfg_;
 };
 
+//
+//
 class Soc {
  public:
   Soc(const SocConfig& soccfg);
   ~Soc();
 
-  const SocConfig& cfg() const { return top_->cfg(); }
+  const SocConfig& cfg() const { return top_->config(); }
 
+  //
   void initialize();
 
+  // Run/Invoke simulation.
   void run();
 
+  //
   void finalize();
   
  private:
