@@ -748,6 +748,18 @@ void DirModel::register_credit_counter(MessageClass cls, Agent* dest,
 
 MessageQueue* DirModel::endpoint() { return noc_endpoint_->ingress_mq(); }
 
+CreditCounter* DirModel::cc_by_cls_agent(MessageClass cls,
+                                        const Agent* agent) const {
+  CreditCounter* ret = nullptr;
+  if (auto i = ccntrs_map_.find(cls); i != ccntrs_map_.end()) {
+    const auto& agent_cc_map = i->second;
+    if (auto j = agent_cc_map.find(agent); j != agent_cc_map.end()) {
+      ret = j->second;
+    }
+  }
+  return ret;
+}
+
 MessageQueue* DirModel::mq_by_msg_cls(MessageClass cls) const {
   return noc_endpoint_->lookup_endpoint(cls);
 }

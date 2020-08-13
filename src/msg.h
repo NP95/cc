@@ -209,7 +209,12 @@ enum class MessageClass {
   DtRsp
 };
 
+// Convert MessageClass type to a human-readable string
 const char* to_string(MessageClass cls);
+
+// Convert a response class to originator command class.
+MessageClass to_cmd_type(MessageClass cls);
+
 
 // Message unimque ID type
 using msg_id_t = std::size_t;

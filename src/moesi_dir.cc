@@ -715,8 +715,6 @@ class MOESIDirProtocol : public DirProtocol {
               // response has been computed.
               cl.push_back(cb::from_opcode(DirOpcode::EndTransaction));
             }
-            // Consume and advance
-            cl.next_and_do_consume(true);
           } break;
           default: {
             // TODO
@@ -787,8 +785,6 @@ class MOESIDirProtocol : public DirProtocol {
             issue_msg_to_noc(ctxt, cl, end, tstate->origin());
 
             cl.push_back(cb::from_opcode(DirOpcode::EndTransaction));
-            // Consume and advance
-            cl.next_and_do_consume(true);
           } break;
           default: {
           } break;
@@ -842,8 +838,6 @@ class MOESIDirProtocol : public DirProtocol {
             // now awaits 1 DT either from responding agent or the
             // LLC.
             cl.push_back(cb::from_opcode(DirOpcode::EndTransaction));
-            // Consume and advance
-            cl.next_and_do_consume(true);
           } break;
           default: {
             // TODO
@@ -854,6 +848,11 @@ class MOESIDirProtocol : public DirProtocol {
         // Unhandled AMBA command
       } break;
     }
+
+    // Update (Snoop) Credit Counter.
+    issue_add_credit(ctxt, cl, to_cmd_type(msg->cls()));
+    // Consume and advance
+    cl.next_and_do_consume(true);
   }
 
   //
@@ -915,6 +914,34 @@ class MOESIDirProtocol : public DirProtocol {
     cl.push_back(cb::from_action(action));
   }
 
+  void issue_add_credit(DirContext& ctxt, DirCommandList& cl,
+                        MessageClass cls) const {
+    struct AddCreditAction : DirCoherenceAction {
+      AddCreditAction() = default;
+      std::string to_string() const override {
+        KVListRenderer r;
+        r.add_field("action", "add credit");
+        r.add_field("cc", cc_->path());
+        return r.to_string();
+      }
+      void set_cc(CreditCounter* cc) { cc_ = cc; }
+      // No resources required (should always make "forward progress")
+      bool execute() override {
+        cc_->credit();
+        return true;
+      }
+     private:
+      CreditCounter* cc_ = nullptr;
+    };
+    const Agent* origin = ctxt.msg()->origin();
+    if (CreditCounter* cc = ctxt.dir()->cc_by_cls_agent(cls, origin); cc != nullptr) {
+      // Counter exists for this edge. Issue credit update aciton.
+      AddCreditAction* action = new AddCreditAction;
+      action->set_cc(cc);
+      cl.push_back(cb::from_action(action));
+    }
+  }
+
   void issue_msg_to_noc(DirContext& ctxt, DirCommandList& cl,
                         const Message* msg, Agent* dest) const {
     struct EmitMessageToNocAction : DirCoherenceAction {
@@ -959,21 +986,11 @@ class MOESIDirProtocol : public DirProtocol {
         // MessageClass, deduct one credit, otherwise ignore.
         const Message* payload = msg_->payload();
         // Lookup counter map for current message class.
-        const auto& cntrs_map = dir_->ccntrs_map();
-        if (auto ccntr_map_it = cntrs_map.find(payload->cls());
-            ccntr_map_it != cntrs_map.end()) {
-          // Lookup map to determine if a credit counter for the
-          // destination agent is present.
-          const auto& agent_counter = ccntr_map_it->second;
-          if (auto it = agent_counter.find(msg_->dest());
-              it != agent_counter.end()) {
-            // Credit counter is present, therefore deduct a credit before
-            // message is issued.
-            CreditCounter* cc = it->second;
-            cc->debit();
-          }
-          // Otherwise, no credit counter can be found for the current
-          // { MessageClass, Agent* } pair, therefore disregard.
+        if (CreditCounter* cc = dir_->cc_by_cls_agent(
+                payload->cls(), msg_->dest()); cc != nullptr) {
+          // Credit counter is present, therefore deduct a credit before
+          // message is issued.
+          cc->debit();
         }
         // Issue message to queue.
         return mq_->issue(msg_);

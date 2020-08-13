@@ -457,6 +457,8 @@ class CCModel : public Agent {
   const std::map<MessageClass, ccntr_map>& ccntrs_map() const {
     return ccntrs_map_;
   }
+  // Lookup Credit Counter by Message Class and agent
+  CreditCounter* cc_by_cls_agent(MessageClass cls, const Agent* agent) const;
   // Lookup Message Queue by Message Class
   MessageQueue* mq_by_msg_cls(MessageClass cls) const override;
 

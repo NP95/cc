@@ -343,10 +343,7 @@ class CCModel::RdisProcess : public AgentProcess {
       } break;
     }
 
-    // Check resources of computed CommandList.
-    const bool has_resources = check_resources(ctxt, cl);
-
-    if (has_resources) {
+    if (check_resources(ctxt, cl)) {
       LogMessage lm("Execute message: ");
       lm.append(ctxt.msg()->to_string());
       lm.level(Level::Debug);
@@ -969,6 +966,18 @@ void CCModel::drc() {
 }
 
 MessageQueue* CCModel::endpoint() const { return noc_endpoint_->ingress_mq(); }
+
+CreditCounter* CCModel::cc_by_cls_agent(MessageClass cls,
+                                        const Agent* agent) const {
+  CreditCounter* ret = nullptr;
+  if (auto i = ccntrs_map_.find(cls); i != ccntrs_map_.end()) {
+    const auto& agent_cc_map = i->second;
+    if (auto j = agent_cc_map.find(agent); j != agent_cc_map.end()) {
+      ret = j->second;
+    }
+  }
+  return ret;
+}
 
 MessageQueue* CCModel::mq_by_msg_cls(MessageClass cls) const {
   return noc_endpoint_->lookup_endpoint(cls);

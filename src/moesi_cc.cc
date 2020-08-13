@@ -279,6 +279,9 @@ class MOESICCProtocol : public CCProtocol {
       case MessageClass::Dt: {
         eval_msg(ctxt, cl, static_cast<const DtMsg*>(ctxt.msg()));
       } break;
+      case MessageClass::DtRsp: {
+        eval_msg(ctxt, cl, static_cast<const DtRspMsg*>(ctxt.msg()));
+      } break;
       default: {
         LogMessage msg("Invalid message class received: ");
         msg.append(cc::to_string(cls));
@@ -336,6 +339,8 @@ class MOESICCProtocol : public CCProtocol {
                 const CohCmdRspMsg* msg) const {
     // Apply message to transaction state.
     issue_apply_msg(ctxt, cl, msg);
+    // Return credit
+    issue_add_credit(ctxt, cl, MessageClass::CohCmdRsp);
     // Consume and advance
     cl.next_and_do_consume(true);
   }
@@ -520,6 +525,8 @@ class MOESICCProtocol : public CCProtocol {
                 const CohEndMsg* msg) const {
     // Apply message to transaction state.
     issue_apply_msg(ctxt, cl, msg);
+    // Return credit to CohSrt pool.
+    issue_add_credit(ctxt, cl, MessageClass::CohSrt);
     // Consume and advance
     cl.next_and_do_consume(true);
   }
@@ -534,6 +541,13 @@ class MOESICCProtocol : public CCProtocol {
     rsp->set_origin(ctxt.cc());
     issue_msg_to_noc(ctxt, cl, rsp, msg->origin());
     // Consume and advance
+    cl.next_and_do_consume(true);
+  }
+
+  void eval_msg(CCContext& ctxt, CCCommandList& cl, const DtRspMsg* msg) const {
+    // Return credit.
+    issue_add_credit(ctxt, cl, MessageClass::DtRsp);
+    // Consume and next.
     cl.next_and_do_consume(true);
   }
 
@@ -606,6 +620,34 @@ class MOESICCProtocol : public CCProtocol {
     Line* line = static_cast<Line*>(ctxt.line());
     LineUpdateAction* action = new LineUpdateAction(line, update);
     cl.push_back(cb::from_action(action));
+  }
+
+  void issue_add_credit(CCContext& ctxt, CCCommandList& cl,
+                        MessageClass cls) const {
+    struct AddCreditAction : CCCoherenceAction {
+      AddCreditAction() = default;
+      std::string to_string() const override {
+        KVListRenderer r;
+        r.add_field("action", "add credit");
+        r.add_field("cc", cc_->path());
+        return r.to_string();
+      }
+      void set_cc(CreditCounter* cc) { cc_ = cc; }
+      // No resources required (should always make "forward progress")
+      bool execute() override {
+        cc_->credit();
+        return true;
+      }
+     private:
+      CreditCounter* cc_ = nullptr;
+    };
+    const Agent* origin = ctxt.msg()->origin();
+    if (CreditCounter* cc = ctxt.cc()->cc_by_cls_agent(cls, origin); cc != nullptr) {
+      // Counter exists for this edge. Issue credit update aciton.
+      AddCreditAction* action = new AddCreditAction;
+      action->set_cc(cc);
+      cl.push_back(cb::from_action(action));
+    }
   }
 
   template<typename CONTEXT, typename LIST>

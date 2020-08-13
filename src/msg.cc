@@ -92,6 +92,37 @@ const char* to_string(MessageClass cls) {
   }
 }
 
+MessageClass to_cmd_type(MessageClass cls) {
+  switch (cls) {
+    case MessageClass::DtRsp:
+      return MessageClass::Dt;
+    case MessageClass::MemRsp:
+      return MessageClass::MemCmd;
+    case MessageClass::LLCFwdRsp:
+      return MessageClass::LLCFwd;
+    case MessageClass::LLCCmdRsp:
+      return MessageClass::LLCCmd;
+    case MessageClass::CohSnpRsp:
+      return MessageClass::CohSnp;
+    case MessageClass::CohCmdRsp:
+      return MessageClass::CohCmd;
+    case MessageClass::CohEnd:
+      return MessageClass::CohSrt;
+    case MessageClass::AceSnoopRsp:
+      return MessageClass::AceSnoop;
+    case MessageClass::AceCmdRsp:
+      return MessageClass::AceCmd;
+    case MessageClass::L2CmdRsp:
+      return MessageClass::L2Cmd;
+    case MessageClass::L1CmdRsp:
+      return MessageClass::L1Cmd;
+    case MessageClass::CpuCmdRsp:
+      return MessageClass::CpuCmd;
+    default:
+      return MessageClass::Invalid;
+  }
+}
+
 Transaction::Transaction() {
   static trans_id_t tid_counter = 0;
   tid_ = tid_counter++;

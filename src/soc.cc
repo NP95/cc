@@ -219,6 +219,7 @@ void SocTop::elab_bind_ports() {
 
 void SocTop::elab_credit_counts() {
   MessageQueue* mq = nullptr;
+  std::size_t credits_n = 16;
 
   // Map of credits allocated to a given Message Queue.
   std::map<MessageQueue*, std::size_t> mqcredits;
@@ -229,7 +230,6 @@ void SocTop::elab_credit_counts() {
 
     // Register edge from Cpu Cluster to directories
     for (DirModel* dm : dms_) {
-      const std::size_t credits_n = 16;
       // Coherence start message
       cc->register_credit_counter(MessageClass::CohSrt, dm, credits_n);
       mq = dm->mq_by_msg_cls(MessageClass::CohSrt);
@@ -248,7 +248,6 @@ void SocTop::elab_credit_counts() {
       // a Dt to itself).
       if (cpuc_dest == cpuc) continue;
 
-      const std::size_t credits_n = 16;
       cc->register_credit_counter(MessageClass::Dt, cpuc_dest, credits_n);
       mq = cc->mq_by_msg_cls(MessageClass::Dt);
       if (mq != nullptr) { mqcredits[mq] += credits_n; }
@@ -260,7 +259,6 @@ void SocTop::elab_credit_counts() {
 
     for (CpuCluster* cpuc : ccs_) {
       CCModel* cc = cpuc->cc();
-      const std::size_t credits_n = 16;
       
       dm->register_credit_counter(MessageClass::CohSnp, cc, credits_n);
       mq = cc->mq_by_msg_cls(MessageClass::CohSnp);
