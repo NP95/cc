@@ -227,7 +227,7 @@ class CCCommandInterpreter {
   }
 
  private:
-  void execute_transaction_start(CCContext& ctxt, const CCCommand* cmd) {
+  void execute_transaction_start(CCContext& ctxt, const CCCommand* cmd) const {
     CCTTable* tt = ctxt.cc()->tt();
     CCTState* st = new CCTState();
     st->set_line(ctxt.line());
@@ -235,7 +235,7 @@ class CCCommandInterpreter {
     ctxt.set_owns_line(false);
   }
 
-  void execute_transaction_end(CCContext& ctxt, const CCCommand* cmd) {
+  void execute_transaction_end(CCContext& ctxt, const CCCommand* cmd) const {
     CCTTable* tt = ctxt.cc()->tt();
     Transaction* t = cmd->t();
     if (auto it = tt->find(cmd->t()); it != tt->end()) {
@@ -246,12 +246,13 @@ class CCCommandInterpreter {
     }
   }
 
-  void execute_invoke_coherence_action(CCContext& ctxt, const CCCommand* cmd) {
+  void execute_invoke_coherence_action(CCContext& ctxt,
+                                       const CCCommand* cmd) const {
     CCCoherenceAction* action = cmd->action();
     action->execute();
   }
 
-  void execute_msg_consume(CCContext& ctxt, const CCCommand* cmd) {
+  void execute_msg_consume(CCContext& ctxt, const CCCommand* cmd) const {
     // Dequeue and release the head message of the currently
     // addressed Message Queue.
     const Message* msg = ctxt.mq()->dequeue();
@@ -259,18 +260,19 @@ class CCCommandInterpreter {
     ctxt.t().advance();
   }
 
-  void execute_wait_on_msg(CCContext& ctxt, const CCCommand* cmd) {
+  void execute_wait_on_msg(CCContext& ctxt, const CCCommand* cmd) const {
     // Set wait state of current process; await the arrival of a
     // new message.
     MQArb* arb = ctxt.cc()->arb();
     ctxt.process()->wait_on(arb->request_arrival_event());
   }
 
-  void execute_mq_set_blocked_on_evt(CCContext& ctxt, const CCCommand* cmd) {
+  void execute_mq_set_blocked_on_evt(CCContext& ctxt,
+                                     const CCCommand* cmd) const {
     ctxt.mq()->set_blocked_until(cmd->event());
   }
   
-  void execute_wait_next_epoch(CCContext& ctxt, const CCCommand* cmd) {
+  void execute_wait_next_epoch(CCContext& ctxt, const CCCommand* cmd) const {
     ctxt.process()->wait_for(kernel::Time{10, 0});
   }
 };
