@@ -158,29 +158,4 @@ CCProtocol::CCProtocol(kernel::Kernel* k, const std::string& name)
 DirProtocol::DirProtocol(kernel::Kernel* k, const std::string& name)
     : Module(k, name) {}
 
-/*
-void DirProtocol::issue_emit_to_noc(DirContext& ctxt, DirCommandList& cl,
-                                    const Message* msg, Agent* dest) const {
-  if (dest == nullptr) {
-    LogMessage lm("Destination is not defined.");
-    lm.level(Level::Fatal);
-    log(lm);
-  } else if (msg == nullptr) {
-    LogMessage lm("Message is not defined.");
-    lm.level(Level::Fatal);
-    log(lm);
-  }
-  // Encapsulate message in NOC transport protocol.
-  NocMsg* nocmsg = new NocMsg;
-  nocmsg->set_t(msg->t());
-  nocmsg->set_payload(msg);
-  nocmsg->set_origin(ctxt.dir());
-  nocmsg->set_dest(dest);
-  // Issue Message Emit action.
-  CoherenceAction* action =
-      new EmitMessageActionProxy(ctxt.dir()->dir_noc__msg_q(), nocmsg);
-  cl.push_back(DirCommandBuilder::from_action(action));
-}
-*/
-
 }  // namespace cc

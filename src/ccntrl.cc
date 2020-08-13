@@ -197,9 +197,6 @@ class CCCommandInterpreter {
  public:
   CCCommandInterpreter() = default;
 
-  void set_cc(CCModel* model) { model_ = model; }
-  void set_process(AgentProcess* process) { process_ = process; }
-
   void execute(CCContext& ctxt, const CCCommand* cmd) {
     switch (cmd->opcode()) {
       case CCOpcode::TransactionStart: {
@@ -231,7 +228,7 @@ class CCCommandInterpreter {
 
  private:
   void execute_transaction_start(CCContext& ctxt, const CCCommand* cmd) {
-    CCTTable* tt = model_->tt();
+    CCTTable* tt = ctxt.cc()->tt();
     CCTState* st = new CCTState();
     st->set_line(ctxt.line());
     tt->install(ctxt.msg()->t(), st);
@@ -239,7 +236,7 @@ class CCCommandInterpreter {
   }
 
   void execute_transaction_end(CCContext& ctxt, const CCCommand* cmd) {
-    CCTTable* tt = model_->tt();
+    CCTTable* tt = ctxt.cc()->tt();
     Transaction* t = cmd->t();
     if (auto it = tt->find(cmd->t()); it != tt->end()) {
       // Would prefer to remove iterator.
@@ -265,8 +262,8 @@ class CCCommandInterpreter {
   void execute_wait_on_msg(CCContext& ctxt, const CCCommand* cmd) {
     // Set wait state of current process; await the arrival of a
     // new message.
-    MQArb* arb = model_->arb();
-    process_->wait_on(arb->request_arrival_event());
+    MQArb* arb = ctxt.cc()->arb();
+    ctxt.process()->wait_on(arb->request_arrival_event());
   }
 
   void execute_mq_set_blocked_on_evt(CCContext& ctxt, const CCCommand* cmd) {
@@ -274,13 +271,8 @@ class CCCommandInterpreter {
   }
   
   void execute_wait_next_epoch(CCContext& ctxt, const CCCommand* cmd) {
-    process_->wait_for(kernel::Time{10, 0});
+    ctxt.process()->wait_for(kernel::Time{10, 0});
   }
-
-  //
-  AgentProcess* process_ = nullptr;
-  //
-  CCModel* model_ = nullptr;
 };
 
 //
@@ -296,6 +288,8 @@ class CCModel::RdisProcess : public AgentProcess {
   // Initialization
   void init() override {
     CCContext ctxt;
+    ctxt.set_process(this);
+    ctxt.set_cc(model_);
     CCCommandList cl;
     cl.push_back(CCOpcode::WaitOnMsg);
     execute(ctxt, cl);
@@ -305,6 +299,7 @@ class CCModel::RdisProcess : public AgentProcess {
   void eval() override {
     CCCommandList cl;
     CCContext ctxt;
+    ctxt.set_process(this);
     ctxt.set_cc(model_);
     MQArb* arb = model_->arb();
     ctxt.set_t(arb->tournament());
@@ -380,7 +375,6 @@ class CCModel::RdisProcess : public AgentProcess {
       // sequence which the check_resources method has now placed in
       // the CommandList object.
       execute(ctxt, cl);
-
     }
   }
 
@@ -494,8 +488,6 @@ class CCModel::RdisProcess : public AgentProcess {
   void execute(CCContext& ctxt, const CCCommandList& cl) {
     try {
       CCCommandInterpreter interpreter;
-      interpreter.set_cc(model_);
-      interpreter.set_process(this);
       for (const CCCommand* cmd : cl) {
 #if 0
         LogMessage lm("Executing command: ");

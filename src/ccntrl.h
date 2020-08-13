@@ -256,6 +256,7 @@ class CCContext {
   CCModel* cc() const { return cc_; }
   bool owns_line() const { return owns_line_; }
   CCLineState* line() const { return line_; }
+  AgentProcess* process() const { return process_; }
 
   //
   void set_t(MQArbTmt t) { t_ = t; }
@@ -263,6 +264,7 @@ class CCContext {
   void set_cc(CCModel* cc) { cc_ = cc; }
   void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
   void set_line(CCLineState* line) { line_ = line; }
+  void set_process(AgentProcess* process) { process_ = process; }
 
  private:
   // Current Message Queue arbiter tournament.
@@ -275,6 +277,8 @@ class CCContext {
   MessageQueue* mq_ = nullptr;
   // L2 cache instance
   CCModel* cc_ = nullptr;
+  //
+  AgentProcess* process_;
 };
 
 //
