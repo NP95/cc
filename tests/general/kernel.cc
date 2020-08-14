@@ -258,11 +258,11 @@ TEST(Kernel, VisitObjectHierarchy) {
    private:
     std::vector<std::string>& vs_;
   };
-  std::vector<std::string> dfs;
-  const std::vector<std::string> expect{"top.a", "top.b", "top.c", "top"};
-  HeirarchyVisitor visitor(dfs);
+  std::vector<std::string> top_down;
+  const std::vector<std::string> expect{"top", "top.a", "top.b", "top.c"};
+  HeirarchyVisitor visitor(top_down);
   visitor.iterate(&top);
-  EXPECT_EQ(dfs, expect);
+  EXPECT_EQ(top_down, expect);
 }
 
 int main(int argc, char** argv) {

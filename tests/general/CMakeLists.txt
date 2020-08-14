@@ -25,56 +25,8 @@
 ## POSSIBILITY OF SUCH DAMAGE.
 ##========================================================================== //
 
-
-macro (create_test testfile)
-  get_filename_component(testname ${testfile} NAME_WE)
-  
-  add_executable(${testname} ${testfile})
-  target_include_directories(${testname} PRIVATE
-    ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_SOURCE_DIR}
-    )
-  target_link_libraries(${testname}
-    cc
-    gtest_main
-    gtest
-    pthread
-    cctest
-    )
-  add_test(NAME ${testname} COMMAND ${testname})
-endmacro ()
-
-include_directories(include)
-add_subdirectory(test)
-add_subdirectory(general)
-add_subdirectory(stimulus)
-add_subdirectory(directed)
-
-
-#add_library(cctest SHARED test_utilities.cc)
-#target_include_directories(cctest PRIVATE
-#  ${CMAKE_SOURCE_DIR}/src
-#  ${CMAKE_SOURCE_DIR}/include
-#  )
-#target_link_libraries(cctest
-#  cc
-#  )
-
-#create_test(utility utility.cc)
-#create_test(kernel kernel.cc)
-#create_test(primitives primitives.cc)
-#create_test(cache cache.cc)
-
-# Basic protocol/sanity tests
-#create_test(basic_1dir_1cc_1cpu basic_1dir_1cc_1cpu.cc)
-#create_test(basic_1dir_1cc_2cpu basic_1dir_1cc_2cpu.cc)
-#create_test(basic_1dir_2cc_1cpu basic_1dir_2cc_1cpu.cc)
-
-# Basic eviction tests
-#create_test(evict_1dir_1cc_1cpu evict_1dir_1cc_1cpu.cc)
-
-# Basic resource allocation/reservation tests
-#create_test(res_1dir_1cc_1cpu res_1dir_1cc_1cpu.cc)
-
-# Programmatic stimulus tests
-#create_test(pro_1dir_1cc_1cpu pro_1dir_1cc_1cpu.cc)
+create_test(cache.cc)
+create_test(common.cc)
+create_test(kernel.cc)
+create_test(primitives.cc)
+create_test(utility.cc)
