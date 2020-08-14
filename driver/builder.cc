@@ -196,16 +196,15 @@ class SocConfigBuilderJson {
     // Set .type
     CHECK_AND_SET(type);
     // Parse type related options
-    if (c.type == "trace"){
+    if (c.type == StimulusType::Trace){
       // Set .filename
       CHECK(filename);
-      c.is = new std::ifstream(c.filename);
-      // Set .cpath
-      for (const auto& path : j["cpath"]) {
-        c.cpaths.push_back(path);
-      }
+      const std::string filename = j["filename"];
+      c.is = new std::ifstream(filename);
     } else {
-      throw BuilderException("Unknown stimulus type" + c.type);
+      std::string reason = "Unknown/Invalid stimulus type: ";
+      reason += to_string(c.type);
+      throw BuilderException(reason);
     }
   }
   

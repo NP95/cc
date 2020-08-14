@@ -203,18 +203,28 @@ struct CpuClusterConfig {
   std::vector<CpuConfig> cpu_configs;
 };
 
+enum class StimulusType {
+  // Trace = stimulus is defined in a centralized trace file.
+  Trace,
+
+  // Programmatic - stimulus is constructed through method calls.
+  Programmatic,
+
+  // Invalid stimulus type (placeholder)
+  Invalid
+};
+
+// Stimulus type to human readable string.
+const char* to_string(StimulusType t);
+
 //
 //
 struct StimulusConfig {
   // Module name
   std::string name = "stimulus";
   // Type
-  std::string type = "trace";
-  // Trace file.
-  std::string filename;
-  // Index to cpu instance mapping.
-  std::vector<std::string> cpaths;
-  //
+  StimulusType type = StimulusType::Trace;
+  // Input stream to stimulus.
   std::istream* is = nullptr;
 };
 

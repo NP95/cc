@@ -82,6 +82,9 @@ class StimulusContext : public kernel::Module {
   // Pointer to parent Stimulus instance.
   Stimulus* parent() const { return parent_; }
 
+  // Partner CPU instance.
+  void set_cpu(const Cpu* cpu) { cpu_ = cpu; }
+
   // Flag denoting whether the transaction source has been exhausted.
   virtual bool done() const { return true; }
 
@@ -98,6 +101,9 @@ class StimulusContext : public kernel::Module {
  private:
   // Stimulus parent.
   Stimulus* parent_ = nullptr;
+
+  // Partner Cpu instance.
+  const Cpu* cpu_ = nullptr;
 };
 
 // Abstract base class encapsulating the concept of a transaction
@@ -162,9 +168,15 @@ class Stimulus : public kernel::Module {
 //    C:0:ST:1000 // CPu 0 issues a Store to 0x1000 at current time.
 //
 class TraceStimulus : public Stimulus {
+  class Context;
  public:
+
+  // Construct appropriate trace configuration-file from some string.
+  static StimulusConfig from_string(const std::string& s);
+  
   TraceStimulus(kernel::Kernel* k, const StimulusConfig& config);
   ~TraceStimulus();
+
  private:
 
   // Phases
@@ -177,12 +189,54 @@ class TraceStimulus : public Stimulus {
 
   void parse_tracefile();
 
-  std::vector<TraceStimulusContext*> compute_index_table();
+  std::vector<Context*> compute_index_table();
 
   // Registered CPU
-  std::map<Cpu*, TraceStimulusContext*> cpumap_;
+  std::map<Cpu*, Context*> cpumap_;
   // Trace input
   std::istream* is_ = nullptr;
+  //
+  std::size_t line_ = 0;
+  //
+  std::size_t col_ = 0;
+};
+
+//
+//
+class ProgrammaticStimulus : public Stimulus {
+  class Context;
+ public:
+  ProgrammaticStimulus(kernel::Kernel* k, const StimulusConfig& config);
+  ~ProgrammaticStimulus();
+
+  
+  StimulusContext* register_cpu(Cpu* cpu) override;
+
+  //
+  std::uint64_t get_cpu_id(const Cpu* cpu);
+
+  //
+  void push_stimulus(std::uint64_t time_delta, std::uint64_t cpu_id,
+                     CpuOpcode opcode, addr_t addr);
+
+  // Advance the current stimulus cursor to the current simulation
+  // time such that consequent stimulus definitions are relative to
+  // the true stimulation time as seen by the kernel.
+  void advance_cursor(std::uint64_t c) { cursor_ += c; }
+
+ private:
+  // Current simulation time cursor in terms of stimulus generation.
+  // This potentially lags the true simuluation time if the end-user
+  // decides to inject some stimulus, run the simulation and then
+  // repeat the process. To maintain correctness, the end-user should
+  // advance time to the current simulation time.
+  std::uint64_t cursor_ = 0;
+
+  // ID to Context instance map.
+  std::map<std::uint64_t, Context*> context_map_;
+
+  // CPU to ID reverse map.
+  std::map<const Cpu*, std::uint64_t> id_map_;
 };
 
 //

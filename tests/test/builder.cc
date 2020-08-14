@@ -25,28 +25,54 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "cc/cfgs.h"
+#include "test/builder.h"
+#include "cc/soc.h"
 
-#include "protocol.h"
+namespace test {
 
-namespace cc {
+cc::SocConfig ConfigBuilder::construct() const {
+  cc::SocConfig cfg;
+  cc::ProtocolBuilder* pb = cc::construct_protocol_builder("moesi");
 
-SocConfig::~SocConfig() {
-  // delete pbuilder;
-}
+  for (std::size_t cc = 0; cc < cc_n_; cc++) {
+    cc::CpuClusterConfig cpuc_cfg;
+    cpuc_cfg.name += std::to_string(cc);
 
-const char* to_string(StimulusType t) {
-  switch (t) {
-    case StimulusType::Trace:
-      return "Trace";
-    case StimulusType::Programmatic:
-      return "Programmatic";
-    case StimulusType::Invalid:
-      return "Invalid";
-    default:
-      return "Unknown";
+    cc::CCConfig cc_cfg;
+    cc_cfg.pbuilder = pb;
+    cpuc_cfg.cc_config = cc_cfg;
+
+    cc::L2CacheAgentConfig l2c_config;
+    l2c_config.pbuilder = pb;
+    cpuc_cfg.l2c_config = l2c_config;
+
+    for (std::size_t cpu = 0; cpu < cpu_n_; cpu++) {
+      cc::L1CacheAgentConfig l1c_config;
+      l1c_config.name += std::to_string(cpu);
+      l1c_config.pbuilder = pb;
+      cpuc_cfg.l1c_configs.push_back(l1c_config);
+
+      cc::CpuConfig cpu_config;
+      cpu_config.name += std::to_string(cpu);
+      cpuc_cfg.cpu_configs.push_back(cpu_config);
+    }
+
+    cfg.ccls.push_back(cpuc_cfg);
   }
+
+  for (std::size_t d = 0; d < dir_n_; d++) {
+    cc::DirModelConfig dcfg;
+    dcfg.name += std::to_string(d);
+    dcfg.pbuilder = pb;
+
+    cfg.dcfgs.push_back(dcfg);
+  }
+
+  // Set stimulus
+  cfg.scfg = stimulus_config_;
+
+  return cfg;
 }
 
 
-}  // namespace cc
+} // namespace test

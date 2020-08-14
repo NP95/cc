@@ -25,28 +25,47 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
+#ifndef CC_TESTS_INCLUDE_TEST_BUILDER_H
+#define CC_TESTS_INCLUDE_TEST_BUILDER_H
+
 #include "cc/cfgs.h"
 
-#include "protocol.h"
+namespace test {
 
-namespace cc {
+class ConfigBuilder {
+ public:
+  ConfigBuilder() = default;
 
-SocConfig::~SocConfig() {
-  // delete pbuilder;
-}
+  // Set CPU count (replicating per Cluster).
+  void set_cpu_n(std::size_t n) { cpu_n_ = n; }
 
-const char* to_string(StimulusType t) {
-  switch (t) {
-    case StimulusType::Trace:
-      return "Trace";
-    case StimulusType::Programmatic:
-      return "Programmatic";
-    case StimulusType::Invalid:
-      return "Invalid";
-    default:
-      return "Unknown";
-  }
-}
+  // Set Directory count
+  void set_dir_n(std::size_t n) { dir_n_ = n; }
+
+  // Set Cpu Cluster count
+  void set_cc_n(std::size_t n) { cc_n_ = n; }
+
+  // Set stimulus configuration.
+  void set_stimulus(const cc::StimulusConfig& s) { stimulus_config_ = s; }
+
+  // Construct SOC configuration.
+  cc::SocConfig construct() const;
+
+ private:
+  // CPU count
+  std::size_t cpu_n_ = 1;
+
+  // Directory count
+  std::size_t dir_n_ = 1;
+
+  // CPU cluster count.
+  std::size_t cc_n_ = 1;
+
+  // Stimulus Configuration
+  cc::StimulusConfig stimulus_config_;
+};
 
 
-}  // namespace cc
+} // namespace test
+
+#endif

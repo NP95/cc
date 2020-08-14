@@ -75,7 +75,7 @@ struct ObjectVisitor {
   }
 
 struct Time {
-  using time_type = std::uint32_t;
+  using time_type = std::uint64_t;
   using delta_type = std::uint32_t;
 
   std::string to_string() const;

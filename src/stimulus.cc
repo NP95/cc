@@ -62,12 +62,11 @@ void Stimulus::issue(StimulusContext* context) { ++issue_n_; }
 
 void Stimulus::retire(StimulusContext* context) { ++retire_n_; }
 
-class TraceStimulusContext : public StimulusContext {
+class TraceStimulus::Context : public StimulusContext {
   friend class TraceStimulus;
 
  public:
-  TraceStimulusContext(Stimulus* parent, kernel::Kernel* k,
-                       const std::string& name)
+  Context(Stimulus* parent, kernel::Kernel* k, const std::string& name)
       : StimulusContext(parent, k, name) {}
 
   // Stimulus: Flag indicate that stimulus is complete
@@ -96,6 +95,13 @@ class TraceStimulusContext : public StimulusContext {
   // Pending frontiers
   std::deque<Frontier> fs_;
 };
+
+StimulusConfig TraceStimulus::from_string(const std::string& s) {
+  StimulusConfig cfg;
+  cfg.type = StimulusType::Trace;
+  cfg.is = new std::istringstream(s);
+  return cfg;
+}
 
 TraceStimulus::TraceStimulus(kernel::Kernel* k, const StimulusConfig& config)
     : Stimulus(k, config) {
@@ -128,7 +134,8 @@ void TraceStimulus::parse_tracefile() {
   // Current scanner state.
   State state = State::Scanning;
   // Current location in tracefile.
-  std::size_t line = 0, col = -1;
+  line_ = 0;
+  col_ = -1;
   // Current scanner context (some accumulated string).
   std::string ctxt;
   // Current scanner time cursor.
@@ -141,11 +148,11 @@ void TraceStimulus::parse_tracefile() {
   } cmd_ctxt;
 
   // Resolve index to context* mapping.
-  const std::vector<TraceStimulusContext*> ctxt_table = compute_index_table();
+  const std::vector<Context*> ctxt_table = compute_index_table();
   // Start scanning file.
   while (!is_->eof()) {
     // Advance column
-    col++;
+    col_++;
 
     char c = is_->get();
 
@@ -185,14 +192,25 @@ void TraceStimulus::parse_tracefile() {
           Frontier f;
           f.time = kernel::Time{current_time, 0};
           f.cmd = Command(cmd_ctxt.opcode, cmd_ctxt.addr);
-          ctxt_table[cmd_ctxt.cpu_index]->push_back(f);
+          Context* ctxt = ctxt_table[cmd_ctxt.cpu_index];
+          if (ctxt != nullptr) {
+            ctxt->push_back(f);
+          } else {
+            LogMessage msg("Invalid CPU index detected at (");
+            msg.append(std::to_string(line_));
+            msg.append(", ");
+            msg.append(std::to_string(col_));
+            msg.append(")");
+            msg.level(Level::Fatal);
+            log(msg);
+          }
         } break;
         default: {
           // Otherwise, malformed trace file.
           LogMessage msg("Malformed trace file detected at (");
-          msg.append(std::to_string(line));
+          msg.append(std::to_string(line_));
           msg.append(", ");
-          msg.append(std::to_string(col));
+          msg.append(std::to_string(col_));
           msg.append(")");
           msg.level(Level::Fatal);
           log(msg);
@@ -201,7 +219,8 @@ void TraceStimulus::parse_tracefile() {
       // Return to idle scanning state.
       state = State::Scanning;
       // Advance line count.
-      line++;
+      col_ = -1;
+      line_++;
     } else if (state != State::InLineComment) {
       // Otherwise, currently accumulating current directive.
       switch (state) {
@@ -215,9 +234,9 @@ void TraceStimulus::parse_tracefile() {
               LogMessage msg("Invalid cpu index is out of range ");
               msg.append(ctxt);
               msg.append(" at (");
-              msg.append(std::to_string(line));
+              msg.append(std::to_string(line_));
               msg.append(", ");
-              msg.append(std::to_string(col));
+              msg.append(std::to_string(col_));
               msg.append(")");
               msg.level(Level::Fatal);
               log(msg);
@@ -240,9 +259,9 @@ void TraceStimulus::parse_tracefile() {
               LogMessage msg("Invalid opcode \'");
               msg.append(ctxt);
               msg.append("\' at (");
-              msg.append(std::to_string(line));
+              msg.append(std::to_string(line_));
               msg.append(", ");
-              msg.append(std::to_string(col));
+              msg.append(std::to_string(col_));
               msg.append(")");
               msg.level(Level::Fatal);
               log(msg);
@@ -269,9 +288,9 @@ void TraceStimulus::parse_tracefile() {
               c = is_->get();
               if (c != ':') {
                 LogMessage msg("Expecting \':\' at (");
-                msg.append(std::to_string(line));
+                msg.append(std::to_string(line_));
                 msg.append(", ");
-                msg.append(std::to_string(col));
+                msg.append(std::to_string(col_));
                 msg.append(")");
                 msg.level(Level::Fatal);
                 log(msg);
@@ -286,55 +305,232 @@ void TraceStimulus::parse_tracefile() {
     // Expect to be back in the idle state upon EOF; if not the file
     // appears to have been truncated.
     LogMessage msg("Tracefile has been truncated at (");
-    msg.append(std::to_string(line));
+    msg.append(std::to_string(line_));
     msg.append(", ");
-    msg.append(std::to_string(col));
+    msg.append(std::to_string(col_));
     msg.append(")");
     msg.level(Level::Fatal);
     log(msg);
   }
 }
 
-std::vector<TraceStimulusContext*> TraceStimulus::compute_index_table() {
-  std::vector<TraceStimulusContext*> t;
-  const StimulusConfig& cfg = config();
-  for (const std::string& path : cfg.cpaths) {
+std::vector<TraceStimulus::Context*> TraceStimulus::compute_index_table() {
+  std::map<std::size_t, std::string> index_table;
+  enum class ScanState {
+    Idle,
+    ExpectColon,
+    GetIndex,
+    GetPath
+  };
+  
+  // To zeroth column
+  col_ = -1;
+  ScanState state = ScanState::Idle;
+  
+  // Parse Map header from trace file.
+  std::string ctxt;
+  struct {
+    std::size_t index;
+    std::string path;
+  } item;
+  bool done = false;
+  while (!done && !is_->eof()) {
+    const char c = is_->peek();
+    ++col_;
+
+    switch (state) {
+      case ScanState::Idle: {
+        if (c == 'M') {
+          state = ScanState::ExpectColon;
+        } else {
+          done = true;
+        }
+      } break;
+      case ScanState::ExpectColon: {
+        if (c == ':') {
+          state = ScanState::GetIndex;
+        } else {
+          // Error
+        }
+      } break;
+      case ScanState::GetIndex: {
+        if (std::isdigit(c)) {
+          ctxt.push_back(c);
+        } else if (c == ',') {
+          item.index = std::stoi(ctxt);
+          ctxt.clear();
+          state = ScanState::GetPath;
+        } else {
+          // Error
+        } 
+      } break;
+      case ScanState::GetPath: {
+        if (c == '\n') {
+          item.path = ctxt;
+
+          auto it = index_table.find(item.index);
+          if (it != index_table.end()) {
+            LogMessage msg("Index is already present in mapping table: ");
+            msg.append(std::to_string(item.index));
+            msg.level(Level::Warning);
+            log(msg);
+          }
+
+          // Insert item in table.
+          index_table[item.index] = item.path;
+
+          // Update indices
+          line_++;
+          col_ = -1;
+          
+          ctxt.clear();
+          state = ScanState::Idle;
+        } else {
+          // Accumulate path
+          ctxt.push_back(c);
+        }
+      } break;
+      default: {
+        // Error: unknown state entered.
+      } break;
+    }
+
+    if (!done) { is_->get(); }
+  }
+  
+  std::vector<Context*> t;
+  for (const auto& index_cpu_it : index_table) {
+    const std::string& cpu_path = index_cpu_it.second;
+
     // Utility class to find CPU in the instance set.
     struct CpuFinder {
       CpuFinder(const std::string& path) : path_(path) {}
-      bool operator()(const std::pair<Cpu*, TraceStimulusContext*> p) const {
+      bool operator()(const std::pair<Cpu*, Context*> p) const {
         return p.first->path() == path_;
       }
-
      private:
       std::string path_;
     };
     // Search for CPU corresponding to path in set of registered
     // instance; if not found, bail.
-    std::map<Cpu*, TraceStimulusContext*>::iterator it =
-        std::find_if(cpumap_.begin(), cpumap_.end(), CpuFinder{path});
-    if (it == cpumap_.end()) {
+    if (auto it = std::find_if(cpumap_.begin(), cpumap_.end(), CpuFinder{cpu_path});
+        it != cpumap_.end()) {
+      const std::size_t index = index_cpu_it.first;
+      // Grow mapping table to correct length.
+      if (index >= t.size()) { t.resize(index + 1); }
+      // Insert entry at appropriate location.
+      t[index] = it->second;
+    } else {
       // CPU with path was not found.
       LogMessage msg("Cannot find cpu path: ");
-      msg.append(path);
+      msg.append(cpu_path);
       msg.level(Level::Fatal);
       log(msg);
     }
-    // Otherwise, install context in table at next index.
-    t.push_back(it->second);
   }
   return t;
 }
 
 StimulusContext* TraceStimulus::register_cpu(Cpu* cpu) {
-  TraceStimulusContext* ctxt =
-      new TraceStimulusContext(this, k(), "stimulus_context");
+  Context* ctxt = new Context(this, k(), "stimulus_context");
   cpumap_.insert(std::make_pair(cpu, ctxt));
   return ctxt;
 }
 
+class ProgrammaticStimulus::Context : public StimulusContext {
+  friend class ProgrammaticStimulus;
+ public:
+  Context(ProgrammaticStimulus* parent, kernel::Kernel* k,
+                      const std::string& name)
+      : StimulusContext(parent, k, name)
+  {}
+
+  // Stimulus: Flag indicate that stimulus is complete
+  bool done() const override { return fs_.empty(); }
+
+  // Stimulus: Return the next "Frontier" object to be processed,
+  // returning false if all stimulus has been consumed.
+  bool front(Frontier& f) const override {
+    if (done()) return false;
+
+    f = fs_.front();
+    return true;
+  }
+
+  // Stimulus: Consume current head of queue, or NOP if already
+  // exhausted.
+  void issue() override {
+    if (!done()) { fs_.pop_front(); }
+    StimulusContext::issue();
+  }
+
+ private:
+  // Push new stimulus to the back of the work queue.
+  void push_back(const Frontier& f) { fs_.push_back(f); }
+
+  // Pending frontiers
+  std::deque<Frontier> fs_;
+
+  // Pointer to parent stimulus instance.
+  ProgrammaticStimulus* parent_ = nullptr;
+};
+
+
+ProgrammaticStimulus::ProgrammaticStimulus(
+    kernel::Kernel* k, const StimulusConfig& config) : Stimulus(k, config) {
+}
+
+ProgrammaticStimulus::~ProgrammaticStimulus() {
+}
+
+StimulusContext* ProgrammaticStimulus::register_cpu(Cpu* cpu) {
+  Context* context = new Context(this, k(), "stimulus");
+  context->set_cpu(cpu);
+  const std::uint64_t id = context_map_.size();
+  // Create mapping ID -> Context
+  context_map_.insert(std::make_pair(id, context));
+  // Create mappping CPU -> ID
+  id_map_.insert(std::make_pair(cpu, id));
+  return context;
+}
+
+//
+std::uint64_t ProgrammaticStimulus::get_cpu_id(const Cpu* cpu) {
+  std::uint64_t r = -1;
+  if (auto it = id_map_.find(cpu); it != id_map_.end()) {
+    r = it->second;
+  }
+  return r;
+}
+
+void ProgrammaticStimulus::push_stimulus(std::uint64_t time_delta,
+                                         std::uint64_t cpu_id,
+                                         CpuOpcode opcode, addr_t addr) {
+  if (auto it = context_map_.find(cpu_id); it != context_map_.end()) {
+    Frontier f;
+    f.time = kernel::Time{cursor_ + time_delta};
+    f.cmd = Command{opcode, addr};
+    Context* context = it->second;
+    context->push_back(f);
+  } else {
+    // Fail, cannot find CPU for provided ID.
+  }
+}
+
 Stimulus* stimulus_builder(kernel::Kernel* k, const StimulusConfig& cfg) {
-  return new TraceStimulus(k, cfg);
+  Stimulus* s = nullptr;
+  switch (cfg.type) {
+    case StimulusType::Programmatic: {
+      s = new ProgrammaticStimulus(k, cfg);
+    } break;
+    case StimulusType::Trace: {
+      s = new TraceStimulus(k, cfg);
+    } break;
+    default: {
+      // Unknown Stimulus type.
+    } break;
+  }
+  return s;
 }
 
 }  // namespace cc
