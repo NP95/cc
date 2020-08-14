@@ -67,7 +67,7 @@ TEST(Coincident, Cfg121_SimpleRead) {
   // Run to exhaustion
   k.run();
 
-  const std::array<cc::L1CacheAgent*, 2> l1cs = {
+  const std::array<const cc::L1CacheAgent*, 2> l1cs = {
     // L1 Cache ID 0
     top.lookup_by_path<cc::L1CacheAgent>(test::path_l1c_by_cpu_id(cfg, 0)),
     // L1 Cache ID 1
@@ -75,7 +75,7 @@ TEST(Coincident, Cfg121_SimpleRead) {
   };
 
   // Validate final line state.
-  for (cc::L1CacheAgent* l1c : l1cs) {
+  for (const cc::L1CacheAgent* l1c : l1cs) {
     const test::L1Checker checker(l1c);
     EXPECT_TRUE(checker.is_hit(addr));
     EXPECT_TRUE(checker.is_readable(addr));
@@ -89,7 +89,7 @@ TEST(Coincident, Cfg121_SimpleRead) {
   
   // Check 'sharer' status in home directory.
   const test::DirChecker dir_checker(dir);
-  for (cc::L1CacheAgent* l1c : l1cs) {
+  for (const cc::L1CacheAgent* l1c : l1cs) {
     EXPECT_TRUE(dir_checker.is_sharer(l1c));
   }
 
