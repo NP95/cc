@@ -38,7 +38,7 @@ target_include_directories(cctest PRIVATE
   # include: ../cc/
   ${CMAKE_SOURCE_DIR}/include
   # include: ../test/
-  ${CMAKE_SOURCE_DIR}/test/include
+  ${CMAKE_SOURCE_DIR}/tests/include
   )
 target_link_libraries(cctest
   cc

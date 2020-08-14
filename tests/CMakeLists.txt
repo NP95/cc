@@ -31,8 +31,9 @@ macro (create_test testfile)
   
   add_executable(${testname} ${testfile})
   target_include_directories(${testname} PRIVATE
-    ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/tests/include
     )
   target_link_libraries(${testname}
     cc
@@ -44,12 +45,10 @@ macro (create_test testfile)
   add_test(NAME ${testname} COMMAND ${testname})
 endmacro ()
 
-include_directories(include)
 add_subdirectory(test)
 add_subdirectory(general)
 add_subdirectory(stimulus)
 add_subdirectory(directed)
-
 
 #add_library(cctest SHARED test_utilities.cc)
 #target_include_directories(cctest PRIVATE
