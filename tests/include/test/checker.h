@@ -34,6 +34,8 @@
 namespace cc {
 
 class L1CacheAgent;
+class DirModel;
+class Agent;
 
 } // namespace cc
 
@@ -54,6 +56,21 @@ class L1Checker {
 
  private:
   const cc::L1CacheAgent* agent_ = nullptr;
+};
+
+
+class DirChecker {
+ public:
+  DirChecker(const cc::DirModel* agent);
+
+  // Agent 'agent' is in sharer set
+  bool is_sharer(const cc::Agent* agent) const;
+
+  // Agent 'agent' is line owner
+  bool is_owner(const cc::Agent* agent) const;
+
+ private:
+  const cc::DirModel* agent_ = nullptr;
 };
 
 } // namespace test

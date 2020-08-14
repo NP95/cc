@@ -31,6 +31,7 @@
 #include "cc/kernel.h"
 #include "cc/stimulus.h"
 #include "src/l1cache.h"
+#include "src/dir.h"
 #include "gtest/gtest.h"
 #include <array>
 
@@ -68,9 +69,9 @@ TEST(Coincident, Cfg121_SimpleRead) {
 
   const std::array<cc::L1CacheAgent*, 2> l1cs = {
     // L1 Cache ID 0
-    top.lookup_by_path<cc::L1CacheAgent>(test::l1c_by_cpu_id(cfg, 0)),
+    top.lookup_by_path<cc::L1CacheAgent>(test::path_l1c_by_cpu_id(cfg, 0)),
     // L1 Cache ID 1
-    top.lookup_by_path<cc::L1CacheAgent>(test::l1c_by_cpu_id(cfg, 1))
+    top.lookup_by_path<cc::L1CacheAgent>(test::path_l1c_by_cpu_id(cfg, 1))
   };
 
   // Validate final line state.
@@ -78,6 +79,18 @@ TEST(Coincident, Cfg121_SimpleRead) {
     const test::L1Checker checker(l1c);
     EXPECT_TRUE(checker.is_hit(addr));
     EXPECT_TRUE(checker.is_readable(addr));
+  }
+
+  // Validate line status in home directory.
+  const cc::DirModel* dir = top.lookup_by_path<cc::DirModel>(
+      test::path_dir_by_dir_id(cfg, 0));
+
+  // TODO: checker not implemented.
+  
+  // Check 'sharer' status in home directory.
+  const test::DirChecker dir_checker(dir);
+  for (cc::L1CacheAgent* l1c : l1cs) {
+    EXPECT_TRUE(dir_checker.is_sharer(l1c));
   }
 
   // Validate expected transaction count.

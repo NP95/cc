@@ -30,11 +30,11 @@
 
 #include "amba.h"
 #include "cache.h"
-#include "cfgs.h"
-#include "kernel.h"
+#include "cc/cfgs.h"
+#include "cc/kernel.h"
+#include "cc/types.h"
 #include "msg.h"
 #include "sim.h"
-#include "types.h"
 
 namespace cc {
 

@@ -65,4 +65,15 @@ bool L1Checker::is_writeable(cc::addr_t addr) const {
   return ret;
 }
 
+DirChecker::DirChecker(const cc::DirModel* agent) {
+}
+
+bool DirChecker::is_sharer(const cc::Agent* agent) const {
+  return true;
+}
+
+bool DirChecker::is_owner(const cc::Agent* agent) const {
+  return true;
+}
+
 } // namespace test

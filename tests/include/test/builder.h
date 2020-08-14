@@ -66,7 +66,10 @@ class ConfigBuilder {
 };
 
 // Compute CPU path in object model by ID.
-std::string l1c_by_cpu_id(const cc::SocConfig& cfg, std::size_t id);
+std::string path_l1c_by_cpu_id(const cc::SocConfig& cfg, std::size_t id);
+
+// Compute DIR path ID.
+std::string path_dir_by_dir_id(const cc::SocConfig& cfg, std::size_t id);
 
 
 } // namespace test
