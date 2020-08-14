@@ -65,6 +65,9 @@ class ConfigBuilder {
   cc::StimulusConfig stimulus_config_;
 };
 
+// Compute CPU path in object model by ID.
+std::string l1c_by_cpu_id(const cc::SocConfig& cfg, std::size_t id);
+
 
 } // namespace test
 

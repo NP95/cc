@@ -112,6 +112,10 @@ void SocTop::build(const SocConfig& cfg) {
       // lookups/writebacks to main memory.
       // TODO
     }
+
+    for (CpuCluster* cluster : ccs_) {
+      dm->register_command_queue(cluster->cc());
+    }
   }
 }
 
@@ -235,13 +239,13 @@ void SocTop::elab_credit_counts() {
       // Coherence start message
       cc->register_credit_counter(MessageClass::CohSrt, dm,
                                   dcfg.coh_srt_credits_n);
-      mq = dm->mq_by_msg_cls(MessageClass::CohSrt);
+      mq = dm->mq_by_msg_cls(MessageClass::CohSrt, cc);
       if (mq != nullptr) { mqcredits[mq] += dcfg.coh_cmd_credits_n; }
 
       // Coherence command message
       cc->register_credit_counter(MessageClass::CohCmd, dm,
                                   dcfg.coh_cmd_credits_n);
-      mq = dm->mq_by_msg_cls(MessageClass::CohCmd);
+      mq = dm->mq_by_msg_cls(MessageClass::CohCmd, cc);
       if (mq != nullptr) { mqcredits[mq] += dcfg.coh_cmd_credits_n; }
     }
 
@@ -253,7 +257,7 @@ void SocTop::elab_credit_counts() {
       if (cpuc_dest == cpuc) continue;
 
       cc->register_credit_counter(MessageClass::Dt, cpuc_dest, ccfg.dt_credits_n);
-      mq = cpuc_dest->mq_by_msg_cls(MessageClass::Dt);
+      mq = cpuc_dest->cc()->mq_by_msg_cls(MessageClass::Dt);
       if (mq != nullptr) { mqcredits[mq] += ccfg.dt_credits_n; }
     }
   }

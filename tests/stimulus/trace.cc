@@ -33,9 +33,9 @@
 
 TEST(Trace, Cfg111_SimpleRead) {
   test::ConfigBuilder cb;
-  cb.set_cpu_n(1);
   cb.set_dir_n(1);
   cb.set_cc_n(1);
+  cb.set_cpu_n(1);
 
   // Define stimulus:
   const char* trace =
@@ -64,6 +64,49 @@ TEST(Trace, Cfg111_SimpleRead) {
 
   // Validate expected transaction count.
   EXPECT_EQ(stimulus->issue_n(), 1);
+
+  // Validate that all transactions have retired at end-of-sim.
+  EXPECT_EQ(stimulus->issue_n(), stimulus->retire_n());
+}
+
+TEST(Trace, Cfg121_SimpleRead) {
+  test::ConfigBuilder cb;
+  cb.set_dir_n(1);
+  cb.set_cc_n(2);
+  cb.set_cpu_n(1);
+
+  // Define stimulus:
+  const char* trace =
+      // Map CPU ID to location in object hierarchy.
+      "M:0,top.cluster0.cpu0\n"
+      "M:1,top.cluster1.cpu0\n"
+      // Advance 200 time-units
+      "+200\n"
+      // CPU 0 issues Load instruction to address 0x0.
+      "C:0,LD,0\n"
+      // Advance 200 time-units
+      "+200\n"
+      // CPU 1 issues Load instruction to address 0x0.
+      "C:1,LD,0\n"
+      ;
+
+  cc::StimulusConfig stimulus_config = cc::TraceStimulus::from_string(trace);
+  cb.set_stimulus(stimulus_config);
+
+  const cc::SocConfig cfg = cb.construct();
+
+  cc::kernel::Kernel k;
+  cc::SocTop top(&k, cfg);
+
+  // Run to exhaustion
+  k.run();
+
+  // Validation.
+
+  cc::Stimulus* stimulus = top.stimulus();
+
+  // Validate expected transaction count.
+  EXPECT_EQ(stimulus->issue_n(), 2);
 
   // Validate that all transactions have retired at end-of-sim.
   EXPECT_EQ(stimulus->issue_n(), stimulus->retire_n());

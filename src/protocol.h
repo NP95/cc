@@ -68,16 +68,12 @@ class CohSrtMsg : public Message {
   std::string to_string() const override;
 
   //
-  Agent* origin() const { return origin_; }
   addr_t addr() const { return addr_; }
 
   //
-  void set_origin(Agent* origin) { origin_ = origin; }
   void set_addr(addr_t addr) { addr_ = addr; }
 
  private:
-  // Originator agent of coherence transaction.
-  Agent* origin_ = nullptr;
   addr_t addr_;
 };
 
@@ -118,19 +114,16 @@ class CohCmdMsg : public Message {
 
   //
   AceCmdOpcode opcode() const { return opcode_; }
-  Agent* origin() const { return origin_; }
   Agent* agent() const { return agent_; }
   addr_t addr() const { return addr_; }
 
   //
   void set_opcode(AceCmdOpcode opcode) { opcode_ = opcode; }
-  void set_origin(Agent* origin) { origin_ = origin; }
   void set_agent(Agent* agent) { agent_ = agent; }
   void set_addr(addr_t addr) { addr_ = addr; }
 
  private:
   AceCmdOpcode opcode_;
-  Agent* origin_ = nullptr;
   Agent* agent_ = nullptr;
   addr_t addr_;
 };

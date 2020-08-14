@@ -325,13 +325,17 @@ class DirModel : public Agent {
   }
   // Lookup Credit Counter by Message Class and agent
   CreditCounter* cc_by_cls_agent(MessageClass cls, const Agent* agent) const;
-  // Lookup Message Queue instance by class.
-  MessageQueue* mq_by_msg_cls(MessageClass cls) const override;
+  // Lookup destination/ingress Messag Queue based upon MessageClass
+  // and, additionally, origin agent where applicable.
+  MessageQueue* mq_by_msg_cls(MessageClass cls, const Agent* origin) const;
 
  protected:
   // Build
   void build();
-  //
+  // Build phase; register new command queue (belonging to
+  // a distinct cache controller instance.
+  void register_command_queue(const Agent* origin);
+  // Set asscoiated LLC instance.
   void set_llc(LLCModel* llc) { llc_ = llc; }
   // Elaboration
   bool elab() override;
@@ -357,7 +361,7 @@ class DirModel : public Agent {
   // DIR -> NOC message queue (owned by NOC)
   MessageQueue* dir_noc__msg_q_ = nullptr;
   // CPU -> DIR command queue (owned by DIR)
-  MessageQueue* cpu_dir__cmd_q_ = nullptr;
+  std::map<const Agent*, MessageQueue*> cc_dir__cmd_q_;
   // LLC -> DIR response queue (owned by DIR)
   MessageQueue* llc_dir__rsp_q_ = nullptr;
   // CC -> DIR snoop response queue.

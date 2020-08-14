@@ -29,9 +29,15 @@
 
 add_library(cctest SHARED
   builder.cc
+  top.cc
+  checker.cc
   )
 target_include_directories(cctest PRIVATE
+  # include: ../src
+  ${CMAKE_SOURCE_DIR}
+  # include: ../cc/
   ${CMAKE_SOURCE_DIR}/include
+  # include: ../test/
   ${CMAKE_SOURCE_DIR}/test/include
   )
 target_link_libraries(cctest

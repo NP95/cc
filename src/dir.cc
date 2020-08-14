@@ -621,35 +621,47 @@ class DirNocEndpoint : public NocEndpoint {
   //
   DirNocEndpoint(kernel::Kernel* k, const std::string& name)
       : NocEndpoint(k, name) {}
+  
   //
-  void register_endpoint(MessageClass cls, MessageQueue* p) {
-    endpoints_.insert(std::make_pair(cls, p));
+  void register_endpoint(MessageClass cls, MessageQueue* mq) {
+    // Register/install {cls} -> Message Queue mapping
+    cls_eps_.insert(std::make_pair(cls, mq));
+  }
+
+  void register_endpoint(MessageClass cls, const Agent* origin, MessageQueue* mq) {
+    // Register/install {cls, origin} -> Message Queue mapping
+    origin_eps_[cls][origin] = mq;
   }
 
   // Lookup canonical MessageClass to MessageQueue mapping.
-  MessageQueue* lookup_endpoint(MessageClass cls) const {
+  MessageQueue* lookup_endpoint(MessageClass cls, const Agent* origin) const {
     MessageQueue* mq = nullptr;
-    if (auto it = endpoints_.find(cls); it != endpoints_.end()) {
+    if (const auto it = cls_eps_.find(cls); it != cls_eps_.end()) {
       mq = it->second;
+    } else if (const auto jt = origin_eps_.find(cls); jt != origin_eps_.end()) {
+      if (const auto kt = jt->second.find(origin); kt != jt->second.end()) {
+        mq = kt->second;
+      }
     }
     return mq;
   }
 
   MessageQueue* lookup_mq(const Message* msg) const override {
-    if (auto it = endpoints_.find(msg->cls()); it != endpoints_.end()) {
-      return it->second;
-    } else {
+    MessageQueue* ret = lookup_endpoint(msg->cls(), msg->origin());
+    if (ret == nullptr) {
       LogMessage lm("End point not register for class: ");
       lm.append(cc::to_string(msg->cls()));
       lm.level(Level::Fatal);
       log(lm);
     }
-    return nullptr;
+    return ret;
   }
 
  private:
-  //
-  std::map<MessageClass, MessageQueue*> endpoints_;
+  // {Cls} -> Message Queue mapping
+  std::map<MessageClass, MessageQueue*> cls_eps_;
+  // {Cls, Origin} -> Message Queue mapping
+  std::map<MessageClass, std::map<const Agent*, MessageQueue*> > origin_eps_;
 };
 
 DirModel::DirModel(kernel::Kernel* k, const DirModelConfig& config)
@@ -658,7 +670,7 @@ DirModel::DirModel(kernel::Kernel* k, const DirModelConfig& config)
 }
 
 DirModel::~DirModel() {
-  delete cpu_dir__cmd_q_;
+  for (const auto& p : cc_dir__cmd_q_) { delete p.second; }
   delete llc_dir__rsp_q_;
   delete cc_dir__snprsp_q_;
   delete arb_;
@@ -676,9 +688,6 @@ DirModel::~DirModel() {
 }
 
 void DirModel::build() {
-  // CPU -> DIR command queue
-  cpu_dir__cmd_q_ = new MessageQueue(k(), "cpu_dir__cmd_q", 30);
-  add_child_module(cpu_dir__cmd_q_);
   // LLC -> DIR command queue
   llc_dir__rsp_q_ = new MessageQueue(k(), "llc_dir__rsp_q", 30);
   add_child_module(llc_dir__rsp_q_);
@@ -707,14 +716,32 @@ void DirModel::build() {
 
 //
 //
+void DirModel::register_command_queue(const Agent* origin) {
+  const std::string name = "cmdq" + std::to_string(cc_dir__cmd_q_.size());
+  MessageQueue* mq = new MessageQueue(k(), name, config_.cmd_queue_n);
+  add_child_module(mq);
+  cc_dir__cmd_q_.insert(std::make_pair(origin, mq));
+}
+
+//
+//
 bool DirModel::elab() {
-  // Register message queue end-points
-  arb_->add_requester(cpu_dir__cmd_q_);
+  // Add message queues to arbiter
+  for (auto& p : cc_dir__cmd_q_) {
+    MessageQueue* mq = p.second;
+    arb_->add_requester(mq);
+  }
   arb_->add_requester(llc_dir__rsp_q_);
   arb_->add_requester(cc_dir__snprsp_q_);
 
-  noc_endpoint_->register_endpoint(MessageClass::CohSrt, cpu_dir__cmd_q_);
-  noc_endpoint_->register_endpoint(MessageClass::CohCmd, cpu_dir__cmd_q_);
+  // Register message queue end-points to NOC ingress
+  for (auto& p : cc_dir__cmd_q_) {
+    const Agent* origin = p.first;
+    MessageQueue* mq = p.second;
+
+    noc_endpoint_->register_endpoint(MessageClass::CohSrt, origin, mq);
+    noc_endpoint_->register_endpoint(MessageClass::CohCmd, origin, mq);
+  }
   noc_endpoint_->register_endpoint(MessageClass::LLCCmdRsp, llc_dir__rsp_q_);
   noc_endpoint_->register_endpoint(MessageClass::CohSnpRsp, cc_dir__snprsp_q_);
 
@@ -760,8 +787,8 @@ CreditCounter* DirModel::cc_by_cls_agent(MessageClass cls,
   return ret;
 }
 
-MessageQueue* DirModel::mq_by_msg_cls(MessageClass cls) const {
-  return noc_endpoint_->lookup_endpoint(cls);
+MessageQueue* DirModel::mq_by_msg_cls(MessageClass cls, const Agent* agent) const {
+  return noc_endpoint_->lookup_endpoint(cls, agent);
 }
 
 }  // namespace cc

@@ -503,12 +503,11 @@ std::uint64_t ProgrammaticStimulus::get_cpu_id(const Cpu* cpu) {
   return r;
 }
 
-void ProgrammaticStimulus::push_stimulus(std::uint64_t time_delta,
-                                         std::uint64_t cpu_id,
+void ProgrammaticStimulus::push_stimulus(std::uint64_t cpu_id,
                                          CpuOpcode opcode, addr_t addr) {
   if (auto it = context_map_.find(cpu_id); it != context_map_.end()) {
     Frontier f;
-    f.time = kernel::Time{cursor_ + time_delta};
+    f.time = kernel::Time{cursor_};
     f.cmd = Command{opcode, addr};
     Context* context = it->second;
     context->push_back(f);

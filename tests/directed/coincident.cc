@@ -60,8 +60,8 @@ TEST(Coincident, Cfg121_SimpleRead) {
   // the same simulation time and corresponding to difference CPU in
   // different clusters.
   stimulus->advance_cursor(200);
-  stimulus->push_stimulus(0, 0, cc::CpuOpcode::Load, addr);
-  stimulus->push_stimulus(1, 0, cc::CpuOpcode::Load, addr);
+  stimulus->push_stimulus(0, cc::CpuOpcode::Load, addr);
+  stimulus->push_stimulus(1, cc::CpuOpcode::Load, addr);
 
   // Run to exhaustion
   k.run();

@@ -33,9 +33,9 @@
 
 TEST(Programmatic, Cfg111_SimpleRead) {
   test::ConfigBuilder cb;
-  cb.set_cpu_n(1);
   cb.set_dir_n(1);
   cb.set_cc_n(1);
+  cb.set_cpu_n(1);
 
   cc::StimulusConfig stimulus_config;
   stimulus_config.type = cc::StimulusType::Programmatic;
@@ -50,13 +50,49 @@ TEST(Programmatic, Cfg111_SimpleRead) {
   cc::ProgrammaticStimulus* stimulus =
       static_cast<cc::ProgrammaticStimulus*>(top.stimulus());
   stimulus->advance_cursor(200);
-  stimulus->push_stimulus(0, 0, cc::CpuOpcode::Load, 0);
+  stimulus->push_stimulus(0, cc::CpuOpcode::Load, 0);
 
   // Run to exhaustion
   k.run();
 
   // Validate expected transaction count.
   EXPECT_EQ(stimulus->issue_n(), 1);
+
+  // Validate that all transactions have retired at end-of-sim.
+  EXPECT_EQ(stimulus->issue_n(), stimulus->retire_n());
+}
+
+TEST(Programmatic, Cfg121_SimpleRead) {
+  test::ConfigBuilder cb;
+  cb.set_dir_n(1);
+  cb.set_cc_n(2);
+  cb.set_cpu_n(1);
+
+  cc::StimulusConfig stimulus_config;
+  stimulus_config.type = cc::StimulusType::Programmatic;
+  cb.set_stimulus(stimulus_config);
+
+  const cc::SocConfig cfg = cb.construct();
+
+  cc::kernel::Kernel k;
+  cc::SocTop top(&k, cfg);
+
+  // Stimulus: single load instruction to some address.
+  cc::ProgrammaticStimulus* stimulus =
+      static_cast<cc::ProgrammaticStimulus*>(top.stimulus());
+
+  // CPU 0 issues Load to 0x0 @ 200
+  stimulus->advance_cursor(200);
+  stimulus->push_stimulus(0, cc::CpuOpcode::Load, 0);
+  // CPU 1 issues Load to 0x0 @ 200
+  stimulus->advance_cursor(200);
+  stimulus->push_stimulus(1, cc::CpuOpcode::Load, 0);
+
+  // Run to exhaustion
+  k.run();
+
+  // Validate expected transaction count.
+  EXPECT_EQ(stimulus->issue_n(), 2);
 
   // Validate that all transactions have retired at end-of-sim.
   EXPECT_EQ(stimulus->issue_n(), stimulus->retire_n());

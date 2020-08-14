@@ -68,10 +68,6 @@ class MessageQueue;
 class Agent : public kernel::Module {
  public:
   Agent(kernel::Kernel* k, const std::string& name);
-
-  virtual MessageQueue* mq_by_msg_cls(MessageClass cls) const {
-    return nullptr;
-  }
 };
 
 

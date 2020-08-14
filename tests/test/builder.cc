@@ -26,6 +26,7 @@
 //========================================================================== //
 
 #include "test/builder.h"
+#include "test/utility.h"
 #include "cc/soc.h"
 
 namespace test {
@@ -74,5 +75,30 @@ cc::SocConfig ConfigBuilder::construct() const {
   return cfg;
 }
 
+std::string l1c_by_cpu_id(const cc::SocConfig& cfg, std::size_t id) {
+  std::size_t cluster_id = 0, cpu_offset = 0;
+  for (const cc::CpuClusterConfig& ccfg : cfg.ccls) {
+    const std::size_t l1_count = ccfg.l1c_configs.size();
+    if (id < cpu_offset + l1_count) {
+      const std::size_t cpu_idx = id - cpu_offset;
+
+      std::vector<std::string> vs;
+      // Top
+      vs.push_back(cfg.name);
+      // Cluster
+      vs.push_back(ccfg.name);
+      // Cpu
+      vs.push_back(ccfg.l1c_configs[cpu_idx].name);
+      // Complete!
+      return test::join(vs.begin(), vs.end());
+    } else {
+      cluster_id++;
+      cpu_offset += l1_count;
+    }
+  }
+  // CPU ID is invalid; too large.
+  const std::string reason = "Cannot find cpu id = " + std::to_string(id);
+  throw std::invalid_argument(reason);
+}
 
 } // namespace test

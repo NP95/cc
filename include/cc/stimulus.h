@@ -216,8 +216,7 @@ class ProgrammaticStimulus : public Stimulus {
   std::uint64_t get_cpu_id(const Cpu* cpu);
 
   //
-  void push_stimulus(std::uint64_t time_delta, std::uint64_t cpu_id,
-                     CpuOpcode opcode, addr_t addr);
+  void push_stimulus(std::uint64_t cpu_id, CpuOpcode opcode, addr_t addr);
 
   // Advance the current stimulus cursor to the current simulation
   // time such that consequent stimulus definitions are relative to
