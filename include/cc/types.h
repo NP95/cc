@@ -43,6 +43,8 @@ using state_t = std::uint8_t;
 
 using epoch_t = std::size_t;
 
+using time_t = std::uint64_t;
+
 }  // namespace cc
 
 #endif

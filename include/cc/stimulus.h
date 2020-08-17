@@ -85,10 +85,15 @@ class StimulusContext : public kernel::Module {
   //
   StimulusContext(Stimulus* parent, kernel::Kernel* k, const std::string& name);
   //
-  virtual ~StimulusContext() = default;
+  virtual ~StimulusContext();
 
   // Pointer to parent Stimulus instance.
   Stimulus* parent() const { return parent_; }
+
+  // Further stimulus has arrived at context.
+  kernel::Event* non_empty_event() const {
+    return non_empty_event_;
+  }
 
   // Partner CPU instance.
   void set_cpu(const Cpu* cpu) { cpu_ = cpu; }
@@ -112,7 +117,13 @@ class StimulusContext : public kernel::Module {
 
   // Partner Cpu instance.
   const Cpu* cpu_ = nullptr;
+
+  // Event indiciating that additional stimulus queue is non-empty.
+  kernel::Event* non_empty_event_ = nullptr;
 };
+
+// Forward of Dequee-based context
+class DequeueContext;
 
 // Abstract base class encapsulating the concept of a transaction
 // source; more specifically, a block response to model the issue of
@@ -176,7 +187,6 @@ class Stimulus : public kernel::Module {
 //    C:0:ST:1000 // CPu 0 issues a Store to 0x1000 at current time.
 //
 class TraceStimulus : public Stimulus {
-  class Context;
  public:
 
   // Construct appropriate trace configuration-file from some string.
@@ -197,10 +207,10 @@ class TraceStimulus : public Stimulus {
 
   void parse_tracefile();
 
-  std::vector<Context*> compute_index_table();
+  std::vector<DequeueContext*> compute_index_table();
 
   // Registered CPU
-  std::map<Cpu*, Context*> cpumap_;
+  std::map<Cpu*, DequeueContext*> cpumap_;
   // Trace input
   std::istream* is_ = nullptr;
   //
@@ -209,10 +219,10 @@ class TraceStimulus : public Stimulus {
   std::size_t col_ = 0;
 };
 
-//
+// Basic programmatic stimulus source where stimulus is generated
+// explicitly according to method call.
 //
 class ProgrammaticStimulus : public Stimulus {
-  class Context;
  public:
   ProgrammaticStimulus(kernel::Kernel* k, const StimulusConfig& config);
   ~ProgrammaticStimulus();
@@ -240,7 +250,7 @@ class ProgrammaticStimulus : public Stimulus {
   std::uint64_t cursor_ = 0;
 
   // ID to Context instance map.
-  std::map<std::uint64_t, Context*> context_map_;
+  std::map<std::uint64_t, DequeueContext*> context_map_;
 
   // CPU to ID reverse map.
   std::map<const Cpu*, std::uint64_t> id_map_;

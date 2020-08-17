@@ -77,7 +77,6 @@ class SocTop : public kernel::TopModule {
   // Run Design Rule Check (DRC)
   void drc() override;
 
-
   // Directory Mapper instance
   DirMapper* dm_ = nullptr;
 
@@ -112,25 +111,37 @@ class Soc {
  public:
   Soc(const SocConfig& soccfg);
   ~Soc();
-
+  
+  // SOC configuration as defined during construction
   const SocConfig& cfg() const { return top_->config(); }
 
-  //
+  // Stimulus instance.
+  Stimulus* stimulus() const { return top_->stimulus(); }
+
+  // Current simulation time/epoch.
+  time_t time() const { return kernel_->time().time; }
+
+  // Initialize simulation model.
   void initialize();
 
   // Run/Invoke simulation.
-  void run();
+  void run(cc::kernel::RunMode r = cc::kernel::RunMode::ToExhaustion,
+           cc::kernel::Time time = cc::kernel::Time{});
 
-  //
+  // Finalize simulation model.
   void finalize();
+
+  // Return instance (or nullptr) for object at path.
+  kernel::Object*
+  find_path(const std::string& path) const { return top_->find_path(path); }
   
  private:
   void build(const SocConfig& config);
 
   // Simulation kernel instance
-  kernel::Kernel* kernel_;
+  kernel::Kernel* kernel_ = nullptr;
   // Top module instance.
-  SocTop* top_;
+  SocTop* top_ = nullptr;
 };
 
 //

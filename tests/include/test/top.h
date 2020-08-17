@@ -30,35 +30,46 @@
 
 #include "cc/soc.h"
 #include "cc/kernel.h"
+#include "cc/types.h"
 
 namespace test {
 
 
 class TbTop {
  public:
-  TbTop(cc::kernel::Kernel* k, const cc::SocConfig& config);
+  TbTop(const cc::SocConfig& config);
   ~TbTop();
 
   // Accessors:
 
-  // Kernel instance
-  cc::kernel::Kernel* k() const { return k_; }
-
   // Stimulus instance.
-  cc::Stimulus* stimulus() const { return top_->stimulus(); }
+  cc::Stimulus* stimulus() const { return soc_->stimulus(); }
 
+  cc::time_t time() const { return soc_->time(); }
+
+  // Invoke simulation initialization.
+  void initialize();
+
+  // Run stimulation
+  void run(cc::kernel::RunMode r = cc::kernel::RunMode::ToExhaustion,
+           cc::kernel::Time time = cc::kernel::Time{});
+
+  // Finalize/Terminate simulation.
+  void finalize();
+
+  // Invoke: initialization, Run and Finalization
+  void run_all(cc::kernel::RunMode r = cc::kernel::RunMode::ToExhaustion,
+               cc::kernel::Time time = cc::kernel::Time{});
 
   // Lookup object of type 'T' and return instance pointer.
   template<typename T>
   T* lookup_by_path(const std::string& path) const {
-    return static_cast<T*>(top_->find_path(path));
+    return static_cast<T*>(soc_->find_path(path));
   }
 
  private:
   // SOC top instance.
-  cc::SocTop* top_ = nullptr;
-  // Kernel instance
-  cc::kernel::Kernel* k_ = nullptr;
+  cc::Soc* soc_ = nullptr;
 };
 
 } // namespace test

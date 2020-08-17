@@ -35,6 +35,8 @@
 #include <sstream>
 #include <vector>
 
+namespace cc { class Soc; }
+
 namespace cc::kernel {
 
 // Forwards
@@ -181,7 +183,6 @@ class Object {
   void set_parent(Object* o) { parent_ = o; }
   // Add child object.
   bool add_child(Object* c);
-  //
   Object* find_path(const std::string& path);
 
  protected:
@@ -411,6 +412,8 @@ class Kernel : public Module {
   friend class Module;
   friend class Object;
 
+  friend class cc::Soc;
+
   using seed_type = std::mt19937_64::result_type;
 
   struct Event {
@@ -438,14 +441,14 @@ class Kernel : public Module {
   LogContext& log_context() { return log_context_; }
   Phase phase() const { return phase_; }
   Object* top() const { return top_; }
-
+  
   // Deprecate this method;
   void run(RunMode r = RunMode::ToExhaustion, Time t = Time{});
   void add_action(Time t, Action* a);
   void raise_fatal() { fatal_ = true; }
   void set_seed(seed_type seed);
 
-  //private:
+ private:
   // Set current simulation phase.
   void set_phase(Phase phase) { phase_ = phase; }
   void set_top(Object* top) { top_ = top; }

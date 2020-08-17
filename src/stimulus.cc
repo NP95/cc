@@ -52,26 +52,24 @@ StimulusException::StimulusException(const std::string& reason)
 
 StimulusContext::StimulusContext(Stimulus* parent, kernel::Kernel* k,
                                  const std::string& name)
-    : parent_(parent), Module(k, name) {}
+    : parent_(parent), Module(k, name) {
+  non_empty_event_ = new kernel::Event(k, "non_empty_event");
+}
+
+StimulusContext::~StimulusContext() {
+  delete non_empty_event_;
+}
 
 void StimulusContext::issue() { parent_->issue(this); }
 
 // Retire transaction
 void StimulusContext::retire() { parent_->retire(this); }
 
-Stimulus::Stimulus(kernel::Kernel* k, const StimulusConfig& config)
-    : Module(k, config.name), config_(config) {}
-
-void Stimulus::issue(StimulusContext* context) { ++issue_n_; }
-
-void Stimulus::retire(StimulusContext* context) { ++retire_n_; }
-
-class TraceStimulus::Context : public StimulusContext {
-  friend class TraceStimulus;
-
+class DequeueContext : public StimulusContext {
  public:
-  Context(Stimulus* parent, kernel::Kernel* k, const std::string& name)
-      : StimulusContext(parent, k, name) {}
+  DequeueContext(Stimulus* parent, kernel::Kernel* k, const std::string& name)
+      : StimulusContext(parent, k, name)
+  {}
 
   // Stimulus: Flag indicate that stimulus is complete
   bool done() const override { return fs_.empty(); }
@@ -91,14 +89,23 @@ class TraceStimulus::Context : public StimulusContext {
     if (!done()) { fs_.pop_front(); }
     StimulusContext::issue();
   }
+  // Push new stimulus to the back of the work queue.
+  void push_back(const Frontier& f) {
+    if (fs_.empty()) { non_empty_event()->notify(); }
+    fs_.push_back(f);
+  }
 
  private:
-  // Push new stimulus to the back of the work queue.
-  void push_back(const Frontier& f) { fs_.push_back(f); }
-
   // Pending frontiers
   std::deque<Frontier> fs_;
 };
+
+Stimulus::Stimulus(kernel::Kernel* k, const StimulusConfig& config)
+    : Module(k, config.name), config_(config) {}
+
+void Stimulus::issue(StimulusContext* context) { ++issue_n_; }
+
+void Stimulus::retire(StimulusContext* context) { ++retire_n_; }
 
 StimulusConfig TraceStimulus::from_string(const std::string& s) {
   StimulusConfig cfg;
@@ -152,7 +159,7 @@ void TraceStimulus::parse_tracefile() {
   } cmd_ctxt;
 
   // Resolve index to context* mapping.
-  const std::vector<Context*> ctxt_table = compute_index_table();
+  const std::vector<DequeueContext*> ctxt_table = compute_index_table();
   // Start scanning file.
   while (!is_->eof()) {
     // Advance column
@@ -196,7 +203,7 @@ void TraceStimulus::parse_tracefile() {
           Frontier f;
           f.time = kernel::Time{current_time, 0};
           f.cmd = Command(cmd_ctxt.opcode, cmd_ctxt.addr);
-          Context* ctxt = ctxt_table[cmd_ctxt.cpu_index];
+          DequeueContext* ctxt = ctxt_table[cmd_ctxt.cpu_index];
           if (ctxt != nullptr) {
             ctxt->push_back(f);
           } else {
@@ -318,7 +325,7 @@ void TraceStimulus::parse_tracefile() {
   }
 }
 
-std::vector<TraceStimulus::Context*> TraceStimulus::compute_index_table() {
+std::vector<DequeueContext*> TraceStimulus::compute_index_table() {
   std::map<std::size_t, std::string> index_table;
   enum class ScanState {
     Idle,
@@ -402,14 +409,14 @@ std::vector<TraceStimulus::Context*> TraceStimulus::compute_index_table() {
     if (!done) { is_->get(); }
   }
   
-  std::vector<Context*> t;
+  std::vector<DequeueContext*> t;
   for (const auto& index_cpu_it : index_table) {
     const std::string& cpu_path = index_cpu_it.second;
 
     // Utility class to find CPU in the instance set.
     struct CpuFinder {
       CpuFinder(const std::string& path) : path_(path) {}
-      bool operator()(const std::pair<Cpu*, Context*> p) const {
+      bool operator()(const std::pair<Cpu*, DequeueContext*> p) const {
         return p.first->path() == path_;
       }
      private:
@@ -436,48 +443,10 @@ std::vector<TraceStimulus::Context*> TraceStimulus::compute_index_table() {
 }
 
 StimulusContext* TraceStimulus::register_cpu(Cpu* cpu) {
-  Context* ctxt = new Context(this, k(), "stimulus_context");
+  DequeueContext* ctxt = new DequeueContext(this, k(), "stimulus_context");
   cpumap_.insert(std::make_pair(cpu, ctxt));
   return ctxt;
 }
-
-class ProgrammaticStimulus::Context : public StimulusContext {
-  friend class ProgrammaticStimulus;
- public:
-  Context(ProgrammaticStimulus* parent, kernel::Kernel* k,
-                      const std::string& name)
-      : StimulusContext(parent, k, name)
-  {}
-
-  // Stimulus: Flag indicate that stimulus is complete
-  bool done() const override { return fs_.empty(); }
-
-  // Stimulus: Return the next "Frontier" object to be processed,
-  // returning false if all stimulus has been consumed.
-  bool front(Frontier& f) const override {
-    if (done()) return false;
-
-    f = fs_.front();
-    return true;
-  }
-
-  // Stimulus: Consume current head of queue, or NOP if already
-  // exhausted.
-  void issue() override {
-    if (!done()) { fs_.pop_front(); }
-    StimulusContext::issue();
-  }
-
- private:
-  // Push new stimulus to the back of the work queue.
-  void push_back(const Frontier& f) { fs_.push_back(f); }
-
-  // Pending frontiers
-  std::deque<Frontier> fs_;
-
-  // Pointer to parent stimulus instance.
-  ProgrammaticStimulus* parent_ = nullptr;
-};
 
 
 ProgrammaticStimulus::ProgrammaticStimulus(
@@ -488,7 +457,7 @@ ProgrammaticStimulus::~ProgrammaticStimulus() {
 }
 
 StimulusContext* ProgrammaticStimulus::register_cpu(Cpu* cpu) {
-  Context* context = new Context(this, k(), "stimulus");
+  DequeueContext* context = new DequeueContext(this, k(), "stimulus");
   context->set_cpu(cpu);
   const std::uint64_t id = context_map_.size();
   // Create mapping ID -> Context
@@ -513,7 +482,7 @@ void ProgrammaticStimulus::push_stimulus(std::uint64_t cpu_id,
     Frontier f;
     f.time = kernel::Time{cursor_};
     f.cmd = Command{opcode, addr};
-    Context* context = it->second;
+    DequeueContext* context = it->second;
     context->push_back(f);
   } else {
     // Fail, cannot find CPU for provided ID.

@@ -180,7 +180,6 @@ void Kernel::invoke_elab() {
     
     void visit(Module* o) override {
       const bool invoke_elab = !doing_retry_ || (do_retry_.count(o) != 0);
-      
       if (invoke_elab && o->elab()) {
           do_retry_next_.insert(o);
       }

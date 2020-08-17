@@ -47,8 +47,7 @@ TEST(Coincident, SimpleRead) {
 
   const cc::SocConfig cfg = cb.construct();
 
-  cc::kernel::Kernel k;
-  test::TbTop top(&k, cfg);
+  test::TbTop top(cfg);
 
   // Stimulus: single load instruction to some address.
   cc::ProgrammaticStimulus* stimulus =
@@ -65,7 +64,7 @@ TEST(Coincident, SimpleRead) {
   stimulus->push_stimulus(1, cc::CpuOpcode::Load, addr);
 
   // Run to exhaustion
-  k.run();
+  top.run_all();
 
   const std::array<const cc::L1CacheAgent*, 2> l1cs = {
     // L1 Cache ID 0

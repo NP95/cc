@@ -29,12 +29,34 @@
 
 namespace test {
 
-TbTop::TbTop(cc::kernel::Kernel* k, const cc::SocConfig& config) : k_(k) {
-  top_ = new cc::SocTop(k, config);
+TbTop::TbTop(const cc::SocConfig& config) {
+  soc_ = new cc::Soc(config);
 }
 
 TbTop::~TbTop() {
-  delete top_;
+  delete soc_;
+}
+
+// Invoke simulation initialization.
+void TbTop::initialize() {
+  soc_->initialize();
+}
+
+// Run stimulation
+void TbTop::run(cc::kernel::RunMode r, cc::kernel::Time time) {
+  soc_->run(r, time);
+}
+
+// Finalize/Terminate simulation.
+void TbTop::finalize() {
+  soc_->finalize();
+}
+
+// Invoke: initialization, Run and Finalization
+void TbTop::run_all(cc::kernel::RunMode r, cc::kernel::Time time) {
+  initialize();
+  run(r, time);
+  finalize();
 }
 
 } // namespace test

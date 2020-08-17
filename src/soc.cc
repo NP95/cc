@@ -310,10 +310,8 @@ void Soc::initialize() {
   kernel_->invoke_init();
 }
 
-void Soc::run() {
-  const kernel::RunMode r = kernel::RunMode::ToExhaustion;
-  const kernel::Time t;
-  kernel_->invoke_run(r, t);
+void Soc::run(cc::kernel::RunMode r, cc::kernel::Time time) {
+  kernel_->invoke_run(r, time);
 }
 
 void Soc::finalize() { kernel_->invoke_fini(); }

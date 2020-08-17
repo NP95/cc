@@ -95,11 +95,12 @@ class Cpu::ProducerProcess : public kernel::Process {
     mq->issue(msg);
     // Consume stimulus.
     stimulus->issue();
-    // Terminate here if stimulus has been exhausted.
-    if (stimulus->done()) return;
-
+    if (stimulus->done()) {
+      // Stimulus has been exhausted, wait until further stimulus has
+      // arrived.
+      wait_on(stimulus->non_empty_event());
     // Await next command
-    if (stimulus->front(f)) {
+    } else if (stimulus->front(f)) {
       wait_until(f.time);
     }
   }
