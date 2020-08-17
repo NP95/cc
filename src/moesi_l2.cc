@@ -779,17 +779,21 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
               rsp->set_pd(false);
               rsp->set_is(true);
               rsp->set_wu(true);
-              // Demote line to S state.
+              // Demote line to Shared state.
               issue_update_state(ctxt, cl, line, State::S);
+              // Denote child L1 caches to Shared State, too.
+              issue_set_l1_shared_except(cl, msg->addr());
             } else {
               // Relinquish line.
               rsp->set_dt(true);
               rsp->set_pd(false);
               rsp->set_is(false);
               rsp->set_wu(true);
-              // TODO: update L1 states.
               // Demote line to S state.
               issue_update_state(ctxt, cl, line, State::I);
+              // Invalidate L1 child caches
+              issue_set_l1_invalid_except(cl, msg->addr());
+              // Delete line from cache
               cl.push_back(L2Opcode::RemoveLine);
             }
           } break;
@@ -817,7 +821,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
 
               // Write-through cache, demote lines back to shared
               // state.
-              issue_set_l1_shared_except(cl, ctxt.addr());
+              issue_set_l1_shared_except(cl, msg->addr());
             } else {
               rsp->set_dt(true);
               rsp->set_pd(true);
@@ -829,7 +833,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
 
               // Write-through cache, therefore immediately evict
               // lines from child L1 cache.
-              issue_set_l1_invalid_except(cl, ctxt.addr());
+              issue_set_l1_invalid_except(cl, msg->addr());
             }
           } break;
           default: {
@@ -873,7 +877,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         // Final state is Invalid
         issue_update_state(ctxt, cl, line, State::I);
         cl.push_back(L2Opcode::RemoveLine);
-        issue_set_l1_invalid_except(cl, ctxt.addr());
+        issue_set_l1_invalid_except(cl, msg->addr());
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
@@ -915,7 +919,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         // Final state is Invalid
         issue_update_state(ctxt, cl, line, State::I);
         cl.push_back(L2Opcode::RemoveLine);
-        issue_set_l1_invalid_except(cl, ctxt.addr());
+        issue_set_l1_invalid_except(cl, msg->addr());
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
