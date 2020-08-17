@@ -478,7 +478,25 @@ TEST(Cfg111, LoadThenStore) {
   EXPECT_EQ(stimulus->issue_n(), stimulus->retire_n());
 }
 
+
+// EvictLineUnmodifiedLine
+// =======================
 //
+// Description
+// -----------
+//
+// Issue N Load instructions such that each address belongs to the
+// same cache set (where N is the number of ways in the cache). Issue
+// a further Load instruction to the same set such that a prior line
+// is evicted.
+//
+// Expected Behavior
+// -----------------
+//
+// The final value of the set will be equal to all lines loaded by
+// stimulus, minus some line which has been evicted. The line which
+// has been evicted is indeterminate and some function of the current
+// eviction policy which is not validated by this test.
 //
 TEST(Cfg111, EvictLineUnmodifiedLine) {
   test::ConfigBuilder cb;
