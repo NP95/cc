@@ -46,6 +46,10 @@ std::string to_string(CpuOpcode opcode) {
   }
 }
 
+StimulusException::StimulusException(const std::string& reason)
+    : std::runtime_error(reason) {}
+
+
 StimulusContext::StimulusContext(Stimulus* parent, kernel::Kernel* k,
                                  const std::string& name)
     : parent_(parent), Module(k, name) {}
@@ -513,6 +517,7 @@ void ProgrammaticStimulus::push_stimulus(std::uint64_t cpu_id,
     context->push_back(f);
   } else {
     // Fail, cannot find CPU for provided ID.
+    throw StimulusException("Invalid CPU ID: " + std::to_string(cpu_id));
   }
 }
 

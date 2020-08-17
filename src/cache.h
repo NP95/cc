@@ -57,15 +57,35 @@ struct CacheAddressHelper {
   std::size_t offset_bits() const { return offset_bits_; }
   std::size_t line_bits() const { return line_bits_; }
 
+  // Compute line offset of Address 'a'.
   addr_t offset(const addr_t& a) const;
+
+  // Compute Set ID of Address 'a'.
   addr_t set(const addr_t& a) const;
+
+  // Compute Tag ID of Address 'a'. 
   addr_t tag(const addr_t& a) const;
+
+  // Compute the cache line of Address 'a'.
   addr_t line_id(const addr_t& a) const;
+
+  // Reconstruct ling-aligned address from {Set, Tag}-Id tuple.
   addr_t addr_from_set_tag(const addr_t set, const addr_t tag) const;
+
+  // Required distance in bytes for two byte-aligned addresses to fall
+  // within two distinct addresses.
+  addr_t line_span() const { return config_.line_bytes_n; }
+
+  // Total Cache set count.
+  std::size_t sets_n() const { return config_.sets_n; }
+
+  // Total Cache way count.
+  std::size_t ways_n() const { return config_.ways_n; }
 
  private:
   std::size_t offset_bits_;
   std::size_t line_bits_;
+  // Cache configuration.
   CacheModelConfig config_;
 };
 

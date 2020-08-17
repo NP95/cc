@@ -25,6 +25,8 @@
 ## POSSIBILITY OF SUCH DAMAGE.
 ##========================================================================== //
 
+set(test_prefix "general_")
+
 create_test(cache.cc)
 create_test(common.cc)
 create_test(kernel.cc)

@@ -98,6 +98,33 @@ TEST(Programmatic, Cfg121_SimpleRead) {
   EXPECT_EQ(stimulus->issue_n(), stimulus->retire_n());
 }
 
+// When assigning stimulus to a CPU ID which is invalid, the stimulus
+// object should throw an exception stating that the CPU ID is bad.
+//
+TEST(Programmatic, Cfg111_BadCpuID) {
+  test::ConfigBuilder cb;
+  cb.set_dir_n(1);
+  cb.set_cc_n(1);
+  cb.set_cpu_n(1);
+
+  cc::StimulusConfig stimulus_config;
+  stimulus_config.type = cc::StimulusType::Programmatic;
+  cb.set_stimulus(stimulus_config);
+
+  const cc::SocConfig cfg = cb.construct();
+
+  cc::kernel::Kernel k;
+  cc::SocTop top(&k, cfg);
+
+  // Stimulus: single load instruction to some address.
+  cc::ProgrammaticStimulus* stimulus =
+      static_cast<cc::ProgrammaticStimulus*>(top.stimulus());
+  stimulus->advance_cursor(200);
+  // Push stimulus to bad CPU
+  ASSERT_THROW(stimulus->push_stimulus(1000, cc::CpuOpcode::Load, 0),
+               cc::StimulusException);
+}
+
 
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);

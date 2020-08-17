@@ -35,7 +35,7 @@
 #include "gtest/gtest.h"
 #include <array>
 
-TEST(Coincident, Cfg121_SimpleRead) {
+TEST(Coincident, SimpleRead) {
   test::ConfigBuilder cb;
   cb.set_dir_n(1);
   cb.set_cc_n(2);

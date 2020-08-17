@@ -79,7 +79,7 @@ class SocTop : public kernel::TopModule {
 
 
   // Directory Mapper instance
-  DirMapper* dm_;
+  DirMapper* dm_ = nullptr;
 
   // NOC/Interconnect instance
   NocModel* noc_ = nullptr;

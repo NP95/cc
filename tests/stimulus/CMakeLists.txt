@@ -25,6 +25,8 @@
 ## POSSIBILITY OF SUCH DAMAGE.
 ##========================================================================== //
 
+set(test_prefix "stimulus_")
+
 # Programmatic stimulus
 create_test(programmatic.cc)
 

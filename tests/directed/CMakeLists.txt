@@ -25,5 +25,6 @@
 ## POSSIBILITY OF SUCH DAMAGE.
 ##========================================================================== //
 
-# Test issues commands at the same instance causing a race condition.
-create_test(coincident.cc)
+add_subdirectory(cfg111)
+add_subdirectory(cfg112)
+add_subdirectory(cfg121)

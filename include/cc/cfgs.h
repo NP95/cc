@@ -47,13 +47,13 @@ class ProtocolBuilder;
 //
 struct CacheModelConfig {
   // The number of sets
-  std::uint16_t sets_n = 1024;
+  std::size_t sets_n = 1024;
 
   // The number of ways per set (degree of cache associativity).
-  std::uint8_t ways_n = 4;
+  std::size_t ways_n = 4;
 
   // The length of a line in bytes.
-  std::uint8_t line_bytes_n = 64;
+  std::size_t line_bytes_n = 64;
 
   // The total number of cache lines.
   std::size_t lines() const;

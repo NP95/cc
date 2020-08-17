@@ -35,6 +35,7 @@
 #include <set>
 #include <string>
 #include <map>
+#include <exception>
 
 namespace cc {
 
@@ -68,6 +69,13 @@ class Command {
 struct Frontier {
   kernel::Time time;
   Command cmd;
+};
+
+// Stimulus Exception class
+//
+class StimulusException : public std::runtime_error {
+ public:
+  StimulusException(const std::string& reason);
 };
 
 //
