@@ -302,7 +302,7 @@ TEST(Cfg121, AlternatingLoadsN) {
 
   test::TbTop top(cfg);
 
-  const std::size_t N = 2;
+  const std::size_t N = 100;
   // Address of interest
   const cc::addr_t addr = 0;
 
@@ -350,6 +350,91 @@ TEST(Cfg121, AlternatingLoadsN) {
 
   // Validate that all transactions have retired at end-of-sim.
   EXPECT_EQ(stimulus->issue_n(), stimulus->retire_n());
+}
+
+// AlternatingStoresN
+// ==================
+//
+// Description
+// -----------
+//
+// CPU0 and CPU1 alterate writes to the same line in L2. 
+//
+// Expected Behavior
+// -----------------
+//
+// Upon a write from CPU A, the appropriate line is installed in the
+// Exclusive state and promoted to the Modified state upon commit of
+// the write instruction. Upon a write from CPU B, the line in CPU A
+// should be invalidated at the line sourced from L2 in the Exclusive
+// state. The line is then promoted to the Modified state upon commit
+// of the instruction. Process repeats with the roles of CPU A and CPU
+// B being inverted.
+//
+TEST(Cfg121, AlternatingStoresN) {
+  test::ConfigBuilder cb;
+  cb.set_dir_n(1);
+  cb.set_cc_n(2);
+  cb.set_cpu_n(1);
+
+  cc::StimulusConfig stimulus_config;
+  stimulus_config.type = cc::StimulusType::Programmatic;
+  cb.set_stimulus(stimulus_config);
+
+  const cc::SocConfig cfg = cb.construct();
+
+  test::TbTop top(cfg);
+
+  const std::size_t N = 100;
+  // Address of interest
+  const cc::addr_t addr = 0;
+
+  // Stimulus: single load instruction to some address.
+  cc::ProgrammaticStimulus* stimulus =
+      static_cast<cc::ProgrammaticStimulus*>(top.stimulus());
+  bool store0 = false;
+  for (std::size_t i = 0; i < N; i++) {
+    stimulus->advance_cursor(200 + (i * 10));
+    store0 = !store0;
+    const std::uint64_t cpu_id = store0 ? 0 : 1;
+    stimulus->push_stimulus(cpu_id, cc::CpuOpcode::Store, addr);
+  }
+
+  // Run to exhaustion
+  top.run_all();
+
+  // Lookup CPU instance.
+  const std::array<const cc::L1CacheAgent*, 2> l1cs = {
+    // L1 Cache ID 0
+    top.lookup_by_path<cc::L1CacheAgent>(test::path_l1c_by_cpu_id(cfg, 0)),
+    // L1 Cache ID 1
+    top.lookup_by_path<cc::L1CacheAgent>(test::path_l1c_by_cpu_id(cfg, 1))
+  };
+
+  // Validate
+
+  // Last written cache instance.
+  const cc::L1CacheAgent* l1c_wr = store0 ? l1cs[0] : l1cs[1];
+  // Other cache instance (expected to be invalid).
+  const cc::L1CacheAgent* l1c_inv = store0 ? l1cs[1] : l1cs[0];
+
+  const test::L1Checker checker_wr(l1c_wr), checker_inv(l1c_inv);
+
+  // Validate that line is writeable in last written cache.
+  EXPECT_TRUE(checker_wr.is_hit(addr));
+  EXPECT_TRUE(checker_wr.is_readable(addr));
+  EXPECT_TRUE(checker_wr.is_writeable(addr));
+
+  // Validate that line is not present in other cache.
+  EXPECT_FALSE(checker_inv.is_hit(addr));
+  EXPECT_FALSE(checker_inv.is_writeable(addr));
+
+  // Validate expected transaction count.
+  EXPECT_EQ(stimulus->issue_n(), N);
+
+  // Validate that all transactions have retired at end-of-sim.
+  EXPECT_EQ(stimulus->issue_n(), stimulus->retire_n());
+  
 }
 
 int main(int argc, char** argv) {
