@@ -222,6 +222,15 @@ class TraceStimulus : public Stimulus {
 // Basic programmatic stimulus source where stimulus is generated
 // explicitly according to method call.
 //
+// advance_cursor(time_t)
+//
+// Advance stimulus cursor (current time) to value. Subsequent
+// calls to push_stimulus are performed relative to this value.
+//
+// push_stimulus(ID, opcode, addr)
+//
+// Assign new {opcode, addr} instruction to the CPU given by ID.
+//
 class ProgrammaticStimulus : public Stimulus {
  public:
   ProgrammaticStimulus(kernel::Kernel* k, const StimulusConfig& config);
@@ -239,7 +248,7 @@ class ProgrammaticStimulus : public Stimulus {
   // Advance the current stimulus cursor to the current simulation
   // time such that consequent stimulus definitions are relative to
   // the true stimulation time as seen by the kernel.
-  void advance_cursor(std::uint64_t c) { cursor_ += c; }
+  void advance_cursor(time_t c) { cursor_ += c; }
 
  private:
   // Current simulation time cursor in terms of stimulus generation.
@@ -247,7 +256,7 @@ class ProgrammaticStimulus : public Stimulus {
   // decides to inject some stimulus, run the simulation and then
   // repeat the process. To maintain correctness, the end-user should
   // advance time to the current simulation time.
-  std::uint64_t cursor_ = 0;
+  time_t cursor_ = 0;
 
   // ID to Context instance map.
   std::map<std::uint64_t, DequeueContext*> context_map_;
