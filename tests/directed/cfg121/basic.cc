@@ -32,7 +32,21 @@
 #include "src/l1cache.h"
 #include "gtest/gtest.h"
 
-TEST(Cfg121, Read1) {
+// Load1
+// =====
+//
+// Description
+// -----------
+//
+// CPU0 issues a Load instruction to some address.
+//
+// Expected Behavior
+// -----------------
+//
+// Directory installs line in either the Shared or the Exclusive
+// State.
+//
+TEST(Cfg121, Load1) {
   test::ConfigBuilder cb;
   cb.set_dir_n(1);
   cb.set_cc_n(2);
@@ -74,7 +88,24 @@ TEST(Cfg121, Read1) {
   EXPECT_EQ(stimulus->issue_n(), stimulus->retire_n());
 }
 
-TEST(Cfg121, ReadN) {
+
+// LoadN
+// =====
+//
+// Description
+// -----------
+//
+// CPU0 issues some number of Load instructions to the same address.
+//
+// Expected Behavior
+// -----------------
+//
+// On the initial compulsary miss, the directory installs line in
+// either the Shared or the Exclusive State. Subsequent Load
+// instructions should commit immediate as ths line is now installed
+// in the cache.
+//
+TEST(Cfg121, LoadN) {
   test::ConfigBuilder cb;
   cb.set_dir_n(1);
   cb.set_cc_n(2);
@@ -119,7 +150,23 @@ TEST(Cfg121, ReadN) {
   EXPECT_EQ(stimulus->issue_n(), stimulus->retire_n());
 }
 
-TEST(Cfg121, Write1) {
+
+// Store1
+// ======
+//
+// Description
+// -----------
+//
+// CPU0 issues a Store instruction to some address.
+//
+// Expected Behavior
+// -----------------
+//
+// Directory installs the line the Exclusive state. Upon commit of the
+// initial store instruction, the line is immediately promoted to the
+// Modified state.
+//
+TEST(Cfg121, Store1) {
   test::ConfigBuilder cb;
   cb.set_dir_n(1);
   cb.set_cc_n(2);
@@ -160,7 +207,25 @@ TEST(Cfg121, Write1) {
   EXPECT_EQ(stimulus->issue_n(), stimulus->retire_n());
 }
 
-TEST(Cfg112, WriteN) {
+
+// StoreN
+// ======
+//
+// Description
+// -----------
+//
+// CPU0 issues some number of Store instructions to the same address.
+//
+// Expected Behavior
+// -----------------
+//
+// Directory installs the line the Exclusive state. Upon commit of the
+// initial store instruction, the line is immediately promoted to the
+// Modified state. All subsequent commands commit immediately as the
+// line is already present in the cache and is already in a writeable
+// state.
+//
+TEST(Cfg121, StoreN) {
   test::ConfigBuilder cb;
   cb.set_dir_n(1);
   cb.set_cc_n(2);
@@ -198,6 +263,89 @@ TEST(Cfg112, WriteN) {
   EXPECT_TRUE(checker.is_readable(addr));
  
  // Validate expected transaction count.
+  EXPECT_EQ(stimulus->issue_n(), N);
+
+  // Validate that all transactions have retired at end-of-sim.
+  EXPECT_EQ(stimulus->issue_n(), stimulus->retire_n());
+}
+
+// AlternatingLoadsN
+// =================
+//
+// Description
+// -----------
+//
+// CPU0 and CPU1 alternate reads to the same line in L2.
+//
+// Expected Behavior
+// -----------------
+//
+// Upon a Load from CPU A, the line is installed in either the Shared
+// or Exclusive state. The line remains in the same state after the
+// instruction has committed to the machine state. Upon a Load from
+// CPU B, the line is installed in the Shared state or the Exclusive
+// state (nominally Shared). In the Exclusive state, the line cannot
+// be in the CPU B. Nominally, the line in CPU A retained by the cache
+// is demoted to the Shared state.
+//
+TEST(Cfg121, AlternatingLoadsN) {
+  test::ConfigBuilder cb;
+  cb.set_dir_n(1);
+  cb.set_cc_n(2);
+  cb.set_cpu_n(1);
+
+  cc::StimulusConfig stimulus_config;
+  stimulus_config.type = cc::StimulusType::Programmatic;
+  cb.set_stimulus(stimulus_config);
+
+  const cc::SocConfig cfg = cb.construct();
+
+  test::TbTop top(cfg);
+
+  const std::size_t N = 2;
+  // Address of interest
+  const cc::addr_t addr = 0;
+
+  // Stimulus: single load instruction to some address.
+  cc::ProgrammaticStimulus* stimulus =
+      static_cast<cc::ProgrammaticStimulus*>(top.stimulus());
+  bool store0 = false;
+  for (std::size_t i = 0; i < N; i++) {
+    stimulus->advance_cursor(200 + (i * 1000));
+    store0 = !store0;
+    const std::uint64_t cpu_id = store0 ? 0 : 1;
+    stimulus->push_stimulus(cpu_id, cc::CpuOpcode::Load, addr);
+  }
+
+  // Run to exhaustion
+  top.run_all();
+
+  // Lookup CPU instance.
+  const std::array<const cc::L1CacheAgent*, 2> l1cs = {
+    // L1 Cache ID 0
+    top.lookup_by_path<cc::L1CacheAgent>(test::path_l1c_by_cpu_id(cfg, 0)),
+    // L1 Cache ID 1
+    top.lookup_by_path<cc::L1CacheAgent>(test::path_l1c_by_cpu_id(cfg, 1))
+  };
+
+  // Validate
+  for (const cc::L1CacheAgent* l1c : l1cs) {
+    const test::L1Checker checker(l1c);
+
+    // Line should be present in cache.
+    EXPECT_TRUE(checker.is_hit(addr));
+    // Line should be readable in cache.
+    EXPECT_TRUE(checker.is_readable(addr));
+    if (N > 1) {
+      // Cache line *may* have been installed in the Exclusive state
+      // on the first Load however if subsequent Loads have taken
+      // place on other CPU, the line must have been demoted to the
+      // Shared state.
+      EXPECT_FALSE(checker.is_writeable(addr));
+    }
+  }
+
+  // Validate expected transaction count.
   EXPECT_EQ(stimulus->issue_n(), N);
 
   // Validate that all transactions have retired at end-of-sim.
