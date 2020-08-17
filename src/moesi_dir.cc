@@ -42,7 +42,7 @@ using namespace cc;
 
 //
 //
-enum class State { X, I, IE, IS, S, M, E, EO, EE, O, OE };
+enum class State { X, I, IE, IS, S, M, E, EO, EE, O, OO, OE };
 
 //
 //
@@ -68,6 +68,8 @@ const char* to_string(State state) {
       return "M";
     case State::O:
       return "O";
+    case State::OO:
+      return "OO";
     case State::OE:
       return "OE";
     default:
@@ -305,7 +307,11 @@ struct LineUpdateAction : public DirCoherenceAction {
   bool execute() override {
     switch (update_) {
       case LineUpdate::State: {
-        line_->set_state(state_);
+        if (state_ != State::X) {
+          line_->set_state(state_);
+        } else {
+          // Assign invalid state; something has gone wrong.
+        }
       } break;
       case LineUpdate::SubState: {
         line_->set_substate(substate_);
@@ -541,6 +547,49 @@ class MOESIDirProtocol : public DirProtocol {
       } break;
       case State::O: {
         switch (opcode) {
+          case AceCmdOpcode::ReadUnique: {
+            // Requesting cache does not have line installed and
+            // requests line in a Unique state (presumably to carry
+            // out a Store command). Some other cache has line in
+            // Ownership state, and there may be some number of other
+            // caches with the line in a Shared state.
+            //
+            // Options:
+            //
+            // 1. Owning cache transfers ownership to requesting cache;
+            //    all caches except for requester is invalidated.
+            //
+            // 2. Owning cache writes line back to memory and signals
+            //    that it no longer has the line installed. Line
+            //    must then be sourced from memory.
+            //
+            std::size_t snoop_n = 0;
+
+            // Issue snoop to owner. Owner should forwarded line to
+            // requesting agent and relinquish ownership of the line.
+            CohSnpMsg* snp = new CohSnpMsg;
+            snp->set_t(msg->t());
+            snp->set_addr(msg->addr());
+            snp->set_origin(ctxt.dir());
+            snp->set_agent(msg->origin());
+            snp->set_opcode(to_snp_opcode(opcode));
+            issue_msg_to_noc(ctxt, cl, snp, line->owner());
+            snoop_n++;
+
+            // TODO:
+            // Any sharers should be invalidated.
+
+            // Set expected snoop response count in transaction state
+            // object.
+            issue_set_snoop_n(ctxt, cl, snoop_n);
+
+            // Update state: O -> OO -> O; current owner reliquishes
+            // ownership of the line and forwards ownership to the
+            // requesting agent.
+            issue_update_state(ctxt, cl, State::OO);
+            // Consume and advance
+            cl.next_and_do_consume(true);
+          } break;
           case AceCmdOpcode::CleanUnique: {
             // Requesting cache has line presently installed in its
             // cache but requests ownership of the line so that it can
@@ -793,6 +842,51 @@ class MOESIDirProtocol : public DirProtocol {
       } break;
       case AceCmdOpcode::ReadUnique: {
         switch (line->state()) {
+          case State::OO: {
+            // Line is presently in the Owned state; owning cache
+            // has been snooped and we *expect* for it to forward
+            // the line to the requesting agent (TODO: agent may
+            // instead choose to writeback line to main memory.
+            // in which case the line may need to be sourced from
+            // the LLC).
+            const bool is = msg->is(), pd = msg->pd(), dt = msg->dt();
+            if (is) {
+              // Cannot obtain line with IsShared property set. Ownership
+              // must have been relinqusihed.
+              throw std::runtime_error("Cannot receive with IS.");
+            }
+
+            CohEndMsg* end = new CohEndMsg;
+            end->set_t(msg->t());
+            end->set_origin(ctxt.dir());
+            end->set_is(false);
+
+            State next_state = State::X;
+            if (dt) {
+              // Responder was in Owned state, therefore we expect
+              // the line to be dirty (but presently unclear if this
+              // is strictly always the case as we cannot discount
+              // edges to the Owned state from a Clean/Unmodified
+              // line).
+              end->set_pd(pd);
+              end->set_dt_n(1);
+              // Requester now has ownership of line.
+              next_state = State::O;
+            } else {
+              // Else, data has not been transferred, line must be
+              // sourced from the LLC as the responding agent has
+              // written back the line.
+
+              // TODO
+            }
+            issue_update_state(ctxt, cl, next_state);
+            // Ownership is transferred to requester.
+            issue_set_owner(ctxt, cl, tstate->origin());
+            // Issue coherence response to the requester
+            issue_msg_to_noc(ctxt, cl, end, tstate->origin());
+            // Transaction is complete.
+            cl.push_back(DirOpcode::EndTransaction);
+          } break;
           case State::EE: {
             // Line is presently in the Exclusive state in the owning
             // cache (possibly modified). Exclusive ownership is to be
