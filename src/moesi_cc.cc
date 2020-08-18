@@ -723,12 +723,12 @@ class MOESICCProtocol : public CCProtocol {
       std::string to_string() const override {
         KVListRenderer r;
         r.add_field("action", "emit message to noc");
-        r.add_field("mq", mq_->path());
+        r.add_field("mq", port_->ingress()->path());
         r.add_field("msg", msg_->to_string());
         return r.to_string();
       }
 
-      void set_mq(MessageQueue* mq) { mq_ = mq; }
+      void set_port(NocPort* port) { port_ = port; }
       void set_msg(const NocMsg* msg) { msg_ = msg; }
       void set_cc(const CCModel* cc) { cc_ = cc; }
 
@@ -783,15 +783,19 @@ class MOESICCProtocol : public CCProtocol {
           // Otherwise, no credit counter can be found for the current
           // { MessageClass, Agent* } pair, therefore disregard.
         }
+        // Deduct NOC creidt
+        CreditCounter* cc = port_->ingress_cc();
+        cc->debit();
         // Issue message to queue.
-        return mq_->issue(msg_);
+        MessageQueue* mq = port_->ingress();
+        return mq->issue(msg_);
       }
 
      private:
       // Message to issue to NOC.
       const NocMsg* msg_ = nullptr;
       // Destination Message Queue
-      MessageQueue* mq_ = nullptr;
+      NocPort* port_ = nullptr;
       // Cache controller model
       const CCModel* cc_ = nullptr;
     };
@@ -804,7 +808,7 @@ class MOESICCProtocol : public CCProtocol {
     // Issue Message Emit action.
     EmitMessageToNocAction* action =
         new EmitMessageToNocAction;
-    action->set_mq(ctxt.cc()->cc_noc__msg_q());
+    action->set_port(ctxt.cc()->cc_noc__port());
     action->set_msg(nocmsg);
     action->set_cc(ctxt.cc());
     cl.push_back(action);

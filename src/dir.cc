@@ -526,6 +526,14 @@ class DirModel::RdisProcess : public AgentProcess {
       has_resources = false;
     }
 
+    // Check NOC credits
+    NocPort* port = model_->dir_noc__port();
+    if (CreditCounter* cc = port->ingress_cc(); cc->empty()) {
+      // No NOC credits, block.
+      cl.push_back(cb::build_blocked_on_event(ctxt.mq(), cc->credit_event()));
+      has_resources = false;
+    }
+    
     // Check if the credit counter for agent 'agent' has at least 'n'
     // credits.
     auto check_credits = [&](const auto& ccntrs, const Agent* agent,
@@ -561,7 +569,7 @@ class DirModel::RdisProcess : public AgentProcess {
     
     // Check Coherence Snoop credits
     check_credit_counter(MessageClass::CohSnp, res.coh_snp_n());
-
+    
     if (!has_resources) { cl.push_back(DirOpcode::WaitNextEpoch); }
   }
 
@@ -748,15 +756,15 @@ bool DirModel::elab() {
   return false;
 }
 
-void DirModel::set_dir_noc__msg_q(MessageQueue* mq) {
-  dir_noc__msg_q_ = mq;
-  add_child_module(dir_noc__msg_q_);
+void DirModel::set_dir_noc__port(NocPort* port) {
+  dir_noc__port_ = port;
+  add_child_module(dir_noc__port_);
 }
 
 //
 //
 void DirModel::drc() {
-  if (dir_noc__msg_q_ == nullptr) {
+  if (dir_noc__port_ == nullptr) {
     LogMessage lmsg("Dir to NOC message queue is unbound.", Level::Fatal);
     log(lmsg);
   }
@@ -778,7 +786,9 @@ MessageQueue* DirModel::endpoint() { return noc_endpoint_->ingress_mq(); }
 CreditCounter* DirModel::cc_by_cls_agent(MessageClass cls,
                                         const Agent* agent) const {
   CreditCounter* ret = nullptr;
-  if (auto i = ccntrs_map_.find(cls); i != ccntrs_map_.end()) {
+  if (cls == MessageClass::Noc) {
+    ret = dir_noc__port_->ingress_cc();
+  } else if (auto i = ccntrs_map_.find(cls); i != ccntrs_map_.end()) {
     const auto& agent_cc_map = i->second;
     if (auto j = agent_cc_map.find(agent); j != agent_cc_map.end()) {
       ret = j->second;

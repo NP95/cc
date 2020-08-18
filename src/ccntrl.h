@@ -37,6 +37,7 @@
 namespace cc {
 
 class MessageQueue;
+class NocPort;
 class L2CacheAgent;
 class CCLineState;
 class CCProtocol;
@@ -452,7 +453,7 @@ class CCModel : public Agent {
   // NOC -> CC Ingress Queue
   MessageQueue* endpoint() const;
   // CC -> NOC Egress Queue
-  MessageQueue* cc_noc__msg_q() const { return cc_noc__msg_q_; }
+  NocPort* cc_noc__port() const { return cc_noc__port_; }
   // Directory Mapper instance.
   DirMapper* dm() const { return dm_; }
   // L2 cache model
@@ -489,7 +490,7 @@ class CCModel : public Agent {
   // Set directory mapper.
   void set_dm(DirMapper* dm) { dm_ = dm; }
   // Set CC -> NOC message queue
-  void set_cc_noc__msg_q(MessageQueue* mq);
+  void set_cc_noc__port(NocPort* port);
   // Set CC -> L2 message
   void set_cc_l2__cmd_q(MessageQueue* mq);
   // Set CC -> L2 response queue
@@ -515,7 +516,7 @@ class CCModel : public Agent {
   // CC -> L2 response queue (L2 owned)
   MessageQueue* cc_l2__rsp_q_ = nullptr;
   // CC -> NOC Egress Queue (noc owned)
-  MessageQueue* cc_noc__msg_q_ = nullptr;
+  NocPort* cc_noc__port_ = nullptr;
   // DIR -> CC Ingress Queue (cc owned)
   MessageQueue* dir_cc__rsp_q_ = nullptr;
   // DIR -> CC Command Queue (snoops) (cc owned)

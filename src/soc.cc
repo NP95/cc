@@ -179,14 +179,14 @@ void SocTop::elab_bind_ports() {
     // NOC -> CC message queue
     port->set_egress(cpuc->noc_cc__msg_q());
     // CC -> NOC message queue
-    cpuc->set_cc_noc__msg_q(port->ingress());
+    cpuc->set_cc_noc__port(port);
   }
   for (DirModel* dm : dms_) {
     NocPort* dm_port = noc_->get_agent_port(dm);
     // NOC -> DIR message queue
     dm_port->set_egress(dm->endpoint());
     // DIR -> NOC message queue
-    dm->set_dir_noc__msg_q(dm_port->ingress());
+    dm->set_dir_noc__port(dm_port);
 
     const DirModelConfig& cfg = dm->config();
     if (!cfg.is_null_filter) {
@@ -201,7 +201,7 @@ void SocTop::elab_bind_ports() {
       // NOC -> LLC
       llc_port->set_egress(llc->endpoint());
       // LLC -> NOC
-      llc->set_llc_noc__msg_q(llc_port->ingress());
+      llc->set_llc_noc__port(llc_port);
     }
   }
   for (MemCntrlModel* mm : mms_) {
@@ -209,7 +209,7 @@ void SocTop::elab_bind_ports() {
     // NOC -> MEM
     port->set_egress(mm->endpoint());
     // MEM -> NOC
-    mm->set_mem_noc__msg_q(port->ingress());
+    mm->set_mem_noc__port(port);
   }
   // Construct directory mapper
   dm_ = new SingleDirMapper(*dms_.begin());

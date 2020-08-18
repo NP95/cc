@@ -162,13 +162,16 @@ class CreditCounter : public kernel::Module {
   CreditCounter(kernel::Kernel* k, const std::string& name);
   ~CreditCounter();
 
-  // Accessors:
   // Credit capacity
   std::size_t n() const { return n_; }
   // Credit count
   std::size_t i() const { return i_; }
   // Credit "credited" event.
   kernel::Event* credit_event() const { return credit_event_; }
+  // Empty status (no credits available)
+  bool empty() const { return i() == 0; }
+  // Full status (no outstanding credits).
+  bool full() const { return i() == n(); }
 
   // Setters:
   // Set credit capacity

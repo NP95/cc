@@ -35,6 +35,7 @@
 
 namespace cc {
 
+class NocPort;
 class MemNocEndpoint;
 
 //
@@ -125,7 +126,7 @@ class MemCntrlModel : public Agent {
   MessageQueue* endpoint() const;
 
   // MEM -> NOC
-  MessageQueue* mem_noc__msg_q() const { return mem_noc__msg_q_; }
+  NocPort* mem_noc__port() const { return mem_noc__port_; }
 
  protected:
   // Build
@@ -138,7 +139,7 @@ class MemCntrlModel : public Agent {
   // Elaboration
   bool elab() override;
   //
-  void set_mem_noc__msg_q(MessageQueue* mq);
+  void set_mem_noc__port(NocPort* port);
 
   // Design Rule Check (DRC)
   void drc() override;
@@ -152,7 +153,7 @@ class MemCntrlModel : public Agent {
   // NOC -> MEM message queue (owned by directory)
   MessageQueue* noc_mem__msg_q_ = nullptr;
   // MEM -> NOC message queue (owned by noc)
-  MessageQueue* mem_noc__msg_q_ = nullptr;
+  NocPort* mem_noc__port_ = nullptr;
   // NOC endpoint
   MemNocEndpoint* noc_endpoint_ = nullptr;
   // Request Dispatcher process

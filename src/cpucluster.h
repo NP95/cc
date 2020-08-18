@@ -38,6 +38,7 @@ class L2CacheAgent;
 class L1CacheAgent;
 class CCModel;
 class Cpu;
+class NocPort;
 
 class CpuCluster : public Agent {
   friend class SocTop;
@@ -61,7 +62,7 @@ class CpuCluster : public Agent {
   // Elaboration
   bool elab() override;
   // Set CC -> NOC message queue instance (NOC owned)
-  void set_cc_noc__msg_q(MessageQueue* mq);
+  void set_cc_noc__port(NocPort* port);
   // Set directory mapper
   void set_dm(DirMapper* dm);
 

@@ -70,10 +70,13 @@ class NocPort : public kernel::Module {
   NocPort(kernel::Kernel* k, const std::string& name);
   ~NocPort();
 
-  // Owned by port
+  // Ingress Message Queue (Owned by port)
   MessageQueue* ingress() const { return ingress_; }
 
-  // Owned by agent
+  // Ingress Credit Counter (Owned by port)
+  CreditCounter* ingress_cc() const { return ingress_cc_; }
+
+  // Egress Message Queue (Owned by agent)
   MessageQueue* egress() const { return egress_; }
 
  private:
@@ -82,8 +85,14 @@ class NocPort : public kernel::Module {
 
   // Elaboration phase:
   void set_egress(MessageQueue* egress) { egress_ = egress; }
-
+  
+  // Ingress (Agent -> NOC) Message Queue
   MessageQueue* ingress_ = nullptr;
+
+  // Ingress Credit Counter.
+  CreditCounter* ingress_cc_ = nullptr;
+
+  // Egress (NOC -> Agent) Message Queue
   MessageQueue* egress_ = nullptr;
 };
 

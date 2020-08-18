@@ -132,6 +132,15 @@ class MemCntrlModel::RequestDispatcherProcess : public AgentProcess {
       return;
     }
 
+    // Check NOC port credits
+    NocPort* port = model_->mem_noc__port();
+    CreditCounter* cc = port->ingress_cc();
+    if (cc->empty()) {
+      // NOC credits exhausterd; block until credits have been added.
+      wait_on(cc->credit_event());
+      return;
+    }
+
     const MemCmdMsg* cmdmsg =
         static_cast<const MemCmdMsg*>(t.winner()->dequeue());
 
@@ -175,7 +184,12 @@ class MemCntrlModel::RequestDispatcherProcess : public AgentProcess {
     nocmsg->set_origin(model_);
     nocmsg->set_dest(dest);
     // Issue to NOC
-    MessageQueue* mq = model_->mem_noc__msg_q();
+    NocPort* port = model_->mem_noc__port();
+    // Deduct NOC creidt
+    CreditCounter* cc = port->ingress_cc();
+    cc->debit();
+    // Issue message to NOC.
+    MessageQueue* mq = port->ingress();
     mq->issue(nocmsg);
   }
 
@@ -257,13 +271,13 @@ bool MemCntrlModel::elab() {
   return false;
 }
 
-void MemCntrlModel::set_mem_noc__msg_q(MessageQueue* mq) {
-  mem_noc__msg_q_ = mq;
-  add_child_module(mem_noc__msg_q_);
+void MemCntrlModel::set_mem_noc__port(NocPort* port) {
+  mem_noc__port_ = port;
+  add_child_module(mem_noc__port_);
 }
 
 void MemCntrlModel::drc() {
-  if (mem_noc__msg_q_ == nullptr) {
+  if (mem_noc__port_ == nullptr) {
     LogMessage msg("NOC egress message queue has not been bound");
     msg.level(Level::Fatal);
     log(msg);

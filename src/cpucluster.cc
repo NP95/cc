@@ -161,8 +161,8 @@ void CpuCluster::drc() {
 
 MessageQueue* CpuCluster::noc_cc__msg_q() const { return cc_->endpoint(); }
 
-void CpuCluster::set_cc_noc__msg_q(MessageQueue* mq) {
-  cc_->set_cc_noc__msg_q(mq);
+void CpuCluster::set_cc_noc__port(NocPort* port) {
+  cc_->set_cc_noc__port(port);
 }
 
 void CpuCluster::set_dm(DirMapper* dm) { cc_->set_dm(dm); }

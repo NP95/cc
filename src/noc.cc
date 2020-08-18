@@ -85,20 +85,27 @@ class NocModel::MainProcess : public kernel::Process {
         // fixed delay.
         const NocMsg* nocmsg = static_cast<const NocMsg*>(msg);
 
+        // Lookup origin port for message
+        NocPort* origin_port = model_->get_agent_port(nocmsg->origin());
+
         // Lookup destination port ingress queue.
-        NocPort* port = model_->get_agent_port(nocmsg->dest());
-        if (port == nullptr) {
+        NocPort* dest_port = model_->get_agent_port(nocmsg->dest());
+        if (dest_port == nullptr) {
           LogMessage lmsg("Unable to resolve destination port.");
           lmsg.level(Level::Fatal);
           log(lmsg);
         }
 
         // Issue message to destination agent ingress queue.
-        MessageQueue* egress = port->egress();
+        MessageQueue* egress = dest_port->egress();
 
         const NocTimingModel* tm = model_->tm();
         const time_t cost = tm->cost(nocmsg->origin(), nocmsg->dest());
         egress->issue(nocmsg, cost);
+
+        // Return credit back to Ingress port
+        CreditCounter* cc = origin_port->ingress_cc();
+        cc->credit();
 
         // Message has now been issued to destination. Destroy
         // transport message and update arbitration.
@@ -131,12 +138,17 @@ NocPort::NocPort(kernel::Kernel* k, const std::string& name) : Module(k, name) {
 
 NocPort::~NocPort() {
   delete ingress_;
+  delete ingress_cc_;
 }
 
 void NocPort::build() {
   // Construct owned ingress queue; egress is owned by the agent itself.
   ingress_ = new MessageQueue(k(), "ingress", 10);
   add_child_module(ingress_);
+  // Credit counter denoting Ingress Queue capacity.
+  ingress_cc_ = new CreditCounter(k(), "ingress_cc");
+  ingress_cc_->set_n(ingress_->n());
+  add_child_module(ingress_cc_);
 }
 
 class NocEndpoint::MainProcess : public AgentProcess {
@@ -203,7 +215,6 @@ NocEndpoint::NocEndpoint(kernel::Kernel* k, const std::string& name)
 NocEndpoint::~NocEndpoint() {
   delete ingress_mq_;
   delete main_;
-  // proxies are not owned by the end-point as they may be duplicated.
 }
 
 void NocEndpoint::build() {

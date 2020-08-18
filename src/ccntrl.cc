@@ -415,15 +415,7 @@ class CCModel::RdisProcess : public AgentProcess {
     // Flag denoting whether resource requirement has been attained.
     bool has_resources = true;
 
-    // Check NOC (if applicable)
     MessageQueue* mq = nullptr;
-    mq = model_->cc_noc__msg_q();
-    if (has_resources && !mq->has_at_least(res.noc_credit_n())) {
-      // Resources not attained.
-      cl.clear();
-      cl.push_back(cb::build_blocked_on_event(ctxt.mq(), mq->dequeue_event()));
-      has_resources = false;
-    }
 
     // Check L2 Command Queue
     mq = model_->cc_l2__cmd_q();
@@ -474,7 +466,9 @@ class CCModel::RdisProcess : public AgentProcess {
         }
       }
     };
-    
+
+    // Check NOC credit counter
+    //check_credit_counter(MessageClass::Noc, res.noc_credit_n());
     // Check Coherence Start Command credits
     check_credit_counter(MessageClass::CohSrt, res.coh_srt());
     // Check Coherence Command credits
@@ -916,9 +910,9 @@ bool CCModel::elab() {
 }
 
 // Set CC -> NOC message queue
-void CCModel::set_cc_noc__msg_q(MessageQueue* mq) {
-  cc_noc__msg_q_ = mq;
-  add_child_module(cc_noc__msg_q_);
+void CCModel::set_cc_noc__port(NocPort* port) {
+  cc_noc__port_ = port;
+  add_child_module(cc_noc__port_);
 }
 
 // Set CC -> L2 response queue
@@ -965,7 +959,10 @@ MessageQueue* CCModel::endpoint() const { return noc_endpoint_->ingress_mq(); }
 CreditCounter* CCModel::cc_by_cls_agent(MessageClass cls,
                                         const Agent* agent) const {
   CreditCounter* ret = nullptr;
-  if (auto i = ccntrs_map_.find(cls); i != ccntrs_map_.end()) {
+  if (cls == MessageClass::Noc) {
+    // NOC ingress credit counter.
+    ret = cc_noc__port_->ingress_cc();
+  } else if (auto i = ccntrs_map_.find(cls); i != ccntrs_map_.end()) {
     const auto& agent_cc_map = i->second;
     if (auto j = agent_cc_map.find(agent); j != agent_cc_map.end()) {
       ret = j->second;

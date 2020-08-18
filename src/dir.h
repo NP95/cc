@@ -42,6 +42,7 @@ namespace cc {
 class LLCModel;
 class DirModel;
 class DirLineState;
+class NocPort;
 class MessageQueue;
 class CoherenceList;
 class DirCoherenceAction;
@@ -314,7 +315,7 @@ class DirModel : public Agent {
   // NOC -> DIR message queue
   MessageQueue* endpoint();
   // DIR -> NOC message queue
-  MessageQueue* dir_noc__msg_q() const { return dir_noc__msg_q_; }
+  NocPort* dir_noc__port() const { return dir_noc__port_; }
   // Coherence protocol
   DirProtocol* protocol() const { return protocol_; }
   // Transaction table.
@@ -340,7 +341,7 @@ class DirModel : public Agent {
   // Elaboration
   bool elab() override;
   // Set Dir -> NOC message queue (NOC owned).
-  void set_dir_noc__msg_q(MessageQueue* mq);
+  void set_dir_noc__port(NocPort* port);
   // Register credit counter for MessageClass 'cls' in Agent 'agent' with
   // an initial value of 'n' credits.
   void register_credit_counter(MessageClass cls, Agent* dest, std::size_t n);
@@ -359,7 +360,7 @@ class DirModel : public Agent {
   // Queue selection arbiter
   MQArb* arb_ = nullptr;
   // DIR -> NOC message queue (owned by NOC)
-  MessageQueue* dir_noc__msg_q_ = nullptr;
+  NocPort* dir_noc__port_ = nullptr;
   // CPU -> DIR command queue (owned by DIR)
   std::map<const Agent*, MessageQueue*> cc_dir__cmd_q_;
   // LLC -> DIR response queue (owned by DIR)

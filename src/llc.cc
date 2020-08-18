@@ -146,6 +146,15 @@ class LLCModel::RdisProcess : public AgentProcess {
     if (t.has_requester()) {
       const Message* msg = t.winner()->dequeue();
 
+      // Check NOC ingress queue credits; assumes that all message
+      // types require a NOC transaction.
+      if (CreditCounter* cc = model_->llc_noc__port()->ingress_cc();
+          cc->empty()) {
+        // Wait until a credit has been replenished.
+        wait_on(cc->credit_event());
+        return;
+      }
+
       LogMessage lm;
       lm.append("Execute message: ");
       lm.append(msg->to_string());
@@ -297,7 +306,12 @@ class LLCModel::RdisProcess : public AgentProcess {
     nocmsg->set_dest(dest);
     nocmsg->set_payload(msg);
 
-    MessageQueue* mq = model_->llc_noc__msg_q();
+    NocPort* port = model_->llc_noc__port();
+    // Deduct Credit
+    CreditCounter* cc = port->ingress_cc();
+    cc->debit();
+    // Issue to NOC
+    MessageQueue* mq = port->ingress();
     mq->issue(nocmsg);
   }
 
@@ -394,7 +408,7 @@ bool LLCModel::elab() {
 }
 
 void LLCModel::drc() {
-  if (llc_noc__msg_q_ == nullptr) {
+  if (llc_noc__port_ == nullptr) {
     LogMessage msg("LLC to NOC egress queue has not been bound.");
     msg.level(Level::Fatal);
     log(msg);
@@ -403,9 +417,9 @@ void LLCModel::drc() {
 
 MessageQueue* LLCModel::endpoint() const { return noc_endpoint_->ingress_mq(); }
 
-void LLCModel::set_llc_noc__msg_q(MessageQueue* mq) {
-  llc_noc__msg_q_ = mq;
-  add_child_module(llc_noc__msg_q_);
+void LLCModel::set_llc_noc__port(NocPort* port) {
+  llc_noc__port_ = port;
+  add_child_module(llc_noc__port_);
 }
 
 }  // namespace cc

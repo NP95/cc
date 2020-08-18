@@ -44,6 +44,7 @@ class Message;
 class MessageQueue;
 class LLCNocEndpoint;
 class CpuCluster;
+class NocPort;
 
 //
 //
@@ -131,7 +132,7 @@ class LLCModel : public Agent {
   // NOC -> LLC message queue
   MessageQueue* endpoint() const;
   // LLC -> NOC message queue
-  MessageQueue* llc_noc__msg_q() const { return llc_noc__msg_q_; }
+  NocPort* llc_noc__port() const { return llc_noc__port_; }
   // Home memory controller
   MemCntrlModel* mc() const { return mc_; }
   // Directory model instance.
@@ -146,7 +147,7 @@ class LLCModel : public Agent {
   // Elaboration
   bool elab() override;
   // NOC -> LLC message queue
-  void set_llc_noc__msg_q(MessageQueue* mq);
+  void set_llc_noc__port(NocPort* port);
   // Set memory controller.
   void set_mc(MemCntrlModel* mc) { mc_ = mc; }
   // Set owner directory.
@@ -163,7 +164,7 @@ class LLCModel : public Agent {
 
  private:
   // LLC -> NOC command queue (NOC owned)
-  MessageQueue* llc_noc__msg_q_ = nullptr;
+  NocPort* llc_noc__port_ = nullptr;
   // DIR -> LLC command queue (LLC owned)
   MessageQueue* dir_llc__cmd_q_ = nullptr;
   // MEM -> LLC response queue (LLC owned)
