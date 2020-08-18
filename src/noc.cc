@@ -240,7 +240,7 @@ time_t NocTimingModel::cost(const Agent* origin, const Agent* dest) const {
 }
 
 void NocTimingModel::register_edge(const Agent* origin, const Agent* dest,
-                              time_t delay) {
+                                   time_t delay) {
   timing_[origin][dest] = delay;
 }
 

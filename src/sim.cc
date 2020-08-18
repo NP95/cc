@@ -50,9 +50,7 @@ std::string MessageQueue::to_string() const {
   return r.to_string();
 }
 
-bool MessageQueue::has_at_least(std::size_t n) const {
-  return q_->free() >= n;
-}
+bool MessageQueue::has_at_least(std::size_t n) const { return q_->free() >= n; }
 
 bool MessageQueue::issue(const Message* msg, cursor_t cursor) {
   struct EnqueueAction : kernel::Action {
@@ -86,8 +84,9 @@ void MessageQueue::resize(std::size_t n) {
     // Cannot call resize when there are outstanding entries within
     // the queue as this method should only be called before the start
     // of the simulation.
-    LogMessage msg("Attempt to resize Message Queue but is currently "
-                   "non-empty.");
+    LogMessage msg(
+        "Attempt to resize Message Queue but is currently "
+        "non-empty.");
     msg.level(Level::Fatal);
     log(msg);
   }
@@ -149,9 +148,7 @@ void MessageQueue::build(std::size_t n) {
 AgentProcess::AgentProcess(kernel::Kernel* k, const std::string& name)
     : Process(k, name) {}
 
-void AgentProcess::wait_epoch() {
-  wait_for(kernel::Time{epoch_, 0});
-}
+void AgentProcess::wait_epoch() { wait_for(kernel::Time{epoch_, 0}); }
 
 // Suspend/Re-evaulate process after delay.
 void AgentProcess::wait_for(kernel::Time t) {
@@ -199,9 +196,7 @@ CreditCounter::CreditCounter(kernel::Kernel* k, const std::string& name)
   add_child(credit_event_);
 }
 
-CreditCounter::~CreditCounter() {
-  delete credit_event_;
-}
+CreditCounter::~CreditCounter() { delete credit_event_; }
 
 void CreditCounter::credit() {
   using std::to_string;

@@ -90,12 +90,7 @@ bool is_stable(State state) {
 
 //
 //
-enum class L2EgressQueue {
-  CCCmdQ,
-  CCSnpRspQ,
-  L1RspQ,
-  Invalid
-};
+enum class L2EgressQueue { CCCmdQ, CCSnpRspQ, L1RspQ, Invalid };
 
 const char* to_string(L2EgressQueue q) {
   switch (q) {
@@ -594,7 +589,8 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
                 msg->set_t(cmd->t());
                 msg->set_addr(cmd->addr());
                 msg->set_opcode(AceCmdOpcode::WriteBack);
-                issue_msg_to_queue(L2EgressQueue::CCCmdQ, cl, ctxt, msg, tstate);
+                issue_msg_to_queue(L2EgressQueue::CCCmdQ, cl, ctxt, msg,
+                                   tstate);
                 // Update state Modified -> Invalid
                 issue_update_state(ctxt, cl, line, State::MI);
                 // Current command commits:

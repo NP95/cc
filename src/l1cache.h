@@ -134,7 +134,7 @@ enum class L1Opcode {
   // Dequeue message from associated Message Queue, but do not release
   // as it has now been installed in the transaction table.
   MsgDequeue,
-  
+
   // Consume message at the head of the currently selected message
   // queue.
   MsgConsume,
@@ -220,8 +220,7 @@ class L1CommandBuilder {
   // Build remove line command from address addr.
   static L1Command* build_remove_line(addr_t addr);
   //
-  static L1Command* build_blocked_on_event(
-      MessageQueue* mq, kernel::Event* e);
+  static L1Command* build_blocked_on_event(MessageQueue* mq, kernel::Event* e);
   //
   static L1Command* build_start_transaction(Transaction* t);
   //
@@ -248,7 +247,7 @@ class L1CommandList {
 
   // Push back from opcode
   void push_back(L1Opcode opcode);
-  
+
   // Push back from command
   void push_back(L1Command* cmd);
 
@@ -301,7 +300,7 @@ class L1CoherenceAction {
 
   // Set Resources object for current action.
   virtual void set_resources(L1Resources& r) const {}
-  
+
   // Invoke/Execute coherence action
   virtual bool execute() = 0;
 
@@ -504,7 +503,7 @@ class L1CacheAgent : public Agent {
   Cpu* cpu_ = nullptr;
   // CPU -> L1 Command Queue (L1 owned)
   MessageQueue* cpu_l1__cmd_q_ = nullptr;
-  // Replay Queue 
+  // Replay Queue
   MessageQueue* replay__cmd_q_ = nullptr;
   // L1 -> L2 Command Queue (L2 owned)
   MessageQueue* l1_l2__cmd_q_ = nullptr;

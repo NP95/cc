@@ -99,7 +99,7 @@ class Cpu::ProducerProcess : public kernel::Process {
       // Stimulus has been exhausted, wait until further stimulus has
       // arrived.
       wait_on(stimulus->non_empty_event());
-    // Await next command
+      // Await next command
     } else if (stimulus->front(f)) {
       wait_until(f.time);
     }

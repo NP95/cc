@@ -227,11 +227,7 @@ class SnpLine : public CCSnpLineState {
 };
 
 // Destination egress queue definition
-enum class CCEgressQueue {
-  L2RspQ,
-  L2CmdQ,
-  Invalid
-};
+enum class CCEgressQueue { L2RspQ, L2CmdQ, Invalid };
 
 const char* to_string(CCEgressQueue q) {
   switch (q) {
@@ -638,11 +634,13 @@ class MOESICCProtocol : public CCProtocol {
         cc_->credit();
         return true;
       }
+
      private:
       CreditCounter* cc_ = nullptr;
     };
     const Agent* origin = ctxt.msg()->origin();
-    if (CreditCounter* cc = ctxt.cc()->cc_by_cls_agent(cls, origin); cc != nullptr) {
+    if (CreditCounter* cc = ctxt.cc()->cc_by_cls_agent(cls, origin);
+        cc != nullptr) {
       // Counter exists for this edge. Issue credit update aciton.
       AddCreditAction* action = new AddCreditAction;
       action->set_cc(cc);
@@ -650,7 +648,7 @@ class MOESICCProtocol : public CCProtocol {
     }
   }
 
-  template<typename CONTEXT, typename LIST>
+  template <typename CONTEXT, typename LIST>
   void issue_msg_to_queue(CCEgressQueue eq, CONTEXT& ctxt, LIST& cl,
                           const Message* msg) const {
     struct EmitMessageActionProxy : CCCoherenceAction {
@@ -663,7 +661,7 @@ class MOESICCProtocol : public CCProtocol {
         r.add_field("msg", msg_->to_string());
         return r.to_string();
       }
-      
+
       // Setters
       void set_eq(CCEgressQueue eq) { eq_ = eq; }
       void set_mq(MessageQueue* mq) { mq_ = mq; }
@@ -684,7 +682,7 @@ class MOESICCProtocol : public CCProtocol {
       }
 
       bool execute() override { return mq_->issue(msg_); };
-      
+
      private:
       // Desintation Egress Queue
       CCEgressQueue eq_ = CCEgressQueue::Invalid;
@@ -714,7 +712,7 @@ class MOESICCProtocol : public CCProtocol {
     cl.push_back(action);
   }
 
-  template<typename CONTEXT, typename LIST>
+  template <typename CONTEXT, typename LIST>
   void issue_msg_to_noc(CONTEXT& ctxt, LIST& cl, const Message* msg,
                         Agent* dest) const {
     struct EmitMessageToNocAction : CCCoherenceAction {
@@ -809,8 +807,7 @@ class MOESICCProtocol : public CCProtocol {
     nocmsg->set_origin(ctxt.cc());
     nocmsg->set_dest(dest);
     // Issue Message Emit action.
-    EmitMessageToNocAction* action =
-        new EmitMessageToNocAction;
+    EmitMessageToNocAction* action = new EmitMessageToNocAction;
     action->set_port(ctxt.cc()->cc_noc__port());
     action->set_msg(nocmsg);
     action->set_cc(ctxt.cc());

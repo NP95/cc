@@ -26,6 +26,7 @@
 //========================================================================== //
 
 #include "cc/cfgs.h"
+
 #include "protocol.h"
 
 namespace cc {
@@ -46,6 +47,5 @@ const char* to_string(StimulusType t) {
       return "Unknown";
   }
 }
-
 
 }  // namespace cc

@@ -26,9 +26,11 @@
 //========================================================================== //
 
 #include "l2cache.h"
+
+#include <algorithm>
+
 #include "l1cache.h"
 #include "utility.h"
-#include <algorithm>
 
 namespace cc {
 
@@ -623,7 +625,9 @@ class L2CacheAgent::MainProcess : public AgentProcess {
     // agent for some time. This would serve to model the lookup
     // penalty associated with a failed transasction.
     //
-    if (fail) { cl.push_back(L2Opcode::WaitNextEpoch); }
+    if (fail) {
+      cl.push_back(L2Opcode::WaitNextEpoch);
+    }
   }
 
   void execute(L2CacheContext& ctxt, const L2CommandList& cl) {

@@ -28,8 +28,8 @@
 #ifndef CC_LIBCC_SIM_H
 #define CC_LIBCC_SIM_H
 
-#include "primitives.h"
 #include "msg.h"
+#include "primitives.h"
 
 namespace cc {
 
@@ -46,12 +46,12 @@ class AgentProcess : public kernel::Process {
 
   // Process epoch.
   epoch_t epoch() const { return epoch_; }
-  
+
   // Setter:
 
   // Set process period "epoch"
   void set_epoch(epoch_t epoch) { epoch_ = epoch; }
-  
+
   // Suspend process for an Epoch.
   void wait_epoch();
 
@@ -86,7 +86,6 @@ class Agent : public kernel::Module {
  public:
   Agent(kernel::Kernel* k, const std::string& name);
 };
-
 
 //
 //
@@ -192,7 +191,10 @@ class CreditCounter : public kernel::Module {
 
   // Setters:
   // Set credit capacity
-  void set_n(std::size_t n) { n_ = n; set_i(n); }
+  void set_n(std::size_t n) {
+    n_ = n;
+    set_i(n);
+  }
   // Set credit count
   void set_i(std::size_t i) { i_ = i; }
 

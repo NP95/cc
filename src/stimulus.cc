@@ -49,16 +49,13 @@ std::string to_string(CpuOpcode opcode) {
 StimulusException::StimulusException(const std::string& reason)
     : std::runtime_error(reason) {}
 
-
 StimulusContext::StimulusContext(Stimulus* parent, kernel::Kernel* k,
                                  const std::string& name)
     : parent_(parent), Module(k, name) {
   non_empty_event_ = new kernel::Event(k, "non_empty_event");
 }
 
-StimulusContext::~StimulusContext() {
-  delete non_empty_event_;
-}
+StimulusContext::~StimulusContext() { delete non_empty_event_; }
 
 void StimulusContext::issue() { parent_->issue(this); }
 
@@ -68,8 +65,7 @@ void StimulusContext::retire() { parent_->retire(this); }
 class DequeueContext : public StimulusContext {
  public:
   DequeueContext(Stimulus* parent, kernel::Kernel* k, const std::string& name)
-      : StimulusContext(parent, k, name)
-  {}
+      : StimulusContext(parent, k, name) {}
 
   // Stimulus: Flag indicate that stimulus is complete
   bool done() const override { return fs_.empty(); }
@@ -86,12 +82,16 @@ class DequeueContext : public StimulusContext {
   // Stimulus: Consume current head of queue, or NOP if already
   // exhausted.
   void issue() override {
-    if (!done()) { fs_.pop_front(); }
+    if (!done()) {
+      fs_.pop_front();
+    }
     StimulusContext::issue();
   }
   // Push new stimulus to the back of the work queue.
   void push_back(const Frontier& f) {
-    if (fs_.empty()) { non_empty_event()->notify(); }
+    if (fs_.empty()) {
+      non_empty_event()->notify();
+    }
     fs_.push_back(f);
   }
 
@@ -327,17 +327,12 @@ void TraceStimulus::parse_tracefile() {
 
 std::vector<DequeueContext*> TraceStimulus::compute_index_table() {
   std::map<std::size_t, std::string> index_table;
-  enum class ScanState {
-    Idle,
-    ExpectColon,
-    GetIndex,
-    GetPath
-  };
-  
+  enum class ScanState { Idle, ExpectColon, GetIndex, GetPath };
+
   // To zeroth column
   col_ = -1;
   ScanState state = ScanState::Idle;
-  
+
   // Parse Map header from trace file.
   std::string ctxt;
   struct {
@@ -373,7 +368,7 @@ std::vector<DequeueContext*> TraceStimulus::compute_index_table() {
           state = ScanState::GetPath;
         } else {
           // Error
-        } 
+        }
       } break;
       case ScanState::GetPath: {
         if (c == '\n') {
@@ -393,7 +388,7 @@ std::vector<DequeueContext*> TraceStimulus::compute_index_table() {
           // Update indices
           line_++;
           col_ = -1;
-          
+
           ctxt.clear();
           state = ScanState::Idle;
         } else {
@@ -406,9 +401,11 @@ std::vector<DequeueContext*> TraceStimulus::compute_index_table() {
       } break;
     }
 
-    if (!done) { is_->get(); }
+    if (!done) {
+      is_->get();
+    }
   }
-  
+
   std::vector<DequeueContext*> t;
   for (const auto& index_cpu_it : index_table) {
     const std::string& cpu_path = index_cpu_it.second;
@@ -419,16 +416,20 @@ std::vector<DequeueContext*> TraceStimulus::compute_index_table() {
       bool operator()(const std::pair<Cpu*, DequeueContext*> p) const {
         return p.first->path() == path_;
       }
+
      private:
       std::string path_;
     };
     // Search for CPU corresponding to path in set of registered
     // instance; if not found, bail.
-    if (auto it = std::find_if(cpumap_.begin(), cpumap_.end(), CpuFinder{cpu_path});
+    if (auto it =
+            std::find_if(cpumap_.begin(), cpumap_.end(), CpuFinder{cpu_path});
         it != cpumap_.end()) {
       const std::size_t index = index_cpu_it.first;
       // Grow mapping table to correct length.
-      if (index >= t.size()) { t.resize(index + 1); }
+      if (index >= t.size()) {
+        t.resize(index + 1);
+      }
       // Insert entry at appropriate location.
       t[index] = it->second;
     } else {
@@ -448,13 +449,11 @@ StimulusContext* TraceStimulus::register_cpu(Cpu* cpu) {
   return ctxt;
 }
 
+ProgrammaticStimulus::ProgrammaticStimulus(kernel::Kernel* k,
+                                           const StimulusConfig& config)
+    : Stimulus(k, config) {}
 
-ProgrammaticStimulus::ProgrammaticStimulus(
-    kernel::Kernel* k, const StimulusConfig& config) : Stimulus(k, config) {
-}
-
-ProgrammaticStimulus::~ProgrammaticStimulus() {
-}
+ProgrammaticStimulus::~ProgrammaticStimulus() {}
 
 StimulusContext* ProgrammaticStimulus::register_cpu(Cpu* cpu) {
   DequeueContext* context = new DequeueContext(this, k(), "stimulus");
@@ -476,8 +475,8 @@ std::uint64_t ProgrammaticStimulus::get_cpu_id(const Cpu* cpu) {
   return r;
 }
 
-void ProgrammaticStimulus::push_stimulus(std::uint64_t cpu_id,
-                                         CpuOpcode opcode, addr_t addr) {
+void ProgrammaticStimulus::push_stimulus(std::uint64_t cpu_id, CpuOpcode opcode,
+                                         addr_t addr) {
   if (auto it = context_map_.find(cpu_id); it != context_map_.end()) {
     Frontier f;
     f.time = kernel::Time{cursor_};

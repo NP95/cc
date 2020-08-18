@@ -103,8 +103,7 @@ class DirCommandBuilder {
 
   static DirCommand* from_action(DirCoherenceAction* action);
 
-  static DirCommand* build_blocked_on_event(MessageQueue* mq,
-                                            kernel::Event* e);
+  static DirCommand* build_blocked_on_event(MessageQueue* mq, kernel::Event* e);
 };
 
 //
@@ -129,7 +128,7 @@ class DirCommandList {
 
   // Push back from coherence action
   void push_back(DirCoherenceAction* action);
-  
+
   // Push back from command instance
   void push_back(DirCommand* cmd);
 
@@ -149,7 +148,7 @@ class DirCoherenceAction {
 
   // Set Resources object for current action.
   virtual void set_resources(DirResources& r) const {}
-  
+
   // Invoke/Execute coherence action
   virtual bool execute() = 0;
 
@@ -215,7 +214,7 @@ class DirTState {
 //
 class DirResources {
   using key_map = std::map<const Agent*, std::size_t>;
-  
+
  public:
   DirResources(const DirCommandList& cl);
 
@@ -227,7 +226,7 @@ class DirResources {
   const key_map& coh_snp_n() const { return coh_snp_n_; }
 
   // Setters
-  void set_noc_credit_n(std::size_t n ) { noc_credit_n_ = n; }
+  void set_noc_credit_n(std::size_t n) { noc_credit_n_ = n; }
   void set_coh_snp_n(const Agent* agent, std::size_t n);
 
  private:

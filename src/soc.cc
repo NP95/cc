@@ -147,7 +147,7 @@ bool SocTop::elab() {
   // simplification overall since this prevents the uncessary
   // proliferation of elab-states and/or the enforcement of
   // strict-ordering on the overall, global elaobration process.
-  
+
   bool do_retry = false;
   switch (elab_pass_++) {
     case 0: {
@@ -251,13 +251,17 @@ void SocTop::elab_credit_counts() {
       cc->register_credit_counter(MessageClass::CohSrt, dm,
                                   dcfg.coh_srt_credits_n);
       mq = dm->mq_by_msg_cls(MessageClass::CohSrt, cc);
-      if (mq != nullptr) { mqcredits[mq] += dcfg.coh_cmd_credits_n; }
+      if (mq != nullptr) {
+        mqcredits[mq] += dcfg.coh_cmd_credits_n;
+      }
 
       // Coherence command message
       cc->register_credit_counter(MessageClass::CohCmd, dm,
                                   dcfg.coh_cmd_credits_n);
       mq = dm->mq_by_msg_cls(MessageClass::CohCmd, cc);
-      if (mq != nullptr) { mqcredits[mq] += dcfg.coh_cmd_credits_n; }
+      if (mq != nullptr) {
+        mqcredits[mq] += dcfg.coh_cmd_credits_n;
+      }
     }
 
     // Register edge from Cpu Cluster to all other Cpu clusters (Dt
@@ -267,24 +271,27 @@ void SocTop::elab_credit_counts() {
       // a Dt to itself).
       if (cpuc_dest == cpuc) continue;
 
-      cc->register_credit_counter(MessageClass::Dt, cpuc_dest, ccfg.dt_credits_n);
+      cc->register_credit_counter(MessageClass::Dt, cpuc_dest,
+                                  ccfg.dt_credits_n);
       mq = cpuc_dest->cc()->mq_by_msg_cls(MessageClass::Dt);
-      if (mq != nullptr) { mqcredits[mq] += ccfg.dt_credits_n; }
+      if (mq != nullptr) {
+        mqcredits[mq] += ccfg.dt_credits_n;
+      }
     }
   }
 
   // Set Directory to CPU Cluster (Snoops) credit paths
   for (DirAgent* dm : dms_) {
-
     for (CpuCluster* cpuc : ccs_) {
       CCAgent* cc = cpuc->cc();
       const CCConfig& ccfg = cc->config();
-      
+
       dm->register_credit_counter(MessageClass::CohSnp, cc, ccfg.snp_credits_n);
       mq = cc->mq_by_msg_cls(MessageClass::CohSnp);
-      if (mq != nullptr) { mqcredits[mq] += ccfg.snp_credits_n; }
+      if (mq != nullptr) {
+        mqcredits[mq] += ccfg.snp_credits_n;
+      }
     }
-
   }
 
   // Now that credit counters have been set, update the capacity of
@@ -304,7 +311,8 @@ void SocTop::elab_annotate_edges() {
     for (const auto& q : p.second) {
       const std::string origin_path = p.first;
       const std::string dest_path = q.first;
-      const Agent* origin = static_cast<const Agent*>(top->find_path(origin_path));
+      const Agent* origin =
+          static_cast<const Agent*>(top->find_path(origin_path));
       const Agent* dest = static_cast<const Agent*>(top->find_path(dest_path));
       if ((origin == nullptr) || (dest == nullptr)) continue;
 

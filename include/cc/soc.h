@@ -28,10 +28,11 @@
 #ifndef CC_INCLUDE_CC_SOC_H
 #define CC_INCLUDE_CC_SOC_H
 
-#include "cc/types.h"
-#include "kernel.h"
-#include "cfgs.h"
 #include <string>
+
+#include "cc/types.h"
+#include "cfgs.h"
+#include "kernel.h"
 
 namespace cc {
 
@@ -115,7 +116,7 @@ class Soc {
  public:
   Soc(const SocConfig& soccfg);
   ~Soc();
-  
+
   // SOC configuration as defined during construction
   const SocConfig& cfg() const { return top_->config(); }
 
@@ -136,9 +137,10 @@ class Soc {
   void finalize();
 
   // Return instance (or nullptr) for object at path.
-  kernel::Object*
-  find_path(const std::string& path) const { return top_->find_path(path); }
-  
+  kernel::Object* find_path(const std::string& path) const {
+    return top_->find_path(path);
+  }
+
  private:
   void build(const SocConfig& config);
 
@@ -156,6 +158,6 @@ Soc* construct_soc(const SocConfig& soccfg);
 //
 ProtocolBuilder* construct_protocol_builder(const std::string& name);
 
-} // namespace cc
+}  // namespace cc
 
 #endif

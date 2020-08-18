@@ -177,13 +177,14 @@ void Kernel::invoke_elab() {
       do_retry_ = do_retry_next_;
       do_retry_next_.clear();
     }
-    
+
     void visit(Module* o) override {
       const bool invoke_elab = !doing_retry_ || (do_retry_.count(o) != 0);
       if (invoke_elab && o->elab()) {
-          do_retry_next_.insert(o);
+        do_retry_next_.insert(o);
       }
     }
+
    private:
     bool doing_retry_ = false;
     std::set<Module*> do_retry_, do_retry_next_;
@@ -257,8 +258,7 @@ void Kernel::invoke_fini() {
   visitor.iterate(top());
 }
 
-Object::Object(Kernel* k, const std::string& name) : k_(k), name_(name) {
-}
+Object::Object(Kernel* k, const std::string& name) : k_(k), name_(name) {}
 
 Object::~Object() {}
 
@@ -270,7 +270,7 @@ std::string Object::path() const {
   // we would need to pass the parent during the construction
   // process. This is not something that is done at present, but is
   // something that should be added.
-  
+
   if (path_.empty()) {
     // Construct path;
     std::vector<std::string> vs;

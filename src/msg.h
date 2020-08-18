@@ -214,7 +214,6 @@ class Message {
   // Message ID
   std::size_t mid() const { return mid_; }
 
-
   // Setters:
 
   // Set origin agent.
@@ -232,8 +231,8 @@ class Message {
 
   // Protected destructor (call 'release' to destruct).
   virtual ~Message() = default;
- private:
 
+ private:
   // Message ID (globally unique)
   std::size_t mid_;
   // Parent transaction;

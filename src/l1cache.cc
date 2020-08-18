@@ -189,9 +189,7 @@ L1Command* L1CommandBuilder::build_end_transaction(Transaction* t) {
   return cmd;
 }
 
-L1CommandList::~L1CommandList() {
-  clear();
-}
+L1CommandList::~L1CommandList() { clear(); }
 
 void L1CommandList::clear() {
   for (L1Command* cmd : cmds_) {
@@ -248,9 +246,7 @@ void L1CommandList::next_and_do_consume(bool do_consume) {
   push_back(L1Opcode::WaitNextEpoch);
 }
 
-L1Resources::L1Resources(const L1CommandList& list) {
-  build(list);
-}
+L1Resources::L1Resources(const L1CommandList& list) { build(list); }
 
 void L1Resources::build(const L1CommandList& list) {
   for (L1Command* cmd : list) {
@@ -380,7 +376,8 @@ class L1CommandInterpreter {
     tstate->release();
   }
 
-  void execute_mq_set_blocked_on_event(L1CacheContext& ctxt, const L1Command* cmd) {
+  void execute_mq_set_blocked_on_event(L1CacheContext& ctxt,
+                                       const L1Command* cmd) {
     // Message Queue is blocked until event is notified.
     ctxt.mq()->set_blocked_until(cmd->event());
   }
@@ -402,7 +399,9 @@ class L1CommandInterpreter {
   void execute_msg_dequeue(L1CacheContext& ctxt, const L1Command* cmd,
                            bool do_release = false) {
     const Message* msg = ctxt.mq()->dequeue();
-    if (do_release) { msg->release(); }
+    if (do_release) {
+      msg->release();
+    }
     ctxt.t().advance();
   }
 
@@ -415,7 +414,7 @@ class L1CommandInterpreter {
           "Attempt to replay message, but message queue is full.");
     }
   }
-  
+
   // Derive addr from command opcode.
   void execute_remove_line(L1CacheContext& ctxt, const L1Command* cmd) {
     L1CacheModel* cache = ctxt.l1cache()->cache();
@@ -450,8 +449,7 @@ class L1CommandInterpreter {
     l2cache->set_cache_line_modified(ctxt.tstate()->addr());
   }
 
-  void execute_reserve_replay_slot(L1CacheContext& ctxt,
-                                   const L1Command* cmd) {
+  void execute_reserve_replay_slot(L1CacheContext& ctxt, const L1Command* cmd) {
     // TODO
   }
 };
@@ -637,13 +635,14 @@ class L1CacheAgent::MainProcess : public AgentProcess {
 
       if (!mq->has_at_least(n)) {
         // Insufficient space in L2 command queue.
-      
+
         // Destory old command list.
         cl.clear();
 
         // Message Queue becomes blocked awaiting credit to destination
         // queue.
-        cl.push_back(cb::build_blocked_on_event(ctxt.mq(), mq->non_full_event()));
+        cl.push_back(
+            cb::build_blocked_on_event(ctxt.mq(), mq->non_full_event()));
         fail = true;
       }
     };
@@ -655,7 +654,9 @@ class L1CacheAgent::MainProcess : public AgentProcess {
 
     // Resources have been attained; command list is ready to be
     // executed and committed to the agent's state.
-    if (fail) { cl.push_back(L1Opcode::WaitNextEpoch); }
+    if (fail) {
+      cl.push_back(L1Opcode::WaitNextEpoch);
+    }
   }
 
   void execute(L1CacheContext& ctxt, const L1CommandList& cl) {
@@ -698,10 +699,12 @@ L1CacheAgent::~L1CacheAgent() {
 
 void L1CacheAgent::build() {
   // Construct command request queue
-  cpu_l1__cmd_q_ = new MessageQueue(k(), "cpu_l1__cmd_q", config_.cpu_l1__cmd_n);
+  cpu_l1__cmd_q_ =
+      new MessageQueue(k(), "cpu_l1__cmd_q", config_.cpu_l1__cmd_n);
   add_child_module(cpu_l1__cmd_q_);
   // Construct replay queue
-  replay__cmd_q_ = new MessageQueue(k(), "replay__cmd_q", config_.replay__cmd_n);
+  replay__cmd_q_ =
+      new MessageQueue(k(), "replay__cmd_q", config_.replay__cmd_n);
   add_child_module(replay__cmd_q_);
   // Construct L2 -> L1 response queue
   l2_l1__rsp_q_ = new MessageQueue(k(), "l2_l1__rsp_q", config_.l2_l1__rsp_n);

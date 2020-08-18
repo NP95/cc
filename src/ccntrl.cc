@@ -104,16 +104,13 @@ CCCommand* CCCommandBuilder::build_blocked_on_event(MessageQueue* mq,
   return cmd;
 }
 
-
 CCContext::~CCContext() {
   if (owns_line_) {
     line_->release();
   }
 }
 
-CCCommandList::~CCCommandList() {
-  clear();
-}
+CCCommandList::~CCCommandList() { clear(); }
 
 void CCCommandList::clear() {
   for (CCCommand* cmd : cmds_) {
@@ -121,7 +118,6 @@ void CCCommandList::clear() {
   }
   cmds_.clear();
 }
-
 
 // Transaction starts
 void CCCommandList::push_transaction_start() {
@@ -188,8 +184,7 @@ void CCResources::set_dt_n(const Agent* agent, std::size_t dt_n) {
   dt_[agent] = dt_n;
 }
 
-void CCResources::build(const CCCommandList& cl) {
-}
+void CCResources::build(const CCCommandList& cl) {}
 
 //
 //
@@ -271,7 +266,7 @@ class CCCommandInterpreter {
                                      const CCCommand* cmd) const {
     ctxt.mq()->set_blocked_until(cmd->event());
   }
-  
+
   void execute_wait_next_epoch(CCContext& ctxt, const CCCommand* cmd) const {
     ctxt.process()->wait_for(kernel::Time{10, 0});
   }
@@ -411,7 +406,7 @@ class CCAgent::RdisProcess : public AgentProcess {
 
   bool check_resources(const CCContext& ctxt, CCCommandList& cl) const {
     const CCResources res(cl);
-    
+
     // Flag denoting whether resource requirement has been attained.
     bool has_resources = true;
 
@@ -446,7 +441,8 @@ class CCAgent::RdisProcess : public AgentProcess {
         CreditCounter* cc = it->second;
         if (cc->i() < n) {
           cl.clear();
-          cl.push_back(cb::build_blocked_on_event(ctxt.mq(), cc->credit_event()));
+          cl.push_back(
+              cb::build_blocked_on_event(ctxt.mq(), cc->credit_event()));
           success = false;
         }
       }
@@ -468,7 +464,7 @@ class CCAgent::RdisProcess : public AgentProcess {
     };
 
     // Check NOC credit counter
-    //check_credit_counter(MessageClass::Noc, res.noc_credit_n());
+    // check_credit_counter(MessageClass::Noc, res.noc_credit_n());
     // Check Coherence Start Command credits
     check_credit_counter(MessageClass::CohSrt, res.coh_srt());
     // Check Coherence Command credits
@@ -476,7 +472,9 @@ class CCAgent::RdisProcess : public AgentProcess {
     // Check Data Transfer credits
     check_credit_counter(MessageClass::Dt, res.dt());
 
-    if (!has_resources) { cl.push_back(CCOpcode::WaitNextEpoch); }
+    if (!has_resources) {
+      cl.push_back(CCOpcode::WaitNextEpoch);
+    }
 
     return has_resources;
   }

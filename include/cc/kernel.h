@@ -35,7 +35,9 @@
 #include <sstream>
 #include <vector>
 
-namespace cc { class Soc; }
+namespace cc {
+class Soc;
+}
 
 namespace cc::kernel {
 
@@ -72,9 +74,7 @@ struct ObjectVisitor {
     visitor->visit(this);                       \
     Object::iterate_children(visitor);          \
   }                                             \
-  virtual const char* type_str() const {	\
-    return #__name;				\
-  }
+  virtual const char* type_str() const { return #__name; }
 
 struct Time {
   using time_type = std::uint64_t;
@@ -294,6 +294,7 @@ class Action : public Loggable {
 //
 class Event : public Loggable {
   friend class Process;
+
  public:
   Event(Kernel* k, const std::string& name);
   ~Event();
@@ -441,7 +442,7 @@ class Kernel : public Module {
   LogContext& log_context() { return log_context_; }
   Phase phase() const { return phase_; }
   Object* top() const { return top_; }
-  
+
   // Deprecate this method;
   void run(RunMode r = RunMode::ToExhaustion, Time t = Time{});
   void add_action(Time t, Action* a);

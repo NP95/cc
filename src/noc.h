@@ -85,7 +85,7 @@ class NocPort : public kernel::Module {
 
   // Elaboration phase:
   void set_egress(MessageQueue* egress) { egress_ = egress; }
-  
+
   // Ingress (Agent -> NOC) Message Queue
   MessageQueue* ingress_ = nullptr;
 
@@ -125,9 +125,9 @@ class NocEndpoint : public Agent {
   //
   virtual bool elab() override;
 
-  // Agent 
+  // Agent
   time_t epoch_ = 0;
-  
+
   //
   MainProcess* main_ = nullptr;
 
@@ -151,8 +151,8 @@ class NocTimingModel {
   time_t cost(const Agent* origin, const Agent* dest) const;
 
   // Register edge {origin, dest} -> cost;
-  void register_edge(const Agent* origin, const Agent* dest,
-                     time_t delay);
+  void register_edge(const Agent* origin, const Agent* dest, time_t delay);
+
  private:
   // Base edge delay
   time_t base_ = 0;
@@ -166,6 +166,7 @@ class NocModel : public Agent {
   class MainProcess;
 
   friend class SocTop;
+
  public:
   NocModel(kernel::Kernel* k, const NocModelConfig& config);
   ~NocModel();

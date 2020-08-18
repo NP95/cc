@@ -29,10 +29,10 @@
 #define CC_INCLUDE_CC_CFGS_H
 
 #include <cstddef>
+#include <map>
+#include <memory>
 #include <string>
 #include <vector>
-#include <memory>
-#include <map>
 
 namespace cc {
 
@@ -117,7 +117,6 @@ struct L2CacheAgentConfig {
 
   // Protocol builder instance.
   ProtocolBuilder* pbuilder = nullptr;
-
 };
 
 //

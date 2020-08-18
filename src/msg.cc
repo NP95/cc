@@ -123,9 +123,7 @@ MessageClass to_cmd_type(MessageClass cls) {
   }
 }
 
-std::size_t to_epoch_cost(MessageClass cls) {
-  return 1;
-}
+std::size_t to_epoch_cost(MessageClass cls) { return 1; }
 
 Transaction::Transaction() {
   static std::size_t tid_counter = 0;

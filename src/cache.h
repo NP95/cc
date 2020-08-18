@@ -63,7 +63,7 @@ struct CacheAddressHelper {
   // Compute Set ID of Address 'a'.
   addr_t set(const addr_t& a) const;
 
-  // Compute Tag ID of Address 'a'. 
+  // Compute Tag ID of Address 'a'.
   addr_t tag(const addr_t& a) const;
 
   // Compute the cache line of Address 'a'.

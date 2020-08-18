@@ -140,10 +140,10 @@ class CCCommandList {
 
   // Push back from opcode.
   void push_back(CCOpcode opcode);
-  
+
   // Push back from coherence action.
   void push_back(CCCoherenceAction* action);
-  
+
   // Push back from command instance.
   void push_back(CCCommand* cmd) { cmds_.push_back(cmd); }
 
@@ -165,7 +165,7 @@ class CCCommandList {
 //
 class CCResources {
   using key_map = std::map<const Agent*, std::size_t>;
-  
+
  public:
   CCResources(const CCCommandList& cl) { build(cl); }
 
@@ -182,7 +182,9 @@ class CCResources {
   const key_map& dt() const { return dt_; }
 
   // Setters:
-  void set_noc_credit_n(std::size_t noc_credit_n) { noc_credit_n_ = noc_credit_n; }
+  void set_noc_credit_n(std::size_t noc_credit_n) {
+    noc_credit_n_ = noc_credit_n;
+  }
   void set_cmd_q_n(std::size_t cmd_q_n) { cmd_q_n_ = cmd_q_n; }
   void set_rsp_q_n(std::size_t rsp_q_n) { rsp_q_n_ = rsp_q_n; }
   void set_coh_srt_n(const Agent* agent, std::size_t coh_srt_n);
@@ -214,7 +216,7 @@ class CCCoherenceAction {
 
   // Set Resources object for current action.
   virtual void set_resources(CCResources& r) const {}
-  
+
   // Invoke/Execute coherence action
   virtual bool execute() = 0;
 
@@ -273,8 +275,6 @@ class CCContext {
 
   // Current time cursor.
   time_t cursor() const { return cursor_; }
-
-
 
   // Set current arbitration tournament
   void set_t(MQArbTmt t) { t_ = t; }
@@ -424,7 +424,6 @@ class CCSnpTState {
   // TState owns line
   bool owns_line() const { return owns_line_; }
 
-  
   // Set snoop line
   void set_line(CCSnpLineState* line) { line_ = line; }
 
@@ -434,7 +433,7 @@ class CCSnpTState {
  private:
   // Destruct object using 'release' method
   virtual ~CCSnpTState() = default;
-  
+
   // Snoop line state.
   CCSnpLineState* line_ = nullptr;
 
@@ -604,7 +603,6 @@ class CCAgent : public Agent {
   void drc() override;
 
  private:
-
   // L2 Cache Model to which this controller is bound.
   L2CacheAgent* l2c_ = nullptr;
 

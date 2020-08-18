@@ -1025,11 +1025,13 @@ class MOESIDirProtocol : public DirProtocol {
         cc_->credit();
         return true;
       }
+
      private:
       CreditCounter* cc_ = nullptr;
     };
     const Agent* origin = ctxt.msg()->origin();
-    if (CreditCounter* cc = ctxt.dir()->cc_by_cls_agent(cls, origin); cc != nullptr) {
+    if (CreditCounter* cc = ctxt.dir()->cc_by_cls_agent(cls, origin);
+        cc != nullptr) {
       // Counter exists for this edge. Issue credit update aciton.
       AddCreditAction* action = new AddCreditAction;
       action->set_cc(cc);
@@ -1055,7 +1057,6 @@ class MOESIDirProtocol : public DirProtocol {
       void set_dir(const DirAgent* dir) { dir_ = dir; }
 
       void set_resources(DirResources& r) const override {
-
         // Always require a NOC credit.
         r.set_noc_credit_n(r.noc_credit_n() + 1);
 
@@ -1081,8 +1082,9 @@ class MOESIDirProtocol : public DirProtocol {
         // MessageClass, deduct one credit, otherwise ignore.
         const Message* payload = msg_->payload();
         // Lookup counter map for current message class.
-        if (CreditCounter* cc = dir_->cc_by_cls_agent(
-                payload->cls(), msg_->dest()); cc != nullptr) {
+        if (CreditCounter* cc =
+                dir_->cc_by_cls_agent(payload->cls(), msg_->dest());
+            cc != nullptr) {
           // Credit counter is present, therefore deduct a credit before
           // message is issued.
           cc->debit();
@@ -1090,7 +1092,7 @@ class MOESIDirProtocol : public DirProtocol {
         // Deduct NOC credit
         CreditCounter* cc = port_->ingress_cc();
         cc->debit();
-        
+
         // Issue message to queue.
         MessageQueue* mq = port_->ingress();
         return mq->issue(msg_);
@@ -1111,8 +1113,7 @@ class MOESIDirProtocol : public DirProtocol {
     nocmsg->set_origin(ctxt.dir());
     nocmsg->set_dest(dest);
     // Issue Message Emit action.
-    EmitMessageToNocAction* action =
-        new EmitMessageToNocAction;
+    EmitMessageToNocAction* action = new EmitMessageToNocAction;
     action->set_port(ctxt.dir()->dir_noc__port());
     action->set_msg(nocmsg);
     action->set_dir(ctxt.dir());

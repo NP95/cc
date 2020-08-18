@@ -238,7 +238,9 @@ class L2Resources {
   // Setters:
   void set_tt_entry_n(std::size_t tt_entry_n) { tt_entry_n_ = tt_entry_n; }
   void set_cc_cmd_n(std::size_t cc_cmd_n) { cc_cmd_n_ = cc_cmd_n; }
-  void set_cc_snp_rsp_n(std::size_t cc_snp_rsp_n) { cc_snp_rsp_n_ = cc_snp_rsp_n; }
+  void set_cc_snp_rsp_n(std::size_t cc_snp_rsp_n) {
+    cc_snp_rsp_n_ = cc_snp_rsp_n;
+  }
   void set_l1_rsp_n(std::size_t l1_rsp_n) { l1_rsp_n_ = l1_rsp_n; }
 
  private:
@@ -246,7 +248,7 @@ class L2Resources {
 
   // Transaction Table entry.
   std::size_t tt_entry_n_ = 0;
-  // Cache Controller Command Queue 
+  // Cache Controller Command Queue
   std::size_t cc_cmd_n_ = 0;
   // Cache Controller Snoop Response Queue
   std::size_t cc_snp_rsp_n_ = 0;
@@ -262,7 +264,7 @@ class L2CoherenceAction {
 
   // Set Resources object for current action.
   virtual void set_resources(L2Resources& r) const {}
-  
+
   // Invoke/Execute coherence action
   virtual bool execute() = 0;
 

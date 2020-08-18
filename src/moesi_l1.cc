@@ -145,18 +145,18 @@ class MOESIL1LineState : public L1LineState {
   State state_ = State::I;
 };
 
-enum class L1EgressQueue {
-  L2CmdQ,
-  CpuRspQ,
-  Invalid
-};
+enum class L1EgressQueue { L2CmdQ, CpuRspQ, Invalid };
 
 const char* to_string(L1EgressQueue q) {
   switch (q) {
-    case L1EgressQueue::L2CmdQ: return "L2CmdQ";
-    case L1EgressQueue::CpuRspQ: return "CpuRspQ";
-    case L1EgressQueue::Invalid: return "Invalid";
-    default: return "Invalid";
+    case L1EgressQueue::L2CmdQ:
+      return "L2CmdQ";
+    case L1EgressQueue::CpuRspQ:
+      return "CpuRspQ";
+    case L1EgressQueue::Invalid:
+      return "Invalid";
+    default:
+      return "Invalid";
   }
 }
 
@@ -260,7 +260,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
              const L1CmdMsg* msg) const {
     // Current invoke L1 cache instance.
     const L1CacheAgentConfig& config = ctxt.l1cache()->config();
-    
+
     // Update Transaction State with data snooped from command message.
     L1TState* tstate = ctxt.tstate();
     tstate->set_line(ctxt.line());
@@ -317,7 +317,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             // the response to the CPU.
             L1CmdRspMsg* rsp = Pool<L1CmdRspMsg>::construct();
             rsp->set_t(msg->t());
-            issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp); 
+            issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp);
             // Advance to next
             cl.next_and_do_consume(true);
           } break;
@@ -351,7 +351,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             L1CmdRspMsg* rsp = Pool<L1CmdRspMsg>::construct();
             rsp->set_t(msg->t());
             // Issue response to CPU.
-            issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp); 
+            issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp);
             // Advance to next and consume
             cl.next_and_do_consume(true);
           } break;
@@ -360,7 +360,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             L1CmdRspMsg* rsp = Pool<L1CmdRspMsg>::construct();
             rsp->set_t(msg->t());
             // Issue response to CPU.
-            issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp); 
+            issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp);
             // Advance to next and consume
             cl.next_and_do_consume(true);
           } break;
@@ -375,7 +375,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             // successfully.
             L1CmdRspMsg* rsp = Pool<L1CmdRspMsg>::construct();
             rsp->set_t(msg->t());
-            issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp); 
+            issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp);
             // Advance to next and consume
             cl.next_and_do_consume(true);
           } break;
@@ -384,7 +384,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             // but line must transition to the modified state.
             L1CmdRspMsg* rsp = Pool<L1CmdRspMsg>::construct();
             rsp->set_t(msg->t());
-            issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp); 
+            issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp);
             issue_update_state(cl, line, State::M);
             // Write through to L2. such that L2 sees the transition
             // to M immediately.
@@ -482,7 +482,6 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
       void set_mq(MessageQueue* mq) { mq_ = mq; }
       void set_msg(const Message* msg) { msg_ = msg; }
 
-
       void set_resources(L1Resources& r) const override {
         switch (eq_) {
           case L1EgressQueue::L2CmdQ: {
@@ -496,11 +495,9 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
           } break;
         }
       }
-      
+
       //
-      bool execute() override {
-        return mq_->issue(msg_);
-      }
+      bool execute() override { return mq_->issue(msg_); }
 
      private:
       //

@@ -123,7 +123,6 @@ void DirResources::set_coh_snp_n(const Agent* agent, std::size_t n) {
   coh_snp_n_[agent] = n;
 }
 
-
 DirContext::~DirContext() {
   if (owns_line()) {
     tstate_->line()->release();
@@ -133,9 +132,7 @@ DirContext::~DirContext() {
   }
 }
 
-DirCommandList::~DirCommandList() {
-  clear();
-}
+DirCommandList::~DirCommandList() { clear(); }
 
 void DirCommandList::clear() {
   for (DirCommand* cmd : cmds_) {
@@ -143,7 +140,6 @@ void DirCommandList::clear() {
   }
   cmds_.clear();
 }
-
 
 void DirCommandList::push_back(DirOpcode opcode) {
   push_back(DirCommandBuilder::from_opcode(opcode));
@@ -326,9 +322,7 @@ class DirCommandInterpreter {
 
 //
 //
-DirResources::DirResources(const DirCommandList& cl) {
-  build(cl);
-}
+DirResources::DirResources(const DirCommandList& cl) { build(cl); }
 
 void DirResources::build(const DirCommandList& cl) {
   for (DirCommand* cmd : cl) {
@@ -343,7 +337,6 @@ void DirResources::build(const DirCommandList& cl) {
     }
   }
 }
-
 
 //
 //
@@ -531,12 +524,11 @@ class DirAgent::RdisProcess : public AgentProcess {
       cl.push_back(cb::build_blocked_on_event(ctxt.mq(), cc->credit_event()));
       has_resources = false;
     }
-    
+
     // Check if the credit counter for agent 'agent' has at least 'n'
     // credits.
     auto check_credits = [&](const auto& ccntrs, const Agent* agent,
                              std::size_t n) -> bool {
-                             
       bool success = true;
       // If a credit exists for the destination agent, credit count
       // requirement must be attained, otherwise the requirement is ignored.
@@ -544,7 +536,8 @@ class DirAgent::RdisProcess : public AgentProcess {
         CreditCounter* cc = it->second;
         if (cc->i() < n) {
           cl.clear();
-          cl.push_back(cb::build_blocked_on_event(ctxt.mq(), cc->credit_event()));
+          cl.push_back(
+              cb::build_blocked_on_event(ctxt.mq(), cc->credit_event()));
           success = false;
         }
       }
@@ -564,11 +557,13 @@ class DirAgent::RdisProcess : public AgentProcess {
         }
       }
     };
-    
+
     // Check Coherence Snoop credits
     check_credit_counter(MessageClass::CohSnp, res.coh_snp_n());
-    
-    if (!has_resources) { cl.push_back(DirOpcode::WaitNextEpoch); }
+
+    if (!has_resources) {
+      cl.push_back(DirOpcode::WaitNextEpoch);
+    }
   }
 
   void execute(DirContext& ctxt, const DirCommandList& cl) {
@@ -627,14 +622,15 @@ class DirNocEndpoint : public NocEndpoint {
   //
   DirNocEndpoint(kernel::Kernel* k, const std::string& name)
       : NocEndpoint(k, name) {}
-  
+
   //
   void register_endpoint(MessageClass cls, MessageQueue* mq) {
     // Register/install {cls} -> Message Queue mapping
     cls_eps_.insert(std::make_pair(cls, mq));
   }
 
-  void register_endpoint(MessageClass cls, const Agent* origin, MessageQueue* mq) {
+  void register_endpoint(MessageClass cls, const Agent* origin,
+                         MessageQueue* mq) {
     // Register/install {cls, origin} -> Message Queue mapping
     origin_eps_[cls][origin] = mq;
   }
@@ -676,7 +672,9 @@ DirAgent::DirAgent(kernel::Kernel* k, const DirModelConfig& config)
 }
 
 DirAgent::~DirAgent() {
-  for (const auto& p : cc_dir__cmd_q_) { delete p.second; }
+  for (const auto& p : cc_dir__cmd_q_) {
+    delete p.second;
+  }
   delete llc_dir__rsp_q_;
   delete cc_dir__snprsp_q_;
   delete arb_;
@@ -772,7 +770,8 @@ void DirAgent::drc() {
 
 void DirAgent::register_credit_counter(MessageClass cls, Agent* dest,
                                        std::size_t n) {
-  const std::string name = join_path(flatten_path(dest->path()), to_string(cls));
+  const std::string name =
+      join_path(flatten_path(dest->path()), to_string(cls));
   // Construct new credit counter.
   CreditCounter* cc = new CreditCounter(k(), name);
   cc->set_n(n);
@@ -784,7 +783,7 @@ void DirAgent::register_credit_counter(MessageClass cls, Agent* dest,
 MessageQueue* DirAgent::endpoint() { return noc_endpoint_->ingress_mq(); }
 
 CreditCounter* DirAgent::cc_by_cls_agent(MessageClass cls,
-                                        const Agent* agent) const {
+                                         const Agent* agent) const {
   CreditCounter* ret = nullptr;
   if (cls == MessageClass::Noc) {
     ret = dir_noc__port_->ingress_cc();
@@ -797,7 +796,8 @@ CreditCounter* DirAgent::cc_by_cls_agent(MessageClass cls,
   return ret;
 }
 
-MessageQueue* DirAgent::mq_by_msg_cls(MessageClass cls, const Agent* agent) const {
+MessageQueue* DirAgent::mq_by_msg_cls(MessageClass cls,
+                                      const Agent* agent) const {
   return noc_endpoint_->lookup_endpoint(cls, agent);
 }
 

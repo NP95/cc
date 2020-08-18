@@ -28,14 +28,15 @@
 #ifndef CC_INCLUDE_CC_STIMULUS_H
 #define CC_INCLUDE_CC_STIMULUS_H
 
-#include "kernel.h"
-#include "types.h"
-#include "cfgs.h"
 #include <deque>
+#include <exception>
+#include <map>
 #include <set>
 #include <string>
-#include <map>
-#include <exception>
+
+#include "cfgs.h"
+#include "kernel.h"
+#include "types.h"
 
 namespace cc {
 
@@ -43,9 +44,7 @@ namespace cc {
 class Cpu;
 class TraceStimulusContext;
 
-enum class CpuOpcode {
-  Invalid, Load, Store
-};
+enum class CpuOpcode { Invalid, Load, Store };
 
 std::string to_string(CpuOpcode opcode);
 
@@ -91,9 +90,7 @@ class StimulusContext : public kernel::Module {
   Stimulus* parent() const { return parent_; }
 
   // Further stimulus has arrived at context.
-  kernel::Event* non_empty_event() const {
-    return non_empty_event_;
-  }
+  kernel::Event* non_empty_event() const { return non_empty_event_; }
 
   // Partner CPU instance.
   void set_cpu(const Cpu* cpu) { cpu_ = cpu; }
@@ -131,6 +128,7 @@ class DequeueContext;
 //
 class Stimulus : public kernel::Module {
   friend class StimulusContext;
+
  public:
   Stimulus(kernel::Kernel* k, const StimulusConfig& config);
   virtual ~Stimulus() = default;
@@ -188,21 +186,19 @@ class Stimulus : public kernel::Module {
 //
 class TraceStimulus : public Stimulus {
  public:
-
   // Construct appropriate trace configuration-file from some string.
   static StimulusConfig from_string(const std::string& s);
-  
+
   TraceStimulus(kernel::Kernel* k, const StimulusConfig& config);
   ~TraceStimulus();
 
  private:
-
   // Phases
   void build();
   bool elab() override;
   void drc() override;
 
-  // Stimulus: 
+  // Stimulus:
   StimulusContext* register_cpu(Cpu* cpu) override;
 
   void parse_tracefile();
@@ -236,7 +232,6 @@ class ProgrammaticStimulus : public Stimulus {
   ProgrammaticStimulus(kernel::Kernel* k, const StimulusConfig& config);
   ~ProgrammaticStimulus();
 
-  
   StimulusContext* register_cpu(Cpu* cpu) override;
 
   //
