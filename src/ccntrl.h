@@ -322,10 +322,10 @@ enum class CCSnpOpcode {
   InvokeCoherenceAction,
 
   // Consume message from nominated message queue.
-  ConsumeMsg,
+  MsgConsume,
 
   // Re-evaluate agent after an 'Epoch' has elapsed.
-  NextEpoch,
+  WaitNextEpoch,
 
   // Wait on the arrival of a message from one of the agents ingress
   // message queues.
@@ -403,6 +403,10 @@ class CCSnpCommandList {
 
   // Push back from command instance
   void push_back(CCSnpCommand* cmd) { cmds_.push_back(cmd); }
+
+  // Consume current message and advance agent to next simulation
+  // epoch.
+  void next_and_do_consume(bool do_consume = false);
 
  private:
   // Command list.

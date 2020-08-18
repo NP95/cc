@@ -423,8 +423,8 @@ class MOESICCProtocol : public CCProtocol {
 
     // Consume message
     cl.push_back(CCSnpOpcode::TransactionStart);
-    cl.push_back(CCSnpOpcode::ConsumeMsg);
-    cl.push_back(CCSnpOpcode::NextEpoch);
+    // Consume and advance
+    cl.next_and_do_consume(true);
   }
 
   void eval_msg(CCSnpContext& ctxt, CCSnpCommandList& cl,
@@ -451,16 +451,16 @@ class MOESICCProtocol : public CCProtocol {
 
       issue_msg_to_noc(ctxt, cl, dt, snpline->agent());
     }
-    cl.push_back(CCSnpOpcode::ConsumeMsg);
-    cl.push_back(CCSnpOpcode::NextEpoch);
+    // Consume and advance
+    cl.next_and_do_consume(true);
   }
 
   void eval_msg(CCSnpContext& ctxt, CCSnpCommandList& cl,
                 const DtRspMsg* msg) const {
     using snpcb = CCSnpCommandBuilder;
     cl.push_back(CCSnpOpcode::TransactionEnd);
-    cl.push_back(CCSnpOpcode::ConsumeMsg);
-    cl.push_back(CCSnpOpcode::NextEpoch);
+    // Consume and advance
+    cl.next_and_do_consume(true);
   }
 
   void issue_apply_msg(CCContext& ctxt, CCCommandList& cl,
@@ -503,7 +503,7 @@ class MOESICCProtocol : public CCProtocol {
       // Counter exists for this edge. Issue credit update aciton.
       AddCreditAction* action = new AddCreditAction;
       action->set_cc(cc);
-      cl.push_back(cb::from_action(action));
+      cl.push_back(action);
     }
   }
 

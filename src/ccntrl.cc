@@ -524,10 +524,10 @@ const char* to_string(CCSnpOpcode opcode) {
       return "TransactionEnd";
     case CCSnpOpcode::InvokeCoherenceAction:
       return "InvokeCoherenceAction";
-    case CCSnpOpcode::ConsumeMsg:
-      return "ConsumeMsg";
-    case CCSnpOpcode::NextEpoch:
-      return "NextEpoch";
+    case CCSnpOpcode::MsgConsume:
+      return "MsgConsume";
+    case CCSnpOpcode::WaitNextEpoch:
+      return "WaitNextEpoch";
     case CCSnpOpcode::WaitOnMsg:
       return "WaitOnMsg";
     case CCSnpOpcode::Invalid:
@@ -557,6 +557,16 @@ void CCSnpCommandList::push_back(CCSnpOpcode opcode) {
 
 void CCSnpCommandList::push_back(CCCoherenceAction* action) {
   push_back(cb::from_action(action));
+}
+
+void CCSnpCommandList::next_and_do_consume(bool do_consume) {
+  using cb = CCCommandBuilder;
+  if (do_consume) {
+    // Consume message
+    push_back(CCSnpOpcode::MsgConsume);
+  }
+  // Advance to next
+  push_back(CCSnpOpcode::WaitNextEpoch);
 }
 
 CCSnpCommand* CCSnpCommandBuilder::from_opcode(CCSnpOpcode opcode) {
@@ -598,11 +608,11 @@ class CCSnpCommandInterpreter {
       case CCSnpOpcode::InvokeCoherenceAction: {
         execute_invoke_coherence_action(ctxt, cmd);
       } break;
-      case CCSnpOpcode::ConsumeMsg: {
-        execute_consume_msg(ctxt, cmd);
+      case CCSnpOpcode::MsgConsume: {
+        execute_msg_consume(ctxt, cmd);
       } break;
-      case CCSnpOpcode::NextEpoch: {
-        execute_next_epoch(ctxt, cmd);
+      case CCSnpOpcode::WaitNextEpoch: {
+        execute_wait_next_epoch(ctxt, cmd);
       } break;
       case CCSnpOpcode::WaitOnMsg: {
         execute_wait_on_msg(ctxt, cmd);
@@ -634,13 +644,13 @@ class CCSnpCommandInterpreter {
     action->execute();
   }
 
-  void execute_consume_msg(CCSnpContext& ctxt, const CCSnpCommand* cmd) {
+  void execute_msg_consume(CCSnpContext& ctxt, const CCSnpCommand* cmd) {
     const Message* msg = ctxt.mq()->dequeue();
     msg->release();
     ctxt.t().advance();
   }
 
-  void execute_next_epoch(CCSnpContext& ctxt, const CCSnpCommand* cmd) {
+  void execute_wait_next_epoch(CCSnpContext& ctxt, const CCSnpCommand* cmd) {
     process_->wait_for(kernel::Time{10, 0});
   }
 
