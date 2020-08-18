@@ -346,175 +346,34 @@ class MOESICCProtocol : public CCProtocol {
     // Apply message to transaction state.
     issue_apply_msg(ctxt, cl, msg);
 
-    // TODO: a lot of this is redundant. Cleanup.
+    const DirMapper* dm = ctxt.cc()->dm();
 
-    // Defaults
-    bool set_awaiting_cohend = false;
-    bool set_awaiting_cmdrsp = false;
+    // Issue coherence start message
+    CohSrtMsg* cohsrt = Pool<CohSrtMsg>::construct();
+    cohsrt->set_t(msg->t());
+    cohsrt->set_origin(ctxt.cc());
+    cohsrt->set_addr(msg->addr());
+    issue_msg_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
 
-    const AceCmdOpcode opcode = msg->opcode();
-    switch (opcode) {
-      case AceCmdOpcode::ReadShared: {
-        const DirMapper* dm = ctxt.cc()->dm();
+    // Issue coherence command message
+    CohCmdMsg* cohcmd = Pool<CohCmdMsg>::construct();
+    cohcmd->set_t(msg->t());
+    cohcmd->set_opcode(msg->opcode());
+    cohcmd->set_origin(ctxt.cc());
+    cohcmd->set_addr(msg->addr());
+    issue_msg_to_noc(ctxt, cl, cohcmd, dm->lookup(msg->addr()));
 
-        // Issue coherence start message
-        CohSrtMsg* cohsrt = Pool<CohSrtMsg>::construct();
-        cohsrt->set_t(msg->t());
-        cohsrt->set_origin(ctxt.cc());
-        cohsrt->set_addr(msg->addr());
-        issue_msg_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
+    // Set "Awaiting CohEnd" flag
+    issue_line_update(ctxt, cl, LineUpdate::SetAwaitingCohEnd);
 
-        // Issue coherence command message
-        CohCmdMsg* cohcmd = Pool<CohCmdMsg>::construct();
-        cohcmd->set_t(msg->t());
-        cohcmd->set_opcode(msg->opcode());
-        cohcmd->set_origin(ctxt.cc());
-        cohcmd->set_addr(msg->addr());
-        issue_msg_to_noc(ctxt, cl, cohcmd, dm->lookup(msg->addr()));
+    // Set "Awaiting CohCmdRsp" flag
+    issue_line_update(ctxt, cl, LineUpdate::SetAwaitingCohCmdRsp);
 
-        // Set flags
-        set_awaiting_cohend = true;
-        set_awaiting_cmdrsp = true;
-
-        // Set flag indicating we are awaiting the command response.
-
-        // ACE command advances to active state; install entry within
-        // transaction table.
-        cl.push_back(CCOpcode::TransactionStart);
-        // Consume and advance
-        cl.next_and_do_consume(true);
-      } break;
-      case AceCmdOpcode::ReadUnique: {
-        const DirMapper* dm = ctxt.cc()->dm();
-
-        // Issue coherence start message
-        CohSrtMsg* cohsrt = Pool<CohSrtMsg>::construct();
-        cohsrt->set_t(msg->t());
-        cohsrt->set_origin(ctxt.cc());
-        cohsrt->set_addr(msg->addr());
-        issue_msg_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
-
-        // Issue coherence command message
-        CohCmdMsg* cohcmd = Pool<CohCmdMsg>::construct();
-        cohcmd->set_t(msg->t());
-        cohcmd->set_opcode(msg->opcode());
-        cohcmd->set_origin(ctxt.cc());
-        cohcmd->set_addr(msg->addr());
-        issue_msg_to_noc(ctxt, cl, cohcmd, dm->lookup(msg->addr()));
-
-        // Set flags
-        set_awaiting_cohend = true;
-        set_awaiting_cmdrsp = true;
-
-        // ACE command advances to active state; install entry within
-        // transaction table.
-        cl.push_back(CCOpcode::TransactionStart);
-        // Consume and advance
-        cl.next_and_do_consume(true);
-      } break;
-      case AceCmdOpcode::CleanUnique: {
-        // Agent has copy of cache line and requests promotion of the
-        // line to an owning state.
-        const DirMapper* dm = ctxt.cc()->dm();
-
-        CohSrtMsg* cohsrt = Pool<CohSrtMsg>::construct();
-        cohsrt->set_t(msg->t());
-        cohsrt->set_origin(ctxt.cc());
-        cohsrt->set_addr(msg->addr());
-        issue_msg_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
-
-        CohCmdMsg* cohcmd = Pool<CohCmdMsg>::construct();
-        cohcmd->set_t(msg->t());
-        cohcmd->set_opcode(msg->opcode());
-        cohcmd->set_origin(ctxt.cc());
-        cohcmd->set_addr(msg->addr());
-        issue_msg_to_noc(ctxt, cl, cohcmd, dm->lookup(msg->addr()));
-
-        // Set flags
-        set_awaiting_cohend = true;
-        set_awaiting_cmdrsp = true;
-
-        // ACE command advances to active state; install entry within
-        // transaction table.
-        cl.push_back(CCOpcode::TransactionStart);
-        // Consume and advance
-        cl.next_and_do_consume(true);
-      } break;
-      case AceCmdOpcode::Evict: {
-        const DirMapper* dm = ctxt.cc()->dm();
-
-        // Issue cohernce start message
-        CohSrtMsg* cohsrt = Pool<CohSrtMsg>::construct();
-        cohsrt->set_t(msg->t());
-        cohsrt->set_origin(ctxt.cc());
-        cohsrt->set_addr(msg->addr());
-        issue_msg_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
-
-        // Issue cohernece command
-        CohCmdMsg* cohcmd = Pool<CohCmdMsg>::construct();
-        cohcmd->set_t(msg->t());
-        cohcmd->set_opcode(msg->opcode());
-        cohcmd->set_origin(ctxt.cc());
-        cohcmd->set_addr(msg->addr());
-        issue_msg_to_noc(ctxt, cl, cohcmd, dm->lookup(msg->addr()));
-
-        // Set flags
-        set_awaiting_cohend = true;
-        set_awaiting_cmdrsp = true;
-
-        // ACE command advances to active state; install entry within
-        // transaction table.
-        cl.push_back(CCOpcode::TransactionStart);
-        // Consume and advance
-        cl.next_and_do_consume(true);
-      } break;
-      case AceCmdOpcode::WriteBack: {
-        // L2 evicts a line and initiates a write to memory.
-        const DirMapper* dm = ctxt.cc()->dm();
-
-        // Issue coherence start message
-        CohSrtMsg* cohsrt = Pool<CohSrtMsg>::construct();
-        cohsrt->set_t(msg->t());
-        cohsrt->set_origin(ctxt.cc());
-        cohsrt->set_addr(msg->addr());
-        issue_msg_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
-
-        // Issue coherence command message
-        CohCmdMsg* cohcmd = Pool<CohCmdMsg>::construct();
-        cohcmd->set_t(msg->t());
-        cohcmd->set_opcode(msg->opcode());
-        cohcmd->set_origin(ctxt.cc());
-        cohcmd->set_addr(msg->addr());
-        issue_msg_to_noc(ctxt, cl, cohcmd, dm->lookup(msg->addr()));
-
-        // Set flags
-        set_awaiting_cohend = true;
-        set_awaiting_cmdrsp = true;
-
-        // Set flag indicating we are awaiting the command response.
-
-        // ACE command advances to active state; install entry within
-        // transaction table.
-        cl.push_back(CCOpcode::TransactionStart);
-        // Consume and advance
-        cl.next_and_do_consume(true);
-      } break;
-      default: {
-        std::string name = "Unable to handle ACE command: ";
-        name += to_string(msg->opcode());
-        //        issue_invalid_state_transition(cl, name);
-      } break;
-    }
-
-    if (set_awaiting_cohend) {
-      // Set "Awaiting CohEnd" flag
-      issue_line_update(ctxt, cl, LineUpdate::SetAwaitingCohEnd);
-    }
-
-    if (set_awaiting_cmdrsp) {
-      // Set "Awaiting CohCmdRsp" flag
-      issue_line_update(ctxt, cl, LineUpdate::SetAwaitingCohCmdRsp);
-    }
+    // ACE command advances to active state; install entry within
+    // transaction table.
+    cl.push_back(CCOpcode::TransactionStart);
+    // Consume and advance
+    cl.next_and_do_consume(true);
   }
 
   void eval_msg(CCContext& ctxt, CCCommandList& cl,
