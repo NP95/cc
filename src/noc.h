@@ -125,7 +125,7 @@ class NocTimingModel {
   void set_base(time_t d) { base_ = d; }
 
   // Lookup cost for origin -> dest edge
-  time_t cost(const Agent* origin, const Agent* dest);
+  time_t cost(const Agent* origin, const Agent* dest) const;
 
   // Register edge {origin, dest} -> cost;
   void register_edge(const Agent* origin, const Agent* dest,
@@ -143,7 +143,6 @@ class NocModel : public Agent {
   class MainProcess;
 
   friend class SocTop;
-
  public:
   NocModel(kernel::Kernel* k, const NocModelConfig& config);
   ~NocModel();
@@ -170,6 +169,8 @@ class NocModel : public Agent {
 
   // Arbiter
   MQArb* arb() const { return arb_; }
+  // Timing Model
+  const NocTimingModel* tm() const { return tm_; }
 
  private:
   // Queue selection arbiter

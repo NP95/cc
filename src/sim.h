@@ -113,7 +113,7 @@ class MessageQueue : public Agent {
   // Set blocked status of Message Queue until notified by event.
   void set_blocked_until(kernel::Event* event);
   // Issue message to queue after 'epoch' agent epochs.
-  bool issue(const Message* msg, epoch_t epoch = 0);
+  bool issue(const Message* msg, time_t time = 0);
   // Resize queue (build/elab only)
   void resize(std::size_t n);
 

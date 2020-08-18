@@ -50,97 +50,34 @@ std::string NocMsg::to_string() const {
 //
 //
 class NocModel::MainProcess : public kernel::Process {
-  enum class State { Idle, ChooseQueue, IssueMessage };
-
-  static const char* to_string(State state) {
-    switch (state) {
-      case State::Idle:
-        return "Idle";
-      case State::ChooseQueue:
-        return "ChooseQueue";
-      case State::IssueMessage:
-        return "IssueMessage";
-      default:
-        return "Invalid";
-    }
-  }
-
-  struct Context {
-    MQArbTmt t;
-  };
-
  public:
   MainProcess(kernel::Kernel* k, const std::string& name, NocModel* model)
       : kernel::Process(k, name), model_(model) {}
 
-  State state() const { return state_; }
-  void set_state(State state) { state_ = state; }
-
  private:
   void init() override {
     // Await the arrival of requesters
-    MQArb* arb = model_->arb();
-    set_state(State::Idle);
-    wait_on(arb->request_arrival_event());
+    wait_on(model_->arb()->request_arrival_event());
   }
 
   void eval() override {
-    switch (state()) {
-      case State::Idle: {
-        handle_awaiting_message();
-      } break;
-      case State::ChooseQueue: {
-        handle_choose_queue();
-      } break;
-      case State::IssueMessage: {
-        handle_issue_message();
-      } break;
-      default: {
-      } break;
-    }
-  }
-
-  void fini() override {}
-
-  void handle_awaiting_message() {
-    // Idle state, awaiting more work.
     MQArb* arb = model_->arb();
     MQArbTmt t = arb->tournament();
+
+    if (!t.has_requester()) {
+      wait_on(arb->request_arrival_event());
+      return;
+    }
 
     // Detect deadlock at L1Cache front-end. This occurs only in the
     // presence of a protocol violation and is therefore by definition
     // unrecoverable.
     if (t.deadlock()) {
-      const LogMessage msg{"A protocol deadlock has been detected.",
-                           Level::Fatal};
+      LogMessage msg("A protocol deadlock has been detected.");
+      msg.level(Level::Fatal);
       log(msg);
     }
-
-    if (t.has_requester()) {
-      ctxt_ = Context();
-      ctxt_.t = t;
-      set_state(State::ChooseQueue);
-      next_delta();
-    } else {
-      // Otherwise, block awaiting the arrival of a message at on
-      // the of the message queues.
-      wait_on(arb->request_arrival_event());
-    }
-  }
-
-  void handle_choose_queue() {
-    // Idle state, awaiting more work.
-    MQArb* arb = model_->arb();
-
-    ctxt_.t = arb->tournament();
-    if (ctxt_.t.has_requester()) {
-      set_state(State::IssueMessage);
-      next_delta();
-    }
-  }
-
-  void handle_issue_message() {
-    MessageQueue* mq = ctxt_.t.winner();
+    MessageQueue* mq = t.winner();
     const Message* msg = mq->peek();
     switch (msg->cls()) {
       case MessageClass::Noc: {
@@ -157,17 +94,18 @@ class NocModel::MainProcess : public kernel::Process {
         }
 
         // Issue message to destination agent ingress queue.
-        // const Message* payload = nocmsg->payload();
         MessageQueue* egress = port->egress();
-        egress->issue(nocmsg);
+
+        const NocTimingModel* tm = model_->tm();
+        const time_t cost = tm->cost(nocmsg->origin(), nocmsg->dest());
+        egress->issue(nocmsg, cost);
 
         // Message has now been issued to destination. Destroy
         // transport message and update arbitration.
-        // nocmsg->release();
         mq->dequeue();
 
         // Advance arbitration state.
-        ctxt_.t.advance();
+        t.advance();
       } break;
       default: {
         using cc::to_string;
@@ -180,17 +118,9 @@ class NocModel::MainProcess : public kernel::Process {
         log(lmsg);
       } break;
     }
-
-    // kernel::RequesterIntf<const Message*>* intf = ctxt_.t.intf();
-    // issue_message(intf->dequeue());
-    set_state(State::Idle);
     wait_for(kernel::Time{10, 0});
   }
 
-  // Current context
-  Context ctxt_;
-  // Current state
-  State state_;
   // Pointer to parent NocModel instance.
   NocModel* model_ = nullptr;
 };
@@ -284,7 +214,7 @@ void NocEndpoint::build() {
 }
 
 // Lookup cost for origin -> dest edge
-time_t NocTimingModel::cost(const Agent* origin, const Agent* dest) {
+time_t NocTimingModel::cost(const Agent* origin, const Agent* dest) const {
   time_t delay = base();
   if (auto it = timing_.find(origin); it != timing_.end()) {
     if (auto jt = it->second.find(dest); jt != it->second.end()) {
@@ -326,7 +256,6 @@ void NocModel::build() {
   // Construct ingress selection aribter
   arb_ = new MQArb(k(), "arb");
   add_child_module(arb_);
-
   // Construct main process
   main_ = new MainProcess(k(), "main", this);
   add_child_process(main_);

@@ -54,7 +54,7 @@ bool MessageQueue::has_at_least(std::size_t n) const {
   return q_->free() >= n;
 }
 
-bool MessageQueue::issue(const Message* msg, epoch_t epoch) {
+bool MessageQueue::issue(const Message* msg, time_t time) {
   struct EnqueueAction : kernel::Action {
     EnqueueAction(kernel::Kernel* k, Queue<const Message*>* q,
                   const Message* msg)
@@ -75,8 +75,7 @@ bool MessageQueue::issue(const Message* msg, epoch_t epoch) {
 
   if (full()) return false;
   // Issue action:
-  kernel::Time t;
-  const kernel::Time execute_time = k()->time() + t;
+  const kernel::Time execute_time = k()->time() + kernel::Time{time, 0};
   k()->add_action(execute_time, new EnqueueAction(k(), q_, msg));
 
   return true;
