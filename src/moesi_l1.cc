@@ -317,7 +317,6 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             // the response to the CPU.
             L1CmdRspMsg* rsp = Pool<L1CmdRspMsg>::construct();
             rsp->set_t(msg->t());
-            // issue_msg(cl, ctxt.l1cache()->l1_cpu__rsp_q(), rsp);
             issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp); 
             // Advance to next
             cl.next_and_do_consume(true);
