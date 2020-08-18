@@ -193,7 +193,7 @@ class LLCModel::RdisProcess : public AgentProcess {
     switch (msg->opcode()) {
       case LLCCmdOpcode::Fill: {
         // Message to LLC
-        MemCmdMsg* memcmd = new MemCmdMsg;
+        MemCmdMsg* memcmd = Pool<MemCmdMsg>::construct();
         memcmd->set_origin(model_);
         memcmd->set_opcode(MemCmdOpcode::Read);
         memcmd->set_dest(model_);
@@ -209,7 +209,7 @@ class LLCModel::RdisProcess : public AgentProcess {
       case LLCCmdOpcode::PutLine: {
         // Send data to requesting agent. Assumes prior fill operation
         // initiated by associated directory.
-        DtMsg* dt = new DtMsg;
+        DtMsg* dt = Pool<DtMsg>::construct();
         dt->set_origin(model_);
         dt->set_t(msg->t());
         issue_emit_to_noc(msg->agent(), dt);
@@ -228,7 +228,7 @@ class LLCModel::RdisProcess : public AgentProcess {
     LLCTState* tstate = lookup_state_or_fatal(msg->t());
     switch (tstate->state()) {
       case State::FillAwaitMemRsp: {
-        LLCCmdRspMsg* llcrsp = new LLCCmdRspMsg;
+        LLCCmdRspMsg* llcrsp = Pool<LLCCmdRspMsg>::construct();
         llcrsp->set_t(msg->t());
         llcrsp->set_opcode(LLCRspOpcode::Okay);
         issue_emit_to_noc(model_->dir(), llcrsp);
@@ -245,7 +245,7 @@ class LLCModel::RdisProcess : public AgentProcess {
     switch (tstate->state()) {
       case State::PutAwaitCCDtRsp: {
         // Issue Put response to originator directory
-        LLCCmdRspMsg* llcrsp = new LLCCmdRspMsg;
+        LLCCmdRspMsg* llcrsp = Pool<LLCCmdRspMsg>::construct();
         llcrsp->set_t(msg->t());
         llcrsp->set_opcode(LLCRspOpcode::Okay);
         issue_emit_to_noc(model_->dir(), llcrsp);
@@ -254,7 +254,7 @@ class LLCModel::RdisProcess : public AgentProcess {
       } break;
       case State::PutAwaitMemDtRsp: {
         // Issue Put response to originator directory
-        LLCCmdRspMsg* llcrsp = new LLCCmdRspMsg;
+        LLCCmdRspMsg* llcrsp = Pool<LLCCmdRspMsg>::construct();
         llcrsp->set_t(msg->t());
         llcrsp->set_opcode(LLCRspOpcode::Okay);
         issue_emit_to_noc(model_->dir(), llcrsp);
@@ -301,7 +301,7 @@ class LLCModel::RdisProcess : public AgentProcess {
   }
 
   void issue_emit_to_noc(Agent* dest, const Message* msg) {
-    NocMsg* nocmsg = new NocMsg;
+    NocMsg* nocmsg = Pool<NocMsg>::construct();
     nocmsg->set_origin(model_);
     nocmsg->set_dest(dest);
     nocmsg->set_payload(msg);

@@ -398,7 +398,7 @@ class MOESIDirProtocol : public DirProtocol {
     tstate->set_addr(msg->addr());
 
     // Issue command message response (returns credit).
-    CohCmdRspMsg* rsp = new CohCmdRspMsg;
+    CohCmdRspMsg* rsp = Pool<CohCmdRspMsg>::construct();
     rsp->set_t(msg->t());
     rsp->set_origin(ctxt.dir());
     issue_msg_to_noc(ctxt, cl, rsp, msg->origin());
@@ -409,7 +409,7 @@ class MOESIDirProtocol : public DirProtocol {
     switch (state) {
       case State::I: {
         // Line is not present in the directory
-        LLCCmdMsg* cmd = new LLCCmdMsg;
+        LLCCmdMsg* cmd = Pool<LLCCmdMsg>::construct();
         cmd->set_t(msg->t());
         cmd->set_opcode(LLCCmdOpcode::Fill);
         cmd->set_addr(msg->addr());
@@ -433,7 +433,7 @@ class MOESIDirProtocol : public DirProtocol {
 
             // Instruct LLC to forward line (presently in the S-state)
             // to the requesting agent.
-            LLCCmdMsg* cmd = new LLCCmdMsg;
+            LLCCmdMsg* cmd = Pool<LLCCmdMsg>::construct();
             cmd->set_t(msg->t());
             cmd->set_opcode(LLCCmdOpcode::PutLine);
             cmd->set_addr(tstate->addr());
@@ -463,7 +463,7 @@ class MOESIDirProtocol : public DirProtocol {
             // to S, or in the ReadShared case, transfering ownership
             // to the requesting agent.
             //
-            CohSnpMsg* snp = new CohSnpMsg;
+            CohSnpMsg* snp = Pool<CohSnpMsg>::construct();
             snp->set_t(msg->t());
             snp->set_addr(msg->addr());
             snp->set_origin(ctxt.dir());
@@ -491,7 +491,7 @@ class MOESIDirProtocol : public DirProtocol {
             // been promoted to the M state by the time some other
             // cache requests the line, but this is necessarily the
             // case.
-            CohSnpMsg* snp = new CohSnpMsg;
+            CohSnpMsg* snp = Pool<CohSnpMsg>::construct();
             snp->set_t(msg->t());
             snp->set_addr(msg->addr());
             snp->set_origin(ctxt.dir());
@@ -511,7 +511,7 @@ class MOESIDirProtocol : public DirProtocol {
             // from the directory cache and issue a response.
 
             // Issue coherence response, line has now been removed from cache.
-            CohEndMsg* end = new CohEndMsg;
+            CohEndMsg* end = Pool<CohEndMsg>::construct();
             end->set_t(msg->t());
             // No data transfer associated with Evict transaction.
             end->set_dt_n(0);
@@ -530,7 +530,7 @@ class MOESIDirProtocol : public DirProtocol {
 
             // Form coherence result; should be gated on LLC response
             // message.
-            CohEndMsg* end = new CohEndMsg;
+            CohEndMsg* end = Pool<CohEndMsg>::construct();
             end->set_t(msg->t());
             end->set_dt_n(0);
             issue_msg_to_noc(ctxt, cl, end, msg->origin());
@@ -567,7 +567,7 @@ class MOESIDirProtocol : public DirProtocol {
 
             // Issue snoop to owner. Owner should forwarded line to
             // requesting agent and relinquish ownership of the line.
-            CohSnpMsg* snp = new CohSnpMsg;
+            CohSnpMsg* snp = Pool<CohSnpMsg>::construct();
             snp->set_t(msg->t());
             snp->set_addr(msg->addr());
             snp->set_origin(ctxt.dir());
@@ -605,7 +605,7 @@ class MOESIDirProtocol : public DirProtocol {
               if (agent == msg->origin()) continue;
 
               // Issue snoop.
-              CohSnpMsg* snp = new CohSnpMsg;
+              CohSnpMsg* snp = Pool<CohSnpMsg>::construct();
               snp->set_t(msg->t());
               snp->set_addr(msg->addr());
               snp->set_origin(ctxt.dir());
@@ -650,7 +650,7 @@ class MOESIDirProtocol : public DirProtocol {
             // LLC line fill has completed. Now, instruct the LLC to
             // forward the desired line to the requesting (owning)
             // agent.
-            LLCCmdMsg* cmd = new LLCCmdMsg;
+            LLCCmdMsg* cmd = Pool<LLCCmdMsg>::construct();
             cmd->set_t(msg->t());
             cmd->set_opcode(LLCCmdOpcode::PutLine);
             DirTState* tstate = ctxt.tstate();
@@ -667,7 +667,7 @@ class MOESIDirProtocol : public DirProtocol {
             // Requesting cache now has the line, issue notification
             // of the line status and terminate the transction.
             // Send CohEnd
-            CohEndMsg* end = new CohEndMsg;
+            CohEndMsg* end = Pool<CohEndMsg>::construct();
             end->set_t(msg->t());
             end->set_origin(ctxt.dir());
             end->set_dt_n(1);
@@ -689,7 +689,7 @@ class MOESIDirProtocol : public DirProtocol {
       case State::S: {
         switch (line->substate()) {
           case SubState::AwaitingLLCFwdRsp: {
-            CohEndMsg* end = new CohEndMsg;
+            CohEndMsg* end = Pool<CohEndMsg>::construct();
             end->set_t(msg->t());
             end->set_origin(ctxt.dir());
             end->set_dt_n(1);
@@ -747,7 +747,7 @@ class MOESIDirProtocol : public DirProtocol {
               // Final response, therefore send completed coherence
               // response back to requester to terminate the
               // transaction.
-              CohEndMsg* end = new CohEndMsg;
+              CohEndMsg* end = Pool<CohEndMsg>::construct();
               end->set_t(msg->t());
               end->set_origin(ctxt.dir());
               // "Clean" instruction, therefore as data is transferred
@@ -784,7 +784,7 @@ class MOESIDirProtocol : public DirProtocol {
             // owner, or it may have passed ownership to the
             // requesting agent.  Update state of line based upon
             // response.
-            CohEndMsg* end = new CohEndMsg;
+            CohEndMsg* end = Pool<CohEndMsg>::construct();
             end->set_t(msg->t());
             end->set_origin(ctxt.dir());
 
@@ -856,7 +856,7 @@ class MOESIDirProtocol : public DirProtocol {
               throw std::runtime_error("Cannot receive with IS.");
             }
 
-            CohEndMsg* end = new CohEndMsg;
+            CohEndMsg* end = Pool<CohEndMsg>::construct();
             end->set_t(msg->t());
             end->set_origin(ctxt.dir());
             end->set_is(false);
@@ -898,7 +898,7 @@ class MOESIDirProtocol : public DirProtocol {
               throw std::runtime_error("Cannot receive with IS.");
             }
 
-            CohEndMsg* end = new CohEndMsg;
+            CohEndMsg* end = Pool<CohEndMsg>::construct();
             end->set_t(msg->t());
             end->set_origin(ctxt.dir());
             end->set_is(false);
@@ -1107,7 +1107,7 @@ class MOESIDirProtocol : public DirProtocol {
       const DirAgent* dir_ = nullptr;
     };
     // Encapsulate message in NOC transport protocol.
-    NocMsg* nocmsg = new NocMsg;
+    NocMsg* nocmsg = Pool<NocMsg>::construct();
     nocmsg->set_t(msg->t());
     nocmsg->set_payload(msg);
     nocmsg->set_origin(ctxt.dir());

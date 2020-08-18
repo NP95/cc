@@ -48,8 +48,11 @@ const char* to_string(MemCmdOpcode opcode);
 //
 //
 class MemCmdMsg : public Message {
- public:
+  template <typename>
+  friend class PooledItem;
+
   MemCmdMsg();
+ public:
 
   //
   std::string to_string() const override;
@@ -76,8 +79,11 @@ const char* to_string(MemRspOpcode opcode);
 //
 //
 class MemRspMsg : public Message {
- public:
+  template <typename>
+  friend class PooledItem;
+  
   MemRspMsg();
+ public:
 
   //
   std::string to_string() const override;
@@ -95,9 +101,11 @@ class MemRspMsg : public Message {
 //
 //
 class DtMsg : public Message {
- public:
-  DtMsg() : Message(MessageClass::Dt) {}
+  template <typename>
+  friend class PooledItem;
 
+  DtMsg();
+ public:
   //
   std::string to_string() const override;
 };
@@ -105,8 +113,11 @@ class DtMsg : public Message {
 //
 //
 class DtRspMsg : public Message {
+  template <typename>
+  friend class PooledItem;
+  
+  DtRspMsg();
  public:
-  DtRspMsg() : Message(MessageClass::DtRsp) {}
 
   //
   std::string to_string() const override;

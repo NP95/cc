@@ -42,8 +42,11 @@ class MessageQueue;
 class MessageQueueArbiter;
 
 class NocMsg : public Message {
- public:
+  template <typename>
+  friend class PooledItem;
+
   NocMsg();
+ public:
 
   std::string to_string() const override;
 

@@ -90,6 +90,8 @@ std::string MemRspMsg::to_string() const {
   return r.to_string();
 }
 
+DtMsg::DtMsg() : Message(MessageClass::Dt) {}
+
 //
 //
 std::string DtMsg::to_string() const {
@@ -97,6 +99,8 @@ std::string DtMsg::to_string() const {
   render_msg_fields(r);
   return r.to_string();
 }
+
+DtRspMsg::DtRspMsg() : Message(MessageClass::DtRsp) {}
 
 //
 //
@@ -149,7 +153,7 @@ class MemCntrlModel::RequestDispatcherProcess : public AgentProcess {
     lm.level(Level::Debug);
     log(lm);
 
-    MemRspMsg* rspmsg = new MemRspMsg;
+    MemRspMsg* rspmsg = Pool<MemRspMsg>::construct();
     rspmsg->set_t(cmdmsg->t());
     switch (cmdmsg->opcode()) {
       case MemCmdOpcode::Read: {
@@ -179,7 +183,7 @@ class MemCntrlModel::RequestDispatcherProcess : public AgentProcess {
   }
 
   void issue_emit_to_noc(Agent* dest, const Message* msg) {
-    NocMsg* nocmsg = new NocMsg();
+    NocMsg* nocmsg = Pool<NocMsg>::construct();
     nocmsg->set_payload(msg);
     nocmsg->set_origin(model_);
     nocmsg->set_dest(dest);

@@ -37,11 +37,15 @@
 
 namespace cc {
 
+CohSrtMsg::CohSrtMsg() : Message(MessageClass::CohSrt) {}
+
 std::string CohSrtMsg::to_string() const {
   KVListRenderer r;
   render_msg_fields(r);
   return r.to_string();
 }
+
+CohEndMsg::CohEndMsg() : Message(MessageClass::CohEnd) {}
 
 std::string CohEndMsg::to_string() const {
   using cc::to_string;
@@ -54,6 +58,8 @@ std::string CohEndMsg::to_string() const {
   return r.to_string();
 }
 
+CohCmdMsg::CohCmdMsg() : Message(MessageClass::CohCmd) {}
+
 std::string CohCmdMsg::to_string() const {
   using cc::to_string;
   Hexer h;
@@ -65,11 +71,15 @@ std::string CohCmdMsg::to_string() const {
   return r.to_string();
 }
 
+CohCmdRspMsg::CohCmdRspMsg() : Message(MessageClass::CohCmdRsp) {}
+
 std::string CohCmdRspMsg::to_string() const {
   KVListRenderer r;
   render_msg_fields(r);
   return r.to_string();
 }
+
+CohSnpMsg::CohSnpMsg() : Message(MessageClass::CohSnp) {}
 
 std::string CohSnpMsg::to_string() const {
   KVListRenderer r;
@@ -80,6 +90,8 @@ std::string CohSnpMsg::to_string() const {
   r.add_field("addr", h.to_hex(addr()));
   return r.to_string();
 }
+
+CohSnpRspMsg::CohSnpRspMsg() : Message(MessageClass::CohSnpRsp) {}
 
 std::string CohSnpRspMsg::to_string() const {
   KVListRenderer r;

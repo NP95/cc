@@ -358,14 +358,14 @@ class MOESICCProtocol : public CCProtocol {
         const DirMapper* dm = ctxt.cc()->dm();
 
         // Issue coherence start message
-        CohSrtMsg* cohsrt = new CohSrtMsg;
+        CohSrtMsg* cohsrt = Pool<CohSrtMsg>::construct();
         cohsrt->set_t(msg->t());
         cohsrt->set_origin(ctxt.cc());
         cohsrt->set_addr(msg->addr());
         issue_msg_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
 
         // Issue coherence command message
-        CohCmdMsg* cohcmd = new CohCmdMsg;
+        CohCmdMsg* cohcmd = Pool<CohCmdMsg>::construct();
         cohcmd->set_t(msg->t());
         cohcmd->set_opcode(msg->opcode());
         cohcmd->set_origin(ctxt.cc());
@@ -388,14 +388,14 @@ class MOESICCProtocol : public CCProtocol {
         const DirMapper* dm = ctxt.cc()->dm();
 
         // Issue coherence start message
-        CohSrtMsg* cohsrt = new CohSrtMsg;
+        CohSrtMsg* cohsrt = Pool<CohSrtMsg>::construct();
         cohsrt->set_t(msg->t());
         cohsrt->set_origin(ctxt.cc());
         cohsrt->set_addr(msg->addr());
         issue_msg_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
 
         // Issue coherence command message
-        CohCmdMsg* cohcmd = new CohCmdMsg;
+        CohCmdMsg* cohcmd = Pool<CohCmdMsg>::construct();
         cohcmd->set_t(msg->t());
         cohcmd->set_opcode(msg->opcode());
         cohcmd->set_origin(ctxt.cc());
@@ -417,13 +417,13 @@ class MOESICCProtocol : public CCProtocol {
         // line to an owning state.
         const DirMapper* dm = ctxt.cc()->dm();
 
-        CohSrtMsg* cohsrt = new CohSrtMsg;
+        CohSrtMsg* cohsrt = Pool<CohSrtMsg>::construct();
         cohsrt->set_t(msg->t());
         cohsrt->set_origin(ctxt.cc());
         cohsrt->set_addr(msg->addr());
         issue_msg_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
 
-        CohCmdMsg* cohcmd = new CohCmdMsg;
+        CohCmdMsg* cohcmd = Pool<CohCmdMsg>::construct();
         cohcmd->set_t(msg->t());
         cohcmd->set_opcode(msg->opcode());
         cohcmd->set_origin(ctxt.cc());
@@ -444,14 +444,14 @@ class MOESICCProtocol : public CCProtocol {
         const DirMapper* dm = ctxt.cc()->dm();
 
         // Issue cohernce start message
-        CohSrtMsg* cohsrt = new CohSrtMsg;
+        CohSrtMsg* cohsrt = Pool<CohSrtMsg>::construct();
         cohsrt->set_t(msg->t());
         cohsrt->set_origin(ctxt.cc());
         cohsrt->set_addr(msg->addr());
         issue_msg_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
 
         // Issue cohernece command
-        CohCmdMsg* cohcmd = new CohCmdMsg;
+        CohCmdMsg* cohcmd = Pool<CohCmdMsg>::construct();
         cohcmd->set_t(msg->t());
         cohcmd->set_opcode(msg->opcode());
         cohcmd->set_origin(ctxt.cc());
@@ -473,14 +473,14 @@ class MOESICCProtocol : public CCProtocol {
         const DirMapper* dm = ctxt.cc()->dm();
 
         // Issue coherence start message
-        CohSrtMsg* cohsrt = new CohSrtMsg;
+        CohSrtMsg* cohsrt = Pool<CohSrtMsg>::construct();
         cohsrt->set_t(msg->t());
         cohsrt->set_origin(ctxt.cc());
         cohsrt->set_addr(msg->addr());
         issue_msg_to_noc(ctxt, cl, cohsrt, dm->lookup(msg->addr()));
 
         // Issue coherence command message
-        CohCmdMsg* cohcmd = new CohCmdMsg;
+        CohCmdMsg* cohcmd = Pool<CohCmdMsg>::construct();
         cohcmd->set_t(msg->t());
         cohcmd->set_opcode(msg->opcode());
         cohcmd->set_origin(ctxt.cc());
@@ -532,7 +532,7 @@ class MOESICCProtocol : public CCProtocol {
     issue_apply_msg(ctxt, cl, msg);
 
     // Issue Dt response to LLC/CC
-    DtRspMsg* rsp = new DtRspMsg;
+    DtRspMsg* rsp = Pool<DtRspMsg>::construct();
     rsp->set_t(msg->t());
     rsp->set_origin(ctxt.cc());
     issue_msg_to_noc(ctxt, cl, rsp, msg->origin());
@@ -575,7 +575,7 @@ class MOESICCProtocol : public CCProtocol {
     SnpLine* snpline = static_cast<SnpLine*>(ctxt.tstate()->line());
 
     // Forward response back to originating directory.
-    CohSnpRspMsg* rsp = new CohSnpRspMsg;
+    CohSnpRspMsg* rsp = Pool<CohSnpRspMsg>::construct();
     rsp->set_t(msg->t());
     rsp->set_origin(ctxt.cc());
     rsp->set_dt(msg->dt());
@@ -586,7 +586,7 @@ class MOESICCProtocol : public CCProtocol {
 
     if (msg->dt()) {
       // Data transfer, send data to requester.
-      DtMsg* dt = new DtMsg;
+      DtMsg* dt = Pool<DtMsg>::construct();
       dt->set_t(msg->t());
       dt->set_origin(ctxt.cc());
 
@@ -801,7 +801,7 @@ class MOESICCProtocol : public CCProtocol {
       time_t delay_ = 0;
     };
     // Encapsulate message in NOC transport protocol.
-    NocMsg* nocmsg = new NocMsg;
+    NocMsg* nocmsg = Pool<NocMsg>::construct();
     nocmsg->set_t(msg->t());
     nocmsg->set_payload(msg);
     nocmsg->set_origin(ctxt.cc());

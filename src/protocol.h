@@ -61,8 +61,11 @@ class Agent;
 //
 //
 class CohSrtMsg : public Message {
+  template <typename>
+  friend class PooledItem;
+
+  CohSrtMsg();
  public:
-  CohSrtMsg() : Message(MessageClass::CohSrt) {}
 
   //
   std::string to_string() const override;
@@ -80,9 +83,11 @@ class CohSrtMsg : public Message {
 //
 //
 class CohEndMsg : public Message {
- public:
-  CohEndMsg() : Message(MessageClass::CohEnd) {}
+  template <typename>
+  friend class PooledItem;
 
+  CohEndMsg();
+ public:
   //
   std::string to_string() const override;
 
@@ -106,8 +111,11 @@ class CohEndMsg : public Message {
 //
 //
 class CohCmdMsg : public Message {
+  template <typename>
+  friend class PooledItem;
+
+  CohCmdMsg();
  public:
-  CohCmdMsg() : Message(MessageClass::CohCmd) {}
 
   //
   std::string to_string() const override;
@@ -131,8 +139,11 @@ class CohCmdMsg : public Message {
 //
 //
 class CohCmdRspMsg : public Message {
+  template <typename>
+  friend class PooledItem;
+
+  CohCmdRspMsg();
  public:
-  CohCmdRspMsg() : Message(MessageClass::CohCmdRsp) {}
 
   //
   std::string to_string() const override;
@@ -141,9 +152,11 @@ class CohCmdRspMsg : public Message {
 //
 //
 class CohSnpMsg : public Message {
- public:
-  CohSnpMsg() : Message(MessageClass::CohSnp) {}
+  template <typename>
+  friend class PooledItem;
 
+  CohSnpMsg();
+ public:
   //
   std::string to_string() const override;
 
@@ -166,9 +179,11 @@ class CohSnpMsg : public Message {
 //
 //
 class CohSnpRspMsg : public Message {
- public:
-  CohSnpRspMsg() : Message(MessageClass::CohSnpRsp) {}
+  template <typename>
+  friend class PooledItem;
 
+  CohSnpRspMsg();
+ public:
   //
   std::string to_string() const override;
 
