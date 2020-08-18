@@ -352,7 +352,6 @@ TEST(Cfg112, AlternatingLoadsN) {
 
   // Validate that all transactions have retired at end-of-sim.
   EXPECT_EQ(stimulus->issue_n(), stimulus->retire_n());
-  
 }
 
 // AlternatingStoresN
@@ -437,7 +436,6 @@ TEST(Cfg112, AlternatingStoresN) {
 
   // Validate that all transactions have retired at end-of-sim.
   EXPECT_EQ(stimulus->issue_n(), stimulus->retire_n());
-  
 }
 
 int main(int argc, char** argv) {
