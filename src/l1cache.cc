@@ -200,6 +200,10 @@ void L1CommandList::clear() {
   cmds_.clear();
 }
 
+void L1CommandList::push_back(L1Opcode opcode) {
+  cmds_.push_back(L1CommandBuilder::from_opcode(opcode));
+}
+
 void L1CommandList::push_back(L1Command* cmd) { cmds_.push_back(cmd); }
 
 void L1CommandList::transaction_start(Transaction* t, bool is_blocking) {
@@ -207,18 +211,18 @@ void L1CommandList::transaction_start(Transaction* t, bool is_blocking) {
     // Blocking cache implementation:
 
     // MQ is blocked until the completion of the current command.
-    push_back(cb::from_opcode(L1Opcode::MqSetBlockedOnTransaction));
+    push_back(L1Opcode::MqSetBlockedOnTransaction);
 
     // Advance agent state to next epoch, but do not consume message
     // has this sits blocked at the head of the issue queue.
     next_and_do_consume(false);
   } else {
     // Reserve replay queue slot.
-    push_back(cb::from_opcode(L1Opcode::ReserveReplaySlot));
+    push_back(L1Opcode::ReserveReplaySlot);
     // Dequeue message, but do not release.
-    push_back(cb::from_opcode(L1Opcode::MsgDequeue));
+    push_back(L1Opcode::MsgDequeue);
     // Advance to next epoch
-    push_back(cb::from_opcode(L1Opcode::WaitNextEpoch));
+    push_back(L1Opcode::WaitNextEpoch);
   }
 
   // Transaction starts; install associated state in transaction
@@ -230,18 +234,18 @@ void L1CommandList::transaction_end(Transaction* t, bool was_blocking) {
   if (!was_blocking) {
     // If non-blocking command, re-issue command now that the
     // dependent transaction has completed.
-    push_back(cb::from_opcode(L1Opcode::MsgReissue));
+    push_back(L1Opcode::MsgReissue);
   }
   push_back(cb::build_end_transaction(t));
   // Advance to next epoch
-  push_back(cb::from_opcode(L1Opcode::WaitNextEpoch));
+  push_back(L1Opcode::WaitNextEpoch);
 }
 
 void L1CommandList::next_and_do_consume(bool do_consume) {
   if (do_consume) {
-    push_back(L1CommandBuilder::from_opcode(L1Opcode::MsgConsume));
+    push_back(L1Opcode::MsgConsume);
   }
-  push_back(L1CommandBuilder::from_opcode(L1Opcode::WaitNextEpoch));
+  push_back(L1Opcode::WaitNextEpoch);
 }
 
 L1Resources::L1Resources(const L1CommandList& list) {
@@ -467,7 +471,7 @@ class L1CacheAgent::MainProcess : public AgentProcess {
     ctxt.set_process(this);
     ctxt.set_l1cache(model_);
     L1CommandList cl;
-    cl.push_back(cb::from_opcode(L1Opcode::WaitOnMsg));
+    cl.push_back(L1Opcode::WaitOnMsg);
     execute(ctxt, cl);
   }
 
@@ -487,7 +491,7 @@ class L1CacheAgent::MainProcess : public AgentProcess {
     // arrives at the arbiter. Process should ideally not wake in the
     // absence of requesters.
     if (!ctxt.t().has_requester()) {
-      cl.push_back(cb::from_opcode(L1Opcode::WaitOnMsg));
+      cl.push_back(L1Opcode::WaitOnMsg);
       execute(ctxt, cl);
       return;
     }
@@ -624,11 +628,13 @@ class L1CacheAgent::MainProcess : public AgentProcess {
 
       // Current Message(Queue) becomes belocked on the Transaction
       // Table.
-      cl.push_back(cb::from_opcode(L1Opcode::MqSetBlockedOnTable));
+      cl.push_back(L1Opcode::MqSetBlockedOnTable);
       fail = true;
     }
 
-    auto check_mq_credits = [&](const MessageQueue* mq, std::size_t n) {
+    auto check_mq_capacity = [&](const MessageQueue* mq, std::size_t n) {
+      if (fail) return;
+
       if (!mq->has_at_least(n)) {
         // Insufficient space in L2 command queue.
       
@@ -642,12 +648,14 @@ class L1CacheAgent::MainProcess : public AgentProcess {
       }
     };
 
-    if (!fail) { check_mq_credits(model_->l1_l2__cmd_q(), res.l2_cmd_n()); }
-    if (!fail) { check_mq_credits(model_->l1_cpu__rsp_q(), res.cpu_rsp_n()); }
+    // Check L2 command queue capacity.
+    check_mq_capacity(model_->l1_l2__cmd_q(), res.l2_cmd_n());
+    // Check CPU response queue capacity
+    check_mq_capacity(model_->l1_cpu__rsp_q(), res.cpu_rsp_n());
 
     // Resources have been attained; command list is ready to be
     // executed and committed to the agent's state.
-    if (fail) { cl.push_back(cb::from_opcode(L1Opcode::WaitNextEpoch)); }
+    if (fail) { cl.push_back(L1Opcode::WaitNextEpoch); }
   }
 
   void execute(L1CacheContext& ctxt, const L1CommandList& cl) {

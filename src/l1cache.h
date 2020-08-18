@@ -246,7 +246,10 @@ class L1CommandList {
 
   void clear();
 
-  // Add item.
+  // Push back from opcode
+  void push_back(L1Opcode opcode);
+  
+  // Push back from command
   void push_back(L1Command* cmd);
 
   // Transaction starts

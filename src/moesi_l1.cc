@@ -389,7 +389,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             issue_update_state(cl, line, State::M);
             // Write through to L2. such that L2 sees the transition
             // to M immediately.
-            cl.push_back(cb::from_opcode(L1Opcode::SetL2LineModified));
+            cl.push_back(L1Opcode::SetL2LineModified);
             // Advance to next and consume
             cl.next_and_do_consume(true);
           } break;
