@@ -46,7 +46,7 @@ class MessageQueue;
 class L2LineState;
 template <typename>
 class CacheModel;
-class CCModel;
+class CCAgent;
 class L2TState;
 class L2CoherenceAction;
 
@@ -429,7 +429,7 @@ class L2CacheAgent : public Agent {
   bool elab() override;
   //
   // Set parent cache controlle
-  void set_cc(CCModel* cc) { cc_ = cc; }
+  void set_cc(CCAgent* cc) { cc_ = cc; }
   // Set L2 -> CC command queue.
   void set_l2_cc__cmd_q(MessageQueue* mq);
   // L2 -> L1 response queue.
@@ -474,7 +474,7 @@ class L2CacheAgent : public Agent {
   // Cache Instance
   L2CacheModel* cache_ = nullptr;
   // Cache Controller instance
-  CCModel* cc_ = nullptr;
+  CCAgent* cc_ = nullptr;
   // L1 cache protocol
   L2CacheAgentProtocol* protocol_ = nullptr;
   // Main process of execution.

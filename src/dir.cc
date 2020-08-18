@@ -178,7 +178,7 @@ class DirCommandInterpreter {
  public:
   DirCommandInterpreter(kernel::Kernel* k) : k_(k) {}
 
-  void set_dir(DirModel* model) { model_ = model; }
+  void set_dir(DirAgent* model) { model_ = model; }
   void set_process(AgentProcess* process) { process_ = process; }
 
   void execute(DirContext& ctxt, const DirCommand* cmd) {
@@ -321,7 +321,7 @@ class DirCommandInterpreter {
   //
   AgentProcess* process_ = nullptr;
   //
-  DirModel* model_ = nullptr;
+  DirAgent* model_ = nullptr;
 };
 
 //
@@ -347,11 +347,11 @@ void DirResources::build(const DirCommandList& cl) {
 
 //
 //
-class DirModel::RdisProcess : public AgentProcess {
+class DirAgent::RdisProcess : public AgentProcess {
   using cb = DirCommandBuilder;
 
  public:
-  RdisProcess(kernel::Kernel* k, const std::string& name, DirModel* model)
+  RdisProcess(kernel::Kernel* k, const std::string& name, DirAgent* model)
       : AgentProcess(k, name), model_(model) {}
 
  private:
@@ -617,7 +617,7 @@ class DirModel::RdisProcess : public AgentProcess {
   }
 
   // Pointer to parent directory instance.
-  DirModel* model_ = nullptr;
+  DirAgent* model_ = nullptr;
 };
 
 //
@@ -670,12 +670,12 @@ class DirNocEndpoint : public NocEndpoint {
   std::map<MessageClass, std::map<const Agent*, MessageQueue*> > origin_eps_;
 };
 
-DirModel::DirModel(kernel::Kernel* k, const DirModelConfig& config)
+DirAgent::DirAgent(kernel::Kernel* k, const DirModelConfig& config)
     : Agent(k, config.name), config_(config) {
   build();
 }
 
-DirModel::~DirModel() {
+DirAgent::~DirAgent() {
   for (const auto& p : cc_dir__cmd_q_) { delete p.second; }
   delete llc_dir__rsp_q_;
   delete cc_dir__snprsp_q_;
@@ -693,7 +693,7 @@ DirModel::~DirModel() {
   }
 }
 
-void DirModel::build() {
+void DirAgent::build() {
   // LLC -> DIR command queue
   llc_dir__rsp_q_ = new MessageQueue(k(), "llc_dir__rsp_q", 30);
   add_child_module(llc_dir__rsp_q_);
@@ -724,7 +724,7 @@ void DirModel::build() {
 
 //
 //
-void DirModel::register_command_queue(const Agent* origin) {
+void DirAgent::register_command_queue(const Agent* origin) {
   const std::string name = "cmdq" + std::to_string(cc_dir__cmd_q_.size());
   MessageQueue* mq = new MessageQueue(k(), name, config_.cmd_queue_n);
   add_child_module(mq);
@@ -733,7 +733,7 @@ void DirModel::register_command_queue(const Agent* origin) {
 
 //
 //
-bool DirModel::elab() {
+bool DirAgent::elab() {
   // Add message queues to arbiter
   for (auto& p : cc_dir__cmd_q_) {
     MessageQueue* mq = p.second;
@@ -756,21 +756,21 @@ bool DirModel::elab() {
   return false;
 }
 
-void DirModel::set_dir_noc__port(NocPort* port) {
+void DirAgent::set_dir_noc__port(NocPort* port) {
   dir_noc__port_ = port;
   add_child_module(dir_noc__port_);
 }
 
 //
 //
-void DirModel::drc() {
+void DirAgent::drc() {
   if (dir_noc__port_ == nullptr) {
     LogMessage lmsg("Dir to NOC message queue is unbound.", Level::Fatal);
     log(lmsg);
   }
 }
 
-void DirModel::register_credit_counter(MessageClass cls, Agent* dest,
+void DirAgent::register_credit_counter(MessageClass cls, Agent* dest,
                                        std::size_t n) {
   const std::string name = join_path(flatten_path(dest->path()), to_string(cls));
   // Construct new credit counter.
@@ -781,9 +781,9 @@ void DirModel::register_credit_counter(MessageClass cls, Agent* dest,
   ccntrs_map_[cls].insert(std::make_pair(dest, cc));
 }
 
-MessageQueue* DirModel::endpoint() { return noc_endpoint_->ingress_mq(); }
+MessageQueue* DirAgent::endpoint() { return noc_endpoint_->ingress_mq(); }
 
-CreditCounter* DirModel::cc_by_cls_agent(MessageClass cls,
+CreditCounter* DirAgent::cc_by_cls_agent(MessageClass cls,
                                         const Agent* agent) const {
   CreditCounter* ret = nullptr;
   if (cls == MessageClass::Noc) {
@@ -797,7 +797,7 @@ CreditCounter* DirModel::cc_by_cls_agent(MessageClass cls,
   return ret;
 }
 
-MessageQueue* DirModel::mq_by_msg_cls(MessageClass cls, const Agent* agent) const {
+MessageQueue* DirAgent::mq_by_msg_cls(MessageClass cls, const Agent* agent) const {
   return noc_endpoint_->lookup_endpoint(cls, agent);
 }
 

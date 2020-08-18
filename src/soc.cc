@@ -51,7 +51,7 @@ SocTop::~SocTop() {
     delete cc;
   }
   //
-  for (DirModel* dm : dms_) {
+  for (DirAgent* dm : dms_) {
     delete dm;
   }
   for (LLCModel* llc : llcs_) {
@@ -94,7 +94,7 @@ void SocTop::build(const SocConfig& cfg) {
 
   // Construct child directories
   for (const DirModelConfig& dcfg : cfg.dcfgs) {
-    DirModel* dm = new DirModel(k(), dcfg);
+    DirAgent* dm = new DirAgent(k(), dcfg);
     noc_->register_agent(dm);
     add_child_module(dm);
     dms_.push_back(dm);
@@ -188,7 +188,7 @@ void SocTop::elab_bind_ports() {
     // CC -> NOC message queue
     cpuc->set_cc_noc__port(port);
   }
-  for (DirModel* dm : dms_) {
+  for (DirAgent* dm : dms_) {
     NocPort* dm_port = noc_->get_agent_port(dm);
     // NOC -> DIR message queue
     dm_port->set_egress(dm->endpoint());
@@ -224,7 +224,7 @@ void SocTop::elab_bind_ports() {
     cc->set_dm(dm_);
   }
   // Register CC <-> LLC ports
-  for (DirModel* dm : dms_) {
+  for (DirAgent* dm : dms_) {
     LLCModel* llc = dm->llc();
     for (CpuCluster* cc : ccs_) {
       llc->register_cc(cc);
@@ -240,11 +240,11 @@ void SocTop::elab_credit_counts() {
 
   // Update CPU Cluster to Directory credit paths.
   for (CpuCluster* cpuc : ccs_) {
-    CCModel* cc = cpuc->cc();
+    CCAgent* cc = cpuc->cc();
     const CCConfig& ccfg = cc->config();
 
     // Register edge from Cpu Cluster to directories
-    for (DirModel* dm : dms_) {
+    for (DirAgent* dm : dms_) {
       // Directory model configuration.
       const DirModelConfig& dcfg = dm->config();
       // Coherence start message
@@ -274,10 +274,10 @@ void SocTop::elab_credit_counts() {
   }
 
   // Set Directory to CPU Cluster (Snoops) credit paths
-  for (DirModel* dm : dms_) {
+  for (DirAgent* dm : dms_) {
 
     for (CpuCluster* cpuc : ccs_) {
-      CCModel* cc = cpuc->cc();
+      CCAgent* cc = cpuc->cc();
       const CCConfig& ccfg = cc->config();
       
       dm->register_credit_counter(MessageClass::CohSnp, cc, ccfg.snp_credits_n);

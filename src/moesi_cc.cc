@@ -730,7 +730,7 @@ class MOESICCProtocol : public CCProtocol {
 
       void set_port(NocPort* port) { port_ = port; }
       void set_msg(const NocMsg* msg) { msg_ = msg; }
-      void set_cc(const CCModel* cc) { cc_ = cc; }
+      void set_cc(const CCAgent* cc) { cc_ = cc; }
       void set_delay(time_t delay) { delay_ = delay; }
 
       void set_resources(CCResources& r) const override {
@@ -773,7 +773,7 @@ class MOESICCProtocol : public CCProtocol {
             ccntr_map_it != cntrs_map.end()) {
           // Lookup map to determine if a credit counter for the
           // destination agent is present.
-          const CCModel::ccntr_map& agent_counter = ccntr_map_it->second;
+          const CCAgent::ccntr_map& agent_counter = ccntr_map_it->second;
           if (auto it = agent_counter.find(msg_->dest());
               it != agent_counter.end()) {
             // Credit counter is present, therefore deduct a credit before
@@ -798,7 +798,7 @@ class MOESICCProtocol : public CCProtocol {
       // Destination Message Queue
       NocPort* port_ = nullptr;
       // Cache controller model
-      const CCModel* cc_ = nullptr;
+      const CCAgent* cc_ = nullptr;
       // Issue delay relative to current simulation time.
       time_t delay_ = 0;
     };

@@ -279,11 +279,11 @@ class CCCommandInterpreter {
 
 //
 //
-class CCModel::RdisProcess : public AgentProcess {
+class CCAgent::RdisProcess : public AgentProcess {
   using cb = CCCommandBuilder;
 
  public:
-  RdisProcess(kernel::Kernel* k, const std::string& name, CCModel* model)
+  RdisProcess(kernel::Kernel* k, const std::string& name, CCAgent* model)
       : AgentProcess(k, name), model_(model) {}
 
  private:
@@ -437,7 +437,7 @@ class CCModel::RdisProcess : public AgentProcess {
 
     // Check if the credit counter for agent 'agent' has at least 'n'
     // credits.
-    auto check_credits = [&](const CCModel::ccntr_map& ccntrs,
+    auto check_credits = [&](const CCAgent::ccntr_map& ccntrs,
                              const Agent* agent, std::size_t n) -> bool {
       bool success = true;
       // If a credit exists for the destination agent, credit count
@@ -515,7 +515,7 @@ class CCModel::RdisProcess : public AgentProcess {
   }
 
   // Cache controller instance.
-  CCModel* model_ = nullptr;
+  CCAgent* model_ = nullptr;
 };
 
 const char* to_string(CCSnpOpcode opcode) {
@@ -586,7 +586,7 @@ class CCSnpCommandInterpreter {
  public:
   CCSnpCommandInterpreter() = default;
 
-  void set_cc(CCModel* model) { model_ = model; }
+  void set_cc(CCAgent* model) { model_ = model; }
   void set_process(AgentProcess* process) { process_ = process; }
 
   void execute(CCSnpContext& ctxt, const CCSnpCommand* cmd) {
@@ -653,18 +653,18 @@ class CCSnpCommandInterpreter {
 
  private:
   // Parent cache controller model.
-  CCModel* model_ = nullptr;
+  CCAgent* model_ = nullptr;
   // Invoking thread.
   AgentProcess* process_ = nullptr;
 };
 
 //
 //
-class CCModel::SnpProcess : public AgentProcess {
+class CCAgent::SnpProcess : public AgentProcess {
   using cb = CCSnpCommandBuilder;
 
  public:
-  SnpProcess(kernel::Kernel* k, const std::string& name, CCModel* model)
+  SnpProcess(kernel::Kernel* k, const std::string& name, CCAgent* model)
       : AgentProcess(k, name), model_(model) {}
 
   void init() override {
@@ -772,7 +772,7 @@ class CCModel::SnpProcess : public AgentProcess {
     }
   }
 
-  CCModel* model_ = nullptr;
+  CCAgent* model_ = nullptr;
 };
 
 //
@@ -812,12 +812,12 @@ class CCNocEndpoint : public NocEndpoint {
   std::map<MessageClass, MessageQueue*> endpoints_;
 };
 
-CCModel::CCModel(kernel::Kernel* k, const CCConfig& config)
+CCAgent::CCAgent(kernel::Kernel* k, const CCConfig& config)
     : Agent(k, config.name), config_(config) {
   build();
 }
 
-CCModel::~CCModel() {
+CCAgent::~CCAgent() {
   delete l2_cc__cmd_q_;
   delete dir_cc__rsp_q_;
   delete dir_cc__snpcmd_q_;
@@ -839,7 +839,7 @@ CCModel::~CCModel() {
   }
 }
 
-void CCModel::build() {
+void CCAgent::build() {
   // Construct L2 to CC command queue
   l2_cc__cmd_q_ = new MessageQueue(k(), "l2_cc__cmd_q", 30);
   add_child_module(l2_cc__cmd_q_);
@@ -889,7 +889,7 @@ void CCModel::build() {
 
 //
 //
-bool CCModel::elab() {
+bool CCAgent::elab() {
   // Add ingress queues to arbitrator.
   arb_->add_requester(l2_cc__cmd_q_);
   arb_->add_requester(dir_cc__rsp_q_);
@@ -914,25 +914,25 @@ bool CCModel::elab() {
 }
 
 // Set CC -> NOC message queue
-void CCModel::set_cc_noc__port(NocPort* port) {
+void CCAgent::set_cc_noc__port(NocPort* port) {
   cc_noc__port_ = port;
   add_child_module(cc_noc__port_);
 }
 
 // Set CC -> L2 response queue
-void CCModel::set_cc_l2__cmd_q(MessageQueue* mq) {
+void CCAgent::set_cc_l2__cmd_q(MessageQueue* mq) {
   cc_l2__cmd_q_ = mq;
   add_child_module(cc_l2__cmd_q_);
 }
 
 // Set CC -> L2 response queue
-void CCModel::set_cc_l2__rsp_q(MessageQueue* mq) {
+void CCAgent::set_cc_l2__rsp_q(MessageQueue* mq) {
   cc_l2__rsp_q_ = mq;
   add_child_module(cc_l2__rsp_q_);
 }
 
 //
-void CCModel::register_credit_counter(MessageClass cls, Agent* dest,
+void CCAgent::register_credit_counter(MessageClass cls, Agent* dest,
                                       std::size_t n) {
   std::string name = "cc_";
   name += flatten_path(dest->path()) + "_" + to_string(cls);
@@ -946,7 +946,7 @@ void CCModel::register_credit_counter(MessageClass cls, Agent* dest,
 
 //
 //
-void CCModel::drc() {
+void CCAgent::drc() {
   if (dm() == nullptr) {
     // The Dir Mapper object computes the host directory for a
     // given address. In a single directory system, this is a basic
@@ -958,9 +958,9 @@ void CCModel::drc() {
   }
 }
 
-MessageQueue* CCModel::endpoint() const { return noc_endpoint_->ingress_mq(); }
+MessageQueue* CCAgent::endpoint() const { return noc_endpoint_->ingress_mq(); }
 
-CreditCounter* CCModel::cc_by_cls_agent(MessageClass cls,
+CreditCounter* CCAgent::cc_by_cls_agent(MessageClass cls,
                                         const Agent* agent) const {
   CreditCounter* ret = nullptr;
   if (cls == MessageClass::Noc) {
@@ -975,7 +975,7 @@ CreditCounter* CCModel::cc_by_cls_agent(MessageClass cls,
   return ret;
 }
 
-MessageQueue* CCModel::mq_by_msg_cls(MessageClass cls) const {
+MessageQueue* CCAgent::mq_by_msg_cls(MessageClass cls) const {
   return noc_endpoint_->lookup_endpoint(cls);
 }
 

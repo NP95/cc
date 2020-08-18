@@ -81,7 +81,7 @@ TEST(Coincident, SimpleRead) {
   }
 
   // Validate line status in home directory.
-  const cc::DirModel* dir = top.lookup_by_path<cc::DirModel>(
+  const cc::DirAgent* dir = top.lookup_by_path<cc::DirAgent>(
       test::path_dir_by_dir_id(cfg, 0));
 
   // TODO: checker not implemented.

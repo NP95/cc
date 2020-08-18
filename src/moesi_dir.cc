@@ -1052,7 +1052,7 @@ class MOESIDirProtocol : public DirProtocol {
 
       void set_port(NocPort* port) { port_ = port; }
       void set_msg(const NocMsg* msg) { msg_ = msg; }
-      void set_dir(const DirModel* dir) { dir_ = dir; }
+      void set_dir(const DirAgent* dir) { dir_ = dir; }
 
       void set_resources(DirResources& r) const override {
 
@@ -1102,7 +1102,7 @@ class MOESIDirProtocol : public DirProtocol {
       // Destination Message Queue
       NocPort* port_ = nullptr;
       // Cache controller model
-      const DirModel* dir_ = nullptr;
+      const DirAgent* dir_ = nullptr;
     };
     // Encapsulate message in NOC transport protocol.
     NocMsg* nocmsg = new NocMsg;

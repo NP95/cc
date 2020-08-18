@@ -40,7 +40,7 @@ namespace cc {
 
 // Forwards
 class LLCModel;
-class DirModel;
+class DirAgent;
 class DirLineState;
 class NocPort;
 class MessageQueue;
@@ -262,7 +262,7 @@ class DirContext {
   MQArbTmt t() const { return t_; }
   const Message* msg() const { return mq_->peek(); }
   MessageQueue* mq() const { return mq_; }
-  DirModel* dir() const { return dir_; }
+  DirAgent* dir() const { return dir_; }
   DirTState* tstate() const { return tstate_; }
   bool owns_tstate() const { return owns_tstate_; }
   bool owns_line() const { return owns_line_; }
@@ -271,7 +271,7 @@ class DirContext {
   void set_addr(addr_t addr) { addr_ = addr; }
   void set_t(MQArbTmt t) { t_ = t; }
   void set_mq(MessageQueue* mq) { mq_ = mq; }
-  void set_dir(DirModel* dir) { dir_ = dir; }
+  void set_dir(DirAgent* dir) { dir_ = dir; }
   void set_tstate(DirTState* tstate) { tstate_ = tstate; }
   void set_owns_tstate(bool owns_tstate) { owns_tstate_ = owns_tstate; }
   void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
@@ -284,7 +284,7 @@ class DirContext {
   // Current Message Queue
   MessageQueue* mq_ = nullptr;
   // L2 cache instance
-  DirModel* dir_ = nullptr;
+  DirAgent* dir_ = nullptr;
   //
   DirTState* tstate_ = nullptr;
   //
@@ -295,7 +295,7 @@ class DirContext {
 
 //
 //
-class DirModel : public Agent {
+class DirAgent : public Agent {
   friend class SocTop;
   friend class DirCommandInterpreter;
 
@@ -304,8 +304,8 @@ class DirModel : public Agent {
  public:
   using ccntr_map = std::map<const Agent*, CreditCounter*>;
 
-  DirModel(kernel::Kernel* k, const DirModelConfig& config);
-  ~DirModel();
+  DirAgent(kernel::Kernel* k, const DirModelConfig& config);
+  ~DirAgent();
 
   const DirModelConfig& config() const { return config_; }
 
@@ -392,20 +392,20 @@ class DirMapper {
   DirMapper() = default;
   virtual ~DirMapper() = default;
 
-  virtual DirModel* lookup(addr_t addr) const = 0;
+  virtual DirAgent* lookup(addr_t addr) const = 0;
 };
 
 //
 //
 class SingleDirMapper : public DirMapper {
  public:
-  SingleDirMapper(DirModel* dm) : dm_(dm) {}
+  SingleDirMapper(DirAgent* dm) : dm_(dm) {}
 
-  DirModel* lookup(addr_t addr) const override { return dm_; }
+  DirAgent* lookup(addr_t addr) const override { return dm_; }
 
  private:
   // Dir end-point definition.
-  DirModel* dm_ = nullptr;
+  DirAgent* dm_ = nullptr;
 };
 
 }  // namespace cc

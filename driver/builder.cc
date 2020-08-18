@@ -100,6 +100,8 @@ class SocConfigBuilderJson {
   void build(L1CacheAgentConfig& c, json j) {
     // Set .name
     CHECK_AND_SET(name);
+    // Set .epoch
+    CHECK_AND_SET_OPTIONAL(epoch);
     // Set .cpu_l1__cmd_n
     CHECK_AND_SET_OPTIONAL(cpu_l1__cmd_n);
     // Set .l2_l1__rsp_n
@@ -115,6 +117,8 @@ class SocConfigBuilderJson {
   void build(L2CacheAgentConfig& c, json j) {
     // Set .name
     CHECK_AND_SET(name);
+    // Set .epoch
+    CHECK_AND_SET_OPTIONAL(epoch);
     // Set .cconfig
     CHECK(cconfig);
     build(c.cconfig, j["cconfig"]);
@@ -125,20 +129,32 @@ class SocConfigBuilderJson {
     CHECK_AND_SET(name);
     // Set .ingress_q_n
     CHECK_AND_SET_OPTIONAL(ingress_q_n);
+    // TODO: edges
   }
 
   void build(LLCModelConfig& c, json j) {
     // Set .name
     CHECK_AND_SET(name);
+    // Set .epoch
+    CHECK_AND_SET_OPTIONAL(epoch);
     // Set .cmd_queue_n
     CHECK_AND_SET_OPTIONAL(cmd_queue_n);
     // Set .rsp_queue_n
     CHECK_AND_SET_OPTIONAL(rsp_queue_n);
   }
 
+  void build(MemModelConfig& c, json j) {
+    // Set .name
+    CHECK_AND_SET(name);
+    // Set .epoch
+    CHECK_AND_SET_OPTIONAL(epoch);
+  }
+
   void build(DirModelConfig& c, json j) {
     // Set .name
     CHECK_AND_SET(name);
+    // Set .epoch
+    CHECK_AND_SET_OPTIONAL(epoch);
     // Set .cmd_queue_n
     CHECK_AND_SET_OPTIONAL(cmd_queue_n);
     // Set .rsp_queue_n
@@ -174,8 +190,9 @@ class SocConfigBuilderJson {
       build(cmc, item);
       c.l1c_configs.push_back(cmc);
     }
-    if (c.l1c_configs.empty())
+    if (c.l1c_configs.empty()) {
       THROW_EX("No L1 are defined");
+    }
     // Set .cpu_configs
     CHECK(cpu_configs);
     for (const auto& item : j["cpu_configs"]) {
@@ -183,8 +200,9 @@ class SocConfigBuilderJson {
       build(cc, item);
       c.cpu_configs.push_back(cc);
     }
-    if (c.cpu_configs.empty())
+    if (c.cpu_configs.empty()) {
       THROW_EX("No CPU are defined");
+    }
     if (c.cpu_configs.size() != c.l1c_configs.size()) {
       THROW_EX("CPU count does not equal L1 count.");
     }
@@ -227,8 +245,9 @@ class SocConfigBuilderJson {
       build(ccc, item);
       c.ccls.push_back(ccc);
     }
-    if (c.ccls.empty())
+    if (c.ccls.empty()) {
       throw BuilderException("No CPU clusters configured.");
+    }
     // Set .dcfgs (DirModelConfig)
     CHECK(dcfgs);
     for (const auto& item : j["dcfgs"]) {
@@ -236,8 +255,19 @@ class SocConfigBuilderJson {
       build(dmc, item);
       c.dcfgs.push_back(dmc);
     }
-    if (c.dcfgs.empty())
-      throw BuilderException("No directories configured");
+    if (c.dcfgs.empty()) {
+      throw BuilderException("No directories configured.");
+    }
+    // Set .mcfgs (MemModelConfig)
+    CHECK(mcfgs);
+    for (const auto& item : j["mcfgs"]) {
+      MemModelConfig mmc;
+      build(mmc, item);
+      c.mcfgs.push_back(mmc);
+    }
+    if (c.mcfgs.empty()) {
+      throw BuilderException("No Memories configured.");
+    }
     // Set .scfg (StimulusConfig)
     CHECK(scfg);
     build(c.scfg, j["scfg"]);

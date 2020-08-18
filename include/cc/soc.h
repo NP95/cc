@@ -40,7 +40,7 @@ class SocTop;
 class ProtocolBuilder;
 class DirMapper;
 class NocModel;
-class DirModel;
+class DirAgent;
 class LLCModel;
 class CpuCluster;
 class MemCntrlModel;
@@ -88,7 +88,7 @@ class SocTop : public kernel::TopModule {
   NocModel* noc_ = nullptr;
 
   // Directory model instance
-  std::vector<DirModel*> dms_;
+  std::vector<DirAgent*> dms_;
 
   // LLC Models 1-to-1 relationship with non-Null Filter directories.
   std::vector<LLCModel*> llcs_;

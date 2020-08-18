@@ -36,7 +36,7 @@ namespace cc {
 
 class L2CacheAgent;
 class L1CacheAgent;
-class CCModel;
+class CCAgent;
 class Cpu;
 class NocPort;
 
@@ -52,7 +52,7 @@ class CpuCluster : public Agent {
   const CpuClusterConfig& config() const { return config_; }
 
   // Child cache controller instance.
-  CCModel* cc() const { return cc_; }
+  CCAgent* cc() const { return cc_; }
   // Get NOC -> CC message queue instance (CC owned)
   MessageQueue* noc_cc__msg_q() const;
 
@@ -70,7 +70,7 @@ class CpuCluster : public Agent {
   void drc() override;
 
   //
-  CCModel* cc_ = nullptr;
+  CCAgent* cc_ = nullptr;
   //
   L2CacheAgent* l2c_ = nullptr;
   //

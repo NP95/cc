@@ -41,7 +41,7 @@ class NocPort;
 class L2CacheAgent;
 class CCLineState;
 class CCProtocol;
-class CCModel;
+class CCAgent;
 class CCNocEndpoint;
 class CCCoherenceAction;
 
@@ -260,7 +260,7 @@ class CCContext {
   MessageQueue* mq() const { return mq_; }
 
   // Cache Controller model instance
-  CCModel* cc() const { return cc_; }
+  CCAgent* cc() const { return cc_; }
 
   // Context owns line
   bool owns_line() const { return owns_line_; }
@@ -283,7 +283,7 @@ class CCContext {
   void set_mq(MessageQueue* mq) { mq_ = mq; }
 
   // Set cache controller instance
-  void set_cc(CCModel* cc) { cc_ = cc; }
+  void set_cc(CCAgent* cc) { cc_ = cc; }
 
   void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
   void set_line(CCLineState* line) { line_ = line; }
@@ -302,7 +302,7 @@ class CCContext {
   // Current Message Queue
   MessageQueue* mq_ = nullptr;
   // L2 cache instance
-  CCModel* cc_ = nullptr;
+  CCAgent* cc_ = nullptr;
   // Invoking process
   AgentProcess* process_ = nullptr;
   // Cursor
@@ -312,15 +312,30 @@ class CCContext {
 //
 //
 enum class CCSnpOpcode {
+  // Raise notification that a new transaction has begun.
   TransactionStart,
+
+  // Raise notification that the current transactio has completed.
   TransactionEnd,
+
+  // Invoke a coherence protocol defined action.
   InvokeCoherenceAction,
+
+  // Consume message from nominated message queue.
   ConsumeMsg,
+
+  // Re-evaluate agent after an 'Epoch' has elapsed.
   NextEpoch,
+
+  // Wait on the arrival of a message from one of the agents ingress
+  // message queues.
   WaitOnMsg,
+
+  // Invalid, placeholder.
   Invalid
 };
 
+// Convert Snoop Opcode to string.
 const char* to_string(CCSnpOpcode opcode);
 
 //
@@ -357,8 +372,10 @@ class CCSnpCommand {
 //
 class CCSnpCommandBuilder {
  public:
+  // Construct new command from opcode.
   static CCSnpCommand* from_opcode(CCSnpOpcode opcode);
 
+  // Construct new command from a protocol-defined action.
   static CCSnpCommand* from_action(CCCoherenceAction* action);
 };
 
@@ -397,19 +414,32 @@ class CCSnpCommandList {
 class CCSnpTState {
  public:
   CCSnpTState() = default;
-  //
+
+  // Reclaim state object.
   void release() { delete this; }
 
-  //
+  // Snoop line
   CCSnpLineState* line() const { return line_; }
+
+  // TState owns line
   bool owns_line() const { return owns_line_; }
 
-  //
+  
+  // Set snoop line
   void set_line(CCSnpLineState* line) { line_ = line; }
+
+  // Set owns line
   void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
 
  private:
+  // Destruct object using 'release' method
+  virtual ~CCSnpTState() = default;
+  
+  // Snoop line state.
   CCSnpLineState* line_ = nullptr;
+
+  // Flag denoting that the TState object has ownership of the line
+  // and is therefore responsible for destructing the line.
   bool owns_line_ = false;
 };
 
@@ -425,7 +455,7 @@ class CCSnpContext {
 
   //
   MQArbTmt t() const { return t_; }
-  CCModel* cc() const { return cc_; }
+  CCAgent* cc() const { return cc_; }
   MessageQueue* mq() const { return mq_; }
   const Message* msg() const { return mq_->peek(); }
   CCSnpTState* tstate() const { return tstate_; }
@@ -439,7 +469,7 @@ class CCSnpContext {
 
   //
   void set_t(MQArbTmt t) { t_ = t; }
-  void set_cc(CCModel* cc) { cc_ = cc; }
+  void set_cc(CCAgent* cc) { cc_ = cc; }
   void set_mq(MessageQueue* mq) { mq_ = mq; }
   void set_tstate(CCSnpTState* tstate) { tstate_ = tstate; }
   void set_owns_tstate(bool owns_tstate) { owns_tstate_ = owns_tstate; }
@@ -454,7 +484,7 @@ class CCSnpContext {
   // Current Message Queue
   MessageQueue* mq_ = nullptr;
   // L2 cache instance
-  CCModel* cc_ = nullptr;
+  CCAgent* cc_ = nullptr;
   //
   CCSnpTState* tstate_ = nullptr;
   // Flag indiciating that current context owns the tstate and must
@@ -468,7 +498,7 @@ class CCSnpContext {
 
 //
 //
-class CCModel : public Agent {
+class CCAgent : public Agent {
   friend class SocTop;
   friend class CpuCluster;
   friend class CCCommandInterpreter;
@@ -480,46 +510,62 @@ class CCModel : public Agent {
  public:
   using ccntr_map = std::map<const Agent*, CreditCounter*>;
 
-  CCModel(kernel::Kernel* k, const CCConfig& config);
-  ~CCModel();
+  CCAgent(kernel::Kernel* k, const CCConfig& config);
+  ~CCAgent();
 
   // Obtain cache controller configuration.
   const CCConfig& config() const { return config_; }
+
   // L2 -> Controller (Transaction) Command Queue (owning)
   MessageQueue* l2_cc__cmd_q() const { return l2_cc__cmd_q_; }
+
   // CC -> L2 Command Queue (Snoops)
   MessageQueue* cc_l2__cmd_q() const { return cc_l2__cmd_q_; }
+
   // CC -> L2 Response Queue
   MessageQueue* cc_l2__rsp_q() const { return cc_l2__rsp_q_; }
+
   // L2 -> CC Snoop Response
   MessageQueue* l2_cc__snprsp_q() const { return l2_cc__snprsp_q_; }
+
   // NOC -> CC Ingress Queue
   MessageQueue* endpoint() const;
+
   // CC -> NOC Egress Queue
   NocPort* cc_noc__port() const { return cc_noc__port_; }
+
   // Directory Mapper instance.
   DirMapper* dm() const { return dm_; }
+
   // L2 cache model
   L2CacheAgent* l2c() const { return l2c_; }
+
   // Credit Counters
   const std::map<MessageClass, ccntr_map>& ccntrs_map() const {
     return ccntrs_map_;
   }
+
   // Lookup Credit Counter by Message Class and agent
   CreditCounter* cc_by_cls_agent(MessageClass cls, const Agent* agent) const;
+
   // Lookup Message Queue by Message Class
   MessageQueue* mq_by_msg_cls(MessageClass cls) const;
 
  protected:
   // Accessors:
+
   // Pointer to module arbiter instance:
   MQArb* arb() const { return arb_; }
-  //
+
+  // Snoop arbitrator instance.
   MQArb* snp_arb() const { return snp_arb_; }
+
   // Protocol instance
   CCProtocol* protocol() const { return protocol_; }
+
   // Transaction table.
   CCTTable* table() const { return tt_; }
+
   // Snoop transactiont table.
   CCSnpTTable* snp_table() const { return snp_tt_; }
 
@@ -528,68 +574,97 @@ class CCModel : public Agent {
 
   // Elaboration
   bool elab() override;
+
   // Set slave L2C instance.
   void set_l2c(L2CacheAgent* l2c) { l2c_ = l2c; }
+
   // Set directory mapper.
   void set_dm(DirMapper* dm) { dm_ = dm; }
+
   // Set CC -> NOC message queue
   void set_cc_noc__port(NocPort* port);
+
   // Set CC -> L2 message
   void set_cc_l2__cmd_q(MessageQueue* mq);
+
   // Set CC -> L2 response queue
   void set_cc_l2__rsp_q(MessageQueue* mq);
+
   // Register credit counter for MessageClass 'cls' in Agent 'agent' with
   // an initial value of 'n' credits.
   void register_credit_counter(MessageClass cls, Agent* dest, std::size_t n);
+
   // Transaction table
   CCTTable* tt() const { return tt_; }
-  //
+
+  // Snoop Transaction Table
   CCSnpTTable* snp_tt() const { return snp_tt_; }
 
   // Design Rule Check (DRC)
   void drc() override;
 
  private:
+
   // L2 Cache Model to which this controller is bound.
   L2CacheAgent* l2c_ = nullptr;
+
   // L2 -> Controller (Transaction) Command Queue (CC owned)
   MessageQueue* l2_cc__cmd_q_ = nullptr;
+
   // CC -> L2 command queue (L2 owned)
   MessageQueue* cc_l2__cmd_q_ = nullptr;
+
   // CC -> L2 response queue (L2 owned)
   MessageQueue* cc_l2__rsp_q_ = nullptr;
+
   // CC -> NOC Egress Queue (noc owned)
   NocPort* cc_noc__port_ = nullptr;
+
   // DIR -> CC Ingress Queue (cc owned)
   MessageQueue* dir_cc__rsp_q_ = nullptr;
+
   // DIR -> CC Command Queue (snoops) (cc owned)
   MessageQueue* dir_cc__snpcmd_q_ = nullptr;
+
   // L2 -> CC snoop response queue (cc owned)
   MessageQueue* l2_cc__snprsp_q_ = nullptr;
+
   // CC -> CC response queue. (cc owned)
   MessageQueue* cc_cc__rsp_q_ = nullptr;
+
   // {LLC, CC} -> CC Data (dt) queue (cc owned)
   MessageQueue* cc__dt_q_ = nullptr;
+
   // Agent credit counters (keyed on Message class)
   std::map<MessageClass, ccntr_map> ccntrs_map_;
+
   // Queue selection arbiter
   MQArb* arb_ = nullptr;
+
   // Snoop Queue Selection Arbiter instance
   MQArb* snp_arb_ = nullptr;
+
   // Directory Mapper instance
   DirMapper* dm_ = nullptr;
+
   // Disatpcher process
   RdisProcess* rdis_proc_ = nullptr;
+
   // Snoop process
   SnpProcess* snp_proc_ = nullptr;
+
   // NOC endpoint
   CCNocEndpoint* noc_endpoint_ = nullptr;
+
   // Transaction table instance.
   CCTTable* tt_ = nullptr;
+
   // Snoop transaction table instance.
   CCSnpTTable* snp_tt_ = nullptr;
+
   // Cache controller protocol instance.
   CCProtocol* protocol_ = nullptr;
+
   // Cache controller configuration.
   CCConfig config_;
 };
