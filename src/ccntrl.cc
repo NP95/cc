@@ -501,15 +501,18 @@ class CCAgent::RdisProcess : public AgentProcess {
 
   CCTState* lookup_state_or_fail(Transaction* t) const {
     CCTTable* tt = model_->tt();
-    CCTTable::iterator it;
-    if (it = tt->find(t); it == tt->end()) {
+
+    CCTState* tstate = nullptr;
+    if (auto it = tt->find(t); it != tt->end()) {
+      tstate = it->second;
+    } else {
       // Expect to find a entry in the transaction table. If an entry
       // is not present bail.
       LogMessage msg("Transaction not found in table.");
       msg.level(Level::Fatal);
       log(msg);
     }
-    return it->second;
+    return tstate;
   }
 
   // Cache controller instance.
@@ -651,7 +654,7 @@ class CCSnpCommandInterpreter {
   }
 
   void execute_wait_next_epoch(CCSnpContext& ctxt, const CCSnpCommand* cmd) {
-    process_->wait_for(kernel::Time{10, 0});
+    process_->wait_epoch();
   }
 
   void execute_wait_on_msg(CCSnpContext& ctxt, const CCSnpCommand* cmd) {
@@ -854,16 +857,16 @@ void CCAgent::build() {
   // DIR -> CC response queue
   dir_cc__rsp_q_ = new MessageQueue(k(), "dir_cc__rsp_q", 30);
   add_child_module(dir_cc__rsp_q_);
-  //
+  // Dir -> CC Snoop Command
   dir_cc__snpcmd_q_ = new MessageQueue(k(), "dir_cc__snpcmd_q", 30);
   add_child_module(dir_cc__snpcmd_q_);
-  //
+  // L2 -> CC Snoop Response Message Queue
   l2_cc__snprsp_q_ = new MessageQueue(k(), "l2_cc__snprsp_q", 30);
   add_child_module(l2_cc__snprsp_q_);
-  // CC -> CC response queue (intervention response.
+  // CC -> CC response queue (intervention response).
   cc_cc__rsp_q_ = new MessageQueue(k(), "cc_cc__rsp_q", 30);
   add_child_module(cc_cc__rsp_q_);
-  //
+  // Cache controller Data Message Queue.
   cc__dt_q_ = new MessageQueue(k(), "cc__dt_q", 30);
   add_child_module(cc__dt_q_);
   // Arbiteer
