@@ -25,7 +25,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "cc.h"
+#include "cc/soc.h"
 #include "builder.h"
 #include <vector>
 #include <fstream>
