@@ -441,7 +441,7 @@ class L1CommandInterpreter {
   }
 
   void execute_wait_next_epoch(L1CacheContext& ctxt, const L1Command* cmd) {
-    ctxt.process()->wait_for(kernel::Time{10, 0});
+    ctxt.process()->wait_epoch();
   }
 
   void execute_set_l2_line_modified(L1CacheContext& ctxt,
@@ -714,6 +714,7 @@ void L1CacheAgent::build() {
   add_child_module(tt_);
   // Main thread of execution
   main_ = new MainProcess(k(), "main", this);
+  main_->set_epoch(config_.epoch);
   add_child_process(main_);
   //
   cache_ = new L1Cache(config_.cconfig);

@@ -49,10 +49,10 @@ std::string NocMsg::to_string() const {
 
 //
 //
-class NocModel::MainProcess : public kernel::Process {
+class NocModel::MainProcess : public AgentProcess {
  public:
   MainProcess(kernel::Kernel* k, const std::string& name, NocModel* model)
-      : kernel::Process(k, name), model_(model) {}
+      : AgentProcess(k, name), model_(model) {}
 
  private:
   void init() override {
@@ -125,7 +125,7 @@ class NocModel::MainProcess : public kernel::Process {
         log(lmsg);
       } break;
     }
-    wait_for(kernel::Time{10, 0});
+    wait_epoch();
   }
 
   // Pointer to parent NocModel instance.
@@ -195,9 +195,8 @@ class NocEndpoint::MainProcess : public AgentProcess {
 
     // Set conditions for subsequent re-evaluations.
     if (!mq->empty()) {
-      // TODO:Cleanup
-      // Wait some delay
-      wait_for(kernel::Time{10, 0});
+      // Wait for an epoch (cycle)/
+      wait_epoch();
     } else {
       // Not further work; await until noc ingress queue becomes non-full.
       wait_on(mq->non_empty_event());
@@ -222,6 +221,11 @@ void NocEndpoint::build() {
   add_child_module(ingress_mq_);
   main_ = new MainProcess(k(), "main", this);
   add_child_process(main_);
+}
+
+bool NocEndpoint::elab() {
+  main_->set_epoch(epoch_);
+  return false;
 }
 
 // Lookup cost for origin -> dest edge

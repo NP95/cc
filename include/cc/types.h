@@ -32,18 +32,15 @@
 
 namespace cc {
 
+// Generic representation of a byte-aligned address.
 using addr_t = std::uint64_t;
 
-using line_id_t = std::uint64_t;
+// Generic type to point to a time interval
+using epoch_t = std::uint64_t;
 
-// Underlying primitive type denotign all cache states in the
-// simulation (overloaded where applicable for each coherency
-// protocol)
-using state_t = std::uint8_t;
-
-using epoch_t = std::size_t;
-
-using time_t = std::uint64_t;
+// Generic type to point to a particular relative offset in simulation
+// time.
+using cursor_t = std::uint64_t;
 
 }  // namespace cc
 

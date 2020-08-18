@@ -44,6 +44,17 @@ class AgentProcess : public kernel::Process {
  public:
   AgentProcess(kernel::Kernel* k, const std::string& name);
 
+  // Process epoch.
+  epoch_t epoch() const { return epoch_; }
+  
+  // Setter:
+
+  // Set process period "epoch"
+  void set_epoch(epoch_t epoch) { epoch_ = epoch; }
+  
+  // Suspend process for an Epoch.
+  void wait_epoch();
+
   // Suspend/Re-evaulate process after delay.
   void wait_for(kernel::Time t) override;
 
@@ -54,11 +65,17 @@ class AgentProcess : public kernel::Process {
   void wait_on(kernel::Event* event) override;
 
  private:
+  // Invoke initialization method
   void invoke_init() final;
 
+  // Invoke evaluation method
   void invoke_eval() final;
 
+  // Process has completed and as set a valid next condition.
   bool wait_set_ = false;
+
+  // Epoch duration (process period)
+  epoch_t epoch_ = 0;
 };
 
 class MessageQueue;
@@ -113,7 +130,7 @@ class MessageQueue : public Agent {
   // Set blocked status of Message Queue until notified by event.
   void set_blocked_until(kernel::Event* event);
   // Issue message to queue after 'epoch' agent epochs.
-  bool issue(const Message* msg, time_t time = 0);
+  bool issue(const Message* msg, cursor_t cursor = 0);
   // Resize queue (build/elab only)
   void resize(std::size_t n);
 

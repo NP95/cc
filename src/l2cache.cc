@@ -380,7 +380,7 @@ class L2CommandInterpreter {
     MQArbTmt t = arb->tournament();
     if (t.has_requester()) {
       // Wait some delay
-      process_->wait_for(kernel::Time{10, 0});
+      process_->wait_epoch();
     } else {
       // No further commands, block process until something
       // arrives.
@@ -710,6 +710,7 @@ void L2CacheAgent::build() {
   add_child_module(tt_);
   // Main thread
   main_ = new MainProcess(k(), "main", this);
+  main_->set_epoch(config_.epoch);
   add_child_process(main_);
   // Cache model
   cache_ = new L2CacheModel(config_.cconfig);

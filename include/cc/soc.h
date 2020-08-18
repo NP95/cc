@@ -28,6 +28,7 @@
 #ifndef CC_INCLUDE_CC_SOC_H
 #define CC_INCLUDE_CC_SOC_H
 
+#include "cc/types.h"
 #include "kernel.h"
 #include "cfgs.h"
 #include <string>
@@ -122,7 +123,7 @@ class Soc {
   Stimulus* stimulus() const { return top_->stimulus(); }
 
   // Current simulation time/epoch.
-  time_t time() const { return kernel_->time().time; }
+  cursor_t time() const { return kernel_->time().time; }
 
   // Initialize simulation model.
   void initialize();

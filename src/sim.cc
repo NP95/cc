@@ -54,7 +54,7 @@ bool MessageQueue::has_at_least(std::size_t n) const {
   return q_->free() >= n;
 }
 
-bool MessageQueue::issue(const Message* msg, time_t time) {
+bool MessageQueue::issue(const Message* msg, cursor_t cursor) {
   struct EnqueueAction : kernel::Action {
     EnqueueAction(kernel::Kernel* k, Queue<const Message*>* q,
                   const Message* msg)
@@ -75,7 +75,7 @@ bool MessageQueue::issue(const Message* msg, time_t time) {
 
   if (full()) return false;
   // Issue action:
-  const kernel::Time execute_time = k()->time() + kernel::Time{time, 0};
+  const kernel::Time execute_time = k()->time() + kernel::Time{cursor, 0};
   k()->add_action(execute_time, new EnqueueAction(k(), q_, msg));
 
   return true;
@@ -148,6 +148,10 @@ void MessageQueue::build(std::size_t n) {
 
 AgentProcess::AgentProcess(kernel::Kernel* k, const std::string& name)
     : Process(k, name) {}
+
+void AgentProcess::wait_epoch() {
+  wait_for(kernel::Time{epoch_, 0});
+}
 
 // Suspend/Re-evaulate process after delay.
 void AgentProcess::wait_for(kernel::Time t) {

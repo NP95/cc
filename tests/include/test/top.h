@@ -45,7 +45,7 @@ class TbTop {
   // Stimulus instance.
   cc::Stimulus* stimulus() const { return soc_->stimulus(); }
 
-  cc::time_t time() const { return soc_->time(); }
+  cc::cursor_t time() const { return soc_->time(); }
 
   // Invoke simulation initialization.
   void initialize();

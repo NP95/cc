@@ -313,7 +313,7 @@ class DirCommandInterpreter {
   }
 
   void execute_wait_next_epoch(DirContext& ctxt, const DirCommand* cmd) const {
-    process_->wait_for(kernel::Time{10, 0});
+    process_->wait_epoch();
   }
 
   //
@@ -430,10 +430,9 @@ class DirModel::RdisProcess : public AgentProcess {
         // command must be blocked until the completion of the current
         // command.
         ctxt.set_tstate(tstate);
-        cl.push_back(cb::from_opcode(DirOpcode::MqSetBlockedOnTransaction));
+        cl.push_back(DirOpcode::MqSetBlockedOnTransaction);
         // Advance
         cl.next_and_do_consume(false);
-        // cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
       } else if (DirTTable* tt = model_->tt(); !tt->full()) {
         // Transaction has not already been initiated, there is no
         // pending transaction to this line, AND, there are free
@@ -444,10 +443,9 @@ class DirModel::RdisProcess : public AgentProcess {
         // Otherwise, a transaction is not in progress and the
         // transaction is full, therefore block Message Queue until
         // the transaction table becomes non-full.
-        cl.push_back(cb::from_opcode(DirOpcode::MqSetBlockedOnTable));
+        cl.push_back(DirOpcode::MqSetBlockedOnTable);
         // Advance
         cl.next_and_do_consume(false);
-        // cl.push_back(cb::from_opcode(DirOpcode::WaitOnMsgOrNextEpoch));
       }
     } else {
       // Transaction is already present in the transaction table;
@@ -713,9 +711,11 @@ void DirModel::build() {
   add_child_module(tt_);
   // Construct NOC ingress module.
   noc_endpoint_ = new DirNocEndpoint(k(), "noc_ep");
+  noc_endpoint_->set_epoch(config_.epoch);
   add_child_module(noc_endpoint_);
   // Construct request dispatcher thread
   rdis_proc_ = new RdisProcess(k(), "rdis", this);
+  rdis_proc_->set_epoch(config_.epoch);
   add_child_process(rdis_proc_);
   // Setup protocol
   protocol_ = config_.pbuilder->create_dir(k());

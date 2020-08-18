@@ -252,34 +252,61 @@ class CCContext {
 
   //
   MQArbTmt t() const { return t_; }
+
+  // Current Message at head of Message Queue
   const Message* msg() const { return mq_->peek(); }
+
+  // Current Message Queue
   MessageQueue* mq() const { return mq_; }
+
+  // Cache Controller model instance
   CCModel* cc() const { return cc_; }
+
+  // Context owns line
   bool owns_line() const { return owns_line_; }
+
+  // Transaction line
   CCLineState* line() const { return line_; }
+
+  // Invoking process
   AgentProcess* process() const { return process_; }
 
-  //
+  // Current time cursor.
+  time_t cursor() const { return cursor_; }
+
+
+
+  // Set current arbitration tournament
   void set_t(MQArbTmt t) { t_ = t; }
+
+  // Set current Message Queue
   void set_mq(MessageQueue* mq) { mq_ = mq; }
+
+  // Set cache controller instance
   void set_cc(CCModel* cc) { cc_ = cc; }
+
   void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
   void set_line(CCLineState* line) { line_ = line; }
   void set_process(AgentProcess* process) { process_ = process; }
 
+  // Advance cursor by delta units.
+  void advance_cursor(time_t delta) { cursor_ += delta; }
+
  private:
   // Current Message Queue arbiter tournament.
   MQArbTmt t_;
-  //
+  // Context owns transaction line; is reponsible for its destruction.
   bool owns_line_ = false;
-  //
+  // Transaction Line
   CCLineState* line_ = nullptr;
   // Current Message Queue
   MessageQueue* mq_ = nullptr;
   // L2 cache instance
   CCModel* cc_ = nullptr;
-  //
-  AgentProcess* process_;
+  // Invoking process
+  AgentProcess* process_ = nullptr;
+  // Cursor
+  time_t cursor_ = 0;
 };
 
 //
@@ -347,6 +374,7 @@ class CCSnpCommandList {
   CCSnpCommandList() = default;
   ~CCSnpCommandList();
 
+  // Command list iterators:
   const_iterator begin() const { return cmds_.begin(); }
   const_iterator end() const { return cmds_.end(); }
 
@@ -360,6 +388,7 @@ class CCSnpCommandList {
   void push_back(CCSnpCommand* cmd) { cmds_.push_back(cmd); }
 
  private:
+  // Command list.
   std::vector<CCSnpCommand*> cmds_;
 };
 
@@ -402,12 +431,22 @@ class CCSnpContext {
   CCSnpTState* tstate() const { return tstate_; }
   bool owns_tstate() const { return owns_tstate_; }
 
+  // Invoking process
+  AgentProcess* process() const { return process_; }
+
+  // Current time cursor.
+  time_t cursor() const { return cursor_; }
+
   //
   void set_t(MQArbTmt t) { t_ = t; }
   void set_cc(CCModel* cc) { cc_ = cc; }
   void set_mq(MessageQueue* mq) { mq_ = mq; }
   void set_tstate(CCSnpTState* tstate) { tstate_ = tstate; }
   void set_owns_tstate(bool owns_tstate) { owns_tstate_ = owns_tstate; }
+  void set_process(AgentProcess* process) { process_ = process; }
+
+  // Advance cursor by delta units.
+  void advance_cursor(time_t delta) { cursor_ += delta; }
 
  private:
   // Current Message Queue arbiter tournament.
@@ -421,6 +460,10 @@ class CCSnpContext {
   // Flag indiciating that current context owns the tstate and must
   // release the state upon destruction.
   bool owns_tstate_ = false;
+  // Invoking process
+  AgentProcess* process_ = nullptr;
+  // Cursor
+  time_t cursor_ = 0;
 };
 
 //

@@ -183,7 +183,7 @@ class LLCModel::RdisProcess : public AgentProcess {
       msg->release();
       t.advance();
 
-      wait_for(kernel::Time{10, 0});
+      wait_epoch();
     } else {
       wait_on(arb->request_arrival_event());
     }
@@ -376,9 +376,11 @@ void LLCModel::build() {
   add_child_module(arb_);
   // Construct main thread
   rdis_proc_ = new RdisProcess(k(), "main", this);
+  rdis_proc_->set_epoch(config_.epoch);
   add_child_process(rdis_proc_);
   // NOC endpoint
   noc_endpoint_ = new LLCNocEndpoint(k(), "noc_ep");
+  noc_endpoint_->set_epoch(config_.epoch);
   add_child_module(noc_endpoint_);
   // Construct transaction table.
   tt_ = new LLCTTable;

@@ -61,7 +61,7 @@ class Cpu::ProducerProcess : public kernel::Process {
     StimulusContext* stimulus = cpu_->stimulus();
     Frontier f;
     if (stimulus->front(f)) {
-      wait_for(f.time);
+      wait_until(f.time);
     }
   }
 
@@ -78,7 +78,7 @@ class Cpu::ProducerProcess : public kernel::Process {
     if (mq->full()) {
       // Cpu issue queue has backpressured, therefore await notification
       // that the queue has become non-full.
-      // wait_on(mq->non_full_event());
+      wait_on(mq->non_full_event());
       return;
     }
 

@@ -677,6 +677,7 @@ class CCModel::SnpProcess : public AgentProcess {
   void eval() override {
     CCSnpCommandList cl;
     CCSnpContext ctxt;
+    ctxt.set_process(this);
     ctxt.set_cc(model_);
     MQArb* arb = model_->snp_arb();
     ctxt.set_t(arb->tournament());
@@ -865,12 +866,15 @@ void CCModel::build() {
   add_child_module(snp_arb_);
   // Dispatcher process
   rdis_proc_ = new RdisProcess(k(), "rdis_proc", this);
+  rdis_proc_->set_epoch(config_.epoch);
   add_child_process(rdis_proc_);
   // Snoop process.
   snp_proc_ = new SnpProcess(k(), "snp_proc", this);
+  snp_proc_->set_epoch(config_.epoch);
   add_child_process(snp_proc_);
   // NOC endpoint
   noc_endpoint_ = new CCNocEndpoint(k(), "noc_ep");
+  noc_endpoint_->set_epoch(config_.epoch);
   add_child_module(noc_endpoint_);
   // Transaction table
   tt_ = new CCTTable(k(), "tt", 16);

@@ -172,7 +172,7 @@ class MemCntrlModel::RequestDispatcherProcess : public AgentProcess {
 
     t = rdis_arb->tournament();
     if (t.has_requester()) {
-      wait_for(kernel::Time{10, 0});
+      wait_epoch();
     } else {
       wait_on(rdis_arb->request_arrival_event());
     }
@@ -226,7 +226,10 @@ class MemNocEndpoint : public NocEndpoint {
   std::map<Agent*, MessageQueue*> endpoints_;
 };
 
-MemCntrlModel::MemCntrlModel(kernel::Kernel* k) : Agent(k, "mem") { build(); }
+MemCntrlModel::MemCntrlModel(kernel::Kernel* k, const MemModelConfig& config)
+    : Agent(k, "mem"), config_(config) {
+  build();
+}
 
 MemCntrlModel::~MemCntrlModel() {
   // Cleanup request dispatcher thread.
@@ -242,9 +245,11 @@ MemCntrlModel::~MemCntrlModel() {
 void MemCntrlModel::build() {
   // NOC endpoint
   noc_endpoint_ = new MemNocEndpoint(k(), "noc_ep");
+  noc_endpoint_->set_epoch(config_.epoch);
   add_child_module(noc_endpoint_);
   // Request dispatcher process:
   rdis_proc_ = new RequestDispatcherProcess(k(), "rdis", this);
+  rdis_proc_->set_epoch(config_.epoch);
   add_child_process(rdis_proc_);
   // Construct arbiter
   rdis_arb_ = new MQArb(k(), "arb");

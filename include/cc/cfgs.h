@@ -76,6 +76,9 @@ struct L1CacheAgentConfig {
   // L1 Cache Model name
   std::string name = "l1cache";
 
+  // Agent epoch (period)
+  time_t epoch = 10;
+
   // Number of slots in the command queue.
   std::size_t cpu_l1__cmd_n = 3;
 
@@ -106,6 +109,9 @@ struct L2CacheAgentConfig {
   // L2 Cache Model name
   std::string name = "l2cache";
 
+  // Agent epoch (period)
+  time_t epoch = 10;
+
   // Cache configuration.
   CacheModelConfig cconfig;
 
@@ -131,6 +137,9 @@ struct LLCModelConfig {
   // LLC name
   std::string name = "llc";
 
+  // Agent epoch (period)
+  time_t epoch = 10;
+
   // Command Queue size
   std::size_t cmd_queue_n = 4;
 
@@ -140,9 +149,22 @@ struct LLCModelConfig {
 
 //
 //
+struct MemModelConfig {
+  // Mem name
+  std::string name = "mem";
+
+  // Agent epoch (period)
+  time_t epoch = 10;
+};
+
+//
+//
 struct DirModelConfig {
   // Directory name
   std::string name = "dir";
+
+  // Agent epoch (period)
+  time_t epoch = 10;
 
   // Command Queue size
   std::size_t cmd_queue_n = 4;
@@ -176,6 +198,9 @@ struct DirModelConfig {
 struct CCConfig {
   // Controller name
   std::string name = "ccntrl";
+
+  // Agent epoch (period)
+  time_t epoch = 10;
 
   // SnpMsg credits (number of Snoops in flight to CC agent per Directory).
   std::size_t snp_credits_n = 4;
@@ -243,6 +268,8 @@ struct SocConfig {
   std::vector<CpuClusterConfig> ccls;
   // Directory configuration.
   std::vector<DirModelConfig> dcfgs;
+  // Memory configurations
+  std::vector<MemModelConfig> mcfgs;
   // Stimulus configuration.
   StimulusConfig scfg;
   // NOC/Interconnect configuration.

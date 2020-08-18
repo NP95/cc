@@ -75,10 +75,12 @@ void SocTop::build(const SocConfig& cfg) {
   add_child_module(noc_);
 
   // Construct memory controller (s)
-  MemCntrlModel* mm = new MemCntrlModel(k());
-  noc_->register_agent(mm);
-  add_child_module(mm);
-  mms_.push_back(mm);
+  for (const MemModelConfig& mcfg : cfg.mcfgs) {
+    MemCntrlModel* mm = new MemCntrlModel(k(), mcfg);
+    noc_->register_agent(mm);
+    add_child_module(mm);
+    mms_.push_back(mm);
+  }
 
   // Construct child CPU clusters
   for (const CpuClusterConfig& cccfg : cfg.ccls) {
@@ -100,7 +102,12 @@ void SocTop::build(const SocConfig& cfg) {
     if (!dcfg.is_null_filter) {
       // Construct corresponding LLC
       LLCModel* llc = new LLCModel(k(), dcfg.llcconfig);
-      mm->register_agent(llc);
+      // Register LLC with memory controllers; assumes that all LLC can
+      // reach all Memory Controllers which may or may not be the case
+      // in a real system.
+      for (MemCntrlModel* mm : mms_) {
+        mm->register_agent(llc);
+      }
       noc_->register_agent(llc);
       add_child_module(llc);
       llcs_.push_back(llc);

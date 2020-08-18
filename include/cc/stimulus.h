@@ -256,7 +256,7 @@ class ProgrammaticStimulus : public Stimulus {
   // decides to inject some stimulus, run the simulation and then
   // repeat the process. To maintain correctness, the end-user should
   // advance time to the current simulation time.
-  time_t cursor_ = 0;
+  cursor_t cursor_ = 0;
 
   // ID to Context instance map.
   std::map<std::uint64_t, DequeueContext*> context_map_;

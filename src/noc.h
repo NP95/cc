@@ -105,6 +105,12 @@ class NocEndpoint : public Agent {
   NocEndpoint(kernel::Kernel* k, const std::string& name);
   virtual ~NocEndpoint();
 
+  // Agent period
+  time_t epoch() const { return epoch_; }
+
+  // Set EndPoint epoch (period)
+  void set_epoch(time_t epoch) { epoch_ = epoch; }
+
   //
   MessageQueue* ingress_mq() const { return ingress_mq_; }
 
@@ -113,10 +119,18 @@ class NocEndpoint : public Agent {
   virtual MessageQueue* lookup_mq(const Message* msg) const = 0;
 
  private:
-  //
+  // Construct
   void build();
+
+  //
+  virtual bool elab() override;
+
+  // Agent 
+  time_t epoch_ = 0;
+  
   //
   MainProcess* main_ = nullptr;
+
   //
   MessageQueue* ingress_mq_ = nullptr;
 };

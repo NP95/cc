@@ -37,36 +37,7 @@ namespace cc {
 
 class KVListRenderer;
 class Agent;
-
-//
-//
-using trans_id_t = std::size_t;
-
-//
-//
-class Transaction {
- public:
-  Transaction();
-  virtual ~Transaction() = default;
-  virtual void release() const { delete this; }
-
-  //
-  virtual std::string to_string() const;
-
-  // Accessors:
-  kernel::Time start_time() const { return start_time_; }
-  trans_id_t tid() const { return tid_; }
-  line_id_t line_id() const { return line_id_; }
-
-  // Setters:
-  void set_start_time(kernel::Time time) { start_time_ = time; }
-  void set_line_id(line_id_t line_id) { line_id_ = line_id; }
-
- private:
-  kernel::Time start_time_;
-  trans_id_t tid_;
-  line_id_t line_id_;
-};
+class Transaction;
 
 //
 //
@@ -209,50 +180,96 @@ enum class MessageClass {
   DtRsp
 };
 
-// Convert MessageClass type to a human-readable string
+// Convert MessageClass type to a human-readable string.
 const char* to_string(MessageClass cls);
 
 // Convert a response class to originator command class.
 MessageClass to_cmd_type(MessageClass cls);
 
-
-// Message unimque ID type
-using msg_id_t = std::size_t;
+// Compute emit time cost of Message class (in Epoch units).
+std::size_t to_epoch_cost(MessageClass cls);
 
 //
 //
 class Message {
  public:
   Message(MessageClass cls);
-  virtual ~Message() = default;
-
-  Transaction* t() const { return t_; }
-  MessageClass cls() const { return cls_; }
-  Agent* origin() const { return origin_; }
-  msg_id_t mid() const { return mid_; }
-
-  virtual std::string to_string() const = 0;
-
-  void set_origin(Agent* origin) { origin_ = origin; }
-  void set_t(Transaction* t) { t_ = t; }
-  void set_cls(MessageClass cls) { cls_ = cls; }
 
   // Release message; return to owning message pool or destruct where
   // applicable.
   virtual void release() const { delete this; }
 
+  // Construct human-readable version of Message object.
+  virtual std::string to_string() const = 0;
+
+  // Parent transaction object.
+  Transaction* t() const { return t_; }
+
+  // Message class
+  MessageClass cls() const { return cls_; }
+
+  // Originating agent
+  Agent* origin() const { return origin_; }
+
+  // Message ID
+  std::size_t mid() const { return mid_; }
+
+
+  // Setters:
+
+  // Set origin agent.
+  void set_origin(Agent* origin) { origin_ = origin; }
+
+  // Set parent transaction
+  void set_t(Transaction* t) { t_ = t; }
+
+  // Set message class.
+  void set_cls(MessageClass cls) { cls_ = cls; }
+
  protected:
+  // Render Message base class fields in derived class.
   void render_msg_fields(KVListRenderer& r) const;
 
+  // Protected destructor (call 'release' to destruct).
+  virtual ~Message() = default;
  private:
+
   // Message ID (globally unique)
-  msg_id_t mid_;
+  std::size_t mid_;
   // Parent transaction;
   Transaction* t_ = nullptr;
   // Message type
   MessageClass cls_ = MessageClass::Invalid;
   // Originating agent.
   Agent* origin_ = nullptr;
+};
+
+//
+//
+class Transaction {
+ public:
+  Transaction();
+  virtual void release() const { delete this; }
+
+  // Construct human-readable version of Transaction object.
+  virtual std::string to_string() const;
+
+  // Accessors:
+  kernel::Time start_time() const { return start_time_; }
+  std::size_t tid() const { return tid_; }
+
+  // Setters:
+  void set_start_time(kernel::Time time) { start_time_ = time; }
+
+ protected:
+  // Protect destructor (call 'release' to destruct).
+  virtual ~Transaction() = default;
+
+ private:
+  // Transaction start time-stamp
+  kernel::Time start_time_;
+  // Transaction ID (globally unique)
+  std::size_t tid_;
 };
 
 }  // namespace cc

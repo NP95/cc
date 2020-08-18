@@ -63,6 +63,10 @@ cc::SocConfig ConfigBuilder::construct() const {
     cfg.ccls.push_back(cpuc_cfg);
   }
 
+  // Defined Memory controller
+  cc::MemModelConfig mcfg;
+  cfg.mcfgs.push_back(mcfg);
+
   // Define Directory model
   for (std::size_t d = 0; d < dir_n_; d++) {
     cc::DirModelConfig dcfg;
@@ -83,7 +87,7 @@ cc::SocConfig ConfigBuilder::construct() const {
 
 cc::NocModelConfig ConfigBuilder::construct_noc(const cc::SocConfig& cfg) const {
   // Default cost for all edges
-  const cc::time_t cost = 10;
+  const cc::epoch_t cost = 10;
 
   std::vector<std::string> vs;
   cc::NocModelConfig noccfg;

@@ -30,6 +30,7 @@
 
 #include <map>
 
+#include "cc/cfgs.h"
 #include "msg.h"
 #include "sim.h"
 
@@ -119,11 +120,14 @@ class MemCntrlModel : public Agent {
   friend class SocTop;
 
  public:
-  MemCntrlModel(kernel::Kernel* k);
+  MemCntrlModel(kernel::Kernel* k, const MemModelConfig& config);
   ~MemCntrlModel();
 
   // Accessors:
   MessageQueue* endpoint() const;
+
+  // Configuration
+  const MemModelConfig& config() const { return config_; }
 
   // MEM -> NOC
   NocPort* mem_noc__port() const { return mem_noc__port_; }
@@ -162,6 +166,8 @@ class MemCntrlModel : public Agent {
   MQArb* rdis_arb_ = nullptr;
   // Request Dispatcher memory queues
   std::map<Agent*, MessageQueue*> rdis_mq_;
+  // Configuration
+  MemModelConfig config_;
 };
 
 }  // namespace cc

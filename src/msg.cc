@@ -123,8 +123,12 @@ MessageClass to_cmd_type(MessageClass cls) {
   }
 }
 
+std::size_t to_epoch_cost(MessageClass cls) {
+  return 1;
+}
+
 Transaction::Transaction() {
-  static trans_id_t tid_counter = 0;
+  static std::size_t tid_counter = 0;
   tid_ = tid_counter++;
 }
 
@@ -137,7 +141,7 @@ std::string Transaction::to_string() const {
 }
 
 Message::Message(MessageClass cls) : cls_(cls) {
-  static msg_id_t mid_counter = 0;
+  static std::size_t mid_counter = 0;
   mid_ = mid_counter++;
 }
 

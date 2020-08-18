@@ -731,6 +731,7 @@ class MOESICCProtocol : public CCProtocol {
       void set_port(NocPort* port) { port_ = port; }
       void set_msg(const NocMsg* msg) { msg_ = msg; }
       void set_cc(const CCModel* cc) { cc_ = cc; }
+      void set_delay(time_t delay) { delay_ = delay; }
 
       void set_resources(CCResources& r) const override {
         // Always require a NOC credit.
@@ -788,7 +789,7 @@ class MOESICCProtocol : public CCProtocol {
         cc->debit();
         // Issue message to queue.
         MessageQueue* mq = port_->ingress();
-        return mq->issue(msg_);
+        return mq->issue(msg_, delay_);
       }
 
      private:
@@ -798,6 +799,8 @@ class MOESICCProtocol : public CCProtocol {
       NocPort* port_ = nullptr;
       // Cache controller model
       const CCModel* cc_ = nullptr;
+      // Issue delay relative to current simulation time.
+      time_t delay_ = 0;
     };
     // Encapsulate message in NOC transport protocol.
     NocMsg* nocmsg = new NocMsg;
@@ -811,7 +814,11 @@ class MOESICCProtocol : public CCProtocol {
     action->set_port(ctxt.cc()->cc_noc__port());
     action->set_msg(nocmsg);
     action->set_cc(ctxt.cc());
+    action->set_delay(ctxt.cursor());
     cl.push_back(action);
+    // Incur penalty associated with Message and advance cursor.
+    const AgentProcess* process = ctxt.process();
+    ctxt.advance_cursor(process->epoch() * to_epoch_cost(msg->cls()));
   }
 };
 
