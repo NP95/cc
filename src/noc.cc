@@ -283,6 +283,22 @@ void NocEndpoint::build() {
   add_child_process(main_);
 }
 
+// Lookup cost for origin -> dest edge
+time_t NocTimingModel::cost(const Agent* origin, const Agent* dest) {
+  time_t delay = base();
+  if (auto it = timing_.find(origin); it != timing_.end()) {
+    if (auto jt = it->second.find(dest); jt != it->second.end()) {
+      delay = jt->second;
+    }
+  }
+  return delay;
+}
+
+void NocTimingModel::register_edge(const Agent* origin, const Agent* dest,
+                              time_t delay) {
+  timing_[origin][dest] = delay;
+}
+
 NocModel::NocModel(kernel::Kernel* k, const NocModelConfig& config)
     : Agent(k, config.name), config_(config) {
   build();
@@ -294,6 +310,7 @@ NocModel::~NocModel() {
   for (auto pp : ports_) {
     delete pp.second;
   }
+  delete tm_;
 }
 
 NocPort* NocModel::get_agent_port(Agent* agent) {

@@ -151,6 +151,10 @@ bool SocTop::elab() {
     case 1: {
       // Second pass; update credit counters.
       elab_credit_counts();
+      do_retry = true;
+    } break;
+    case 2: {
+      elab_annotate_edges();
     } break;
     default: {
       // Never reached.
@@ -283,6 +287,27 @@ void SocTop::elab_credit_counts() {
     const std::size_t credits = mqcredit.second;
     mq->resize(credits);
   }
+}
+
+void SocTop::elab_annotate_edges() {
+  const NocModelConfig& config = noc_->config();
+  NocTimingModel* tm = new NocTimingModel;
+  kernel::Object* top = k()->top();
+  for (const auto& p : config.edges) {
+    for (const auto& q : p.second) {
+      const std::string origin_path = p.first;
+      const std::string dest_path = q.first;
+      const Agent* origin = static_cast<const Agent*>(top->find_path(origin_path));
+      const Agent* dest = static_cast<const Agent*>(top->find_path(dest_path));
+      if ((origin == nullptr) || (dest == nullptr)) continue;
+
+      // Found edge cost, register with timing model.
+      const time_t cost = q.second;
+      tm->register_edge(origin, dest, cost);
+    }
+  }
+  // Transfer tm ownership to NOC instance.
+  noc_->register_timing_model(tm);
 }
 
 void SocTop::drc() {

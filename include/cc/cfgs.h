@@ -32,6 +32,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <map>
 
 namespace cc {
 
@@ -120,6 +121,8 @@ struct NocModelConfig {
   std::string name = "noc";
   // Ingress Message Queue capacity in messages.
   std::size_t ingress_q_n = 16;
+  // {Path, Path} -> timing
+  std::map<std::string, std::map<std::string, time_t> > edges;
 };
 
 //

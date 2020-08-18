@@ -74,6 +74,9 @@ class SocTop : public kernel::TopModule {
   // Compute credit counts
   void elab_credit_counts();
 
+  // Annotate time edges for NOC.
+  void elab_annotate_edges();
+
   // Run Design Rule Check (DRC)
   void drc() override;
 

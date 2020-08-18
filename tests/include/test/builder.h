@@ -52,6 +52,9 @@ class ConfigBuilder {
   cc::SocConfig construct() const;
 
  private:
+  // Construct NOC model config
+  cc::NocModelConfig construct_noc(const cc::SocConfig& cfg) const;
+  
   // CPU count
   std::size_t cpu_n_ = 1;
 

@@ -114,6 +114,28 @@ class NocEndpoint : public Agent {
 
 //
 //
+class NocTimingModel {
+ public:
+  NocTimingModel() = default;
+
+  // Accessors
+  time_t base() const { return base_; }
+
+  // Set base edge cost.
+  void set_base(time_t d) { base_ = d; }
+
+  // Lookup cost for origin -> dest edge
+  time_t cost(const Agent* origin, const Agent* dest);
+
+  // Register edge {origin, dest} -> cost;
+  void register_edge(const Agent* origin, const Agent* dest,
+                     time_t delay);
+ private:
+  // Base edge delay
+  time_t base_ = 0;
+  // Timing information {Agent*, Agent*} -> time_t
+  std::map<const Agent*, std::map<const Agent*, time_t> > timing_;
+};
 
 //
 //
@@ -138,6 +160,8 @@ class NocModel : public Agent {
 
   // Elaboration Phase
   bool elab() override;
+  // Register timing model
+  void register_timing_model(const NocTimingModel* tm) { tm_ = tm; }
 
   // Design Rule Check Phase
   virtual void drc() override;
@@ -154,6 +178,8 @@ class NocModel : public Agent {
   std::map<Agent*, NocPort*> ports_;
   // Main thread of execution.
   MainProcess* main_ = nullptr;
+  // Timing model
+  const NocTimingModel* tm_ = nullptr;
   // NOC Configuration
   NocModelConfig config_;
 };

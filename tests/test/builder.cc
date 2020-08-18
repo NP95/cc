@@ -28,6 +28,7 @@
 #include "test/builder.h"
 #include "test/utility.h"
 #include "cc/soc.h"
+#include "cc/types.h"
 
 namespace test {
 
@@ -35,6 +36,7 @@ cc::SocConfig ConfigBuilder::construct() const {
   cc::SocConfig cfg;
   cc::ProtocolBuilder* pb = cc::construct_protocol_builder("moesi");
 
+  // Define CPU cluster configuration
   for (std::size_t cc = 0; cc < cc_n_; cc++) {
     cc::CpuClusterConfig cpuc_cfg;
     cpuc_cfg.name += std::to_string(cc);
@@ -61,6 +63,7 @@ cc::SocConfig ConfigBuilder::construct() const {
     cfg.ccls.push_back(cpuc_cfg);
   }
 
+  // Define Directory model
   for (std::size_t d = 0; d < dir_n_; d++) {
     cc::DirModelConfig dcfg;
     dcfg.name += std::to_string(d);
@@ -69,10 +72,65 @@ cc::SocConfig ConfigBuilder::construct() const {
     cfg.dcfgs.push_back(dcfg);
   }
 
+  // Define NOC configuration.
+  cfg.noccfg = construct_noc(cfg);
+
   // Set stimulus
   cfg.scfg = stimulus_config_;
 
   return cfg;
+}
+
+cc::NocModelConfig ConfigBuilder::construct_noc(const cc::SocConfig& cfg) const {
+  // Default cost for all edges
+  const cc::time_t cost = 10;
+
+  std::vector<std::string> vs;
+  cc::NocModelConfig noccfg;
+  // Top:
+  vs.push_back(cfg.name);
+  // CPU -> DIR
+  for (const cc::CpuClusterConfig& cluster_cfg : cfg.ccls) {
+    // Cluster
+    vs.push_back(cluster_cfg.name);
+    // Cache Controller
+    vs.push_back(cluster_cfg.cc_config.name);
+    // Compute origin path
+    const std::string origin = test::join(vs.begin(), vs.end());
+
+    vs.pop_back();
+    vs.pop_back();
+    for (const cc::DirModelConfig& dir_config : cfg.dcfgs) {
+      // Directory name
+      vs.push_back(dir_config.name);
+      // Compute destination path
+      const std::string dest = test::join(vs.begin(), vs.end());
+      noccfg.edges[origin][dest] = cost;
+      vs.pop_back();
+    }
+  }
+
+  // DIR -> CPU
+  for (const cc::DirModelConfig& dir_config : cfg.dcfgs) {
+    // Directory name
+    vs.push_back(dir_config.name);
+    // Compute destination path
+    const std::string origin = test::join(vs.begin(), vs.end());
+    vs.pop_back();
+    for (const cc::CpuClusterConfig& cluster_cfg : cfg.ccls) {
+      // Cluster
+      vs.push_back(cluster_cfg.name);
+      // Cache Controller
+      vs.push_back(cluster_cfg.cc_config.name);
+      // Compute origin path
+      const std::string dest = test::join(vs.begin(), vs.end());
+      noccfg.edges[origin][dest] = cost;
+
+      vs.pop_back();
+      vs.pop_back();
+    }
+  }
+  return noccfg;
 }
 
 std::string path_l1c_by_cpu_id(const cc::SocConfig& cfg, std::size_t id) {
