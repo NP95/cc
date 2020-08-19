@@ -58,8 +58,17 @@ enum class DirOpcode {
   MqSetBlockedOnTable,
   MqSetBlockedOnEvt,
   InvokeCoherenceAction,
+
+  //
   WaitOnMsg,
+
+  //
   WaitNextEpoch,
+
+  //
+  Error,
+
+  // Invalid opcode; place-holder
   Invalid
 };
 
@@ -82,7 +91,12 @@ class DirCommand {
   kernel::Event* event() const { return oprands.e; }
 
   // Setters
+
+  // Set (blocked on) event instance
   void set_event(kernel::Event* e) { oprands.e = e; }
+
+  // Set (error) reason message
+  void set_reason(const std::string& reason) { oprands.reason = reason; }
 
  private:
   virtual ~DirCommand();
@@ -90,6 +104,7 @@ class DirCommand {
   struct {
     DirCoherenceAction* action;
     kernel::Event* e;
+    std::string reason;
   } oprands;
   //
   DirOpcode opcode_;
@@ -104,6 +119,8 @@ class DirCommandBuilder {
   static DirCommand* from_action(DirCoherenceAction* action);
 
   static DirCommand* build_blocked_on_event(MessageQueue* mq, kernel::Event* e);
+
+  static DirCommand* build_error(const std::string& reason);
 };
 
 //
@@ -131,6 +148,9 @@ class DirCommandList {
 
   // Push back from command instance
   void push_back(DirCommand* cmd);
+
+  // Raise error
+  void raise_error(const std::string& reason);
 
   // Consume current message and advance agent to next simulation
   // epoch.

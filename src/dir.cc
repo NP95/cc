@@ -109,6 +109,12 @@ DirCommand* DirCommandBuilder::build_blocked_on_event(MessageQueue* mq,
   return cmd;
 }
 
+DirCommand* DirCommandBuilder::build_error(const std::string& reason) {
+  DirCommand* cmd = new DirCommand(DirOpcode::Error);
+  cmd->set_reason(reason);
+  return cmd;
+}
+
 void DirTState::release() { delete this; }
 
 std::size_t DirResources::coh_snp_n(const Agent* agent) const {
@@ -150,6 +156,11 @@ void DirCommandList::push_back(DirCoherenceAction* action) {
 }
 
 void DirCommandList::push_back(DirCommand* cmd) { cmds_.push_back(cmd); }
+
+void DirCommandList::raise_error(const std::string& reason) {
+  clear();
+  push_back(DirCommandBuilder::build_error(reason));
+}
 
 void DirCommandList::next_and_do_consume(bool do_consume) {
   if (do_consume) {
