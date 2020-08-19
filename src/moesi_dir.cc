@@ -50,34 +50,64 @@ enum class State {
   I,
 
   // Invalid -> Exclusive
-  IE,
+  I_E,
 
   // Invalid -> Shared
-  IS,
+  I_S,
 
   // Shared (stable)
   S,
 
+  // Shared -> Invalid
+  S_I,
+
+  // Shared -> Exclusive
+  S_E,
+
+  // Shared -> Shared or Exclusive
+  S_SE,
+
   // Modified (stable)
   M,
+
+  // Modified -> Invalid
+  M_I,
+
+  // Modified -> Exclusive
+  M_EO,
+
+  // Modified -> Shared or Exclusive
+  M_SE,
 
   // Exclusive (stable)
   E,
 
   // Exclusive -> Owned
-  EO,
+  E_O,
 
   // Exclusive -> Exclusive
-  EE,
+  E_E,
+
+  // Exclusive -> Invalid
+  E_I,
+
+  // Exclusive -> Shared or Exclusive
+  E_SE,
 
   // Owned (stable)
   O, 
 
   // Owned -> Owned
-  OO,
+  O_O,
 
   // Owned -> Exclusive
-  OE
+  O_E,
+
+  // Owned -> Invalid
+  O_I,
+
+  // Owned -> Shared or Exclusive
+  O_SE
 };
 
 //
@@ -88,26 +118,26 @@ const char* to_string(State state) {
       return "X";
     case State::I:
       return "I";
-    case State::IE:
-      return "IE";
-    case State::IS:
-      return "IS";
+    case State::I_E:
+      return "I_E";
+    case State::I_S:
+      return "I_S";
     case State::S:
       return "S";
     case State::E:
       return "E";
-    case State::EO:
-      return "EO";
-    case State::EE:
-      return "EE";
+    case State::E_O:
+      return "E_O";
+    case State::E_E:
+      return "E_E";
     case State::M:
       return "M";
     case State::O:
       return "O";
-    case State::OO:
-      return "OO";
-    case State::OE:
-      return "OE";
+    case State::O_O:
+      return "O_O";
+    case State::O_E:
+      return "O_E";
     default:
       return "Invalid";
   }
@@ -419,19 +449,18 @@ class MOESIDirProtocol : public DirProtocol {
   }
 
   void apply(DirContext& ctxt, DirCommandList& cl, const CohSrtMsg* msg) const {
-    cl.push_back(cb::from_opcode(DirOpcode::StartTransaction));
+    cl.push_back(DirOpcode::StartTransaction);
     // Consume and advance
     cl.next_and_do_consume(true);
   }
 
   void apply(DirContext& ctxt, DirCommandList& cl, const CohCmdMsg* msg) const {
-    LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
-
     // Update Transaction State with appropriate state contained
     // within the Command Message (also present in the context).
     DirTState* tstate = ctxt.tstate();
     tstate->set_opcode(msg->opcode());
     tstate->set_addr(msg->addr());
+    tstate->set_origin(msg->origin());
     ctxt.set_tstate(tstate);
 
     // Issue command message response (returns credit).
@@ -441,48 +470,131 @@ class MOESIDirProtocol : public DirProtocol {
     issue_msg_to_noc(ctxt, cl, rsp, msg->origin());
 
     //
-    const State state = line->state();
-    switch (state) {
-      case State::I: { // I
-        apply_I(ctxt, cl, msg);
+    const AceCmdOpcode opcode = tstate->opcode();
+    switch (opcode) {
+      case AceCmdOpcode::ReadNoSnoop: {
+        handle_cmd_read_no_snoop(ctxt, cl, msg);
       } break;
-      case State::S: { // SC
-        apply_S(ctxt, cl, msg);
+      case AceCmdOpcode::ReadOnce: {
+        handle_cmd_read_once(ctxt, cl, msg);
       } break;
-      case State::E: { // UC
-        apply_E(ctxt, cl, msg);
+      case AceCmdOpcode::ReadClean: {
+        handle_cmd_read_clean(ctxt, cl, msg);
       } break;
-      case State::M: { // UD
-        apply_M(ctxt, cl, msg);
+      case AceCmdOpcode::ReadNotSharedDirty: {
+        handle_cmd_read_not_shared_dirty(ctxt, cl, msg);
       } break;
-      case State::O: { // SD
-        apply_O(ctxt, cl, msg);
+      case AceCmdOpcode::ReadShared: {
+        handle_cmd_read_shared(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::ReadUnique: {
+        handle_cmd_read_unique(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::CleanUnique: {
+        handle_cmd_clean_unique(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::CleanShared: {
+        handle_cmd_clean_shared(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::CleanInvalid: {
+        handle_cmd_clean_invalid(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::MakeUnique: {
+        handle_cmd_make_unique(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::MakeInvalid: {
+        handle_cmd_make_invalid(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::WriteNoSnoop: {
+        handle_cmd_write_no_snoop(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::WriteUnique: {
+        handle_cmd_write_unique(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::WriteLineUnique: {
+        handle_cmd_write_line_unique(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::WriteBack: {
+        handle_cmd_write_back(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::WriteClean: {
+        handle_cmd_write_clean(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::Evict: {
+        handle_cmd_evict(ctxt, cl, msg);
       } break;
       default: {
-        LogMessage msg("Unexpected state transition.", Level::Fatal);
-        log(msg);
+        // Unknown opcode; raise error.
+        std::string reason = "Unsupported opcode received: ";
+        reason += to_string(opcode);
+        cl.raise_error(reason);
       } break;
     }
   }
 
-  void apply_I(DirContext& ctxt, DirCommandList& cl, const CohCmdMsg* msg) const {
-    DirTState* tstate = ctxt.tstate();
-    const AceCmdOpcode opcode = tstate->opcode();
-    switch (opcode) {
-      case AceCmdOpcode::ReadNoSnoop: {
-        // Directory should never see this command; agent should issue
-        // the message to the interconnect to be processed by either a
-        // memory controller or a peripheral.
-        std::string reason = "Non-cached command recevied: ";
-        reason += to_string(opcode);
-        cl.raise_error(reason);
-      } break;
+  // C4.5.1 ReadNoSnoop
+  void handle_cmd_read_no_snoop(DirContext& ctxt, DirCommandList& cl,
+                                const CohCmdMsg* msg) const {
+    // The directory should never see non-cached commands. Instead,
+    // the requesting agent should issue to the command directly into
+    // the interconnect where it is directed to either a memory
+    // controller or a peripheral/accelerator.
+    cl.raise_error("Directory has received a non-cached command: "
+                   "ReadNoSnoop");
+  }
 
-      case AceCmdOpcode::ReadOnce:
-      case AceCmdOpcode::ReadClean:
-      case AceCmdOpcode::ReadNotSharedDirty:
-      case AceCmdOpcode::ReadShared:
-      case AceCmdOpcode::ReadUnique: {
+  void handle_cmd_read_once(DirContext& ctxt, DirCommandList& cl,
+                            const CohCmdMsg* msg) const {
+    LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
+    switch (line->state()) {
+      case State::I:
+      case State::S:
+      case State::E:
+      case State::M:
+      case State::O:
+      default: {
+        cl.raise_error("Not implemented");
+      } break;
+    }
+  }
+
+  void handle_cmd_read_clean(DirContext& ctxt, DirCommandList& cl,
+                             const CohCmdMsg* msg) const {
+    LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
+    switch (line->state()) {
+      case State::I:
+      case State::S:
+      case State::E:
+      case State::M:
+      case State::O:
+      default: {
+        cl.raise_error("Not implemented");
+      } break;
+    }
+  }
+
+  void handle_cmd_read_not_shared_dirty(DirContext& ctxt,
+                                        DirCommandList& cl,
+                                        const CohCmdMsg* msg) const {
+    LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
+    switch (line->state()) {
+      case State::I:
+      case State::S:
+      case State::E:
+      case State::M:
+      case State::O:
+      default: {
+        cl.raise_error("Not implemented");
+      } break;
+    }
+  }
+
+  void handle_cmd_read_shared(DirContext& ctxt, DirCommandList& cl,
+                              const CohCmdMsg* msg) const {
+    DirTState* tstate = ctxt.tstate();
+    LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
+    switch (line->state()) {
+      case State::I: {
         // Line is not present in the directory
         LLCCmdMsg* cmd = Pool<LLCCmdMsg>::construct();
         cmd->set_t(msg->t());
@@ -494,61 +606,12 @@ class MOESIDirProtocol : public DirProtocol {
         // Originator becomes owner.
         issue_set_owner(ctxt, cl, msg->origin());
         // Update state
-        issue_update_state(ctxt, cl, State::IE);
+        issue_update_state(ctxt, cl, State::I_E);
         issue_update_substate(ctxt, cl, SubState::AwaitingLLCFillRsp);
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
-
-      case AceCmdOpcode::CleanUnique: {
-      } break;
-      case AceCmdOpcode::CleanShared: {
-      } break;
-      case AceCmdOpcode::CleanInvalid: {
-      } break;
-
-      case AceCmdOpcode::MakeUnique: {
-      } break;
-      case AceCmdOpcode::MakeInvalid: {
-      } break;
-
-      case AceCmdOpcode::WriteNoSnoop: {
-        // Directory should never see this command; agent should issue
-        // the message to the interconnect to be processed by either a
-        // memory controller or a peripheral.
-        std::string reason = "Non-cached command recevied: ";
-        reason += to_string(opcode);
-        cl.raise_error(reason);
-      } break;
-      case AceCmdOpcode::WriteUnique:
-      case AceCmdOpcode::WriteLineUnique:
-      case AceCmdOpcode::WriteBack:
-      case AceCmdOpcode::WriteClean: {
-        // An agent cannot issue a Write command as the line is not
-        // (should not) be present in any cache in the system.
-      } break;
-
-      case AceCmdOpcode::Evict: {
-        // An agent cannot issue a Write command as the line is not
-        // (should not) be present in any cache in the system.
-        cl.raise_error("Spurious Evict command received; line is "
-                       "in an Invalid state.");
-      } break;
-        
-      default: {
-        // Unknown opcode; raise error.
-        std::string reason = "Unsupported opcode received: ";
-        reason += to_string(opcode);
-        cl.raise_error(reason);
-      } break;
-    }
-  }
-
-  void apply_S(DirContext& ctxt, DirCommandList& cl, const CohCmdMsg* msg) const {
-    DirTState* tstate = ctxt.tstate();
-    const AceCmdOpcode opcode = msg->opcode();
-    switch (opcode) {
-      case AceCmdOpcode::ReadShared: {
+      case State::S: {
         // Add requester to sharer list; forward data to requester
         // from either LLC or nominated sharing cache
         // (complication in the presence of silent evictions).
@@ -567,38 +630,7 @@ class MOESIDirProtocol : public DirProtocol {
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
-      case AceCmdOpcode::ReadUnique: {
-        // Issue invalidation commands to sharing caches, if unique
-        // promote line to exclusive state.
-      } break;
-      default: {
-        // Unknown opcode; raise error.
-        std::string reason = "Unsupported opcode received: ";
-        reason += to_string(opcode);
-        cl.raise_error(reason);
-      } break;
-    }
-  }
-
-  void apply_E(DirContext& ctxt, DirCommandList& cl, const CohCmdMsg* msg) const {
-    LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
-    const AceCmdOpcode opcode = msg->opcode();
-    switch (opcode) {
-      case AceCmdOpcode::ReadNoSnoop: {
-        // Directory should never see this command; agent should issue
-        // the message to the interconnect to be processed by either a
-        // memory controller or a peripheral.
-        std::string reason = "Non-cached command recevied: ";
-        reason += to_string(opcode);
-        cl.raise_error(reason);
-      } break;
-
-      case AceCmdOpcode::ReadOnce:
-      case AceCmdOpcode::ReadClean:
-      case AceCmdOpcode::ReadNotSharedDirty: {
-        cl.raise_error("Not implemented");
-      } break;
-      case AceCmdOpcode::ReadShared: {
+      case State::E: {
         // Line resides in the exclusive state, meaning that a
         // single agent has it in either the E or M state. We
         // therefore wish for the agent to relinquish control of
@@ -623,12 +655,42 @@ class MOESIDirProtocol : public DirProtocol {
         // therefore when a line has been installed in the
         // Exclusive state, the directory asssumes that the cache
         // line has been modified by the owning agent.
-        issue_update_state(ctxt, cl, State::EO);
+        issue_update_state(ctxt, cl, State::E_O);
         issue_update_substate(ctxt, cl, SubState::AwaitingCohSnpRsp);
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
-      case AceCmdOpcode::ReadUnique: {
+      case State::M:
+      case State::O:
+      default: {
+        cl.raise_error("Not implemented");
+      } break;
+    }
+  }
+
+  void handle_cmd_read_unique(DirContext& ctxt, DirCommandList& cl,
+                              const CohCmdMsg* msg) const {
+    LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
+    switch (line->state()) {
+      case State::I: {
+        // Line is not present in the directory
+        LLCCmdMsg* cmd = Pool<LLCCmdMsg>::construct();
+        cmd->set_t(msg->t());
+        cmd->set_opcode(LLCCmdOpcode::Fill);
+        cmd->set_addr(msg->addr());
+
+        // Issue Fill command to LLC.
+        issue_msg_to_noc(ctxt, cl, cmd, ctxt.dir()->llc());
+        // Originator becomes owner.
+        issue_set_owner(ctxt, cl, msg->origin());
+        // Update state
+        issue_update_state(ctxt, cl, State::I_E);
+        issue_update_substate(ctxt, cl, SubState::AwaitingLLCFillRsp);
+        // Consume and advance
+        cl.next_and_do_consume(true);
+      } break;
+      case State::S:
+      case State::E: {
         // Owning cache may have line in either the E or the M
         // state; would nominally expected for the line to have
         // been promoted to the M state by the time some other
@@ -643,159 +705,13 @@ class MOESIDirProtocol : public DirProtocol {
         snp->set_opcode(AceSnpOpcode::ReadUnique);
         issue_msg_to_noc(ctxt, cl, snp, line->owner());
 
-        issue_update_state(ctxt, cl, State::EE);
+        issue_update_state(ctxt, cl, State::E_E);
         issue_update_substate(ctxt, cl, SubState::AwaitingCohSnpRsp);
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
-      case AceCmdOpcode::CleanUnique:
-      case AceCmdOpcode::CleanShared:
-      case AceCmdOpcode::CleanInvalid: {
-        cl.raise_error("Not implemented");
-      } break;
-      case AceCmdOpcode::MakeUnique:
-      case AceCmdOpcode::MakeInvalid: {
-        cl.raise_error("Not implemented");
-      } break;
-      case AceCmdOpcode::Evict: {
-        // Line is installed in the Exclusive state within the
-        // requester's cache. As the line is exclusive, remove the
-        // from the directory cache and issue a response.
-
-        // Issue coherence response, line has now been removed from cache.
-        CohEndMsg* end = Pool<CohEndMsg>::construct();
-        end->set_t(msg->t());
-        // No data transfer associated with Evict transaction.
-        end->set_dt_n(0);
-        issue_msg_to_noc(ctxt, cl, end, msg->origin());
-
-        // Line becomes idle.
-        issue_update_state(ctxt, cl, State::I);
-        cl.push_back(cb::from_opcode(DirOpcode::RemoveLine));
-        cl.push_back(cb::from_opcode(DirOpcode::EndTransaction));
-        // Consume and advance
-        cl.next_and_do_consume(true);
-      } break;
-      case AceCmdOpcode::WriteNoSnoop: {
-        // Directory should never see this command; agent should issue
-        // the message to the interconnect to be processed by either a
-        // memory controller or a peripheral.
-        std::string reason = "Non-cached command recevied: ";
-        reason += to_string(opcode);
-        cl.raise_error(reason);
-      } break;
-      case AceCmdOpcode::WriteUnique:
-      case AceCmdOpcode::WriteLineUnique: {
-        cl.raise_error("Not implemented");
-      } break;
-      case AceCmdOpcode::WriteBack: {
-        // TOOD: form message to evict from LLC and write to
-        // memory.
-
-        // Form coherence result; should be gated on LLC response
-        // message.
-        CohEndMsg* end = Pool<CohEndMsg>::construct();
-        end->set_t(msg->t());
-        end->set_dt_n(0);
-        issue_msg_to_noc(ctxt, cl, end, msg->origin());
-        // Line becomes idle.
-        issue_update_state(ctxt, cl, State::I);
-        cl.push_back(cb::from_opcode(DirOpcode::RemoveLine));
-        cl.push_back(cb::from_opcode(DirOpcode::EndTransaction));
-        // Consume and advance
-        cl.next_and_do_consume(true);
-      } break;
-      case AceCmdOpcode::WriteClean: {
-        cl.raise_error("Not implemented");
-      } break;
-      default: {
-        // Unknown opcode; raise error.
-        std::string reason = "Unsupported opcode received: ";
-        reason += to_string(opcode);
-        cl.raise_error(reason);
-      } break;
-    }
-  }
-  
-  void apply_M(DirContext& ctxt, DirCommandList& cl, const CohCmdMsg* msg) const {
-    LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
-    const AceCmdOpcode opcode = msg->opcode();
-    switch (opcode) {
-      case AceCmdOpcode::ReadNoSnoop: {
-        // Directory should never see this command; agent should issue
-        // the message to the interconnect to be processed by either a
-        // memory controller or a peripheral.
-        std::string reason = "Non-cached command recevied: ";
-        reason += to_string(opcode);
-        cl.raise_error(reason);
-      } break;
-
-      case AceCmdOpcode::ReadOnce:
-      case AceCmdOpcode::ReadClean:
-      case AceCmdOpcode::ReadNotSharedDirty:
-      case AceCmdOpcode::ReadShared:
-      case AceCmdOpcode::ReadUnique: {
-        cl.raise_error("Not implemented");
-      } break;
-
-      case AceCmdOpcode::CleanUnique:
-      case AceCmdOpcode::CleanShared:
-      case AceCmdOpcode::CleanInvalid: {
-        cl.raise_error("Not implemented");
-      } break;
-
-      case AceCmdOpcode::WriteNoSnoop: {
-        // Directory should never see this command; agent should issue
-        // the message to the interconnect to be processed by either a
-        // memory controller or a peripheral.
-        std::string reason = "Non-cached command recevied: ";
-        reason += to_string(opcode);
-        cl.raise_error(reason);
-      } break;
-      case AceCmdOpcode::WriteUnique:
-      case AceCmdOpcode::WriteLineUnique:
-      case AceCmdOpcode::WriteBack:
-      case AceCmdOpcode::WriteClean: {
-        cl.raise_error("Not implemented");
-      } break;
-
-      case AceCmdOpcode::MakeUnique:
-      case AceCmdOpcode::MakeInvalid: {
-        cl.raise_error("Not implemented");
-      } break;
-
-      case AceCmdOpcode::Evict: {
-        cl.raise_error("Not implemented");
-      } break;
-
-      default: {
-        // Unknown opcode; raise error.
-        std::string reason = "Unsupported opcode received: ";
-        reason += to_string(opcode);
-        cl.raise_error(reason);
-      } break;
-    }
-  }
-
-  void apply_O(DirContext& ctxt, DirCommandList& cl, const CohCmdMsg* msg) const {
-    LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
-    const AceCmdOpcode opcode = msg->opcode();
-    switch (opcode) {
-      case AceCmdOpcode::ReadNoSnoop: {
-        // Directory should never see this command; agent should issue
-        // the message to the interconnect to be processed by either a
-        // memory controller or a peripheral.
-        std::string reason = "Non-cached command recevied: ";
-        reason += to_string(opcode);
-        cl.raise_error(reason);
-      } break;
-      case AceCmdOpcode::ReadOnce:
-      case AceCmdOpcode::ReadClean:
-      case AceCmdOpcode::ReadNotSharedDirty:
-      case AceCmdOpcode::ReadShared: {
-        cl.raise_error("Not implemented");
-      } break;
-      case AceCmdOpcode::ReadUnique: {
+      case State::M:
+      case State::O: {
         // Requesting cache does not have line installed and
         // requests line in a Unique state (presumably to carry
         // out a Store command). Some other cache has line in
@@ -820,7 +736,7 @@ class MOESIDirProtocol : public DirProtocol {
         snp->set_addr(msg->addr());
         snp->set_origin(ctxt.dir());
         snp->set_agent(msg->origin());
-        snp->set_opcode(to_snp_opcode(opcode));
+        snp->set_opcode(to_snp_opcode(msg->opcode()));
         issue_msg_to_noc(ctxt, cl, snp, line->owner());
         snoop_n++;
 
@@ -831,84 +747,543 @@ class MOESIDirProtocol : public DirProtocol {
         // object.
         issue_set_snoop_n(ctxt, cl, snoop_n);
 
-        // Update state: O -> OO -> O; current owner reliquishes
+        // Update state: O -> O_O -> O; current owner reliquishes
         // ownership of the line and forwards ownership to the
         // requesting agent.
-        issue_update_state(ctxt, cl, State::OO);
+        issue_update_state(ctxt, cl, State::O_O);
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
-      case AceCmdOpcode::CleanUnique: {
-        // Requesting cache has line presently installed in its
-        // cache but requests ownership of the line so that it can
-        // (presumably) complete a write operation to the line.
-        // Issue invalidate request to all sharers of the line and
-        // then forward the completed response back to the
-        // originating agent.
+      default: {
+        cl.raise_error("Not implemented");
+      } break;        
+    }
+  }
 
+  // C4.6.1 CleanUnique
+  //
+  // Requesting cache has line installed in its cache, but not in a
+  // state where a write can be performed (Shared, SC or Owned, SD).
+  // The CleanUnique command is issued such that all other copies of
+  // lines in the system are invalidated and that line in the
+  // originator is promoted to the an Exclusive state (Exclusive, UC or
+  // Modified, UD).
+  //
+  void handle_cmd_clean_unique(DirContext& ctxt, DirCommandList& cl,
+                               const CohCmdMsg* msg) const {
+    
+    LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
+    const State state = line->state();
+    switch (line->state()) {
+      case State::I: {
+        // CleanUnique can be issued by agent in Invalid state
+        // although this is not typical. In this case, the transaction
+        // ends immediately as no snoops are required.
+        CohEndMsg* end = Pool<CohEndMsg>::construct();
+        end->set_t(msg->t());
+        end->set_origin(ctxt.dir());
+        // "the {IsShared/PassDirty} response must be deasserted"
+        end->set_is(false);
+        end->set_pd(false);
+        // Issue response back to originator.
+        issue_msg_to_noc(ctxt, cl, end, ctxt.tstate()->origin());
+        // Transaction is now complete.
+        cl.push_back(DirOpcode::EndTransaction);
+        // Consume and advance
+        cl.next_and_do_consume(true);
+      } break;
+      case State::S:
+      case State::E:
+      case State::M:
+      case State::O: {
         // Issue invalidation snoops to sharing agents
         std::size_t snoop_n = 0;
-        for (Agent* agent : line->sharers()) {
-          // Do not sent message to originator as redundant.
-          if (agent == msg->origin()) continue;
+        CohSnpMsg* snp = nullptr;
 
+        // Issue invalidation snoop (CleanInvalid) to owning agent (if
+        // applicable).
+        if (Agent* owner = line->owner(); owner != nullptr) {
+          // If command originator is currently the owner, skip the
+          // invalidation snoop.
+          if (owner == msg->origin()) break;
+          
           // Issue snoop.
-          CohSnpMsg* snp = Pool<CohSnpMsg>::construct();
+          snp = Pool<CohSnpMsg>::construct();
           snp->set_t(msg->t());
           snp->set_addr(msg->addr());
           snp->set_origin(ctxt.dir());
           snp->set_agent(msg->origin());
-          snp->set_opcode(to_snp_opcode(opcode));
+          snp->set_opcode(to_snp_opcode(msg->opcode()));
+          // Issue snoop to interconnect
+          issue_msg_to_noc(ctxt, cl, snp, owner);
+          ++snoop_n;
+        }
+
+        // Issue invalidation snoops (CleanInvalid) to sharing agents.
+        for (Agent* agent : line->sharers()) {
+          // Do not sent message to originator as agent must retain
+          // line, as per. requirements.
+          if (agent == msg->origin()) continue;
+
+          // Issue snoop.
+          snp = Pool<CohSnpMsg>::construct();
+          snp->set_t(msg->t());
+          snp->set_addr(msg->addr());
+          snp->set_origin(ctxt.dir());
+          snp->set_agent(msg->origin());
+          snp->set_opcode(to_snp_opcode(msg->opcode()));
           issue_msg_to_noc(ctxt, cl, snp, agent);
-          snoop_n++;
+          ++snoop_n;
         }
 
         // Set expected snoop response count in transaction state
         // object.
         issue_set_snoop_n(ctxt, cl, snoop_n);
 
-        // Update state: transition Owner -> Exclusive.
-        issue_update_state(ctxt, cl, State::OE);
+        State next_state = State::X;
+        switch (state) {
+          // Transition from clean state to exclusive
+          case State::S: next_state = State::S_E;
+          case State::E: next_state = State::E_E;
+
+          // Transition to Exclusive of Owned state depending upon
+          // whether the owning agent performs a writeback to memory
+          // before forwarding the line. Owning agent can potentially
+          // opt. to transfer ownership a the dirty line to the
+          // requesting agent.
+          case State::M: next_state = State::M_EO;
+          case State::O: next_state = State::M_EO;
+          default:       next_state = State::X;
+        }
+        issue_update_state(ctxt, cl, next_state);
 
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
-
-      case AceCmdOpcode::CleanShared:
-      case AceCmdOpcode::CleanInvalid: {
-        cl.raise_error("Not implemented");
-      } break;
-
-      case AceCmdOpcode::MakeUnique:
-      case AceCmdOpcode::MakeInvalid: {
-        cl.raise_error("Not implemented");
-      } break;
-
-      case AceCmdOpcode::WriteNoSnoop: {
-        // Directory should never see this command; agent should issue
-        // the message to the interconnect to be processed by either a
-        // memory controller or a peripheral.
-        std::string reason = "Non-cached command recevied: ";
-        reason += to_string(opcode);
-        cl.raise_error(reason);
-      } break;
-      case AceCmdOpcode::WriteUnique:
-      case AceCmdOpcode::WriteLineUnique:
-      case AceCmdOpcode::WriteBack:
-      case AceCmdOpcode::WriteClean: {
-        cl.raise_error("Not implemented");
-      } break;
-
-      case AceCmdOpcode::Evict: {
-        cl.raise_error("Not implemented");
-      } break;
-
       default: {
-        // Unknown opcode; raise error.
-        std::string reason = "Unsupported opcode received: ";
-        reason += to_string(opcode);
+        cl.raise_error("Not implemented");
+      } break;        
+    }
+  }
+
+  // C4.6.2 CleanShared
+  //
+  // Command instructs all agents holding the line to clean the
+  // line. Agents may choose to retain the line is a clean state
+  // (Shared, SC or Exclusive, UC) or may choose to invalidate (after
+  // a prior writeback operation when applicable). As the transaction
+  // does not snoop the requesting agent, the requestor must the line
+  // in a clean state before issuing the CleanShared command.
+  //
+  void handle_cmd_clean_shared(DirContext& ctxt, DirCommandList& cl,
+                               const CohCmdMsg* msg) const {
+    LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
+    const State state = line->state();
+    switch (line->state()) {
+      case State::I: {
+        // CleanUnique can be issued by agent in Invalid state
+        // although this is not typical. In this case, the transaction
+        // ends immediately as no snoops are required.
+        CohEndMsg* end = Pool<CohEndMsg>::construct();
+        end->set_t(msg->t());
+        end->set_origin(ctxt.dir());
+        // "the {IsShared/PassDirty} response must be deasserted"
+        end->set_is(false);
+        end->set_pd(false);
+        // Issue response back to originator.
+        issue_msg_to_noc(ctxt, cl, end, ctxt.tstate()->origin());
+        // Transaction is now complete.
+        cl.push_back(DirOpcode::EndTransaction);
+        // Consume and advance
+        cl.next_and_do_consume(true);
+      } break;
+      case State::S:
+      case State::E:
+      case State::M:
+      case State::O: {
+        // Issue invalidation snoops to sharing agents
+        std::size_t snoop_n = 0;
+        CohSnpMsg* snp = nullptr;
+
+        // Issue invalidation snoop (CleanInvalid) to owning agent (if
+        // applicable).
+        if (Agent* owner = line->owner(); owner != nullptr) {
+          // If command originator is currently the owner, skip the
+          // invalidation snoop.
+          if (owner == msg->origin()) break;
+          
+          // Issue snoop.
+          snp = Pool<CohSnpMsg>::construct();
+          snp->set_t(msg->t());
+          snp->set_addr(msg->addr());
+          snp->set_origin(ctxt.dir());
+          snp->set_agent(msg->origin());
+          snp->set_opcode(to_snp_opcode(msg->opcode()));
+          // Issue snoop to interconnect
+          issue_msg_to_noc(ctxt, cl, snp, owner);
+          ++snoop_n;
+        }
+
+        // Issue invalidation snoops (CleanInvalid) to sharing agents.
+        for (Agent* agent : line->sharers()) {
+          // Do not sent message to originator as agent must retain
+          // line, as per. requirements.
+          if (agent == msg->origin()) continue;
+
+          // Issue snoop.
+          snp = Pool<CohSnpMsg>::construct();
+          snp->set_t(msg->t());
+          snp->set_addr(msg->addr());
+          snp->set_origin(ctxt.dir());
+          snp->set_agent(msg->origin());
+          snp->set_opcode(to_snp_opcode(msg->opcode()));
+          issue_msg_to_noc(ctxt, cl, snp, agent);
+          ++snoop_n;
+        }
+
+        // Set expected snoop response count in transaction state
+        // object.
+        issue_set_snoop_n(ctxt, cl, snoop_n);
+
+        State next_state = State::X;
+        switch (state) {
+          // Transition from clean state to Shared or Exclusive (where
+          // requester is the cache in the Exclusive state).
+          case State::S: next_state = State::S_SE;
+          case State::E: next_state = State::E_SE;
+
+          // Transition from Dirty state to Shared to Exclusve state
+          // depending upon whether the Owning agent decides to
+          // retain the line after its writeback).
+          case State::M: next_state = State::M_SE;
+          case State::O: next_state = State::O_SE;
+          default:       next_state = State::X;
+        }
+        issue_update_state(ctxt, cl, next_state);
+
+        // Consume and advance
+        cl.next_and_do_consume(true);
+      } break;
+      default: {
+        cl.raise_error("Not implemented");
+      } break;        
+    }
+  }
+
+  // C4.6.3 CleanInvalid
+  //
+  // For all agents holding the line, invalidate the line such that
+  // upon completion of the command no cache is holding the line and
+  // main memory is holding a valid and upto date copy.
+  //
+  void handle_cmd_clean_invalid(DirContext& ctxt, DirCommandList& cl,
+                                const CohCmdMsg* msg) const {
+    LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
+    const State state = line->state();
+    switch (state) {
+      case State::I: {
+        // No lines have the cache, command is effectively a nop
+        // and therefore completes immediately.
+        CohEndMsg* end = Pool<CohEndMsg>::construct();
+        end->set_t(msg->t());
+        end->set_origin(ctxt.dir());
+        // "the {IsShared/PassDirty} response must be deasserted"
+        end->set_is(false);
+        end->set_pd(false);
+        // Issue response back to originator.
+        issue_msg_to_noc(ctxt, cl, end, ctxt.tstate()->origin());
+        // Transaction is now complete.
+        cl.push_back(DirOpcode::EndTransaction);
+        // Consume and advance
+        cl.next_and_do_consume(true);
+      } break;
+      case State::S:
+      case State::E:
+      case State::M:
+      case State::O: {
+        // Otherwise, issue invalidation snoops (MakeInvalid) to the
+        // Owner (if present), and sharers (if present).
+        std::size_t snoop_n = 0;
+        CohSnpMsg* snp = nullptr;
+        if (Agent* owner = line->owner(); owner != nullptr) {
+          // Issue invalidation to owner
+          snp = Pool<CohSnpMsg>::construct();
+          snp->set_t(msg->t());
+          snp->set_addr(msg->addr());
+          snp->set_origin(ctxt.dir());
+          snp->set_agent(ctxt.tstate()->origin());
+          snp->set_opcode(to_snp_opcode(msg->opcode()));
+          // Issue to interconnect
+          issue_msg_to_noc(ctxt, cl, snp, owner);
+          ++snoop_n;
+        }
+        for (Agent* sharer : line->sharers()) {
+          // Issue invalidation to sharer
+          snp = Pool<CohSnpMsg>::construct();
+          snp->set_t(msg->t());
+          snp->set_addr(msg->addr());
+          snp->set_origin(ctxt.dir());
+          snp->set_agent(ctxt.tstate()->origin());
+          snp->set_opcode(to_snp_opcode(msg->opcode()));
+          // Issue to interconnect
+          issue_msg_to_noc(ctxt, cl, snp, sharer);
+          ++snoop_n;
+        }
+        // Set expected number of snoop responses.
+        issue_set_snoop_n(ctxt, cl, snoop_n);
+        // Transition to awaiting snoop response substate.
+        issue_update_substate(ctxt, cl, SubState::AwaitingCohSnpRsp);
+        // Compute next state (transition to invalid)
+        State next_state = State::X;
+        switch (state) {
+          case State::S: next_state = State::S_I;
+          case State::E: next_state = State::E_I;
+          case State::M: next_state = State::M_I;
+          case State::O: next_state = State::O_I;
+          default:       next_state = State::X;
+        }
+        issue_update_state(ctxt, cl, next_state);
+        // Consume and advance
+        cl.next_and_do_consume(true);
+      } break;
+      default: {
+        cl.raise_error("Not implemented");
+      } break;        
+    }
+  }
+
+  // C4.7.1 Make Unique
+  //
+  // Invalidate all copies of the line in all agents aside from the
+  // command initiator. From the perspective of the directory, this
+  // command behaves as the MakeInvalid command. The major difference
+  // between the two commands is at the L2, where the line remains
+  // installed in the originator, which then performs a full-cache
+  // line write. We therefore piggy-back the MakeInvalid
+  // implementation.
+  //
+  void handle_cmd_make_unique(DirContext& ctxt, DirCommandList& cl,
+                              const CohCmdMsg* msg) const {
+    handle_cmd_make_invalid(ctxt, cl, msg);
+  }
+
+  // C4.7.2 Make Invalid
+  //
+  // Invalidate all agents currently holding the line regardless of
+  // state (owning/sharing). Command assumes that the initiating
+  // agent had previously invalidate the line held in its cache,
+  // therefore a snoop is not issued to the originator.
+  // 
+  void handle_cmd_make_invalid(DirContext& ctxt, DirCommandList& cl,
+                               const CohCmdMsg* msg) const {
+    const LineState* line =
+        static_cast<const LineState*>(ctxt.tstate()->line());
+    const State state = line->state();
+    switch (state) {
+      case State::I: {
+        // No lines have the cache, command is effectively a nop
+        // and therefore completes immediately.
+        CohEndMsg* end = Pool<CohEndMsg>::construct();
+        end->set_t(msg->t());
+        end->set_origin(ctxt.dir());
+        // "the {IsShared/PassDirty} response must be deasserted"
+        end->set_is(false);
+        end->set_pd(false);
+        // Issue response back to originator.
+        issue_msg_to_noc(ctxt, cl, end, ctxt.tstate()->origin());
+        // Transaction is now complete.
+        cl.push_back(DirOpcode::EndTransaction);
+        // Consume and advance
+        cl.next_and_do_consume(true);
+      } break;
+      case State::S:
+      case State::E:
+      case State::M:
+      case State::O: {
+        // Otherwise, issue invalidation snoops (MakeInvalid) to the
+        // Owner (if present), and sharers (if present).
+        std::size_t snoop_n = 0;
+        CohSnpMsg* snp = nullptr;
+        if (Agent* owner = line->owner(); owner != nullptr) {
+          // Issue invalidation to owner
+          snp = Pool<CohSnpMsg>::construct();
+          snp->set_t(msg->t());
+          snp->set_addr(msg->addr());
+          snp->set_origin(ctxt.dir());
+          snp->set_agent(ctxt.tstate()->origin());
+          snp->set_opcode(to_snp_opcode(msg->opcode()));
+          // Issue to interconnect
+          issue_msg_to_noc(ctxt, cl, snp, owner);
+          ++snoop_n;
+        }
+        for (Agent* sharer : line->sharers()) {
+          // Issue invalidation to sharer
+          snp = Pool<CohSnpMsg>::construct();
+          snp->set_t(msg->t());
+          snp->set_addr(msg->addr());
+          snp->set_origin(ctxt.dir());
+          snp->set_agent(ctxt.tstate()->origin());
+          snp->set_opcode(to_snp_opcode(msg->opcode()));
+          // Issue to interconnect
+          issue_msg_to_noc(ctxt, cl, snp, sharer);
+          ++snoop_n;
+        }
+        // Set expected number of snoop responses.
+        issue_set_snoop_n(ctxt, cl, snoop_n);
+        // Transition to awaiting snoop response substate.
+        issue_update_substate(ctxt, cl, SubState::AwaitingCohSnpRsp);
+        // Compute next state (transition to invalid)
+        State next_state = State::X;
+        switch (state) {
+          case State::S: next_state = State::S_I;
+          case State::E: next_state = State::E_I;
+          case State::M: next_state = State::M_I;
+          case State::O: next_state = State::O_I;
+          default:       next_state = State::X;
+        }
+        issue_update_state(ctxt, cl, next_state);
+        // Consume and advance
+        cl.next_and_do_consume(true);
+      } break;
+      default: {
+        cl.raise_error("Invalid state");
+      } break;
+    }
+  }
+  
+  void handle_cmd_write_no_snoop(DirContext& ctxt, DirCommandList& cl,
+                                 const CohCmdMsg* msg) const {
+    // The directory should never see non-cached commands. Instead,
+    // the requesting agent should issue to the command directly into
+    // the interconnect where it is directed to either a memory
+    // controller or a peripheral/accelerator.
+    cl.raise_error("Directory has received a non-cached command: "
+                   "ReadNoSnoop");
+  }
+
+  void handle_cmd_write_unique(DirContext& ctxt, DirCommandList& cl,
+                               const CohCmdMsg* msg) const {
+    LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
+    switch (line->state()) {
+      case State::I:
+      case State::S:
+      case State::E:
+      case State::M:
+      case State::O:
+      default: {
+        cl.raise_error("Not implemented");
+      } break;        
+    }
+  }
+
+  void handle_cmd_write_line_unique(DirContext& ctxt, DirCommandList& cl,
+                                    const CohCmdMsg* msg) const {
+    LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
+    switch (line->state()) {
+      case State::I:
+      case State::S:
+      case State::E:
+      case State::M:
+      case State::O:
+      default: {
+        cl.raise_error("Not implemented");
+      } break;        
+    }
+  }
+
+  void handle_cmd_write_back(DirContext& ctxt, DirCommandList& cl,
+                             const CohCmdMsg* msg) const {
+    LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
+    switch (line->state()) {
+      case State::I:
+      case State::S:
+      case State::E: {
+        // TOOD: form message to evict from LLC and write to
+        // memory.
+
+        // Form coherence result; should be gated on LLC response
+        // message.
+        CohEndMsg* end = Pool<CohEndMsg>::construct();
+        end->set_t(msg->t());
+        end->set_dt_n(0);
+        issue_msg_to_noc(ctxt, cl, end, msg->origin());
+        // Line becomes idle.
+        issue_update_state(ctxt, cl, State::I);
+        cl.push_back(DirOpcode::RemoveLine);
+        cl.push_back(DirOpcode::EndTransaction);
+        // Consume and advance
+        cl.next_and_do_consume(true);
+      } break;
+      case State::M:
+      case State::O:
+      default: {
+        cl.raise_error("Not implemented");
+      } break;        
+    }
+  }
+
+  void handle_cmd_write_clean(DirContext& ctxt, DirCommandList& cl,
+                              const CohCmdMsg* msg) const {
+    LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
+    switch (line->state()) {
+      case State::I:
+      case State::S:
+      case State::E:
+      case State::M:
+      case State::O:
+      default: {
+        cl.raise_error("Not implemented");
+      } break;        
+    }
+  }
+
+  // C4.9.1 Evict
+  void handle_cmd_evict(DirContext& ctxt, DirCommandList& cl,
+                        const CohCmdMsg* msg) const {
+    LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
+    switch (line->state()) {
+      case State::I:
+        // The spec does not specifically mention what happens in this
+        // case as one cannot explicitly evict a line which has not
+        // been installed in the cache. In this case, we simply ignore
+        // the command and consider it to be spurious.
+        [[fallthrough]];
+      case State::S:
+      case State::E: {
+        // Line is installed in the Exclusive state within the
+        // requester's cache. As the line is exclusive, remove the
+        // from the directory cache and issue a response.
+
+        // Issue coherence response, line has now been removed from cache.
+        CohEndMsg* end = Pool<CohEndMsg>::construct();
+        end->set_t(msg->t());
+        // No data transfer associated with Evict transaction.
+        end->set_dt_n(0);
+        issue_msg_to_noc(ctxt, cl, end, msg->origin());
+
+        // Line becomes idle.
+        issue_update_state(ctxt, cl, State::I);
+        cl.push_back(DirOpcode::RemoveLine);
+        cl.push_back(DirOpcode::EndTransaction);
+        // Consume and advance
+        cl.next_and_do_consume(true);
+      } break;
+      case State::M:
+      case State::O: {
+        using cc::to_string;
+
+        // Cannot evict a line which is current in a modified state.
+        std::string reason = "Agent: ";
+        reason += msg->origin()->path();
+        reason += " evicts cache line: ";
+        reason += to_string(msg->addr());
+        reason += " but line is currently in modified state: ";
+        reason += to_string(line->state());
         cl.raise_error(reason);
       } break;
+      default: {
+        cl.raise_error("Not implemented");
+      } break;        
     }
   }
 
@@ -919,8 +1294,8 @@ class MOESIDirProtocol : public DirProtocol {
     LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
     const State state = line->state();
     switch (state) {
-      case State::IS:
-      case State::IE: {
+      case State::I_S:
+      case State::I_E: {
         switch (line->substate()) {
           case SubState::AwaitingLLCFillRsp: {
             // LLC line fill has completed. Now, instruct the LLC to
@@ -933,7 +1308,7 @@ class MOESIDirProtocol : public DirProtocol {
             cmd->set_addr(tstate->addr());
             cmd->set_agent(tstate->origin());
             issue_msg_to_noc(ctxt, cl, cmd, ctxt.dir()->llc());
-            cl.push_back(cb::from_opcode(DirOpcode::MsgConsume));
+            cl.push_back(DirOpcode::MsgConsume);
 
             issue_update_substate(ctxt, cl, SubState::AwaitingLLCFwdRsp);
             // Advance
@@ -949,12 +1324,12 @@ class MOESIDirProtocol : public DirProtocol {
             end->set_dt_n(1);
             issue_msg_to_noc(ctxt, cl, end, line->owner());
             const State next_state =
-                (line->state() == State::IS) ? State::S : State::E;
+                (line->state() == State::I_S) ? State::S : State::E;
             issue_update_state(ctxt, cl, next_state);
             // Return to stable/non-transient state.
             issue_update_substate(ctxt, cl, SubState::None);
 
-            cl.push_back(cb::from_opcode(DirOpcode::EndTransaction));
+            cl.push_back(DirOpcode::EndTransaction);
             // Consume and advance
             cl.next_and_do_consume(true);
           } break;
@@ -974,7 +1349,7 @@ class MOESIDirProtocol : public DirProtocol {
             // Return to stable/non-transient state.
             issue_update_substate(ctxt, cl, SubState::None);
 
-            cl.push_back(cb::from_opcode(DirOpcode::EndTransaction));
+            cl.push_back(DirOpcode::EndTransaction);
             // Consume and advance
             cl.next_and_do_consume(true);
           } break;
@@ -1010,7 +1385,7 @@ class MOESIDirProtocol : public DirProtocol {
     switch (opcode) {
       case AceCmdOpcode::CleanUnique: {
         switch (state) {
-          case State::OE: {
+          case State::O_E: {
             // Issue snoop count increment.
             issue_inc_snoop_i(ctxt, cl);
 
@@ -1039,7 +1414,7 @@ class MOESIDirProtocol : public DirProtocol {
 
               // Transaction is complete once overall transaction
               // response has been computed.
-              cl.push_back(cb::from_opcode(DirOpcode::EndTransaction));
+              cl.push_back(DirOpcode::EndTransaction);
             }
           } break;
           default: {
@@ -1050,7 +1425,7 @@ class MOESIDirProtocol : public DirProtocol {
       case AceCmdOpcode::ReadShared: {
         //
         switch (state) {
-          case State::EO: {
+          case State::E_O: {
             // CHECK: expect this to be the final snoop response; only
             // one snoop should have been issued.
 
@@ -1110,7 +1485,7 @@ class MOESIDirProtocol : public DirProtocol {
 
             issue_msg_to_noc(ctxt, cl, end, tstate->origin());
 
-            cl.push_back(cb::from_opcode(DirOpcode::EndTransaction));
+            cl.push_back(DirOpcode::EndTransaction);
           } break;
           default: {
           } break;
@@ -1118,7 +1493,7 @@ class MOESIDirProtocol : public DirProtocol {
       } break;
       case AceCmdOpcode::ReadUnique: {
         switch (line->state()) {
-          case State::OO: {
+          case State::O_O: {
             // Line is presently in the Owned state; owning cache
             // has been snooped and we *expect* for it to forward
             // the line to the requesting agent (TODO: agent may
@@ -1129,7 +1504,7 @@ class MOESIDirProtocol : public DirProtocol {
             if (is) {
               // Cannot obtain line with IsShared property set. Ownership
               // must have been relinqusihed.
-              throw std::runtime_error("Cannot receive with IS.");
+              throw std::runtime_error("Cannot receive with I_S.");
             }
 
             CohEndMsg* end = Pool<CohEndMsg>::construct();
@@ -1163,15 +1538,15 @@ class MOESIDirProtocol : public DirProtocol {
             // Transaction is complete.
             cl.push_back(DirOpcode::EndTransaction);
           } break;
-          case State::EE: {
+          case State::E_E: {
             // Line is presently in the Exclusive state in the owning
             // cache (possibly modified). Exclusive ownership is to be
             // passed to the requesting agent. Therefore the state
-            // transition is: E -> EE -> E.
+            // transition is: E -> E_E -> E.
             const bool is = msg->is(), pd = msg->pd(), dt = msg->dt();
             if (is) {
               // Cannot obtain line with IsShared property set.
-              throw std::runtime_error("Cannot receive with IS.");
+              throw std::runtime_error("Cannot receive with I_S.");
             }
 
             CohEndMsg* end = Pool<CohEndMsg>::construct();
@@ -1208,7 +1583,7 @@ class MOESIDirProtocol : public DirProtocol {
             // the line is now known. The requesters cache controller
             // now awaits 1 DT either from responding agent or the
             // LLC.
-            cl.push_back(cb::from_opcode(DirOpcode::EndTransaction));
+            cl.push_back(DirOpcode::EndTransaction);
           } break;
           default: {
             // TODO

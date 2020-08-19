@@ -151,12 +151,12 @@ AceSnpOpcode to_snp_opcode(AceCmdOpcode opcode) {
       return AceSnpOpcode::ReadUnique;
     case AceCmdOpcode::CleanUnique:
       return AceSnpOpcode::CleanInvalid;
-    case AceCmdOpcode::MakeUnique:
-      return AceSnpOpcode::MakeInvalid;
     case AceCmdOpcode::CleanShared:
       return AceSnpOpcode::CleanShared;
     case AceCmdOpcode::CleanInvalid:
       return AceSnpOpcode::CleanInvalid;
+    case AceCmdOpcode::MakeUnique:
+      return AceSnpOpcode::MakeInvalid;
     case AceCmdOpcode::MakeInvalid:
       return AceSnpOpcode::MakeInvalid;
     case AceCmdOpcode::WriteUnique:
