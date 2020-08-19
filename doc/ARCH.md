@@ -2,6 +2,53 @@
 
 ## Concepts in coherence protocols
 
+Caches are a common micro-architectural idiom used to lower latency,
+and hence increase bandwidth, to some addressable memory. Caches
+operate on the principal of locality where there is some underlying
+assumption that state is accessed in some known and predictable
+fashion. Caches improve performance by maintaining the recent
+"working/active-set" of state used in memory relatively close to where
+it is consumed.
+
+In multiprocessor systems, each CPU (or more generally a cacheable
+agent) has its own local cache which is addressable only by itself. By
+consequence, state may be duplicate locally within a cache and without
+management, such duplicated state could diverge over
+time. Multiprocessor systems therefore, regardless of implementation,
+require that writes be serialized in some known manner. The outward
+manifestation of such writes, known as consistency, is not discussed
+in this work.
+
+A simplistic solution is to require that a line may exist in only one
+cache at any instant. Although this would solve the coherence problem,
+such an approach would be far from optimal, since it a large body of
+state used by microprocesors is logically independent and restricted
+to a local CPU. Similarly, in the case of immutable data (such as the
+text section of dynamic libraries), there would be no ability for
+multiple CPU to maintain independent cached copies of the state, even
+though it is never (or only rarely) modified over the lifetime of the
+system.
+
+Cache Coherence Protocols are specifically designed to perform the
+following:
+
+1. Ensure that from some number of coherent agents, at most one agent
+   has the ability to perform a write/modification of the line. Line
+   state should not be duplicated between agents such that multiple
+   copies of the same cache line have different values at any point in
+   time.
+2. Emphasize duplication of immutable state such that multiple
+   processors can have multiple copies of the same line.
+3. Emphasize processor-to-processor servicing of requests
+   (intervention) such that a processor with the line presently
+   installed locally, can itself service requests to another processor
+   at a lower overall cost than had the request been serviced through
+   the interconnect/overall-system.
+
+Cache coherency is a rich topic full of nuance and complexity and a
+thorough discussion herein is outwith the scope of this work. The
+interested reader is invited to read [1] for further information.
+
 ## Software Architecture
 
 ## Protocol Deadlock Avoidance
@@ -75,3 +122,5 @@ allow for it to complete atomically. The operation itself may consume
 many cycles to complete, but is architecturall guaranteed not to
 require resources which may only become available after competion of
 the operation.
+
+[1] Coherence textbook
