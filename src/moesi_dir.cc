@@ -100,6 +100,9 @@ enum class State {
   // Owned -> Owned
   O_O,
 
+  // Owned -> Modified or Exclusive
+  O_ME,
+
   // Owned -> Exclusive
   O_E,
 
@@ -543,6 +546,14 @@ class MOESIDirProtocol : public DirProtocol {
                    "ReadNoSnoop");
   }
 
+  // C4.5.2 ReadOnce
+  //
+  // Requesting agent receives a "snapshot" of the cache line; the
+  // cache line is fetched from memory, however nominally it is not
+  // retained by the agent for reuse (received in Shared state),
+  // however it may be retained by the agent, if already present in
+  // the cache.
+  //
   void handle_cmd_read_once(DirContext& ctxt, DirCommandList& cl,
                             const CohCmdMsg* msg) const {
     LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
@@ -558,6 +569,10 @@ class MOESIDirProtocol : public DirProtocol {
     }
   }
 
+  // C4.5.3 ReadClean
+  //
+  //
+  //
   void handle_cmd_read_clean(DirContext& ctxt, DirCommandList& cl,
                              const CohCmdMsg* msg) const {
     LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
@@ -573,6 +588,10 @@ class MOESIDirProtocol : public DirProtocol {
     }
   }
 
+  // C4.5.4 ReadNotSharedDirty
+  //
+  //
+  //
   void handle_cmd_read_not_shared_dirty(DirContext& ctxt,
                                         DirCommandList& cl,
                                         const CohCmdMsg* msg) const {
@@ -589,6 +608,10 @@ class MOESIDirProtocol : public DirProtocol {
     }
   }
 
+  // C4.5.5 ReadShared
+  //
+  //
+  //
   void handle_cmd_read_shared(DirContext& ctxt, DirCommandList& cl,
                               const CohCmdMsg* msg) const {
     DirTState* tstate = ctxt.tstate();
@@ -668,10 +691,13 @@ class MOESIDirProtocol : public DirProtocol {
     }
   }
 
+  // C4.5.6 ReadUnique
+  //
   void handle_cmd_read_unique(DirContext& ctxt, DirCommandList& cl,
                               const CohCmdMsg* msg) const {
     LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
-    switch (line->state()) {
+    const State state = line->state();
+    switch (state) {
       case State::I: {
         // Line is not present in the directory
         LLCCmdMsg* cmd = Pool<LLCCmdMsg>::construct();
@@ -705,7 +731,16 @@ class MOESIDirProtocol : public DirProtocol {
         snp->set_opcode(AceSnpOpcode::ReadUnique);
         issue_msg_to_noc(ctxt, cl, snp, line->owner());
 
-        issue_update_state(ctxt, cl, State::E_E);
+        // Transition to Exclusive state from current Shared/Exclusive
+        // state.
+        State next_state = State::X;
+        switch (state) {
+          case State::S: { next_state = State::S_E; } break;
+          case State::E: { next_state = State::E_E; } break;
+          default:         next_state = State::X;
+        }
+        // Update state
+        issue_update_state(ctxt, cl, next_state);
         issue_update_substate(ctxt, cl, SubState::AwaitingCohSnpRsp);
         // Consume and advance
         cl.next_and_do_consume(true);
@@ -727,30 +762,50 @@ class MOESIDirProtocol : public DirProtocol {
         //    that it no longer has the line installed. Line
         //    must then be sourced from memory.
         //
+        CohSnpMsg* snp = nullptr;
         std::size_t snoop_n = 0;
 
         // Issue snoop to owner. Owner should forwarded line to
         // requesting agent and relinquish ownership of the line.
-        CohSnpMsg* snp = Pool<CohSnpMsg>::construct();
-        snp->set_t(msg->t());
-        snp->set_addr(msg->addr());
-        snp->set_origin(ctxt.dir());
-        snp->set_agent(msg->origin());
-        snp->set_opcode(to_snp_opcode(msg->opcode()));
-        issue_msg_to_noc(ctxt, cl, snp, line->owner());
-        snoop_n++;
+        if (Agent* owner = line->owner(); owner != nullptr) {
+          snp = Pool<CohSnpMsg>::construct();
+          snp->set_t(msg->t());
+          snp->set_addr(msg->addr());
+          snp->set_origin(ctxt.dir());
+          snp->set_agent(msg->origin());
+          snp->set_opcode(to_snp_opcode(ctxt.tstate()->opcode()));
+          issue_msg_to_noc(ctxt, cl, snp, owner);
 
-        // TODO:
-        // Any sharers should be invalidated.
+          ++snoop_n;
+        }
+
+        for (Agent* sharer : line->sharers()) {
+          // Do not snoop to self.
+          if (sharer == ctxt.tstate()->origin()) continue;
+          
+          snp = Pool<CohSnpMsg>::construct();
+          snp->set_t(msg->t());
+          snp->set_addr(msg->addr());
+          snp->set_origin(ctxt.dir());
+          snp->set_agent(msg->origin());
+          snp->set_opcode(to_snp_opcode(ctxt.tstate()->opcode()));
+          issue_msg_to_noc(ctxt, cl, snp, sharer);
+
+          ++snoop_n;
+        }
 
         // Set expected snoop response count in transaction state
         // object.
         issue_set_snoop_n(ctxt, cl, snoop_n);
-
-        // Update state: O -> O_O -> O; current owner reliquishes
-        // ownership of the line and forwards ownership to the
-        // requesting agent.
-        issue_update_state(ctxt, cl, State::O_O);
+        // Update state:
+        //
+        // Owner -> Modified or Exclusive.
+        //
+        // Modified state is entered if upon concensus of the
+        // coherence operation, owner ship has been passed by the
+        // owning agent to the requester. The Exclusive state is
+        // entered if ownership is not passed.
+        issue_update_state(ctxt, cl, State::O_ME);
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
@@ -843,17 +898,17 @@ class MOESIDirProtocol : public DirProtocol {
         State next_state = State::X;
         switch (state) {
           // Transition from clean state to exclusive
-          case State::S: next_state = State::S_E;
-          case State::E: next_state = State::E_E;
+          case State::S: { next_state = State::S_E; } break;
+          case State::E: { next_state = State::E_E; } break;
 
           // Transition to Exclusive of Owned state depending upon
           // whether the owning agent performs a writeback to memory
           // before forwarding the line. Owning agent can potentially
           // opt. to transfer ownership a the dirty line to the
           // requesting agent.
-          case State::M: next_state = State::M_EO;
-          case State::O: next_state = State::M_EO;
-          default:       next_state = State::X;
+          case State::M: { next_state = State::M_EO; } break;
+          case State::O: { next_state = State::M_EO; } break;
+          default:         next_state = State::X;
         }
         issue_update_state(ctxt, cl, next_state);
 
@@ -949,15 +1004,15 @@ class MOESIDirProtocol : public DirProtocol {
         switch (state) {
           // Transition from clean state to Shared or Exclusive (where
           // requester is the cache in the Exclusive state).
-          case State::S: next_state = State::S_SE;
-          case State::E: next_state = State::E_SE;
+          case State::S: { next_state = State::S_SE; } break;
+          case State::E: { next_state = State::E_SE; } break;
 
           // Transition from Dirty state to Shared to Exclusve state
           // depending upon whether the Owning agent decides to
           // retain the line after its writeback).
-          case State::M: next_state = State::M_SE;
-          case State::O: next_state = State::O_SE;
-          default:       next_state = State::X;
+          case State::M: { next_state = State::M_SE; } break;
+          case State::O: { next_state = State::O_SE; } break;
+          default:         next_state = State::X;
         }
         issue_update_state(ctxt, cl, next_state);
 
@@ -1036,11 +1091,11 @@ class MOESIDirProtocol : public DirProtocol {
         // Compute next state (transition to invalid)
         State next_state = State::X;
         switch (state) {
-          case State::S: next_state = State::S_I;
-          case State::E: next_state = State::E_I;
-          case State::M: next_state = State::M_I;
-          case State::O: next_state = State::O_I;
-          default:       next_state = State::X;
+          case State::S: { next_state = State::S_I; } break;
+          case State::E: { next_state = State::E_I; } break;
+          case State::M: { next_state = State::M_I; } break;
+          case State::O: { next_state = State::O_I; } break;
+          default:         next_state = State::X;
         }
         issue_update_state(ctxt, cl, next_state);
         // Consume and advance
@@ -1135,11 +1190,11 @@ class MOESIDirProtocol : public DirProtocol {
         // Compute next state (transition to invalid)
         State next_state = State::X;
         switch (state) {
-          case State::S: next_state = State::S_I;
-          case State::E: next_state = State::E_I;
-          case State::M: next_state = State::M_I;
-          case State::O: next_state = State::O_I;
-          default:       next_state = State::X;
+          case State::S: { next_state = State::S_I; } break;
+          case State::E: { next_state = State::E_I; } break;
+          case State::M: { next_state = State::M_I; } break;
+          case State::O: { next_state = State::O_I; } break;
+          default:         next_state = State::X;
         }
         issue_update_state(ctxt, cl, next_state);
         // Consume and advance
@@ -1150,7 +1205,14 @@ class MOESIDirProtocol : public DirProtocol {
       } break;
     }
   }
-  
+
+  // C4.8.1
+  //
+  // Agent issues a write to a non-cacheable region of memory. As the
+  // line is non-cachable, this command should never reach the
+  // directory and should be handled externally by the system
+  // interconnect.
+  //
   void handle_cmd_write_no_snoop(DirContext& ctxt, DirCommandList& cl,
                                  const CohCmdMsg* msg) const {
     // The directory should never see non-cached commands. Instead,
@@ -1161,6 +1223,28 @@ class MOESIDirProtocol : public DirProtocol {
                    "ReadNoSnoop");
   }
 
+  // C4.8.2
+  //
+  // Write line from the clean S or E states. Typically used by
+  // non-cachable agents who are writing to a cacheable region of
+  // memory.
+  //
+  // Salient point:
+  // 
+  // "In the case of master holding a line in a Clean state while
+  // performing a WriteUnique transaction, the cache line must be
+  // updated to the new value when the WriteUnique transaction
+  // response is received."
+  //
+  // This point requires that the WriteUnique be held in a speculative
+  // state until the response has been received. The command can only
+  // write from a Clean state, which means that the line itself is the
+  // most recent value in the system, the Write operation therefore
+  // only removes the Uniqueness of the line. Which is why, I guess,
+  // the line update is held of until the response. The agent must
+  // response to snoops to the line when the WriteUnique is in
+  // progress.
+  //
   void handle_cmd_write_unique(DirContext& ctxt, DirCommandList& cl,
                                const CohCmdMsg* msg) const {
     LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
@@ -1176,6 +1260,7 @@ class MOESIDirProtocol : public DirProtocol {
     }
   }
 
+  // C4.8.3
   void handle_cmd_write_line_unique(DirContext& ctxt, DirCommandList& cl,
                                     const CohCmdMsg* msg) const {
     LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
@@ -1191,46 +1276,119 @@ class MOESIDirProtocol : public DirProtocol {
     }
   }
 
+  // C4.8.4 Writeback
+  //
+  // Agent issues a WriteBack to main memory such that the line
+  // contained by the LLC is up to date. Upon completion of the
+  // command, the line is invalidated and is no longer resident in the
+  // originators cache.
+  //
+  // Command presupposes that requesting agent has already written
+  // line to appropriate location in LLC before issuing the command to
+  // the directory. The directory itself is not responsible for
+  // forwarding the data to the LLC.
+  //
   void handle_cmd_write_back(DirContext& ctxt, DirCommandList& cl,
                              const CohCmdMsg* msg) const {
     LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
+    const State state = line->state();
     switch (line->state()) {
       case State::I:
-      case State::S:
+      case State::S: {
+        // Writeback cannot be issued by agent when line is in the
+        // Invalid or Shared states; line must be unique in a cache.
+        using cc::to_string;
+        std::string reason;
+        reason += "Writeback issued by agent: ";
+        reason += msg->origin()->path();
+        reason += " but directory indicates that line is presently in the: ";
+        reason += to_string(state);
+        reason += " state.";
+        cl.raise_error(reason);
+      } break;
+      case State::M:
+      case State::O:
       case State::E: {
-        // TOOD: form message to evict from LLC and write to
-        // memory.
-
-        // Form coherence result; should be gated on LLC response
-        // message.
+        // Form coherence result; line is now invalid.  Agent cache
+        // controller must have first issued to the Dt to LLC and have
+        // received its response before issuing the WriteBack to the
+        // directory.
         CohEndMsg* end = Pool<CohEndMsg>::construct();
         end->set_t(msg->t());
         end->set_dt_n(0);
         issue_msg_to_noc(ctxt, cl, end, msg->origin());
         // Line becomes idle.
         issue_update_state(ctxt, cl, State::I);
+        // Perhaps the line can be retained by the LLC but be simply
+        // non-resident in any of the child caches. 
         cl.push_back(DirOpcode::RemoveLine);
         cl.push_back(DirOpcode::EndTransaction);
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
-      case State::M:
-      case State::O:
       default: {
         cl.raise_error("Not implemented");
       } break;        
     }
   }
 
+  // C4.8.5
+  //
+  // Agent issues a WriteClean to such that the corresponding line in
+  // LLC is up to date. The agent retains its own copy of the cache
+  // line, but in a Clean (E, S) state.
+  //
+  // As in the Writeback case, except that the line is retained upon
+  // completion of the command.
+  //
   void handle_cmd_write_clean(DirContext& ctxt, DirCommandList& cl,
                               const CohCmdMsg* msg) const {
     LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
-    switch (line->state()) {
+    const State state = line->state();
+    switch (state) {
       case State::I:
-      case State::S:
+      case State::S: {
+        // Writeback cannot be issued by agent when line is in the
+        // Invalid or Shared states; line must be unique in a cache.
+        using cc::to_string;
+        std::string reason;
+        reason += "Writeclean issued by agent: ";
+        reason += msg->origin()->path();
+        reason += " but directory indicates that line is presently in the: ";
+        reason += to_string(state);
+        reason += " state.";
+        cl.raise_error(reason);
+      } break;
       case State::E:
       case State::M:
-      case State::O:
+      case State::O: {
+        // Form coherence result; line is now invalid.  Agent cache
+        // controller must have first issued to the Dt to LLC and have
+        // received its response before issuing the WriteBack to the
+        // directory.
+        CohEndMsg* end = Pool<CohEndMsg>::construct();
+        end->set_t(msg->t());
+        end->set_dt_n(0);
+        // Issue coherence end message back to originator.
+        issue_msg_to_noc(ctxt, cl, end, ctxt.tstate()->origin());
+        // Line becomes idle.
+        State next_state = State::X;
+        switch (state) {
+          // Line returns to Clean state from Unique, which is
+          // Exclusive.
+          case State::E: { next_state = State::E; } break;
+          case State::M: { next_state = State::E; } break;
+          // WriteClean does not invalidate lines present in other caches,
+          // therefore line returns back to Shared state.
+          case State::O: { next_state = State::S; } break;
+          default:       { next_state = State::X; } break;
+        }
+        issue_update_state(ctxt, cl, next_state);
+        // Transaction is complete
+        cl.push_back(DirOpcode::EndTransaction);
+        // Consume and advance
+        cl.next_and_do_consume(true);
+      } break;
       default: {
         cl.raise_error("Not implemented");
       } break;        
@@ -1492,8 +1650,8 @@ class MOESIDirProtocol : public DirProtocol {
         }
       } break;
       case AceCmdOpcode::ReadUnique: {
-        switch (line->state()) {
-          case State::O_O: {
+        switch (state) {
+          case State::O_ME: {
             // Line is presently in the Owned state; owning cache
             // has been snooped and we *expect* for it to forward
             // the line to the requesting agent (TODO: agent may
@@ -1538,6 +1696,7 @@ class MOESIDirProtocol : public DirProtocol {
             // Transaction is complete.
             cl.push_back(DirOpcode::EndTransaction);
           } break;
+          case State::S_E:
           case State::E_E: {
             // Line is presently in the Exclusive state in the owning
             // cache (possibly modified). Exclusive ownership is to be
