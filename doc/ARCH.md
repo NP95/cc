@@ -51,6 +51,10 @@ interested reader is invited to read [1] for further information.
 
 ## Software Architecture
 
+
+
+## Protocol
+
 ## Protocol Deadlock Avoidance
 
 In computer science, the term deadlock is used to describe the state
@@ -87,8 +91,8 @@ Head Of Line (HOL) blocking.
 Head Of Line (HOL) blocking is a common architectural idiom seen in
 computer architecture and is typically mitigated by using multiple
 independent queues for messages belonging to different agents, or
-message beloning to different classes. As each, independent, queue is
-arbitrated independently, messages which arrive later in time, can
+messages belonging to different classes. As each, independent, queue
+is arbitrated independently, messages which arrive later in time, can
 overtake prior messages which may be blocked.
 
 2. Guaranteed Forward Process for certain Message Classes
@@ -119,7 +123,7 @@ becomes blocked as it cannot process further awaiting messages.
 Resource contention deadlocks are avoided by consuming a message, only
 once it has been determined that sufficient resources are present to
 allow for it to complete atomically. The operation itself may consume
-many cycles to complete, but is architecturall guaranteed not to
+many cycles to complete, but is architecturally guaranteed not to
 require resources which may only become available after competion of
 the operation.
 
