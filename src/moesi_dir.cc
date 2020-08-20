@@ -1604,76 +1604,71 @@ class MOESIDirProtocol : public DirProtocol {
       cl.push_back(tstate->build_inc_is());
     }
 
-    // Upon receipt of new snoop response, update transaction
-    // state. If all snoop responses have been received by the agent, form
-    // the final coherence concensus response.
-    if (tstate->is_final_snoop(true)) { 
-      // Compute final counts (tstate has not yet been updated at this
-      // point).
-      ctxt.set_dt_n(tstate->dt_i() + (msg->dt() ? 1 : 0));
-      ctxt.set_pd_n(tstate->pd_i() + (msg->pd() ? 1 : 0));
-      ctxt.set_is_n(tstate->is_i() + (msg->is() ? 1 : 0));
+    // Compute final counts (tstate has not yet been updated at this
+    // point).
+    ctxt.set_dt_n(tstate->dt_i() + (msg->dt() ? 1 : 0));
+    ctxt.set_pd_n(tstate->pd_i() + (msg->pd() ? 1 : 0));
+    ctxt.set_is_n(tstate->is_i() + (msg->is() ? 1 : 0));
     
-      const AceCmdOpcode opcode = ctxt.tstate()->opcode();
-      switch (opcode) {
-        case AceCmdOpcode::ReadNoSnoop: {
-          handle_snp_read_no_snoop(ctxt, cl, msg);
-        } break;
-        case AceCmdOpcode::ReadOnce: {
-          handle_snp_read_once(ctxt, cl, msg);
-        } break;
-        case AceCmdOpcode::ReadClean: {
-          handle_snp_read_clean(ctxt, cl, msg);
-        } break;
-        case AceCmdOpcode::ReadNotSharedDirty: {
-          handle_snp_read_not_shared_dirty(ctxt, cl, msg);
-        } break;
-        case AceCmdOpcode::ReadShared: {
-          handle_snp_read_shared(ctxt, cl, msg);
-        } break;
-        case AceCmdOpcode::ReadUnique: {
-          handle_snp_read_unique(ctxt, cl, msg);
-        } break;
-        case AceCmdOpcode::CleanUnique: {
-          handle_snp_clean_unique(ctxt, cl, msg);
-        } break;
-        case AceCmdOpcode::CleanShared: {
-          handle_snp_clean_shared(ctxt, cl, msg);
-        } break;
-        case AceCmdOpcode::CleanInvalid: {
-          handle_snp_clean_invalid(ctxt, cl, msg);
-        } break;
-        case AceCmdOpcode::MakeUnique: {
-          handle_snp_make_unique(ctxt, cl, msg);
-        } break;
-        case AceCmdOpcode::MakeInvalid: {
-          handle_snp_make_invalid(ctxt, cl, msg);
-        } break;
-        case AceCmdOpcode::WriteNoSnoop: {
-          handle_snp_write_no_snoop(ctxt, cl, msg);
-        } break;
-        case AceCmdOpcode::WriteUnique: {
-          handle_snp_write_unique(ctxt, cl, msg);
-        } break;
-        case AceCmdOpcode::WriteLineUnique: {
-          handle_snp_write_line_unique(ctxt, cl, msg);
-        } break;
-        case AceCmdOpcode::WriteBack: {
-          handle_snp_write_back(ctxt, cl, msg);
-        } break;
-        case AceCmdOpcode::WriteClean: {
-          handle_snp_write_clean(ctxt, cl, msg);
-        } break;
-        case AceCmdOpcode::Evict: {
-          handle_snp_evict(ctxt, cl, msg);
-        } break;
-        default: {
-          // Unknown opcode; raise error.
-          std::string reason = "Unsupported opcode received: ";
-          reason += to_string(opcode);
-          cl.raise_error(reason);
-        } break;
-      }
+    const AceCmdOpcode opcode = ctxt.tstate()->opcode();
+    switch (opcode) {
+      case AceCmdOpcode::ReadNoSnoop: {
+        handle_snp_read_no_snoop(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::ReadOnce: {
+        handle_snp_read_once(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::ReadClean: {
+        handle_snp_read_clean(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::ReadNotSharedDirty: {
+        handle_snp_read_not_shared_dirty(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::ReadShared: {
+        handle_snp_read_shared(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::ReadUnique: {
+        handle_snp_read_unique(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::CleanUnique: {
+        handle_snp_clean_unique(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::CleanShared: {
+        handle_snp_clean_shared(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::CleanInvalid: {
+        handle_snp_clean_invalid(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::MakeUnique: {
+        handle_snp_make_unique(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::MakeInvalid: {
+        handle_snp_make_invalid(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::WriteNoSnoop: {
+        handle_snp_write_no_snoop(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::WriteUnique: {
+        handle_snp_write_unique(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::WriteLineUnique: {
+        handle_snp_write_line_unique(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::WriteBack: {
+        handle_snp_write_back(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::WriteClean: {
+        handle_snp_write_clean(ctxt, cl, msg);
+      } break;
+      case AceCmdOpcode::Evict: {
+        handle_snp_evict(ctxt, cl, msg);
+      } break;
+      default: {
+        // Unknown opcode; raise error.
+        std::string reason = "Unsupported opcode received: ";
+        reason += to_string(opcode);
+        cl.raise_error(reason);
+      } break;
     }
 
     // Update (Snoop) Credit Counter.
@@ -1703,12 +1698,22 @@ class MOESIDirProtocol : public DirProtocol {
   void handle_snp_read_shared(DirContext& ctxt, DirCommandList& cl,
                               const CohSnpRspMsg* msg) const {
     DirTState* tstate = ctxt.tstate();
+    
     LineState* line = static_cast<LineState*>(tstate->line());
     const State state = line->state();
     switch (state) {
       case State::M_O:
       case State::O_O:
       case State::E_O: {
+        if (!msg->is()) {
+          // Responding agent is no longer Sharing line. Line
+          // has been removed from its cache.
+          cl.push_back(line->build_del_sharer(msg->origin()));
+        }
+
+        // Wait until final concensus can be reached.
+        if (!tstate->is_final_snoop(true)) return;
+
         // Compute next state
         State next_state = State::X;
         if      (!ctxt.is() && !ctxt.pd()) { next_state = State::E; }
@@ -1775,9 +1780,12 @@ class MOESIDirProtocol : public DirProtocol {
     }
   }
 
+  // cmd:ReadUnique -> snp:ReadUnique
+  //
   void handle_snp_read_unique(DirContext& ctxt, DirCommandList& cl,
                               const CohSnpRspMsg* msg) const {
     DirTState* tstate = ctxt.tstate();
+
     LineState* line = static_cast<LineState*>(tstate->line());
     const State state = line->state();
     switch (state) {
@@ -1785,6 +1793,13 @@ class MOESIDirProtocol : public DirProtocol {
       case State::O_ME:
       case State::M_ME:
       case State::E_E: {
+        // ASSERT(msg->is() == false)
+        // Remove responding agent from sharer set.
+        cl.push_back(line->build_del_sharer(msg->origin()));
+
+        // Wait until final concensus can be reached.
+        if (!tstate->is_final_snoop(true)) return;
+
         const State next_state = ctxt.pd() ? State::M : State::E;
         if (ctxt.dt()) {
           CohEndMsg* end = Pool<CohEndMsg>::construct();
@@ -1834,15 +1849,24 @@ class MOESIDirProtocol : public DirProtocol {
     }
   }
 
+  // Cmd: CleanUnique -> Snp: CleanInvalid
   void handle_snp_clean_unique(DirContext& ctxt, DirCommandList& cl,
                                const CohSnpRspMsg* msg) const {
     DirTState* tstate = ctxt.tstate();
+
     LineState* line = static_cast<LineState*>(tstate->line());
     const State state = line->state();
     switch (state) {
       case State::S_E:
       case State::E_E:
       case State::M_EO: {
+        // ASSERT(msg->is() == false)
+        // Line has been removed from cache; remove from sharers
+        cl.push_back(line->build_del_sharer(msg->origin()));
+
+        // Wait until final concensus can be reached.
+        if (!tstate->is_final_snoop(true)) return;
+
         // Final response, therefore send completed coherence
         // response back to requester to terminate the
         // transaction.
@@ -1875,6 +1899,16 @@ class MOESIDirProtocol : public DirProtocol {
       case State::E_SE:
       case State::M_SE:
       case State::O_SE: {
+
+        if (!msg->is()) {
+          // Responding agent is no longer Sharing line. Line
+          // has been removed from its cache.
+          cl.push_back(line->build_del_sharer(msg->origin()));
+        }
+
+        // Wait until final concensus can be reached.
+        if (!tstate->is_final_snoop(true)) return;
+        
         // Final snoop response received; issue final coherence
         // concensus.
         CohEndMsg* end = Pool<CohEndMsg>::construct();
@@ -1898,6 +1932,7 @@ class MOESIDirProtocol : public DirProtocol {
   void handle_snp_clean_invalid(DirContext& ctxt, DirCommandList& cl,
                                 const CohSnpRspMsg* msg) const {
     DirTState* tstate = ctxt.tstate();
+
     LineState* line = static_cast<LineState*>(tstate->line());
     const State state = line->state();
     switch (state) {
@@ -1905,6 +1940,13 @@ class MOESIDirProtocol : public DirProtocol {
       case State::E_I:
       case State::M_I:
       case State::O_I: {
+        // Remove agent from sharer set; line is always invalid
+        // in responding agents cache after CleanInvalid
+        cl.push_back(line->build_del_sharer(msg->origin()));
+
+        // Wait until final concensus can be reached.
+        if (!tstate->is_final_snoop(true)) return;
+
         // Final snoop response received; issue final coherence
         // concensus.
         CohEndMsg* end = Pool<CohEndMsg>::construct();
@@ -1930,6 +1972,7 @@ class MOESIDirProtocol : public DirProtocol {
   void handle_snp_make_unique(DirContext& ctxt, DirCommandList& cl,
                               const CohSnpRspMsg* msg) const {
     DirTState* tstate = ctxt.tstate();
+
     LineState* line = static_cast<LineState*>(tstate->line());
     const State state = line->state();
     switch (state) {
@@ -1937,6 +1980,13 @@ class MOESIDirProtocol : public DirProtocol {
       case State::E_I:
       case State::M_I:
       case State::O_I: {
+
+        // Remove agent from sharer set.
+        cl.push_back(line->build_del_sharer(msg->origin()));
+
+        // Wait until final concensus can be reached.
+        if (!tstate->is_final_snoop(true)) return;
+
         // Final snoop response received; issue final coherence
         // concensus.
         CohEndMsg* end = Pool<CohEndMsg>::construct();
@@ -1974,6 +2024,12 @@ class MOESIDirProtocol : public DirProtocol {
       case State::E_I:
       case State::M_I:
       case State::O_I: {
+        // Remove agent from sharer set
+        cl.push_back(line->build_del_sharer(msg->origin()));
+
+        // Wait until final concensus can be reached.
+        if (!tstate->is_final_snoop(true)) return;
+
         // Final snoop response received; issue final coherence
         // concensus.
         CohEndMsg* end = Pool<CohEndMsg>::construct();
