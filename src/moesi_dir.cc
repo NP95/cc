@@ -206,6 +206,22 @@ class LineState : public DirLineState {
  public:
   LineState() = default;
 
+  // Build Update state command:
+  DirCommand* build_update_state(State state);
+
+  // Build Set owner command:
+  DirCommand* build_set_owner(Agent* agent);
+
+  // Build Delete owner command:
+  DirCommand* build_del_owner();
+
+  // Build add sharer command:
+  DirCommand* build_add_sharer(Agent* agent);
+
+  // Build delete sharer command:
+  DirCommand* build_del_sharer(Agent* agent);
+  
+
   std::string to_string() const {
     using cc::to_string;
     KVListRenderer r;
@@ -269,31 +285,151 @@ class LineState : public DirLineState {
   std::set<Agent*> sharers_;
 };
 
-enum class LineUpdate { State, SubState, SetOwner, AddSharer, Invalid };
+enum class LineUpdateOpcode {
+  // Set Line State
+  SetState,
 
-const char* to_string(LineUpdate update) {
+  // Deprecate
+  SubState,
+
+  // Set Agent as Owner
+  SetOwner,
+
+  // Delete current Owner
+  DelOwner,
+
+  // Add Agent to Sharer set
+  AddSharer,
+
+  // Del Agent from Sharer set
+  DelSharer,
+
+  // Invalid; placeholder.
+  Invalid
+};
+
+const char* to_string(LineUpdateOpcode update) {
   switch (update) {
-    case LineUpdate::State:
-      return "State";
-    case LineUpdate::SubState:
+    case LineUpdateOpcode::SetState:
+      return "SetState";
+    case LineUpdateOpcode::SubState:
       return "SubState";
-    case LineUpdate::SetOwner:
+    case LineUpdateOpcode::SetOwner:
       return "SetOwner";
-    case LineUpdate::AddSharer:
+    case LineUpdateOpcode::AddSharer:
       return "AddSharer";
-    case LineUpdate::Invalid:
+    case LineUpdateOpcode::Invalid:
     default:
       return "Invalid";
   }
 }
 
+//
+//
+struct LineUpdateAction : public DirCoherenceAction {
+  LineUpdateAction(LineState* line, LineUpdateOpcode update)
+      : line_(line), update_(update) {}
+
+  void set_state(State state) { state_ = state; }
+  void set_substate(SubState substate) { substate_ = substate; }
+  void set_agent(Agent* agent) { agent_ = agent; }
+  void set_snoop_n(std::size_t snoop_n) { snoop_n_ = snoop_n; }
+
+  std::string to_string() const override {
+    KVListRenderer r;
+    r.add_field("update", ::to_string(update_));
+    switch (update_) {
+      case LineUpdateOpcode::SetState: {
+        r.add_field("state", ::to_string(state_));
+      } break;
+      case LineUpdateOpcode::SubState: {
+        r.add_field("state", ::to_string(substate_));
+      } break;
+      case LineUpdateOpcode::AddSharer: {
+        r.add_field("sharer", agent_->path());
+      } break;
+      case LineUpdateOpcode::SetOwner: {
+        r.add_field("owner", agent_->path());
+      } break;
+      case LineUpdateOpcode::Invalid: {
+      } break;
+      default: {
+      } break;
+    }
+    return r.to_string();
+  }
+
+  bool execute() override {
+    switch (update_) {
+      case LineUpdateOpcode::SetState: {
+        if (state_ != State::X) {
+          line_->set_state(state_);
+        } else {
+          // Assign invalid state; something has gone wrong.
+        }
+      } break;
+      case LineUpdateOpcode::SubState: {
+        line_->set_substate(substate_);
+      } break;
+      case LineUpdateOpcode::SetOwner: {
+        line_->set_owner(agent_);
+      } break;
+      case LineUpdateOpcode::AddSharer: {
+        line_->add_sharer(agent_);
+      } break;
+      default: {
+      } break;
+    }
+    return true;
+  }
+
+ private:
+  //
+  State state_;
+  //
+  SubState substate_;
+  //
+  Agent* agent_ = nullptr;
+  //
+  LineState* line_ = nullptr;
+  //
+  LineUpdateOpcode update_ = LineUpdateOpcode::Invalid;
+  //
+  std::size_t snoop_n_ = 0;
+};
+
+DirCommand* LineState::build_update_state(State state) {
+  return nullptr;
+}
+
+// Build Set owner command:
+DirCommand* LineState::build_set_owner(Agent* agent) {
+  return nullptr;
+}
+
+// Build Delete owner command:
+DirCommand* LineState::build_del_owner() {
+  return nullptr;
+}
+
+// Build add sharer command:
+DirCommand* LineState::build_add_sharer(Agent* agent) {
+  return nullptr;
+}
+
+// Build delete sharer command:
+DirCommand* LineState::build_del_sharer(Agent* agent) {
+  return nullptr;
+}
+
+
 enum class TStateAction {
-  Invalid,
   SetSnoopN,
   IncSnoopN,
   IncDt,
   IncPd,
-  IncIs
+  IncIs,
+  Invalid
 };
 
 //
@@ -364,80 +500,6 @@ struct TStateUpdateAction : public DirCoherenceAction {
   std::size_t snoop_n_ = 0;
   ;
   TStateAction action_ = TStateAction::Invalid;
-};
-
-//
-//
-struct LineUpdateAction : public DirCoherenceAction {
-  LineUpdateAction(LineState* line, LineUpdate update)
-      : line_(line), update_(update) {}
-
-  void set_state(State state) { state_ = state; }
-  void set_substate(SubState substate) { substate_ = substate; }
-  void set_agent(Agent* agent) { agent_ = agent; }
-  void set_snoop_n(std::size_t snoop_n) { snoop_n_ = snoop_n; }
-
-  std::string to_string() const override {
-    KVListRenderer r;
-    r.add_field("update", ::to_string(update_));
-    switch (update_) {
-      case LineUpdate::State: {
-        r.add_field("state", ::to_string(state_));
-      } break;
-      case LineUpdate::SubState: {
-        r.add_field("state", ::to_string(substate_));
-      } break;
-      case LineUpdate::AddSharer: {
-        r.add_field("sharer", agent_->path());
-      } break;
-      case LineUpdate::SetOwner: {
-        r.add_field("owner", agent_->path());
-      } break;
-      case LineUpdate::Invalid: {
-      } break;
-      default: {
-      } break;
-    }
-    return r.to_string();
-  }
-
-  bool execute() override {
-    switch (update_) {
-      case LineUpdate::State: {
-        if (state_ != State::X) {
-          line_->set_state(state_);
-        } else {
-          // Assign invalid state; something has gone wrong.
-        }
-      } break;
-      case LineUpdate::SubState: {
-        line_->set_substate(substate_);
-      } break;
-      case LineUpdate::SetOwner: {
-        line_->set_owner(agent_);
-      } break;
-      case LineUpdate::AddSharer: {
-        line_->add_sharer(agent_);
-      } break;
-      default: {
-      } break;
-    }
-    return true;
-  }
-
- private:
-  //
-  State state_;
-  //
-  SubState substate_;
-  //
-  Agent* agent_ = nullptr;
-  //
-  LineState* line_ = nullptr;
-  //
-  LineUpdate update_ = LineUpdate::Invalid;
-  //
-  std::size_t snoop_n_ = 0;
 };
 
 //
@@ -658,6 +720,9 @@ class MOESIDirProtocol : public DirProtocol {
         issue_set_owner(ctxt, cl, msg->origin());
         // Update state
         issue_update_state(ctxt, cl, State::I_E);
+
+        // Set flag awaiting LLC response
+        cl.push_back(tstate->build_set_llc_cmd_opcode(cmd->opcode()));
         issue_update_substate(ctxt, cl, SubState::AwaitingLLCFillRsp);
         // Consume and advance
         cl.next_and_do_consume(true);
@@ -677,6 +742,8 @@ class MOESIDirProtocol : public DirProtocol {
         issue_msg_to_noc(ctxt, cl, cmd, ctxt.dir()->llc());
         // Requester now becomes a sharer.
         issue_add_sharer(ctxt, cl, msg->origin());
+        // Set flag awaiting LLC response
+        cl.push_back(tstate->build_set_llc_cmd_opcode(cmd->opcode()));
         issue_update_substate(ctxt, cl, SubState::AwaitingLLCFwdRsp);
         // Consume and advance
         cl.next_and_do_consume(true);
@@ -1499,12 +1566,12 @@ class MOESIDirProtocol : public DirProtocol {
     }
   }
 
+  // TODO; rationalize
   void handle_llc_read_shared(DirContext& ctxt, DirCommandList& cl,
                               const LLCCmdRspMsg* msg) const {
     LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
     const State state = line->state();
     switch (state) {
-      case State::I_S:
       case State::I_E: {
         switch (line->substate()) {
           case SubState::AwaitingLLCFillRsp: {
@@ -2105,12 +2172,12 @@ class MOESIDirProtocol : public DirProtocol {
                    "not issue a snoop command");
   }
 
-  //
+  // DEPRECATE
   //
   void issue_update_state(DirContext& ctxt, DirCommandList& cl,
                           State state) const {
     LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
-    LineUpdateAction* update = new LineUpdateAction(line, LineUpdate::State);
+    LineUpdateAction* update = new LineUpdateAction(line, LineUpdateOpcode::SetState);
     update->set_state(state);
     cl.push_back(update);
   }
@@ -2120,7 +2187,7 @@ class MOESIDirProtocol : public DirProtocol {
   void issue_update_substate(DirContext& ctxt, DirCommandList& cl,
                              SubState state) const {
     LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
-    LineUpdateAction* update = new LineUpdateAction(line, LineUpdate::SubState);
+    LineUpdateAction* update = new LineUpdateAction(line, LineUpdateOpcode::SubState);
     update->set_substate(state);
     cl.push_back(update);
   }
@@ -2130,7 +2197,7 @@ class MOESIDirProtocol : public DirProtocol {
   void issue_set_owner(DirContext& ctxt, DirCommandList& cl,
                        Agent* owner) const {
     LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
-    LineUpdateAction* update = new LineUpdateAction(line, LineUpdate::SetOwner);
+    LineUpdateAction* update = new LineUpdateAction(line, LineUpdateOpcode::SetOwner);
     update->set_agent(owner);
     cl.push_back(update);
   }
@@ -2139,7 +2206,7 @@ class MOESIDirProtocol : public DirProtocol {
                         Agent* owner) const {
     LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
     LineUpdateAction* update =
-        new LineUpdateAction(line, LineUpdate::AddSharer);
+        new LineUpdateAction(line, LineUpdateOpcode::AddSharer);
     update->set_agent(owner);
     cl.push_back(update);
   }
