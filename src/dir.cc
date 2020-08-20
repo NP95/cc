@@ -115,7 +115,135 @@ DirCommand* DirCommandBuilder::build_error(const std::string& reason) {
   return cmd;
 }
 
+
+enum class TStateUpdateOpcode {
+  Invalid,
+  SetSnoopN,
+  IncSnoopN,
+  IncDt,
+  IncPd,
+  IncIs,
+  SetLLC
+};
+
+//
+//
+struct TStateUpdateAction : public DirCoherenceAction {
+  TStateUpdateAction(DirTState* tstate, TStateUpdateOpcode action)
+      : tstate_(tstate), action_(action) {}
+  std::string to_string() const override {
+    using std::to_string;
+    KVListRenderer r;
+    switch (action()) {
+      case TStateUpdateOpcode::SetSnoopN: {
+        r.add_field("action", "set_snoop_n_action");
+        r.add_field("snoop_n", to_string(snoop_n_));
+        r.add_field("snoop_i", to_string(0));
+      } break;
+      case TStateUpdateOpcode::IncSnoopN: {
+        r.add_field("action", "inc_snoop_i_action");
+      } break;
+      case TStateUpdateOpcode::IncDt: {
+        r.add_field("action", "inc_dt");
+      } break;
+      case TStateUpdateOpcode::IncPd: {
+        r.add_field("action", "inc_pd");
+      } break;
+      case TStateUpdateOpcode::IncIs: {
+        r.add_field("action", "inc_is");
+      } break;
+      case TStateUpdateOpcode::SetLLC: {
+        r.add_field("action", "set_llc");
+        r.add_field("llc_cmd_opcode", to_string(llc_cmd_opcode_));
+      } break;
+      default: {
+      } break;
+    }
+    return r.to_string();
+  }
+
+  // Getters
+  TStateUpdateOpcode action() const { return action_; }
+  std::size_t snoop_n() const { return snoop_n_; }
+
+  // Setters
+  void set_snoop_n(std::size_t snoop_n) { snoop_n_ = snoop_n; }
+  void set_llc_cmd_opcode(LLCCmdOpcode opcode) { llc_cmd_opcode_ = opcode; }
+
+  bool execute() override {
+    switch (action()) {
+      case TStateUpdateOpcode::SetSnoopN: {
+        tstate_->set_snoop_n(snoop_n_);
+        tstate_->set_snoop_i(0);
+      } break;
+      case TStateUpdateOpcode::IncSnoopN: {
+        tstate_->set_snoop_i(tstate_->snoop_n() + 1);
+      } break;
+      case TStateUpdateOpcode::IncDt: {
+        tstate_->set_dt_i(tstate_->dt_i() + 1);
+      } break;
+      case TStateUpdateOpcode::IncPd: {
+        tstate_->set_pd_i(tstate_->pd_i() + 1);
+      } break;
+      case TStateUpdateOpcode::IncIs: {
+        tstate_->set_is_i(tstate_->is_i() + 1);
+      } break;
+      case TStateUpdateOpcode::SetLLC: {
+        tstate_->set_llc_cmd_opcode(llc_cmd_opcode_);
+      }
+      default: {
+      } break;
+    }
+    return true;
+  }
+
+ private:
+  //
+  LLCCmdOpcode llc_cmd_opcode_ = LLCCmdOpcode::Invalid;
+  //
+  DirTState* tstate_ = nullptr;
+  //
+  std::size_t snoop_n_ = 0;
+  //
+  TStateUpdateOpcode action_ = TStateUpdateOpcode::Invalid;
+};
+
+
+DirCommand* DirTState::build_set_llc_cmd_opcode(LLCCmdOpcode opcode) {
+  TStateUpdateAction* action =
+      new TStateUpdateAction(this, TStateUpdateOpcode::SetLLC);
+  action->set_llc_cmd_opcode(opcode);
+  return DirCommandBuilder::from_action(action);
+}
+
+// Build action to Increment DT
+DirCommand* DirTState::build_inc_dt() {
+  return DirCommandBuilder::from_action(
+      new TStateUpdateAction(this, TStateUpdateOpcode::IncDt));
+}
+
+// Build action to Increment PD
+DirCommand* DirTState::build_inc_pd() {
+  return DirCommandBuilder::from_action(
+      new TStateUpdateAction(this, TStateUpdateOpcode::IncPd));
+}
+
+// Build action to Increment IS
+DirCommand* DirTState::build_inc_is() {
+  return DirCommandBuilder::from_action(
+      new TStateUpdateAction(this, TStateUpdateOpcode::IncIs));
+}
+
+
 void DirTState::release() { delete this; }
+
+bool DirTState::is_final_snoop(bool is_snoop_rsp) const {
+  // Not expecting any snoops.
+  if (snoop_n() == 0) { return true; }
+
+  // Otherwise, if when called in snoop response
+  return snoop_n() == (is_snoop_rsp ? 1 : 0) + snoop_i();
+}
 
 std::size_t DirResources::coh_snp_n(const Agent* agent) const {
   std::size_t n = 0;

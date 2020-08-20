@@ -44,6 +44,8 @@ const char* to_string(LLCCmdOpcode opcode) {
       return "Evict";
     case LLCCmdOpcode::PutLine:
       return "PutLine";
+    case LLCCmdOpcode::Invalid:
+      [[fallthrough]];
     default:
       return "Invalid";
   }
@@ -65,10 +67,12 @@ std::string LLCCmdMsg::to_string() const {
   return r.to_string();
 }
 
-const char* to_string(LLCRspOpcode opcode) {
-  switch (opcode) {
-    case LLCRspOpcode::Okay:
+const char* to_string(LLCRspStatus status) {
+  switch (status) {
+    case LLCRspStatus::Okay:
       return "Okay";
+    case LLCRspStatus::Invalid:
+      [[fallthrough]];
     default:
       return "Invalid";
   }
@@ -110,17 +114,27 @@ class LLCTState {
  public:
   LLCTState() = default;
 
-  //
+  // Transaction state
   State state() const { return state_; }
+  // Originator agent
   Agent* origin() const { return origin_; }
+  // Command opcode
+  LLCCmdOpcode opcode() const { return opcode_; }
 
-  //
+  // Set transactor state
   void set_state(State state) { state_ = state; }
+  // Set originator agent
   void set_origin(Agent* origin) { origin_ = origin; }
+  // Set opcode
+  void set_opcode(LLCCmdOpcode opcode) { opcode_ = opcode; }
 
  private:
+  // Transactor state
   State state_;
+  // Originator agent
   Agent* origin_ = nullptr;
+  // LLC command opcode
+  LLCCmdOpcode opcode_ = LLCCmdOpcode::Invalid;
 };
 
 //
@@ -190,7 +204,8 @@ class LLCModel::RdisProcess : public AgentProcess {
   }
 
   void process(const LLCCmdMsg* msg) {
-    switch (msg->opcode()) {
+    const LLCCmdOpcode opcode = msg->opcode();
+    switch (opcode) {
       case LLCCmdOpcode::Fill: {
         // Message to LLC
         MemCmdMsg* memcmd = Pool<MemCmdMsg>::construct();
@@ -202,6 +217,8 @@ class LLCModel::RdisProcess : public AgentProcess {
 
         LLCTState* tstate = new LLCTState;
         tstate->set_state(State::FillAwaitMemRsp);
+        tstate->set_origin(msg->origin());
+        tstate->set_opcode(opcode);
         install_state_or_fatal(msg->t(), tstate);
       } break;
       case LLCCmdOpcode::Evict: {
@@ -217,6 +234,7 @@ class LLCModel::RdisProcess : public AgentProcess {
         LLCTState* tstate = new LLCTState;
         tstate->set_state(State::PutAwaitCCDtRsp);
         tstate->set_origin(msg->origin());
+        tstate->set_opcode(opcode);
         install_state_or_fatal(msg->t(), tstate);
       } break;
       default: {
@@ -230,7 +248,8 @@ class LLCModel::RdisProcess : public AgentProcess {
       case State::FillAwaitMemRsp: {
         LLCCmdRspMsg* llcrsp = Pool<LLCCmdRspMsg>::construct();
         llcrsp->set_t(msg->t());
-        llcrsp->set_opcode(LLCRspOpcode::Okay);
+        llcrsp->set_opcode(tstate->opcode());
+        llcrsp->set_status(LLCRspStatus::Okay);
         issue_emit_to_noc(model_->dir(), llcrsp);
         // Command complete: Delete transaction table entry.
         erase_state_or_fatal(msg->t());
@@ -247,7 +266,8 @@ class LLCModel::RdisProcess : public AgentProcess {
         // Issue Put response to originator directory
         LLCCmdRspMsg* llcrsp = Pool<LLCCmdRspMsg>::construct();
         llcrsp->set_t(msg->t());
-        llcrsp->set_opcode(LLCRspOpcode::Okay);
+        llcrsp->set_opcode(tstate->opcode());
+        llcrsp->set_status(LLCRspStatus::Okay);
         issue_emit_to_noc(model_->dir(), llcrsp);
         // Command complete: Delete transaction table entry.
         erase_state_or_fatal(msg->t());
@@ -256,7 +276,8 @@ class LLCModel::RdisProcess : public AgentProcess {
         // Issue Put response to originator directory
         LLCCmdRspMsg* llcrsp = Pool<LLCCmdRspMsg>::construct();
         llcrsp->set_t(msg->t());
-        llcrsp->set_opcode(LLCRspOpcode::Okay);
+        llcrsp->set_opcode(tstate->opcode());
+        llcrsp->set_status(LLCRspStatus::Okay);
         issue_emit_to_noc(model_->dir(), llcrsp);
         // Command complete: Delete transaction table entry.
         erase_state_or_fatal(msg->t());

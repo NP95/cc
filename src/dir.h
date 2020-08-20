@@ -30,6 +30,7 @@
 
 #include "amba.h"
 #include "cache.h"
+#include "llc.h"
 #include "cc/cfgs.h"
 #include "cc/kernel.h"
 #include "cc/types.h"
@@ -186,34 +187,76 @@ class DirTState {
   // Destruct/Return to pool
   void release();
 
-  //
+
+  // Build action to set the LLC comand opcode.
+  DirCommand* build_set_llc_cmd_opcode(LLCCmdOpcode opcode);
+
+  // Build action to Increment DT
+  DirCommand* build_inc_dt();
+
+  // Build action to Increment PD
+  DirCommand* build_inc_pd();
+
+  // Build action to Increment IS
+  DirCommand* build_inc_is();
+  
+
+  // Events denoting the initiation and completion of the transaction.
   kernel::Event* transaction_start() const { return transaction_start_; }
   kernel::Event* transaction_end() const { return transaction_end_; }
 
+  // Flag indicating that this is the final snoop
+  bool is_final_snoop(bool is_snoop_rsp) const;
+
+  // The total number of snoops outstanding.
   std::size_t snoop_n() const { return snoop_n_; }
+
+  // The total number of snoop responses received.
   std::size_t snoop_i() const { return snoop_i_; }
+
+  // Data Transfer count associated with current transaction.
   std::size_t dt_i() const { return dt_i_; }
 
+  // Pass Dirty count
+  std::size_t pd_i() const { return pd_i_; }
+
+  // Is Shared count
+  std::size_t is_i() const { return is_i_; }
+
+  // Directory line associated with current transaction.
   DirLineState* line() const { return line_; }
+
+  // Address of current transaction.
   addr_t addr() const { return addr_; }
+
+  // Originator agent of current transaction.
   Agent* origin() const { return origin_; }
+
+  // Current transaction opcode.
   AceCmdOpcode opcode() const { return opcode_; }
+
+  //
+  LLCCmdOpcode llc_cmd_opcode() const { return llc_cmd_opcode_; }
+
 
   void set_snoop_n(std::size_t snoop_n) { snoop_n_ = snoop_n; }
   void set_snoop_i(std::size_t snoop_i) { snoop_i_ = snoop_i; }
   void set_dt_i(std::size_t dt_i) { dt_i_ = dt_i; }
+  void set_pd_i(std::size_t pd_i) { pd_i_ = pd_i; }
+  void set_is_i(std::size_t is_i) { is_i_ = is_i; }
   void set_line(DirLineState* line) { line_ = line; }
   void set_addr(addr_t addr) { addr_ = addr; }
   void set_origin(Agent* origin) { origin_ = origin; }
   void set_opcode(AceCmdOpcode opcode) { opcode_ = opcode; }
+  void set_llc_cmd_opcode(LLCCmdOpcode opcode) { llc_cmd_opcode_ = opcode; }
 
  protected:
   virtual ~DirTState();
 
  private:
   //
-  kernel::Event* transaction_start_;
-  kernel::Event* transaction_end_;
+  kernel::Event* transaction_start_ = nullptr;
+  kernel::Event* transaction_end_ = nullptr;
   //
   DirLineState* line_ = nullptr;
   addr_t addr_;
@@ -228,6 +271,12 @@ class DirTState {
   std::size_t snoop_i_ = 0;
   // The total number of data transfers
   std::size_t dt_i_ = 0;
+  // Snoop was Passed Dirty flag
+  std::size_t pd_i_ = 0;
+  // Snoop was Is Shared flag
+  std::size_t is_i_ = 0;
+  // Awaiting LLC Command.
+  LLCCmdOpcode llc_cmd_opcode_ = LLCCmdOpcode::Invalid;
 };
 
 //
@@ -286,6 +335,24 @@ class DirContext {
   bool owns_tstate() const { return owns_tstate_; }
   bool owns_line() const { return owns_line_; }
 
+  // Consensus: data was transfers.
+  bool dt() const { return dt_n() > 0; }
+
+  // Consensus: was passed dirty/
+  bool pd() const { return pd_n() > 0; }
+
+  // Consensus: data was retained as shared.
+  bool is() const { return is_n() > 0; }
+
+  // Current "Data Transfer" (DT) count
+  std::size_t dt_n() const { return dt_n_; }
+
+  // Current "Pass Dirty" (PD) count
+  std::size_t pd_n() const { return pd_n_; }
+
+  // Current "Is Shared" (IS) count.
+  std::size_t is_n() const { return is_n_; }
+
   //
   void set_addr(addr_t addr) { addr_ = addr; }
   void set_t(MQArbTmt t) { t_ = t; }
@@ -294,6 +361,9 @@ class DirContext {
   void set_tstate(DirTState* tstate) { tstate_ = tstate; }
   void set_owns_tstate(bool owns_tstate) { owns_tstate_ = owns_tstate; }
   void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
+  void set_dt_n(std::size_t dt_n) { dt_n_ = dt_n; }
+  void set_pd_n(std::size_t pd_n) { pd_n_ = pd_n; }
+  void set_is_n(std::size_t is_n) { is_n_ = is_n; }
 
  private:
   // Current address of interest.
@@ -310,6 +380,13 @@ class DirContext {
   bool owns_tstate_ = false;
   //
   bool owns_line_ = false;
+
+  //
+  std::size_t dt_n_ = 0;
+  //
+  std::size_t pd_n_ = 0;
+  //
+  std::size_t is_n_ = 0;
 };
 
 //

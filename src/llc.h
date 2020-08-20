@@ -30,8 +30,8 @@
 
 #include <map>
 
-#include "cfgs.h"
-#include "kernel.h"
+#include "cc/cfgs.h"
+#include "cc/kernel.h"
 #include "msg.h"
 #include "sim.h"
 
@@ -54,7 +54,9 @@ enum class LLCCmdOpcode {
   // Evict: remove the contents of line (and conditionally fill).
   Evict,
   // Put: transfer line present in cache to some agent.
-  PutLine
+  PutLine,
+  // Invalid: place-holder
+  Invalid
 };
 
 const char* to_string(LLCCmdOpcode opcode);
@@ -89,9 +91,9 @@ class LLCCmdMsg : public Message {
 
 //
 //
-enum class LLCRspOpcode { Okay };
+enum class LLCRspStatus { Okay, Invalid };
 
-const char* to_string(LLCRspOpcode opcode);
+const char* to_string(LLCRspStatus status);
 
 //
 //
@@ -101,18 +103,25 @@ class LLCCmdRspMsg : public Message {
 
   LLCCmdRspMsg();
  public:
-
   //
   std::string to_string() const override;
 
-  //
-  LLCRspOpcode opcode() const { return opcode_; }
+  // Original command opcode
+  LLCCmdOpcode opcode() const { return opcode_; }
+  
+  // Command response status
+  LLCRspStatus status() const { return status_; }
 
-  //
-  void set_opcode(LLCRspOpcode opcode) { opcode_ = opcode; }
+  // Set command opcode
+  void set_opcode(LLCCmdOpcode opcode) { opcode_ = opcode; }
+  // Set response status
+  void set_status(LLCRspStatus status) { status_ = status; }
 
  private:
-  LLCRspOpcode opcode_;
+  // Command opcode
+  LLCCmdOpcode opcode_ = LLCCmdOpcode::Invalid;
+  // Command result status
+  LLCRspStatus status_ = LLCRspStatus::Invalid;
 };
 
 class LLCTState;

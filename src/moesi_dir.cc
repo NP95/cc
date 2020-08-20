@@ -67,6 +67,9 @@ enum class State {
   // Shared -> Shared or Exclusive
   S_SE,
 
+  // Shared -> Modified or Exclusive
+  S_ME, 
+
   // Modified (stable)
   M,
 
@@ -81,6 +84,9 @@ enum class State {
 
   // Modified -> Shared or Exclusive
   M_SE,
+
+  // Modified -> Modified or Exclusive
+  M_ME,
 
   // Exclusive (stable)
   E,
@@ -281,7 +287,14 @@ const char* to_string(LineUpdate update) {
   }
 }
 
-enum class TStateAction { Invalid, SetSnoopN, IncSnoopN, IncDt };
+enum class TStateAction {
+  Invalid,
+  SetSnoopN,
+  IncSnoopN,
+  IncDt,
+  IncPd,
+  IncIs
+};
 
 //
 //
@@ -302,6 +315,12 @@ struct TStateUpdateAction : public DirCoherenceAction {
       } break;
       case TStateAction::IncDt: {
         r.add_field("action", "inc_dt");
+      } break;
+      case TStateAction::IncPd: {
+        r.add_field("action", "inc_pd");
+      } break;
+      case TStateAction::IncIs: {
+        r.add_field("action", "inc_is");
       } break;
       default: {
       } break;
@@ -327,6 +346,12 @@ struct TStateUpdateAction : public DirCoherenceAction {
       } break;
       case TStateAction::IncDt: {
         tstate_->set_dt_i(tstate_->dt_i() + 1);
+      } break;
+      case TStateAction::IncPd: {
+        tstate_->set_pd_i(tstate_->pd_i() + 1);
+      } break;
+      case TStateAction::IncIs: {
+        tstate_->set_is_i(tstate_->is_i() + 1);
       } break;
       default: {
       } break;
@@ -726,7 +751,7 @@ class MOESIDirProtocol : public DirProtocol {
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
-      case State::S:
+      case State::M:
       case State::E: {
         // Owning cache may have line in either the E or the M
         // state; would nominally expected for the line to have
@@ -738,7 +763,6 @@ class MOESIDirProtocol : public DirProtocol {
         snp->set_addr(msg->addr());
         snp->set_origin(ctxt.dir());
         snp->set_agent(msg->origin());
-
         snp->set_opcode(AceSnpOpcode::ReadUnique);
         issue_msg_to_noc(ctxt, cl, snp, line->owner());
 
@@ -746,7 +770,7 @@ class MOESIDirProtocol : public DirProtocol {
         // state.
         State next_state = State::X;
         switch (state) {
-          case State::S: { next_state = State::S_E; } break;
+          case State::M: { next_state = State::M_ME; } break;
           case State::E: { next_state = State::E_E; } break;
           default:         next_state = State::X;
         }
@@ -756,7 +780,7 @@ class MOESIDirProtocol : public DirProtocol {
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
-      case State::M:
+      case State::S:
       case State::O: {
         // Requesting cache does not have line installed and
         // requests line in a Unique state (presumably to carry
@@ -816,7 +840,9 @@ class MOESIDirProtocol : public DirProtocol {
         // coherence operation, owner ship has been passed by the
         // owning agent to the requester. The Exclusive state is
         // entered if ownership is not passed.
-        issue_update_state(ctxt, cl, State::O_ME);
+        const State next_state =
+            (state == State::S) ? State::S_ME : State::O_ME;
+        issue_update_state(ctxt, cl, next_state);
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
@@ -1430,6 +1456,8 @@ class MOESIDirProtocol : public DirProtocol {
         end->set_dt_n(0);
         issue_msg_to_noc(ctxt, cl, end, msg->origin());
 
+        // TODO; del sharer/owner
+
         // Line becomes idle.
         issue_update_state(ctxt, cl, State::I);
         cl.push_back(DirOpcode::RemoveLine);
@@ -1620,65 +1648,95 @@ class MOESIDirProtocol : public DirProtocol {
   //
   //
   void apply(DirContext& ctxt, DirCommandList& cl, const CohSnpRspMsg* msg) const {
-    const AceCmdOpcode opcode = ctxt.tstate()->opcode();
-    switch (opcode) {
-      case AceCmdOpcode::ReadNoSnoop: {
-        handle_snp_read_no_snoop(ctxt, cl, msg);
-      } break;
-      case AceCmdOpcode::ReadOnce: {
-        handle_snp_read_once(ctxt, cl, msg);
-      } break;
-      case AceCmdOpcode::ReadClean: {
-        handle_snp_read_clean(ctxt, cl, msg);
-      } break;
-      case AceCmdOpcode::ReadNotSharedDirty: {
-        handle_snp_read_not_shared_dirty(ctxt, cl, msg);
-      } break;
-      case AceCmdOpcode::ReadShared: {
-        handle_snp_read_shared(ctxt, cl, msg);
-      } break;
-      case AceCmdOpcode::ReadUnique: {
-        handle_snp_read_unique(ctxt, cl, msg);
-      } break;
-      case AceCmdOpcode::CleanUnique: {
-        handle_snp_clean_unique(ctxt, cl, msg);
-      } break;
-      case AceCmdOpcode::CleanShared: {
-        handle_snp_clean_shared(ctxt, cl, msg);
-      } break;
-      case AceCmdOpcode::CleanInvalid: {
-        handle_snp_clean_invalid(ctxt, cl, msg);
-      } break;
-      case AceCmdOpcode::MakeUnique: {
-        handle_snp_make_unique(ctxt, cl, msg);
-      } break;
-      case AceCmdOpcode::MakeInvalid: {
-        handle_snp_make_invalid(ctxt, cl, msg);
-      } break;
-      case AceCmdOpcode::WriteNoSnoop: {
-        handle_snp_write_no_snoop(ctxt, cl, msg);
-      } break;
-      case AceCmdOpcode::WriteUnique: {
-        handle_snp_write_unique(ctxt, cl, msg);
-      } break;
-      case AceCmdOpcode::WriteLineUnique: {
-        handle_snp_write_line_unique(ctxt, cl, msg);
-      } break;
-      case AceCmdOpcode::WriteBack: {
-        handle_snp_write_back(ctxt, cl, msg);
-      } break;
-      case AceCmdOpcode::WriteClean: {
-        handle_snp_write_clean(ctxt, cl, msg);
-      } break;
-      case AceCmdOpcode::Evict: {
-        handle_snp_evict(ctxt, cl, msg);
-      } break;
-      default: {
-        // Unknown opcode; raise error.
-        std::string reason = "Unsupported opcode received: ";
-        reason += to_string(opcode);
-        cl.raise_error(reason);
-      } break;
+    DirTState* tstate = ctxt.tstate();
+
+    // Update snoop response concensus.
+    if (msg->dt()) {
+      // DT in current snoop; increment total DT count.
+      cl.push_back(tstate->build_inc_dt());
+    }
+
+    // Recall that the PD, IS bits are not themselves predicated on
+    // PD, as the naming would imply.
+    if (msg->pd()) {
+      // Line was dirty before snoop;
+      cl.push_back(tstate->build_inc_pd());
+    }
+    if (msg->is()) {
+      // Line is retained as shared.
+      cl.push_back(tstate->build_inc_is());
+    }
+
+    // Upon receipt of new snoop response, update transaction
+    // state. If all snoop responses have been received by the agent, form
+    // the final coherence concensus response.
+    if (tstate->is_final_snoop(true)) { 
+      // Compute final counts (tstate has not yet been updated at this
+      // point).
+      ctxt.set_dt_n(tstate->dt_i() + (msg->dt() ? 1 : 0));
+      ctxt.set_pd_n(tstate->pd_i() + (msg->pd() ? 1 : 0));
+      ctxt.set_is_n(tstate->is_i() + (msg->is() ? 1 : 0));
+    
+      const AceCmdOpcode opcode = ctxt.tstate()->opcode();
+      switch (opcode) {
+        case AceCmdOpcode::ReadNoSnoop: {
+          handle_snp_read_no_snoop(ctxt, cl, msg);
+        } break;
+        case AceCmdOpcode::ReadOnce: {
+          handle_snp_read_once(ctxt, cl, msg);
+        } break;
+        case AceCmdOpcode::ReadClean: {
+          handle_snp_read_clean(ctxt, cl, msg);
+        } break;
+        case AceCmdOpcode::ReadNotSharedDirty: {
+          handle_snp_read_not_shared_dirty(ctxt, cl, msg);
+        } break;
+        case AceCmdOpcode::ReadShared: {
+          handle_snp_read_shared(ctxt, cl, msg);
+        } break;
+        case AceCmdOpcode::ReadUnique: {
+          handle_snp_read_unique(ctxt, cl, msg);
+        } break;
+        case AceCmdOpcode::CleanUnique: {
+          handle_snp_clean_unique(ctxt, cl, msg);
+        } break;
+        case AceCmdOpcode::CleanShared: {
+          handle_snp_clean_shared(ctxt, cl, msg);
+        } break;
+        case AceCmdOpcode::CleanInvalid: {
+          handle_snp_clean_invalid(ctxt, cl, msg);
+        } break;
+        case AceCmdOpcode::MakeUnique: {
+          handle_snp_make_unique(ctxt, cl, msg);
+        } break;
+        case AceCmdOpcode::MakeInvalid: {
+          handle_snp_make_invalid(ctxt, cl, msg);
+        } break;
+        case AceCmdOpcode::WriteNoSnoop: {
+          handle_snp_write_no_snoop(ctxt, cl, msg);
+        } break;
+        case AceCmdOpcode::WriteUnique: {
+          handle_snp_write_unique(ctxt, cl, msg);
+        } break;
+        case AceCmdOpcode::WriteLineUnique: {
+          handle_snp_write_line_unique(ctxt, cl, msg);
+        } break;
+        case AceCmdOpcode::WriteBack: {
+          handle_snp_write_back(ctxt, cl, msg);
+        } break;
+        case AceCmdOpcode::WriteClean: {
+          handle_snp_write_clean(ctxt, cl, msg);
+        } break;
+        case AceCmdOpcode::Evict: {
+          handle_snp_evict(ctxt, cl, msg);
+        } break;
+        default: {
+          // Unknown opcode; raise error.
+          std::string reason = "Unsupported opcode received: ";
+          reason += to_string(opcode);
+          cl.raise_error(reason);
+        } break;
+      }
     }
 
     // Update (Snoop) Credit Counter.
@@ -1689,6 +1747,8 @@ class MOESIDirProtocol : public DirProtocol {
 
   void handle_snp_read_no_snoop(DirContext& ctxt, DirCommandList& cl,
                                 const CohSnpRspMsg* msg) const {
+    // No snoops associated with ReadNoSnoop
+    cl.raise_error("Unexpected snoop received.");
   }
 
   void handle_snp_read_once(DirContext& ctxt, DirCommandList& cl,
@@ -1712,68 +1772,68 @@ class MOESIDirProtocol : public DirProtocol {
       case State::M_O:
       case State::O_O:
       case State::E_O: {
-        // CHECK: expect this to be the final snoop response; only
-        // one snoop should have been issued.
-
-        // Line was in Exclusive state in owning cache. Upon
-        // completion of the ReadShared the owning cache may have
-        // either invalidated the line, retained the line as the
-        // owner, or it may have passed ownership to the
-        // requesting agent.  Update state of line based upon
-        // response.
-        CohEndMsg* end = Pool<CohEndMsg>::construct();
-        end->set_t(msg->t());
-        end->set_origin(ctxt.dir());
-
-        const bool is = msg->is(), pd = msg->pd(), dt = msg->dt();
+        // Compute next state
         State next_state = State::X;
-        if (dt && !is && !pd) {
-          // Requesting agent becomes owner.
-          end->set_is(false);
-          end->set_pd(false);
-          end->set_dt_n(1);
-          issue_set_owner(ctxt, cl, tstate->origin());
-          // Line is no longer present in response cache.
-          next_state = State::E;
-        } else if (dt && !is && pd) {
-          // Requesting agent becomes owner.
-          end->set_is(false);
-          end->set_pd(true);
-          end->set_dt_n(1);
-          issue_set_owner(ctxt, cl, tstate->origin());
-          // Line is no longer present in responder cache.
-          next_state = State::M;
-        } else if (dt && is && !pd) {
-          // Requester becomes Sharer.
-          end->set_is(true);
-          end->set_pd(false);
-          end->set_dt_n(1);
-          issue_add_sharer(ctxt, cl, tstate->origin());
-          // Responder becomes owner of assumed dirty line.
-          next_state = State::O;
-        } else if (dt && is && pd) {
-          // Requester becomes Owner; responder retains Shared.
-          end->set_is(true);
-          end->set_pd(true);
-          end->set_dt_n(1);
-          issue_set_owner(ctxt, cl, tstate->origin());
-          // Responder retains line in Shared state, line is dirty
-          // with respect to memory therefore requester gains line
-          // in ownership state.
-          next_state = State::O;
+        if      (!ctxt.is() && !ctxt.pd()) { next_state = State::E; }
+        else if (!ctxt.is() &&  ctxt.pd()) { next_state = State::M; }
+        else if ( ctxt.is() && !ctxt.pd()) { next_state = State::S; }
+        else                               { next_state = State::O; }
+        
+        if (ctxt.dt()) {
+          // Data has been transfered; the originator is now in
+          // receipt of some number of lines. Now compute the final
+          // coherence result and issue final response.
+
+          CohEndMsg* end = Pool<CohEndMsg>::construct();
+          end->set_t(msg->t());
+          end->set_origin(ctxt.dir());
+          end->set_is(ctxt.is());
+          end->set_pd(ctxt.pd());
+          end->set_dt_n(ctxt.dt_n());
+
+          switch (next_state) {
+            case State::E: {
+              // Requesting agent becomes owner.
+              issue_set_owner(ctxt, cl, tstate->origin());
+            } break;
+            case State::M: {
+              // Requesting agent becomes owner.
+              issue_set_owner(ctxt, cl, tstate->origin());
+            } break;
+            case State::S: {
+              // Requester becomes Sharer.
+              issue_add_sharer(ctxt, cl, tstate->origin());
+            } break;
+            case State::O: {
+              // Requester becomes Owner; responder retains Shared.
+              issue_set_owner(ctxt, cl, tstate->origin());
+            }
+            default: {
+            } break;
+          }
+          // Issue response to originator.
+          issue_msg_to_noc(ctxt, cl, end, tstate->origin());
+          // Transaction ends
+          cl.push_back(DirOpcode::EndTransaction);
         } else {
           // No data transfer, therefore DIR must issue fill to
           // LLC.
-
-          // TODO: Cannot handle case !dt
+          LLCCmdMsg* cmd = Pool<LLCCmdMsg>::construct();
+          cmd->set_t(msg->t());
+          cmd->set_opcode(LLCCmdOpcode::PutLine);
+          cmd->set_addr(tstate->addr());
+          cmd->set_agent(tstate->origin());
+          // Issue LLC request; now awaiting LLC response before
+          // final coherence result can be issued to originator.
+          issue_msg_to_noc(ctxt, cl, cmd, ctxt.dir()->llc());
+          // Now awaiting an LLC response, set flag
+          cl.push_back(tstate->build_set_llc_cmd_opcode(cmd->opcode()));
         }
+        // Update state
         issue_update_state(ctxt, cl, next_state);
-
-        issue_msg_to_noc(ctxt, cl, end, tstate->origin());
-
-        cl.push_back(DirOpcode::EndTransaction);
       } break;
       default: {
+        cl.raise_error("Invalid state transition.");
       } break;
     }
   }
@@ -1784,101 +1844,55 @@ class MOESIDirProtocol : public DirProtocol {
     LineState* line = static_cast<LineState*>(tstate->line());
     const State state = line->state();
     switch (state) {
-      case State::O_ME: {
-        // Line is presently in the Owned state; owning cache
-        // has been snooped and we *expect* for it to forward
-        // the line to the requesting agent (TODO: agent may
-        // instead choose to writeback line to main memory.
-        // in which case the line may need to be sourced from
-        // the LLC).
-        const bool is = msg->is(), pd = msg->pd(), dt = msg->dt();
-        if (is) {
-          // Cannot obtain line with IsShared property set. Ownership
-          // must have been relinqusihed.
-          throw std::runtime_error("Cannot receive with I_S.");
-        }
-
-        CohEndMsg* end = Pool<CohEndMsg>::construct();
-        end->set_t(msg->t());
-        end->set_origin(ctxt.dir());
-        end->set_is(false);
-
-        State next_state = State::X;
-        if (dt) {
-          // Responder was in Owned state, therefore we expect
-          // the line to be dirty (but presently unclear if this
-          // is strictly always the case as we cannot discount
-          // edges to the Owned state from a Clean/Unmodified
-          // line).
-          end->set_pd(pd);
-          end->set_dt_n(1);
-          // Requester now has ownership of line.
-          next_state = State::O;
-        } else {
-          // Else, data has not been transferred, line must be
-          // sourced from the LLC as the responding agent has
-          // written back the line.
-
-          // TODO
-        }
-        issue_update_state(ctxt, cl, next_state);
-        // Ownership is transferred to requester.
-        issue_set_owner(ctxt, cl, tstate->origin());
-        // Issue coherence response to the requester
-        issue_msg_to_noc(ctxt, cl, end, tstate->origin());
-        // Transaction is complete.
-        cl.push_back(DirOpcode::EndTransaction);
-      } break;
-      case State::S_E:
+      case State::S_ME:
+      case State::O_ME:
+      case State::M_ME:
       case State::E_E: {
-        // Line is presently in the Exclusive state in the owning
-        // cache (possibly modified). Exclusive ownership is to be
-        // passed to the requesting agent. Therefore the state
-        // transition is: E -> E_E -> E.
-        const bool is = msg->is(), pd = msg->pd(), dt = msg->dt();
-        if (is) {
-          // Cannot obtain line with IsShared property set.
-          throw std::runtime_error("Cannot receive with I_S.");
-        }
+        const State next_state = ctxt.pd() ? State::M : State::E;
+        if (ctxt.dt()) {
+          CohEndMsg* end = Pool<CohEndMsg>::construct();
+          end->set_t(msg->t());
+          end->set_origin(ctxt.dir());
+          end->set_is(false);
+          end->set_dt_n(ctxt.dt_n());
+          end->set_pd(next_state == State::O);
 
-        CohEndMsg* end = Pool<CohEndMsg>::construct();
-        end->set_t(msg->t());
-        end->set_origin(ctxt.dir());
-        end->set_is(false);
+          // Requesting agent becomes owner.
+          issue_set_owner(ctxt, cl, tstate->origin());
 
-        State next_state = State::X;
-        if (dt && !pd) {
-          issue_set_owner(ctxt, cl, tstate->origin());
-          // Line is clean. The requesting agent can evict the
-          // line without having first written it back.
-          end->set_pd(false);
-          end->set_dt_n(1);
-          next_state = State::E;
-        } else if (dt && pd) {
-          issue_set_owner(ctxt, cl, tstate->origin());
-          // Line is dirty, therefore cache obtains line in
-          // ownership state and must writeback the line before
-          // eviction.
-          end->set_pd(true);
-          end->set_dt_n(1);
-          next_state = State::O;
+          // Issue completed response to the requester.
+          issue_msg_to_noc(ctxt, cl, end, tstate->origin());
+
+          // Transaction ends at this point, as the final state of
+          // the line is now known. The requesters cache controller
+          // now awaits 1 DT either from responding agent or the
+          // LLC.
+          cl.push_back(DirOpcode::EndTransaction);
         } else {
-          //
-          // TODO: agent does not forward data
+          // Data was not transfers to the requesting agent. In this
+          // case, the owning agent must have explicitly written back
+          // back its line before forming the snoop response. Ideally,
+          // the responding agent would have relinquished the line
+          // before responding, but the ACE specification does not
+          // require this behavior.
+
+          // Instruct the LLC to forward the cache line to the
+          // requesting agent.
+          LLCCmdMsg* llc = Pool<LLCCmdMsg>::construct();
+          llc->set_t(msg->t());
+          llc->set_opcode(LLCCmdOpcode::PutLine);
+          llc->set_addr(tstate->addr());
+          llc->set_agent(tstate->origin());
+          issue_msg_to_noc(ctxt, cl, llc, ctxt.dir()->llc());
+
+          // Set flag indicating that we are now awaiting a LLC
+          // response.
+          cl.push_back(tstate->build_set_llc_cmd_opcode(llc->opcode()));
         }
         issue_update_state(ctxt, cl, next_state);
-
-        // Issue completed response to the requester.
-        issue_msg_to_noc(ctxt, cl, end, tstate->origin());
-
-        // Transaction ends at this point, as the final state of
-        // the line is now known. The requesters cache controller
-        // now awaits 1 DT either from responding agent or the
-        // LLC.
-        cl.push_back(DirOpcode::EndTransaction);
       } break;
       default: {
-        // TODO
+        cl.raise_error("Invalid state transition.");
       } break;
     }
   }
@@ -1889,83 +1903,206 @@ class MOESIDirProtocol : public DirProtocol {
     LineState* line = static_cast<LineState*>(tstate->line());
     const State state = line->state();
     switch (state) {
-      case State::O_E: {
-        // Issue snoop count increment.
-        issue_inc_snoop_i(ctxt, cl);
+      case State::S_E:
+      case State::E_E:
+      case State::M_EO: {
+        // Final response, therefore send completed coherence
+        // response back to requester to terminate the
+        // transaction.
+        CohEndMsg* end = Pool<CohEndMsg>::construct();
+        end->set_t(msg->t());
+        end->set_origin(ctxt.dir());
+        // "Clean" instruction, therefore as no data is transferred
+        // these fields are cleared as per. C4.6.1
+        end->set_is(false);
+        end->set_pd(false);
+        issue_msg_to_noc(ctxt, cl, end, tstate->origin());
 
-        // If data has been transfered, increment DT count.
-        if (msg->dt()) {
-          issue_inc_dt(ctxt, cl);
-        }
-
-        const bool is_final_snprsp = (tstate->snoop_n() == 1 + tstate->snoop_i());
-        if (is_final_snprsp) {
-          // Final response, therefore send completed coherence
-          // response back to requester to terminate the
-          // transaction.
-          CohEndMsg* end = Pool<CohEndMsg>::construct();
-          end->set_t(msg->t());
-          end->set_origin(ctxt.dir());
-          // "Clean" instruction, therefore as data is transferred
-          // these fields are cleared as per. C4.6.1
-          end->set_is(false);
-          end->set_pd(false);
-          // Set expected transfer count; nominally zero.
-          const std::size_t final_dt_n =
-              tstate->dt_i() + (msg->dt() ? 1 : 0);
-          end->set_dt_n(final_dt_n);
-
-          issue_msg_to_noc(ctxt, cl, end, tstate->origin());
-
-          // Transaction is complete once overall transaction
-          // response has been computed.
-          cl.push_back(DirOpcode::EndTransaction);
-        }
+        // Transaction is complete once overall transaction
+        // response has been computed.
+        cl.push_back(DirOpcode::EndTransaction);
       } break;
       default: {
-        // TODO
+        cl.raise_error("Invalid state transition.");
       } break;
     }
   }
 
   void handle_snp_clean_shared(DirContext& ctxt, DirCommandList& cl,
                                const CohSnpRspMsg* msg) const {
+    DirTState* tstate = ctxt.tstate();
+    LineState* line = static_cast<LineState*>(tstate->line());
+    const State state = line->state();
+    switch (state) {
+      case State::S_SE:
+      case State::E_SE:
+      case State::M_SE:
+      case State::O_SE: {
+        // Final snoop response received; issue final coherence
+        // concensus.
+        CohEndMsg* end = Pool<CohEndMsg>::construct();
+        end->set_t(msg->t());
+        end->set_origin(ctxt.dir());
+        end->set_pd(false);
+        end->set_is(ctxt.is());
+        issue_msg_to_noc(ctxt, cl, end, tstate->origin());
+        // On completion, line is clean.
+        const State next_state = ctxt.is() ? State::S : State::E;
+        issue_update_state(ctxt, cl, next_state);
+        // Transaction is complete
+        cl.push_back(DirOpcode::EndTransaction);
+      } break;
+      default: {
+        cl.raise_error("Invalid state transition.");
+      } break;
+    }
   }
 
   void handle_snp_clean_invalid(DirContext& ctxt, DirCommandList& cl,
                                 const CohSnpRspMsg* msg) const {
+    DirTState* tstate = ctxt.tstate();
+    LineState* line = static_cast<LineState*>(tstate->line());
+    const State state = line->state();
+    switch (state) {
+      case State::S_I:
+      case State::E_I:
+      case State::M_I:
+      case State::O_I: {
+        // Final snoop response received; issue final coherence
+        // concensus.
+        CohEndMsg* end = Pool<CohEndMsg>::construct();
+        end->set_t(msg->t());
+        end->set_origin(ctxt.dir());
+        // "the {IsShared/PassDirty} response must be deasserted"
+        end->set_pd(false);
+        end->set_is(false);
+        issue_msg_to_noc(ctxt, cl, end, tstate->origin());
+        // Update final line state
+        issue_update_state(ctxt, cl, State::I);
+        // Delete line
+        cl.push_back(DirOpcode::RemoveLine);
+        // Transaction is complete
+        cl.push_back(DirOpcode::EndTransaction);
+      } break;
+      default: {
+        cl.raise_error("Invalid state transition.");
+      } break;
+    }
   }
 
   void handle_snp_make_unique(DirContext& ctxt, DirCommandList& cl,
                               const CohSnpRspMsg* msg) const {
+    DirTState* tstate = ctxt.tstate();
+    LineState* line = static_cast<LineState*>(tstate->line());
+    const State state = line->state();
+    switch (state) {
+      case State::S_I:
+      case State::E_I:
+      case State::M_I:
+      case State::O_I: {
+        // Final snoop response received; issue final coherence
+        // concensus.
+        CohEndMsg* end = Pool<CohEndMsg>::construct();
+        end->set_t(msg->t());
+        end->set_origin(ctxt.dir());
+        end->set_pd(false);
+        end->set_is(false);
+        issue_msg_to_noc(ctxt, cl, end, tstate->origin());
+        // Update final line state; originator now has Exclusive
+        // access to the line and will, presumably, perform a full
+        // line write. From the perspective of the directory,
+        // Exclusive is synonymous with Modified.
+        issue_update_state(ctxt, cl, State::E);
+        // Originator is now the owner.
+        issue_set_owner(ctxt, cl, line->owner());
+        // Delete line
+        cl.push_back(DirOpcode::RemoveLine);
+        // Transaction is complete
+        cl.push_back(DirOpcode::EndTransaction);
+      } break;
+      default: {
+        cl.raise_error("Invalid state transition.");
+      } break;
+    }
   }
 
   void handle_snp_make_invalid(DirContext& ctxt, DirCommandList& cl,
                                const CohSnpRspMsg* msg) const {
+    DirTState* tstate = ctxt.tstate();
+    LineState* line = static_cast<LineState*>(tstate->line());
+    const State state = line->state();
+    switch (state) {
+      case State::S_I:
+      case State::E_I:
+      case State::M_I:
+      case State::O_I: {
+        // Final snoop response received; issue final coherence
+        // concensus.
+        CohEndMsg* end = Pool<CohEndMsg>::construct();
+        end->set_t(msg->t());
+        end->set_origin(ctxt.dir());
+        end->set_pd(false);
+        end->set_is(false);
+        issue_msg_to_noc(ctxt, cl, end, tstate->origin());
+        // Update final line state
+        issue_update_state(ctxt, cl, State::I);
+        // Delete line
+        cl.push_back(DirOpcode::RemoveLine);
+        // Transaction is complete
+        cl.push_back(DirOpcode::EndTransaction);
+      } break;
+      default: {
+        cl.raise_error("Invalid state transition.");
+      } break;
+    }
   }
 
   void handle_snp_write_no_snoop(DirContext& ctxt, DirCommandList& cl,
                                  const CohSnpRspMsg* msg) const {
+    // Command should not issue a Snoop therefore we so not expect
+    // a snoop response.
+    cl.raise_error("Snoop response raised for command which does "
+                   "not issue a snoop command");
   }
 
   void handle_snp_write_unique(DirContext& ctxt, DirCommandList& cl,
                                const CohSnpRspMsg* msg) const {
+    // Command should not issue a Snoop therefore we so not expect
+    // a snoop response.
+    cl.raise_error("Snoop response raised for command which does "
+                   "not issue a snoop command");
   }
 
   void handle_snp_write_line_unique(DirContext& ctxt, DirCommandList& cl,
                                     const CohSnpRspMsg* msg) const {
+    // Command should not issue a Snoop therefore we so not expect
+    // a snoop response.
+    cl.raise_error("Snoop response raised for command which does "
+                   "not issue a snoop command");
   }
 
   void handle_snp_write_back(DirContext& ctxt, DirCommandList& cl,
                              const CohSnpRspMsg* msg) const {
+    // Command should not issue a Snoop therefore we so not expect
+    // a snoop response.
+    cl.raise_error("Snoop response raised for command which does "
+                   "not issue a snoop command");
   }
 
   void handle_snp_write_clean(DirContext& ctxt, DirCommandList& cl,
                               const CohSnpRspMsg* msg) const {
+    // Command should not issue a Snoop therefore we so not expect
+    // a snoop response.
+    cl.raise_error("Snoop response raised for command which does "
+                   "not issue a snoop command");
   }
 
   void handle_snp_evict(DirContext& ctxt, DirCommandList& cl,
                         const CohSnpRspMsg* msg) const {
+    // Command should not issue a Snoop therefore we so not expect
+    // a snoop response.
+    cl.raise_error("Snoop response raised for command which does "
+                   "not issue a snoop command");
   }
 
   //
@@ -1975,7 +2112,7 @@ class MOESIDirProtocol : public DirProtocol {
     LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
     LineUpdateAction* update = new LineUpdateAction(line, LineUpdate::State);
     update->set_state(state);
-    cl.push_back(cb::from_action(update));
+    cl.push_back(update);
   }
 
   //
@@ -1985,7 +2122,7 @@ class MOESIDirProtocol : public DirProtocol {
     LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
     LineUpdateAction* update = new LineUpdateAction(line, LineUpdate::SubState);
     update->set_substate(state);
-    cl.push_back(cb::from_action(update));
+    cl.push_back(update);
   }
 
   //
@@ -1995,7 +2132,7 @@ class MOESIDirProtocol : public DirProtocol {
     LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
     LineUpdateAction* update = new LineUpdateAction(line, LineUpdate::SetOwner);
     update->set_agent(owner);
-    cl.push_back(cb::from_action(update));
+    cl.push_back(update);
   }
 
   void issue_add_sharer(DirContext& ctxt, DirCommandList& cl,
@@ -2004,7 +2141,7 @@ class MOESIDirProtocol : public DirProtocol {
     LineUpdateAction* update =
         new LineUpdateAction(line, LineUpdate::AddSharer);
     update->set_agent(owner);
-    cl.push_back(cb::from_action(update));
+    cl.push_back(update);
   }
 
   void issue_set_snoop_n(DirContext& ctxt, DirCommandList& cl,
@@ -2012,19 +2149,19 @@ class MOESIDirProtocol : public DirProtocol {
     TStateUpdateAction* action =
         new TStateUpdateAction(ctxt.tstate(), TStateAction::SetSnoopN);
     action->set_snoop_n(n);
-    cl.push_back(cb::from_action(action));
+    cl.push_back(action);
   }
 
   void issue_inc_snoop_i(DirContext& ctxt, DirCommandList& cl) const {
     TStateUpdateAction* action =
         new TStateUpdateAction(ctxt.tstate(), TStateAction::IncSnoopN);
-    cl.push_back(cb::from_action(action));
+    cl.push_back(action);
   }
 
   void issue_inc_dt(DirContext& ctxt, DirCommandList& cl) const {
     TStateUpdateAction* action =
         new TStateUpdateAction(ctxt.tstate(), TStateAction::IncDt);
-    cl.push_back(cb::from_action(action));
+    cl.push_back(action);
   }
 
   void issue_add_credit(DirContext& ctxt, DirCommandList& cl,
@@ -2053,7 +2190,7 @@ class MOESIDirProtocol : public DirProtocol {
       // Counter exists for this edge. Issue credit update aciton.
       AddCreditAction* action = new AddCreditAction;
       action->set_cc(cc);
-      cl.push_back(cb::from_action(action));
+      cl.push_back(action);
     }
   }
 
