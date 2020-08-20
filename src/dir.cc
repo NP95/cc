@@ -117,13 +117,13 @@ DirCommand* DirCommandBuilder::build_error(const std::string& reason) {
 
 
 enum class TStateUpdateOpcode {
-  Invalid,
   SetSnoopN,
   IncSnoopN,
   IncDt,
   IncPd,
   IncIs,
-  SetLLC
+  SetLLC,
+  Invalid
 };
 
 //
@@ -234,6 +234,18 @@ DirCommand* DirTState::build_inc_is() {
       new TStateUpdateAction(this, TStateUpdateOpcode::IncIs));
 }
 
+DirCommand* DirTState::build_set_snoop_n(std::size_t n) {
+  TStateUpdateAction* action =
+      new TStateUpdateAction(this, TStateUpdateOpcode::SetSnoopN);
+  action->set_snoop_n(n);
+  return DirCommandBuilder::from_action(action);
+}
+
+// Build action to increment snoop response count.
+DirCommand* DirTState::build_inc_snoop_i() {
+  return DirCommandBuilder::from_action(
+      new TStateUpdateAction(this, TStateUpdateOpcode::IncSnoopN));
+}
 
 void DirTState::release() { delete this; }
 

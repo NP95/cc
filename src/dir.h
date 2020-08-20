@@ -191,14 +191,20 @@ class DirTState {
   // Build action to set the LLC comand opcode.
   DirCommand* build_set_llc_cmd_opcode(LLCCmdOpcode opcode);
 
-  // Build action to Increment DT
+  // Build action to increment DT
   DirCommand* build_inc_dt();
 
-  // Build action to Increment PD
+  // Build action to increment PD
   DirCommand* build_inc_pd();
 
-  // Build action to Increment IS
+  // Build action to increment IS
   DirCommand* build_inc_is();
+
+  // Build action to increment snoop expectation count.
+  DirCommand* build_set_snoop_n(std::size_t n);
+
+  // Build action to increment snoop response count.
+  DirCommand* build_inc_snoop_i();
   
 
   // Events denoting the initiation and completion of the transaction.
