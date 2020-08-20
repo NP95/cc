@@ -117,14 +117,48 @@ DirCommand* DirCommandBuilder::build_error(const std::string& reason) {
 
 
 enum class TStateUpdateOpcode {
+  // Set expected snoop count
   SetSnoopN,
-  IncSnoopN,
+
+  // Increment received snoop count
+  IncSnoopI,
+
+  // Increment Data Transfer (DT) count
   IncDt,
+
+  // Increment Pass Dirty (PD) count
   IncPd,
+
+  // Increment Is Shared (IS) count
   IncIs,
+
+  // Set LLC opcode
   SetLLC,
+
+  // Invalid; placeholder.
   Invalid
 };
+
+const char* to_string(TStateUpdateOpcode action) {
+  switch (action) {
+    case TStateUpdateOpcode::SetSnoopN:
+      return "SetSnoopN"; 
+    case TStateUpdateOpcode::IncSnoopI:
+      return "IncSnoopI";
+    case TStateUpdateOpcode::IncDt:
+      return "IncDt";
+    case TStateUpdateOpcode::IncPd:
+      return "IncPd";
+    case TStateUpdateOpcode::IncIs:
+      return "IncIs";
+    case TStateUpdateOpcode::SetLLC:
+      return "SetLLC";
+    case TStateUpdateOpcode::Invalid:
+      [[fallthrough]];
+    default:
+      return "Invalid";
+  }
+}
 
 //
 //
@@ -132,28 +166,15 @@ struct TStateUpdateAction : public DirCoherenceAction {
   TStateUpdateAction(DirTState* tstate, TStateUpdateOpcode action)
       : tstate_(tstate), action_(action) {}
   std::string to_string() const override {
-    using std::to_string;
+    using cc::to_string;
     KVListRenderer r;
+    r.add_field("action", to_string(action_));
     switch (action()) {
       case TStateUpdateOpcode::SetSnoopN: {
-        r.add_field("action", "set_snoop_n_action");
         r.add_field("snoop_n", to_string(snoop_n_));
         r.add_field("snoop_i", to_string(0));
       } break;
-      case TStateUpdateOpcode::IncSnoopN: {
-        r.add_field("action", "inc_snoop_i_action");
-      } break;
-      case TStateUpdateOpcode::IncDt: {
-        r.add_field("action", "inc_dt");
-      } break;
-      case TStateUpdateOpcode::IncPd: {
-        r.add_field("action", "inc_pd");
-      } break;
-      case TStateUpdateOpcode::IncIs: {
-        r.add_field("action", "inc_is");
-      } break;
       case TStateUpdateOpcode::SetLLC: {
-        r.add_field("action", "set_llc");
         r.add_field("llc_cmd_opcode", to_string(llc_cmd_opcode_));
       } break;
       default: {
@@ -176,7 +197,7 @@ struct TStateUpdateAction : public DirCoherenceAction {
         tstate_->set_snoop_n(snoop_n_);
         tstate_->set_snoop_i(0);
       } break;
-      case TStateUpdateOpcode::IncSnoopN: {
+      case TStateUpdateOpcode::IncSnoopI: {
         tstate_->set_snoop_i(tstate_->snoop_n() + 1);
       } break;
       case TStateUpdateOpcode::IncDt: {
@@ -244,7 +265,7 @@ DirCommand* DirTState::build_set_snoop_n(std::size_t n) {
 // Build action to increment snoop response count.
 DirCommand* DirTState::build_inc_snoop_i() {
   return DirCommandBuilder::from_action(
-      new TStateUpdateAction(this, TStateUpdateOpcode::IncSnoopN));
+      new TStateUpdateAction(this, TStateUpdateOpcode::IncSnoopI));
 }
 
 void DirTState::release() { delete this; }

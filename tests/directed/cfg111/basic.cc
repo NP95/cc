@@ -48,6 +48,7 @@
 // Directory installs line in either the Shared or the Exclusive
 // State.
 //
+/*
 TEST(Cfg111, Load1) {
   test::ConfigBuilder cb;
   cb.set_dir_n(1);
@@ -151,7 +152,7 @@ TEST(Cfg111, LoadN) {
   // Validate that all transactions have retired at end-of-sim.
   EXPECT_EQ(stimulus->issue_n(), stimulus->retire_n());
 }
-
+*/
 
 // Store1
 // ======
@@ -209,7 +210,7 @@ TEST(Cfg111, Store1) {
   EXPECT_EQ(stimulus->issue_n(), stimulus->retire_n());
 }
 
-
+/*
 // StoreN
 // ======
 //
@@ -573,7 +574,7 @@ TEST(Cfg111, EvictLineUnmodifiedLine) {
   // Validate that all transactions have retired at end-of-sim.
   EXPECT_EQ(stimulus->issue_n(), stimulus->retire_n());
 }
-
+*/
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();

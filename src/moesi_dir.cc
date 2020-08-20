@@ -155,15 +155,6 @@ const char* to_string(State state) {
   }
 }
 
-State compute_final_state(bool is, bool pd) {
-  State next = State::X;
-  if (!is && !pd) next = State::E;
-  if (!is && pd) next = State::M;
-  if (is && !pd) next = State::S;
-  if (is && pd) next = State::O;
-  return next;
-}
-
 //
 //
 bool is_stable(State state) {
@@ -175,28 +166,6 @@ bool is_stable(State state) {
       return true;
     default:
       return false;
-  }
-}
-
-enum class SubState {
-  AwaitingLLCFillRsp,
-  AwaitingLLCFwdRsp,
-  AwaitingCohSnpRsp,
-  None
-};
-
-const char* to_string(SubState state) {
-  switch (state) {
-    case SubState::AwaitingLLCFillRsp:
-      return "AwaitingLLCFillRsp";
-    case SubState::AwaitingLLCFwdRsp:
-      return "AwaitingLLCFwdRsp";
-    case SubState::AwaitingCohSnpRsp:
-      return "AwaitingCohSnpRsp";
-    case SubState::None:
-      return "None";
-    default:
-      return "Invalid";
   }
 }
 
@@ -238,7 +207,6 @@ class LineState : public DirLineState {
   // Current line state.
   State state() const { return state_; }
   //
-  SubState substate() const { return substate_; }
   const std::set<Agent*>& sharers() const { return sharers_; }
   //
   // Current owning agent.
@@ -271,14 +239,10 @@ class LineState : public DirLineState {
   void set_state(State state) { state_ = state; }
   // Set owner of line.
   void set_owner(Agent* owner) { owner_ = owner; }
-  //
-  void set_substate(SubState substate) { substate_ = substate; }
 
  private:
   // Coherence State.
   State state_ = State::I;
-  // Trandition state.
-  SubState substate_;
   // Owning agent.
   Agent* owner_ = nullptr;
   // Current set of sharers
@@ -288,9 +252,6 @@ class LineState : public DirLineState {
 enum class LineUpdateOpcode {
   // Set Line State
   SetState,
-
-  // Deprecate
-  SubState,
 
   // Set Agent as Owner
   SetOwner,
@@ -312,8 +273,6 @@ const char* to_string(LineUpdateOpcode update) {
   switch (update) {
     case LineUpdateOpcode::SetState:
       return "SetState";
-    case LineUpdateOpcode::SubState:
-      return "SubState";
     case LineUpdateOpcode::SetOwner:
       return "SetOwner";
     case LineUpdateOpcode::AddSharer:
@@ -333,7 +292,6 @@ struct LineUpdateAction : public DirCoherenceAction {
       : line_(line), update_(update) {}
 
   void set_state(State state) { state_ = state; }
-  void set_substate(SubState substate) { substate_ = substate; }
   void set_agent(Agent* agent) { agent_ = agent; }
 
   std::string to_string() const override {
@@ -342,9 +300,6 @@ struct LineUpdateAction : public DirCoherenceAction {
     switch (update_) {
       case LineUpdateOpcode::SetState: {
         r.add_field("state", ::to_string(state_));
-      } break;
-      case LineUpdateOpcode::SubState: {
-        r.add_field("state", ::to_string(substate_));
       } break;
       case LineUpdateOpcode::SetOwner: {
         r.add_field("owner", agent_->path());
@@ -368,9 +323,6 @@ struct LineUpdateAction : public DirCoherenceAction {
       case LineUpdateOpcode::SetState: {
         line_->set_state(state_);
       } break;
-      case LineUpdateOpcode::SubState: {
-        line_->set_substate(substate_);
-      } break;
       case LineUpdateOpcode::SetOwner: {
         line_->set_owner(agent_);
       } break;
@@ -390,15 +342,13 @@ struct LineUpdateAction : public DirCoherenceAction {
   }
 
  private:
-  //
-  State state_;
-  //
-  SubState substate_;
-  //
+  // State to which the line transitions
+  State state_ = State::X;
+  // New Sharing/Owning agent
   Agent* agent_ = nullptr;
-  //
+  // Directory line of interest
   LineState* line_ = nullptr;
-  //
+  // Update opcode
   LineUpdateOpcode update_ = LineUpdateOpcode::Invalid;
 };
 
@@ -439,86 +389,6 @@ DirCommand* LineState::build_del_sharer(Agent* agent) {
   action->set_agent(agent);
   return DirCommandBuilder::from_action(action);
 }
-
-
-enum class TStateAction {
-  SetSnoopN,
-  IncSnoopN,
-  IncDt,
-  IncPd,
-  IncIs,
-  Invalid
-};
-
-//
-//
-struct TStateUpdateAction : public DirCoherenceAction {
-  TStateUpdateAction(DirTState* tstate, TStateAction action)
-      : tstate_(tstate), action_(action) {}
-  std::string to_string() const override {
-    using std::to_string;
-    KVListRenderer r;
-    switch (action()) {
-      case TStateAction::SetSnoopN: {
-        r.add_field("action", "set_snoop_n_action");
-        r.add_field("snoop_n", to_string(snoop_n_));
-        r.add_field("snoop_i", to_string(0));
-      } break;
-      case TStateAction::IncSnoopN: {
-        r.add_field("action", "inc_snoop_i_action");
-      } break;
-      case TStateAction::IncDt: {
-        r.add_field("action", "inc_dt");
-      } break;
-      case TStateAction::IncPd: {
-        r.add_field("action", "inc_pd");
-      } break;
-      case TStateAction::IncIs: {
-        r.add_field("action", "inc_is");
-      } break;
-      default: {
-      } break;
-    }
-    return r.to_string();
-  }
-
-  // Getters
-  TStateAction action() const { return action_; }
-  std::size_t snoop_n() const { return snoop_n_; }
-
-  // Setters
-  void set_snoop_n(std::size_t snoop_n) { snoop_n_ = snoop_n; }
-
-  bool execute() override {
-    switch (action()) {
-      case TStateAction::SetSnoopN: {
-        tstate_->set_snoop_n(snoop_n_);
-        tstate_->set_snoop_i(0);
-      } break;
-      case TStateAction::IncSnoopN: {
-        tstate_->set_snoop_i(tstate_->snoop_n() + 1);
-      } break;
-      case TStateAction::IncDt: {
-        tstate_->set_dt_i(tstate_->dt_i() + 1);
-      } break;
-      case TStateAction::IncPd: {
-        tstate_->set_pd_i(tstate_->pd_i() + 1);
-      } break;
-      case TStateAction::IncIs: {
-        tstate_->set_is_i(tstate_->is_i() + 1);
-      } break;
-      default: {
-      } break;
-    }
-    return true;
-  }
-
- private:
-  DirTState* tstate_ = nullptr;
-  std::size_t snoop_n_ = 0;
-  ;
-  TStateAction action_ = TStateAction::Invalid;
-};
 
 //
 //
@@ -742,7 +612,6 @@ class MOESIDirProtocol : public DirProtocol {
 
         // Set flag awaiting LLC response
         cl.push_back(tstate->build_set_llc_cmd_opcode(cmd->opcode()));
-        issue_update_substate(ctxt, cl, SubState::AwaitingLLCFillRsp);
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
@@ -764,7 +633,6 @@ class MOESIDirProtocol : public DirProtocol {
         //issue_add_sharer(ctxt, cl, msg->origin());
         // Set flag awaiting LLC response
         cl.push_back(tstate->build_set_llc_cmd_opcode(cmd->opcode()));
-        issue_update_substate(ctxt, cl, SubState::AwaitingLLCFwdRsp);
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
@@ -804,7 +672,6 @@ class MOESIDirProtocol : public DirProtocol {
           default:         next_state = State::X;
         }
         cl.push_back(line->build_update_state(next_state));
-        issue_update_substate(ctxt, cl, SubState::AwaitingCohSnpRsp);
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
@@ -833,10 +700,10 @@ class MOESIDirProtocol : public DirProtocol {
         issue_msg_to_noc(ctxt, cl, cmd, ctxt.dir()->llc());
         // Originator becomes owner.
         cl.push_back(line->build_set_owner(msg->origin()));
-        // issue_set_owner(ctxt, cl, msg->origin());
+        // Set flag awaiting LLC response.
+        cl.push_back(tstate->build_set_llc_cmd_opcode(cmd->opcode()));
         // Update state
         cl.push_back(line->build_update_state(State::I_E));
-        issue_update_substate(ctxt, cl, SubState::AwaitingLLCFillRsp);
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
@@ -865,7 +732,6 @@ class MOESIDirProtocol : public DirProtocol {
         }
         // Update state
         cl.push_back(line->build_update_state(next_state));
-        issue_update_substate(ctxt, cl, SubState::AwaitingCohSnpRsp);
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
@@ -1217,9 +1083,6 @@ class MOESIDirProtocol : public DirProtocol {
         }
         // Set expected number of snoop responses.
         cl.push_back(tstate->build_set_snoop_n(snoop_n));
-        // issue_set_snoop_n(ctxt, cl, snoop_n);
-        // Transition to awaiting snoop response substate.
-        issue_update_substate(ctxt, cl, SubState::AwaitingCohSnpRsp);
         // Compute next state (transition to invalid)
         State next_state = State::X;
         switch (state) {
@@ -1317,9 +1180,6 @@ class MOESIDirProtocol : public DirProtocol {
         }
         // Set expected number of snoop responses.
         cl.push_back(tstate->build_set_snoop_n(snoop_n));
-        // issue_set_snoop_n(ctxt, cl, snoop_n);
-        // Transition to awaiting snoop response substate.
-        issue_update_substate(ctxt, cl, SubState::AwaitingCohSnpRsp);
         // Compute next state (transition to invalid)
         State next_state = State::X;
         switch (state) {
@@ -1593,75 +1453,52 @@ class MOESIDirProtocol : public DirProtocol {
         // LLC Resp is not expected.
       } break;
     }
+    cl.next_and_do_consume(true);
   }
 
   // TODO; rationalize
   void handle_llc_read_shared(DirContext& ctxt, DirCommandList& cl,
                               const LLCCmdRspMsg* msg) const {
     LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
-    const State state = line->state();
-    switch (state) {
-      case State::I_E: {
-        switch (line->substate()) {
-          case SubState::AwaitingLLCFillRsp: {
-            // LLC line fill has completed. Now, instruct the LLC to
-            // forward the desired line to the requesting (owning)
-            // agent.
-            LLCCmdMsg* cmd = Pool<LLCCmdMsg>::construct();
-            cmd->set_t(msg->t());
-            cmd->set_opcode(LLCCmdOpcode::PutLine);
-            DirTState* tstate = ctxt.tstate();
-            cmd->set_addr(tstate->addr());
-            cmd->set_agent(tstate->origin());
-            issue_msg_to_noc(ctxt, cl, cmd, ctxt.dir()->llc());
-            cl.push_back(DirOpcode::MsgConsume);
+    DirTState* tstate = ctxt.tstate();
+    const LLCCmdOpcode opcode = tstate->llc_cmd_opcode();
+    switch (opcode) {
+      case LLCCmdOpcode::Fill: {
+        // Initial line installation in LLC; followed by PutLine to
+        // requesting agent.
 
-            issue_update_substate(ctxt, cl, SubState::AwaitingLLCFwdRsp);
-            // Advance
-            cl.next_and_do_consume(false);
-          } break;
-          case SubState::AwaitingLLCFwdRsp: {
-            // Requesting cache now has the line, issue notification
-            // of the line status and terminate the transction.
-            // Send CohEnd
-            CohEndMsg* end = Pool<CohEndMsg>::construct();
-            end->set_t(msg->t());
-            end->set_origin(ctxt.dir());
-            end->set_dt_n(1);
-            issue_msg_to_noc(ctxt, cl, end, line->owner());
-            const State next_state =
-                (line->state() == State::I_S) ? State::S : State::E;
-            cl.push_back(line->build_update_state(next_state));
-            // Return to stable/non-transient state.
-            issue_update_substate(ctxt, cl, SubState::None);
-
-            cl.push_back(DirOpcode::EndTransaction);
-            // Consume and advance
-            cl.next_and_do_consume(true);
-          } break;
-          default: {
-          }
-        }
+        // Issue Forward command to LLC to send newly installed line
+        // to requesting agent.
+        LLCCmdMsg* cmd = Pool<LLCCmdMsg>::construct();
+        cmd->set_t(msg->t());
+        cmd->set_opcode(LLCCmdOpcode::PutLine);
+        cmd->set_addr(tstate->addr());
+        cmd->set_agent(tstate->origin());
+        issue_msg_to_noc(ctxt, cl, cmd, ctxt.dir()->llc());
+        // Set flag indicating that we are waiting Put response.
+        cl.push_back(tstate->build_set_llc_cmd_opcode(cmd->opcode()));
       } break;
-      case State::S: {
-        switch (line->substate()) {
-          case SubState::AwaitingLLCFwdRsp: {
-            CohEndMsg* end = Pool<CohEndMsg>::construct();
-            end->set_t(msg->t());
-            end->set_origin(ctxt.dir());
-            end->set_dt_n(1);
-            issue_msg_to_noc(ctxt, cl, end, ctxt.tstate()->origin());
-            cl.push_back(line->build_update_state(State::S));
-            // Return to stable/non-transient state.
-            issue_update_substate(ctxt, cl, SubState::None);
+      case LLCCmdOpcode::PutLine: {
+        // On Put completion, transaction is now complete.
 
-            cl.push_back(DirOpcode::EndTransaction);
-            // Consume and advance
-            cl.next_and_do_consume(true);
-          } break;
-          default: {
-          } break;
-        }
+        // Issue coherence result to command originator.
+        CohEndMsg* end = Pool<CohEndMsg>::construct();
+        end->set_t(msg->t());
+        end->set_origin(ctxt.dir());
+        // May be retained by other cache which decided simply not to
+        // relinquish the line upon a prior snoop.
+        end->set_is(ctxt.is());
+        // Cannot be dirty (by definition) if sourced from LLC.
+        end->set_pd(false);
+        // Only one DT since LLC would not have been queried if
+        // an intervention had taken place.
+        end->set_dt_n(1);
+        issue_msg_to_noc(ctxt, cl, end, tstate->origin());
+        // Update state
+        const State next_state = end->is() ? State::S : State::E;
+        cl.push_back(line->build_update_state(next_state));
+        // Transaction ends
+        cl.push_back(DirOpcode::EndTransaction);
       } break;
       default: {
       } break;
@@ -1671,72 +1508,47 @@ class MOESIDirProtocol : public DirProtocol {
   void handle_llc_read_unique(DirContext& ctxt, DirCommandList& cl,
                               const LLCCmdRspMsg* msg) const {
     LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
-    const State state = line->state();
-    switch (state) {
-      case State::I_S:
-      case State::I_E: {
-        switch (line->substate()) {
-          case SubState::AwaitingLLCFillRsp: {
-            // LLC line fill has completed. Now, instruct the LLC to
-            // forward the desired line to the requesting (owning)
-            // agent.
-            LLCCmdMsg* cmd = Pool<LLCCmdMsg>::construct();
-            cmd->set_t(msg->t());
-            cmd->set_opcode(LLCCmdOpcode::PutLine);
-            DirTState* tstate = ctxt.tstate();
-            cmd->set_addr(tstate->addr());
-            cmd->set_agent(tstate->origin());
-            issue_msg_to_noc(ctxt, cl, cmd, ctxt.dir()->llc());
-            cl.push_back(DirOpcode::MsgConsume);
+    DirTState* tstate = ctxt.tstate();
+    const LLCCmdOpcode opcode = tstate->llc_cmd_opcode();
+    switch (opcode) {
+      case LLCCmdOpcode::Fill: {
+        // Initial line installation in LLC; followed by PutLine to
+        // requesting agent.
 
-            issue_update_substate(ctxt, cl, SubState::AwaitingLLCFwdRsp);
-            // Advance
-            cl.next_and_do_consume(false);
-          } break;
-          case SubState::AwaitingLLCFwdRsp: {
-            // Requesting cache now has the line, issue notification
-            // of the line status and terminate the transction.
-            // Send CohEnd
-            CohEndMsg* end = Pool<CohEndMsg>::construct();
-            end->set_t(msg->t());
-            end->set_origin(ctxt.dir());
-            end->set_dt_n(1);
-            issue_msg_to_noc(ctxt, cl, end, line->owner());
-            const State next_state =
-                (line->state() == State::I_S) ? State::S : State::E;
-            cl.push_back(line->build_update_state(next_state));
-            // Return to stable/non-transient state.
-            issue_update_substate(ctxt, cl, SubState::None);
-
-            cl.push_back(DirOpcode::EndTransaction);
-            // Consume and advance
-            cl.next_and_do_consume(true);
-          } break;
-          default: {
-          }
-        }
+        // Issue Forward command to LLC to send newly installed line
+        // to requesting agent.
+        LLCCmdMsg* cmd = Pool<LLCCmdMsg>::construct();
+        cmd->set_t(msg->t());
+        cmd->set_opcode(LLCCmdOpcode::PutLine);
+        cmd->set_addr(tstate->addr());
+        cmd->set_agent(tstate->origin());
+        issue_msg_to_noc(ctxt, cl, cmd, ctxt.dir()->llc());
+        // Set flag indicating that we are waiting Put response.
+        cl.push_back(tstate->build_set_llc_cmd_opcode(cmd->opcode()));
       } break;
-      case State::S: {
-        switch (line->substate()) {
-          case SubState::AwaitingLLCFwdRsp: {
-            CohEndMsg* end = Pool<CohEndMsg>::construct();
-            end->set_t(msg->t());
-            end->set_origin(ctxt.dir());
-            end->set_dt_n(1);
-            issue_msg_to_noc(ctxt, cl, end, ctxt.tstate()->origin());
-            cl.push_back(line->build_update_state(State::S));
-            // Return to stable/non-transient state.
-            issue_update_substate(ctxt, cl, SubState::None);
+      case LLCCmdOpcode::PutLine: {
+        // On Put completion, transaction is now complete.
 
-            cl.push_back(DirOpcode::EndTransaction);
-            // Consume and advance
-            cl.next_and_do_consume(true);
-          } break;
-          default: {
-          } break;
-        }
+        // Issue coherence result to command originator.
+        CohEndMsg* end = Pool<CohEndMsg>::construct();
+        end->set_t(msg->t());
+        end->set_origin(ctxt.dir());
+        // Cannot be Shared as ReadUnique
+        end->set_is(false);
+        // May have been passes as dirty
+        end->set_pd(ctxt.pd());
+        // Only one DT since LLC would not have been queried if
+        // an intervention had taken place.
+        end->set_dt_n(1);
+        issue_msg_to_noc(ctxt, cl, end, tstate->origin());
+        // Update state
+        const State next_state = end->pd() ? State::M : State::E;
+        cl.push_back(line->build_update_state(next_state));
+        // Transaction ends
+        cl.push_back(DirOpcode::EndTransaction);
       } break;
       default: {
+        // Error out.
       } break;
     }
   }
@@ -1891,22 +1703,18 @@ class MOESIDirProtocol : public DirProtocol {
             case State::E: {
               // Requesting agent becomes owner.
               cl.push_back(line->build_set_owner(tstate->origin()));
-              //issue_set_owner(ctxt, cl, tstate->origin());
             } break;
             case State::M: {
               // Requesting agent becomes owner.
               cl.push_back(line->build_set_owner(tstate->origin()));
-              // issue_set_owner(ctxt, cl, tstate->origin());
             } break;
             case State::S: {
               // Requester becomes Sharer.
               cl.push_back(line->build_add_sharer(tstate->origin()));
-              //issue_add_sharer(ctxt, cl, tstate->origin());
             } break;
             case State::O: {
               // Requester becomes Owner; responder retains Shared.
               cl.push_back(line->build_set_owner(tstate->origin()));
-              // issue_set_owner(ctxt, cl, tstate->origin());
             }
             default: {
             } break;
@@ -1959,7 +1767,6 @@ class MOESIDirProtocol : public DirProtocol {
 
           // Requesting agent becomes owner.
           cl.push_back(line->build_set_owner(tstate->origin()));
-          // issue_set_owner(ctxt, cl, tstate->origin());
 
           // Issue completed response to the requester.
           issue_msg_to_noc(ctxt, cl, end, tstate->origin());
@@ -2205,16 +2012,6 @@ class MOESIDirProtocol : public DirProtocol {
     // a snoop response.
     cl.raise_error("Snoop response raised for command which does "
                    "not issue a snoop command");
-  }
-
-  //
-  //
-  void issue_update_substate(DirContext& ctxt, DirCommandList& cl,
-                             SubState state) const {
-    LineState* line = static_cast<LineState*>(ctxt.tstate()->line());
-    LineUpdateAction* update = new LineUpdateAction(line, LineUpdateOpcode::SubState);
-    update->set_substate(state);
-    cl.push_back(update);
   }
 
   void issue_add_credit(DirContext& ctxt, DirCommandList& cl,
