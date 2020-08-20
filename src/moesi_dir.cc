@@ -175,6 +175,9 @@ class LineState : public DirLineState {
  public:
   LineState() = default;
 
+  // Factory functions to construct Command objects to permute the
+  // current line instance.
+  
   // Build Update state command:
   DirCommand* build_update_state(State state);
 
@@ -191,6 +194,7 @@ class LineState : public DirLineState {
   DirCommand* build_del_sharer(Agent* agent);
   
 
+  // Convert line to human-readable format.
   std::string to_string() const {
     using cc::to_string;
     KVListRenderer r;
@@ -206,24 +210,21 @@ class LineState : public DirLineState {
 
   // Current line state.
   State state() const { return state_; }
-  //
+  // Current sharer set (full, non-sparse set).
   const std::set<Agent*>& sharers() const { return sharers_; }
-  //
   // Current owning agent.
   Agent* owner() const { return owner_; }
   // Line resides in a stable state.
   bool is_stable() const { return true; }
-
   // Flag denoting if 'agent' is in the sharer set.
   bool is_sharer(Agent* agent) const {
-    std::set<Agent*>::iterator it = sharers_.find(agent);
-    return it != sharers_.end();
+    return sharers_.find(agent) != sharers_.end();
   }
-  // Remove sharer
+
+  // Delete sharer, from sharer set
   bool del_sharer(Agent* agent) {
     bool removed = false;
-    std::set<Agent*>::iterator it = sharers_.find(agent);
-    if (it != sharers_.end()) {
+    if (auto it = sharers_.find(agent); it != sharers_.end()) {
       sharers_.erase(it);
       removed = true;
     }
