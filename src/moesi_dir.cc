@@ -136,20 +136,48 @@ const char* to_string(State state) {
       return "I_S";
     case State::S:
       return "S";
+    case State::S_I:
+      return "S_I";
+    case State::S_E:
+      return "S_E";
+    case State::S_SE:
+      return "S_SE";
+    case State::S_ME:
+      return "S_ME";
+    case State::M:
+      return "M";
+    case State::M_I:
+      return "M_I";
+    case State::M_O:
+      return "M_O";
+    case State::M_EO:
+      return "M_EO";
+    case State::M_SE:
+      return "M_SE";
+    case State::M_ME:
+      return "M_ME";
     case State::E:
       return "E";
     case State::E_O:
       return "E_O";
     case State::E_E:
       return "E_E";
-    case State::M:
-      return "M";
+    case State::E_I:
+      return "E_I";
+    case State::E_SE:
+      return "E_SE";
     case State::O:
       return "O";
     case State::O_O:
       return "O_O";
+    case State::O_ME:
+      return "O_ME";
     case State::O_E:
       return "O_E";
+    case State::O_I:
+      return "O_I";
+    case State::O_SE:
+      return "O_SE";
     default:
       return "Invalid";
   }
