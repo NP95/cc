@@ -25,7 +25,6 @@
 ## POSSIBILITY OF SUCH DAMAGE.
 ##========================================================================== //
 
-add_subdirectory(cfg111)
-add_subdirectory(cfg112)
-add_subdirectory(cfg121)
-add_subdirectory(cfg141)
+set(test_prefix "cfg141_")
+
+create_test(basic.cc)

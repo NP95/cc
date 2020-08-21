@@ -634,8 +634,7 @@ class MOESIDirProtocol : public DirProtocol {
         // Issue Fill command to LLC.
         issue_msg_to_noc(ctxt, cl, cmd, ctxt.dir()->llc());
         // Originator becomes owner.
-        cl.push_back(line->build_set_owner(msg->origin()));
-        //issue_set_owner(ctxt, cl, msg->origin());
+        // cl.push_back(line->build_set_owner(msg->origin()));
         // Update state
         cl.push_back(line->build_update_state(State::I_E));
 
@@ -658,8 +657,7 @@ class MOESIDirProtocol : public DirProtocol {
         cmd->set_agent(tstate->origin());
         issue_msg_to_noc(ctxt, cl, cmd, ctxt.dir()->llc());
         // Requester now becomes a sharer.
-        cl.push_back(line->build_add_sharer(msg->origin()));
-        //issue_add_sharer(ctxt, cl, msg->origin());
+        //cl.push_back(line->build_add_sharer(msg->origin()));
         // Set flag awaiting LLC response
         cl.push_back(tstate->build_set_llc_cmd_opcode(cmd->opcode()));
         // Consume and advance
@@ -687,7 +685,6 @@ class MOESIDirProtocol : public DirProtocol {
 
         // Issue one snoop; therefore await one snoop response
         cl.push_back(tstate->build_set_snoop_n(1));
-        //issue_set_snoop_n(ctxt, cl, 1);
 
         // Directory has no notion of local modified status,
         // therefore when a line has been installed in the
@@ -1514,17 +1511,32 @@ class MOESIDirProtocol : public DirProtocol {
         CohEndMsg* end = Pool<CohEndMsg>::construct();
         end->set_t(msg->t());
         end->set_origin(ctxt.dir());
-        // May be retained by other cache which decided simply not to
-        // relinquish the line upon a prior snoop.
-        end->set_is(ctxt.is());
         // Cannot be dirty (by definition) if sourced from LLC.
         end->set_pd(false);
         // Only one DT since LLC would not have been queried if
         // an intervention had taken place.
         end->set_dt_n(1);
+        // Compute next sate
+        State next_state = State::X;
+        const State state = line->state();
+        switch(line->state()) {
+          case State::I_E: {
+            end->set_is(false);
+            cl.push_back(line->build_set_owner(tstate->origin()));
+            next_state = State::E;
+          } break;
+          case State::S: {
+            end->set_is(true);
+            cl.push_back(line->build_add_sharer(tstate->origin()));
+            next_state = State::S;
+          } break;
+          default: {
+            // Invalid state
+          } break;
+        }
+        // Issue coherence result response.
         issue_msg_to_noc(ctxt, cl, end, tstate->origin());
         // Update state
-        const State next_state = end->is() ? State::S : State::E;
         cl.push_back(line->build_update_state(next_state));
         // Transaction ends
         cl.push_back(DirOpcode::EndTransaction);

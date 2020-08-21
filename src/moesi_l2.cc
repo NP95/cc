@@ -787,16 +787,31 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
               rsp->set_wu(true);
               // Demote line to S state.
               issue_update_state(ctxt, cl, line, State::I);
-              // Invalidate L1 child caches
-              issue_set_l1_invalid_except(cl, msg->addr());
               // Delete line from cache
               cl.push_back(L2Opcode::RemoveLine);
+              // Invalidate L1 child caches
+              issue_set_l1_invalid_except(cl, msg->addr());
             }
           } break;
           case State::S: {
             // Retain S or evict (I); dt or not dt.
+            const bool retain = true;
+            const bool dt = true;
 
-            // Line remains in S state.
+            rsp->set_dt(dt);
+            rsp->set_pd(false);
+            rsp->set_is(retain);
+            rsp->set_wu(false);
+            if (!retain) {
+              // Cache has opted to relinquish line; it could have
+              // opted to retain it.
+              // Update state line becomes invalid,
+              issue_update_state(ctxt, cl, line, State::I);
+              // Delete line from cache
+              cl.push_back(L2Opcode::RemoveLine);
+              // Invalid L1
+              issue_set_l1_invalid_except(cl, msg->addr());
+            }
           } break;
           case State::M: {
             // Options:
