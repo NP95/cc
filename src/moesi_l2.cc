@@ -391,8 +391,6 @@ L2Command* LineState::build_clr_sharer() {
 //
 //
 class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
-  using cb = L2CommandBuilder;
-
  public:
   MOESIL2CacheProtocol(kernel::Kernel* k)
       : L2CacheAgentProtocol(k, "moesil2") {}
@@ -585,7 +583,6 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
               msg->set_t(cmd->t());
               // L1 lines become sharers
               issue_set_l1_shared_except(cl, ctxt.addr(), tstate->l1cache());
-              // cl.push_back(cb::from_opcode(L2Opcode::SetL1LinesShared));
               // Requester becomes sharer.
               msg->set_is(true);
               // No longer owning, therefore delete owner pointer.
@@ -1283,7 +1280,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
     // Issue L1 invalidate of current line, but add "agent" to set of
     // keep out agents. The command therefore allows agent to retain
     // the line whereas all other will be invalidated.
-    L2Command* cmd = cb::from_opcode(L2Opcode::SetL1LinesInvalid);
+    L2Command* cmd = L2CommandBuilder::from_opcode(L2Opcode::SetL1LinesInvalid);
     cmd->set_addr(addr);
     if constexpr (sizeof...(excluded) != 0) {
       std::vector<L1CacheAgent*>& agents = cmd->agents();
@@ -1299,7 +1296,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
                                   AGENT... excluded) const {
     // Demote L1 lines to Shared except Agents contains with in the
     // excluded set.
-    L2Command* cmd = cb::from_opcode(L2Opcode::SetL1LinesShared);
+    L2Command* cmd = L2CommandBuilder::from_opcode(L2Opcode::SetL1LinesShared);
     cmd->set_addr(addr);
     if constexpr (sizeof...(excluded) != 0) {
       std::vector<L1CacheAgent*>& agents = cmd->agents();
