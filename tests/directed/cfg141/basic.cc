@@ -193,9 +193,15 @@ TEST(Cfg141, Load4Same) {
 // Description
 // -----------
 //
+// CPU0..3 issue 4 Store commands at the same instance each to a
+// unique cache line.
 //
 // Expected Behavior
 // -----------------
+//
+// The Stores complete is some arbitrary ordering. At the end of
+// simulation, the lines is present in the associated L1 cache and
+// should be both readable and writable states.
 //
 
 TEST(Cfg141, Store4Unique) {
@@ -267,9 +273,15 @@ TEST(Cfg141, Store4Unique) {
 // Description
 // -----------
 //
+// CPU0..3 issue Store instructions to the same address separated by
+// 200 time-units.
 //
 // Expected Behavior
 // -----------------
+//
+// Writes 0..3 complete as normal. At the end of simulation, the line
+// should be present in only the final cache and should have been
+// evicted, from the other caches.
 //
 TEST(Cfg141, Store4Same) {
   test::ConfigBuilder cb;
@@ -327,6 +339,8 @@ TEST(Cfg141, Store4Same) {
       EXPECT_FALSE(checker.is_hit(addr));
     }
   }
+
+  // TODO; validate directory state.
 
   // Validate expected transaction count.
   EXPECT_EQ(stimulus->issue_n(), 4);
