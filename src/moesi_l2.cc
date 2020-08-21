@@ -855,8 +855,8 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
       case AceSnpOpcode::ReadShared: {
         handle_snp_read_shared(ctxt, cl, msg);
       } break;
-      case AceSnpOpcode::ReadSharedNotDirty: {
-        handle_snp_read_shared_not_dirty(ctxt, cl, msg);
+      case AceSnpOpcode::ReadNotSharedDirty: {
+        handle_snp_read_not_shared_dirty(ctxt, cl, msg);
       } break;
       case AceSnpOpcode::ReadUnique: {
         handle_snp_read_unique(ctxt, cl, msg);
@@ -879,14 +879,122 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
     }
   }
 
-  // C5.3.1 ReadOnce
+    // C5.3.1 ReadOnce
+  //
+  // Initiating master reads line from target cache but does not
+  // intend to retain a cached copy.
+  //
+  // This command can pass ownership of the cache line to the
+  // intiating agent. The spec. recommends that the line be
+  // transferred and that if dirty, the line passed in a clean
+  // state. This incurs some added complexity. Instead, as a
+  // simplifying factor, we choose to retain ownership of the line and
+  // simply pass the line in the Shared state when applicable.
+  //
   void handle_snp_read_once(L2CacheContext& ctxt, L2CommandList& cl,
                             const AceSnpMsg* msg) const {
+    LineState* line = static_cast<LineState*>(ctxt.line());
+
+    // "If the snooped master has a copy of the cache line, then this
+    // specification recommends that data is transferred. If the
+    // snooped master has the cache line in a Dirty state, then data
+    // must be transferred."
+    AceSnpRspMsg* rsp = Pool<AceSnpRspMsg>::construct();
+    rsp->set_t(msg->t());
+    State next_state = State::X;
+    const State state = line->state();
+    switch (state) {
+      case State::I: {
+        rsp->set_dt(false);
+      } break;
+      case State::S: {
+        rsp->set_dt(true);
+        rsp->set_is(true);
+      } break;
+      case State::M: {
+        // Spec. implies we should emit a Write{Clean, Back} here and
+        // reject current message until operation has completed.
+        
+        // Snooped agent becomes owner.
+        next_state = State::O;
+        rsp->set_dt(true);
+        rsp->set_is(true);
+      } break;
+      case State::O: {
+        // Spec. implies we should emit a Write{Clean, Back} here and
+        // reject current message until operation has completed.
+
+        rsp->set_dt(true);
+        rsp->set_is(true);
+      } break;
+      case State::E: {
+        // Snooped agent becomes sharer; line remains clean
+        next_state = State::S;
+        rsp->set_dt(true);
+        rsp->set_is(true);
+      } break;
+      default: {
+        // Otherwise, trapped in transitional state limbo. Must block
+        // until prior transaction has completed.
+      } break;
+    }
+    if (next_state != state) {
+      // Transition to new state.
+      cl.push_back(line->build_update_state(next_state));
+    }
+    // Issue message
+    issue_msg_to_queue(L2EgressQueue::CCSnpRspQ, cl, ctxt, rsp);
+    // Consume and advance
+    cl.next_and_do_consume(true);
   }
 
   // C5.3.2 ReadClean
+  //
+  // "For a ReadClean snoop transaction, if the responsibility for
+  // writing the cache line back to main memory is being passed to the
+  // interconnect, as indicated by the PassDirty snoop response being
+  // asserted, the cache line is written back to main memory
+  // immediately. This specification recommends that the cache line
+  // remains Dirty in the snooped cache."
+  //
   void handle_snp_read_clean(L2CacheContext& ctxt, L2CommandList& cl,
                              const AceSnpMsg* msg) const {
+    LineState* line = static_cast<LineState*>(ctxt.line());
+
+    // Bias behavior to retain line over passing ownership.
+    AceSnpRspMsg* rsp = Pool<AceSnpRspMsg>::construct();
+    rsp->set_t(msg->t());
+    State next_state = State::X;
+    const State state = line->state();
+    switch (state) {
+      case State::I: {
+        rsp->set_dt(false);
+      } break;
+      case State::S: {
+        rsp->set_is(true);
+      } break;
+      case State::M: {
+        next_state = State::O;
+        rsp->set_is(true);
+      } break;
+      case State::O: {
+        rsp->set_is(true);
+      } break;
+      case State::E: {
+        next_state = State::S;
+        rsp->set_is(true);
+      } break;
+      default: {
+      } break;
+    }
+    if (next_state != state) {
+      // Transition to new state.
+      cl.push_back(line->build_update_state(next_state));
+    }
+    // Issue message
+    issue_msg_to_queue(L2EgressQueue::CCSnpRspQ, cl, ctxt, rsp);
+    // Consume and advance
+    cl.next_and_do_consume(true);
   }
 
   // C5.3.2 ReadShared
@@ -996,12 +1104,55 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
   }
 
   // C5.3.2 ReadSharedNotDirty
-  void handle_snp_read_shared_not_dirty(L2CacheContext& ctxt,
+  //
+  // As in ReadShared case, but with the added constraint that the
+  // intiating master cannot accept the line in a dirty, ownership
+  // state.
+  //
+  void handle_snp_read_not_shared_dirty(L2CacheContext& ctxt,
                                         L2CommandList& cl,
                                         const AceSnpMsg* msg) const {
+    LineState* line = static_cast<LineState*>(ctxt.line());
+
+    // Bias behavior to retain line over passing ownership.
+    AceSnpRspMsg* rsp = Pool<AceSnpRspMsg>::construct();
+    rsp->set_t(msg->t());
+    State next_state = State::X;
+    const State state = line->state();
+    switch (state) {
+      case State::I: {
+        rsp->set_dt(false);
+      } break;
+      case State::S: {
+        rsp->set_is(true);
+      } break;
+      case State::M: {
+        next_state = State::O;
+        rsp->set_is(true);
+      } break;
+      case State::O: {
+        rsp->set_is(true);
+      } break;
+      case State::E: {
+        next_state = State::S;
+        rsp->set_is(true);
+      } break;
+      default: {
+      } break;
+    }
+    if (next_state != state) {
+      // Transition to new state.
+      cl.push_back(line->build_update_state(next_state));
+    }
+    // Issue message
+    issue_msg_to_queue(L2EgressQueue::CCSnpRspQ, cl, ctxt, rsp);
+    // Consume and advance
+    cl.next_and_do_consume(true);
   }  
 
   // C.5.3.3 ReadUnique
+  //
+  //
   void handle_snp_read_unique(L2CacheContext& ctxt, L2CommandList& cl,
                               const AceSnpMsg* msg) const {
     LineState* line = static_cast<LineState*>(ctxt.line());
