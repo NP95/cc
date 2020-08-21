@@ -848,184 +848,27 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
     ctxt.set_addr(msg->addr());
     const AceSnpOpcode opcode = msg->opcode();
     switch (opcode) {
+      case AceSnpOpcode::ReadOnce: {
+      } break;
+      case AceSnpOpcode::ReadClean: {
+      } break;
       case AceSnpOpcode::ReadShared: {
-        AceSnpRspMsg* rsp = Pool<AceSnpRspMsg>::construct();
-        rsp->set_t(msg->t());
-        // In the siliently evicted case, there is no line.
-        const State state = ctxt.silently_evicted() ? State::I : line->state();
-        switch (state) {
-          case State::I: {
-            // Dir thinks cache has the line, but it doesn't. Line
-            // must have been siliently evicted.
-            rsp->set_dt(false);
-          } break;
-          case State::E: {
-            // Demote to S or evict (I); dt or not dt.
-            const bool retain = true;
-            const bool dt = true;
-            if (retain) {
-              rsp->set_dt(dt);
-              rsp->set_pd(false);
-              rsp->set_is(true);
-              rsp->set_wu(true);
-              // Demote line to Shared state.
-              cl.push_back(line->build_update_state(State::S));
-              // Denote child L1 caches to Shared State, too.
-              issue_set_l1_shared_except(cl, msg->addr());
-            } else {
-              // Relinquish line.
-              rsp->set_dt(true);
-              rsp->set_pd(false);
-              rsp->set_is(false);
-              rsp->set_wu(true);
-              // Demote line to S state.
-              cl.push_back(line->build_update_state(State::I));
-              // Delete line from cache
-              cl.push_back(L2Opcode::RemoveLine);
-              // Invalidate L1 child caches
-              issue_set_l1_invalid_except(cl, msg->addr());
-            }
-          } break;
-          case State::S: {
-            // Retain S or evict (I); dt or not dt.
-            const bool retain = true;
-            const bool dt = true;
-
-            rsp->set_dt(dt);
-            rsp->set_pd(false);
-            rsp->set_is(retain);
-            rsp->set_wu(false);
-            if (!retain) {
-              // Cache has opted to relinquish line; it could have
-              // opted to retain it.
-              // Update state line becomes invalid,
-              cl.push_back(line->build_update_state(State::I));
-              // Delete line from cache
-              cl.push_back(L2Opcode::RemoveLine);
-              // Invalid L1
-              issue_set_l1_invalid_except(cl, msg->addr());
-            }
-          } break;
-          case State::M: {
-            // Options:
-            //
-            //  1. Retain as owner
-            //
-            //  2. Evict and pass ownership.
-
-            const bool retain_as_owner = true;
-
-            if (retain_as_owner) {
-              rsp->set_dt(true);
-              rsp->set_pd(false);
-              rsp->set_is(true);
-              rsp->set_wu(true);
-
-              cl.push_back(line->build_update_state(State::O));
-
-              // Write-through cache, demote lines back to shared
-              // state.
-              issue_set_l1_shared_except(cl, msg->addr());
-            } else {
-              rsp->set_dt(true);
-              rsp->set_pd(true);
-              rsp->set_is(false);
-              rsp->set_wu(true);
-
-              cl.push_back(line->build_update_state(State::I));
-              cl.push_back(L2Opcode::RemoveLine);
-
-              // Write-through cache, therefore immediately evict
-              // lines from child L1 cache.
-              issue_set_l1_invalid_except(cl, msg->addr());
-            }
-          } break;
-          default: {
-            // TODO: decide what to do here.
-          } break;
-        }
-        // Issue response to CC.
-        L2CacheAgent* l2cache = ctxt.l2cache();
-        issue_msg_to_queue(L2EgressQueue::CCSnpRspQ, cl, ctxt, rsp);
-        // Consume and advance
-        cl.next_and_do_consume(true);
+        handle_snp_read_shared(ctxt, cl, msg);
+      } break;
+      case AceSnpOpcode::ReadSharedNotDirty: {
+        handle_snp_read_shared_not_dirty(ctxt, cl, msg);
       } break;
       case AceSnpOpcode::ReadUnique: {
-        AceSnpRspMsg* rsp = Pool<AceSnpRspMsg>::construct();
-        rsp->set_t(msg->t());
-        // C5.3.3 ReadUnique
-        switch (line->state()) {
-          case State::I:
-          case State::S:
-          case State::E: {
-            rsp->set_dt(true);
-            rsp->set_pd(false);
-            rsp->set_is(false);
-            rsp->set_wu(true);
-          } break;
-          case State::O:
-          case State::M: {
-            rsp->set_dt(true);
-            rsp->set_pd(true);
-            rsp->set_is(false);
-            rsp->set_wu(true);
-            // Transition back to invalid state, line is gone.
-          } break;
-          default: {
-            // TODO: figure out transient states.
-          } break;
-        }
-        // Issue response to CC.
-        L2CacheAgent* l2cache = ctxt.l2cache();
-        issue_msg_to_queue(L2EgressQueue::CCSnpRspQ, cl, ctxt, rsp);
-        // Final state is Invalid
-        cl.push_back(line->build_update_state(State::I));
-        cl.push_back(L2Opcode::RemoveLine);
-        issue_set_l1_invalid_except(cl, msg->addr());
-        // Consume and advance
-        cl.next_and_do_consume(true);
+        handle_snp_read_unique(ctxt, cl, msg);
       } break;
-      case AceSnpOpcode::MakeInvalid:
       case AceSnpOpcode::CleanInvalid: {
-        AceSnpRspMsg* rsp = Pool<AceSnpRspMsg>::construct();
-        rsp->set_t(msg->t());
-
-        // C5.3.4 CleanInvalid
-        //
-        // Specificiation recommends that data is transferred only if
-        // present in the dirty state. (The cache would typically not
-        // be snooped in the dirty case as this would be the
-        // initiating agent in the system for the command).
-        //
-        // C5.3.5 MakeInvalid
-        //
-        // Specification recommands that data is NOT transferred.
-        switch (line->state()) {
-          case State::O:
-          case State::M:
-            if (opcode != AceSnpOpcode::MakeInvalid) {
-              // Transfer data in the CleanInvalid case.
-              rsp->set_dt(true);
-              rsp->set_pd(true);
-            }
-            [[fallthrough]];
-          case State::I:
-          case State::S:
-          case State::E: {
-            cl.push_back(line->build_update_state(State::I));
-          } break;
-          default: {
-            // TODO
-          } break;
-        }
-        // Issue response to CC.
-        issue_msg_to_queue(L2EgressQueue::CCSnpRspQ, cl, ctxt, rsp);
-        // Final state is Invalid
-        cl.push_back(line->build_update_state(State::I));
-        cl.push_back(L2Opcode::RemoveLine);
-        issue_set_l1_invalid_except(cl, msg->addr());
-        // Consume and advance
-        cl.next_and_do_consume(true);
+        handle_snp_clean_invalid(ctxt, cl, msg);
+      } break;
+      case AceSnpOpcode::MakeInvalid: {
+        handle_snp_make_invalid(ctxt, cl, msg);
+      } break;
+      case AceSnpOpcode::CleanShared: {
+        handle_snp_clean_shared(ctxt, cl, msg);
       } break;
       default: {
         LogMessage lm("Unknown opcode received: ");
@@ -1034,6 +877,220 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         log(lm);
       } break;
     }
+  }
+
+  // C5.3.1 ReadOnce
+  void handle_snp_read_once(L2CacheContext& ctxt, L2CommandList& cl,
+                            const AceSnpMsg* msg) const {
+  }
+
+  // C5.3.2 ReadClean
+  void handle_snp_read_clean(L2CacheContext& ctxt, L2CommandList& cl,
+                             const AceSnpMsg* msg) const {
+  }
+
+  // C5.3.2 ReadShared
+  void handle_snp_read_shared(L2CacheContext& ctxt, L2CommandList& cl,
+                              const AceSnpMsg* msg) const {
+    LineState* line = static_cast<LineState*>(ctxt.line());
+    AceSnpRspMsg* rsp = Pool<AceSnpRspMsg>::construct();
+    rsp->set_t(msg->t());
+    // In the siliently evicted case, there is no line.
+    const State state = ctxt.silently_evicted() ? State::I : line->state();
+    switch (state) {
+      case State::I: {
+        // Dir thinks cache has the line, but it doesn't. Line
+        // must have been siliently evicted.
+        rsp->set_dt(false);
+      } break;
+      case State::E: {
+        // Demote to S or evict (I); dt or not dt.
+        const bool retain = true;
+        const bool dt = true;
+        if (retain) {
+          rsp->set_dt(dt);
+          rsp->set_pd(false);
+          rsp->set_is(true);
+          rsp->set_wu(true);
+          // Demote line to Shared state.
+          cl.push_back(line->build_update_state(State::S));
+          // Denote child L1 caches to Shared State, too.
+          issue_set_l1_shared_except(cl, msg->addr());
+        } else {
+          // Relinquish line.
+          rsp->set_dt(true);
+          rsp->set_pd(false);
+          rsp->set_is(false);
+          rsp->set_wu(true);
+          // Demote line to S state.
+          cl.push_back(line->build_update_state(State::I));
+          // Delete line from cache
+          cl.push_back(L2Opcode::RemoveLine);
+          // Invalidate L1 child caches
+          issue_set_l1_invalid_except(cl, msg->addr());
+        }
+      } break;
+      case State::S: {
+        // Retain S or evict (I); dt or not dt.
+        const bool retain = true;
+        const bool dt = true;
+
+        rsp->set_dt(dt);
+        rsp->set_pd(false);
+        rsp->set_is(retain);
+        rsp->set_wu(false);
+        if (!retain) {
+          // Cache has opted to relinquish line; it could have
+          // opted to retain it.
+          // Update state line becomes invalid,
+          cl.push_back(line->build_update_state(State::I));
+          // Delete line from cache
+          cl.push_back(L2Opcode::RemoveLine);
+          // Invalid L1
+          issue_set_l1_invalid_except(cl, msg->addr());
+        }
+      } break;
+      case State::M: {
+        // Options:
+        //
+        //  1. Retain as owner
+        //
+        //  2. Evict and pass ownership.
+
+        const bool retain_as_owner = true;
+
+        if (retain_as_owner) {
+          rsp->set_dt(true);
+          rsp->set_pd(false);
+          rsp->set_is(true);
+          rsp->set_wu(true);
+
+          cl.push_back(line->build_update_state(State::O));
+
+          // Write-through cache, demote lines back to shared
+          // state.
+          issue_set_l1_shared_except(cl, msg->addr());
+        } else {
+          rsp->set_dt(true);
+          rsp->set_pd(true);
+          rsp->set_is(false);
+          rsp->set_wu(true);
+
+          cl.push_back(line->build_update_state(State::I));
+          cl.push_back(L2Opcode::RemoveLine);
+
+          // Write-through cache, therefore immediately evict
+          // lines from child L1 cache.
+          issue_set_l1_invalid_except(cl, msg->addr());
+        }
+      } break;
+      default: {
+        // TODO: decide what to do here.
+      } break;
+    }
+    // Issue response to CC.
+    L2CacheAgent* l2cache = ctxt.l2cache();
+    issue_msg_to_queue(L2EgressQueue::CCSnpRspQ, cl, ctxt, rsp);
+    // Consume and advance
+    cl.next_and_do_consume(true);
+  }
+
+  // C5.3.2 ReadSharedNotDirty
+  void handle_snp_read_shared_not_dirty(L2CacheContext& ctxt,
+                                        L2CommandList& cl,
+                                        const AceSnpMsg* msg) const {
+  }  
+
+  // C.5.3.3 ReadUnique
+  void handle_snp_read_unique(L2CacheContext& ctxt, L2CommandList& cl,
+                              const AceSnpMsg* msg) const {
+    LineState* line = static_cast<LineState*>(ctxt.line());
+    AceSnpRspMsg* rsp = Pool<AceSnpRspMsg>::construct();
+    rsp->set_t(msg->t());
+    // C5.3.3 ReadUnique
+    switch (line->state()) {
+      case State::I:
+      case State::S:
+      case State::E: {
+        rsp->set_dt(true);
+        rsp->set_pd(false);
+        rsp->set_is(false);
+        rsp->set_wu(true);
+      } break;
+      case State::O:
+      case State::M: {
+        rsp->set_dt(true);
+        rsp->set_pd(true);
+        rsp->set_is(false);
+        rsp->set_wu(true);
+        // Transition back to invalid state, line is gone.
+      } break;
+      default: {
+        // TODO: figure out transient states.
+      } break;
+    }
+    // Issue response to CC.
+    L2CacheAgent* l2cache = ctxt.l2cache();
+    issue_msg_to_queue(L2EgressQueue::CCSnpRspQ, cl, ctxt, rsp);
+    // Final state is Invalid
+    cl.push_back(line->build_update_state(State::I));
+    cl.push_back(L2Opcode::RemoveLine);
+    issue_set_l1_invalid_except(cl, msg->addr());
+    // Consume and advance
+    cl.next_and_do_consume(true);
+  }
+
+  // C5.3.4 CleanInvalid
+  //
+  // Specificiation recommends that data is transferred only if
+  // present in the dirty state. (The cache would typically not
+  // be snooped in the dirty case as this would be the
+  // initiating agent in the system for the command).
+  void handle_snp_clean_invalid(L2CacheContext& ctxt, L2CommandList& cl,
+                                const AceSnpMsg* msg) const {
+    handle_snp_make_invalid(ctxt, cl, msg);
+  }
+
+  // C5.3.5 MakeInvalid
+  //
+  // Specification recommands that data is NOT transferred.
+  void handle_snp_make_invalid(L2CacheContext& ctxt, L2CommandList& cl,
+                               const AceSnpMsg* msg) const {
+    LineState* line = static_cast<LineState*>(ctxt.line());
+    // Form snoop response
+    AceSnpRspMsg* rsp = Pool<AceSnpRspMsg>::construct();
+    rsp->set_t(msg->t());
+    const State state = line->state();
+    switch (state) {
+      case State::O:
+      case State::M: {
+        if (msg->opcode() != AceSnpOpcode::MakeInvalid) {
+          // Transfer data in the CleanInvalid case.
+          rsp->set_dt(true);
+          rsp->set_pd(true);
+        }
+      } [[fallthrough]];
+      case State::I:
+      case State::S:
+      case State::E: {
+        cl.push_back(line->build_update_state(State::I));
+      } break;
+      default: {
+        // TODO
+      } break;
+    }
+    // Issue response to CC.
+    issue_msg_to_queue(L2EgressQueue::CCSnpRspQ, cl, ctxt, rsp);
+    // Final state is Invalid
+    cl.push_back(line->build_update_state(State::I));
+    cl.push_back(L2Opcode::RemoveLine);
+    issue_set_l1_invalid_except(cl, msg->addr());
+    // Consume and advance
+    cl.next_and_do_consume(true);
+  }
+
+  void handle_snp_clean_shared(L2CacheContext& ctxt, L2CommandList& cl,
+                               const AceSnpMsg* msg) const {
   }
 
   template <typename... AGENT>
