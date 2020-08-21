@@ -40,7 +40,40 @@ using namespace cc;
 
 //
 //
-enum class State { X, I, IS, IE, S, E, EI, M, MI, O, OE };
+enum class State {
+  // Invalid
+  I,
+
+  // Invalid -> Shared
+  I_S,
+
+  // Invalid -> Exclusive
+  I_E,
+
+  // Shared
+  S,
+
+  // Exclusive
+  E,
+
+  // Exclusive -> Invalid
+  E_I,
+
+  // Modified
+  M,
+
+  // Modified -> Invalid
+  M_I,
+
+  // Owned
+  O,
+
+  // Owned -> Exclusive
+  O_E,
+
+  // Invalid; place-holder
+  X
+};
 
 //
 //
@@ -50,24 +83,24 @@ const char* to_string(State state) {
       return "X";
     case State::I:
       return "I";
-    case State::IS:
-      return "IS";
-    case State::IE:
-      return "IE";
+    case State::I_S:
+      return "I_S";
+    case State::I_E:
+      return "I_E";
     case State::S:
       return "S";
     case State::E:
       return "E";
-    case State::EI:
-      return "EI";
+    case State::E_I:
+      return "E_I";
     case State::M:
       return "M";
-    case State::MI:
-      return "MI";
+    case State::M_I:
+      return "M_I";
     case State::O:
       return "O";
-    case State::OE:
-      return "OE";
+    case State::O_E:
+      return "O_E";
     default:
       return "Invalid";
   }
@@ -451,13 +484,13 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
             // State I; requesting GetS (ie. Shared); issue ReadShared
             msg->set_opcode(AceCmdOpcode::ReadShared);
             // Update state
-            cl.push_back(line->build_update_state(State::IS));
+            cl.push_back(line->build_update_state(State::I_S));
           } break;
           case L2CmdOpcode::L1GetE: {
             // State I; requesting GetE (i.e. Exclusive); issue ReadShared
             msg->set_opcode(AceCmdOpcode::ReadUnique);
             // Update state
-            cl.push_back(line->build_update_state(State::IE));
+            cl.push_back(line->build_update_state(State::I_E));
           } break;
           default: {
           } break;
@@ -529,7 +562,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
             msg->set_opcode(AceCmdOpcode::CleanUnique);
             issue_msg_to_queue(L2EgressQueue::CCCmdQ, cl, ctxt, msg);
             // Update state: transitional Owner to Exclusive.
-            cl.push_back(line->build_update_state(State::OE));
+            cl.push_back(line->build_update_state(State::O_E));
             // Command initiates a transaction, therefore consume the
             // message and install a new transaction object in the
             // transaction table.
@@ -590,7 +623,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
                 issue_msg_to_queue(L2EgressQueue::CCCmdQ, cl, ctxt, msg);
                 // Transition to Exclusive -> Invalid state; awaiting
                 // receipt of AceCmdRspMsg for the Evict.
-                cl.push_back(line->build_update_state(State::EI));
+                cl.push_back(line->build_update_state(State::E_I));
                 // Current command commits:
                 cl.push_back(L2Opcode::StartTransaction);
               } else {
@@ -685,7 +718,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
                 issue_msg_to_queue(L2EgressQueue::CCCmdQ, cl, ctxt, msg,
                                    tstate);
                 // Update state Modified -> Invalid
-                cl.push_back(line->build_update_state(State::MI));
+                cl.push_back(line->build_update_state(State::M_I));
                 // Current command commits:
                 cl.push_back(L2Opcode::StartTransaction);
               } else {
@@ -723,7 +756,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
     const L2CmdOpcode opcode = tstate->opcode();
     const State state = line->state();
     switch (state) {
-      case State::IS: {
+      case State::I_S: {
         L2CmdRspMsg* rsp = Pool<L2CmdRspMsg>::construct();
         rsp->set_t(msg->t());
         // Always sending to the zeroth L1
@@ -745,7 +778,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
-      case State::IE: {
+      case State::I_E: {
         // Transition to Exclusive state
         L2CmdRspMsg* rsp = Pool<L2CmdRspMsg>::construct();
         rsp->set_t(msg->t());
@@ -765,7 +798,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
-      case State::OE: {
+      case State::O_E: {
         // TODO: should perform some additional qualificiation on the command
         // type.
 
@@ -780,7 +813,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
         // Consume and advance
         cl.next_and_do_consume(true);
       } break;
-      case State::EI: {
+      case State::E_I: {
         // Exclusive -> Invalid:
         //
         // Edge from Exclusive to Invalid state; in response from an
@@ -812,7 +845,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
           } break;
         }
       } break;
-      case State::MI: {
+      case State::M_I: {
         // Modified -> Invalid
         //
         // In response to a WriteBack transaction.
