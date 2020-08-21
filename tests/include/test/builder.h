@@ -36,6 +36,16 @@ class ConfigBuilder {
  public:
   ConfigBuilder() = default;
 
+  // Current CPU count
+  std::size_t cpu_n() const { return cpu_n_; }
+
+  // Current Directory count
+  std::size_t dir_n() const { return dir_n_; }
+
+  // Current Cluster count
+  std::size_t cc_n() const { return cc_n_; }
+
+
   // Set CPU count (replicating per Cluster).
   void set_cpu_n(std::size_t n) { cpu_n_ = n; }
 
@@ -47,6 +57,7 @@ class ConfigBuilder {
 
   // Set stimulus configuration.
   void set_stimulus(const cc::StimulusConfig& s) { stimulus_config_ = s; }
+
 
   // Construct SOC configuration.
   cc::SocConfig construct() const;

@@ -417,7 +417,9 @@ class MOESICCProtocol : public CCProtocol {
     acesnp->set_addr(msg->addr());
     issue_msg_to_queue(CCEgressQueue::L2CmdQ, ctxt, cl, acesnp);
 
-    SnpLine* snpline = static_cast<SnpLine*>(ctxt.tstate()->line());
+    CCSnpTState* tstate = ctxt.tstate();
+    tstate->set_addr(msg->addr());
+    SnpLine* snpline = static_cast<SnpLine*>(tstate->line());
     snpline->set_origin(msg->origin());
     snpline->set_agent(msg->agent());
 
@@ -430,27 +432,52 @@ class MOESICCProtocol : public CCProtocol {
   void eval_msg(CCSnpContext& ctxt, CCSnpCommandList& cl,
                 const AceSnpRspMsg* msg) const {
     using snpcb = CCSnpCommandBuilder;
+    CCSnpTState* tstate = ctxt.tstate();
     // Snoop line
-    SnpLine* snpline = static_cast<SnpLine*>(ctxt.tstate()->line());
+    SnpLine* snpline = static_cast<SnpLine*>(tstate->line());
 
-    // Forward response back to originating directory.
-    CohSnpRspMsg* rsp = Pool<CohSnpRspMsg>::construct();
-    rsp->set_t(msg->t());
-    rsp->set_origin(ctxt.cc());
-    rsp->set_dt(msg->dt());
-    rsp->set_pd(msg->pd());
-    rsp->set_is(msg->is());
-    rsp->set_wu(msg->wu());
-    issue_msg_to_noc(ctxt, cl, rsp, snpline->origin());
-
+    bool do_emit_rsp = (!msg->dt());
     if (msg->dt()) {
-      // Data transfer, send data to requester.
-      DtMsg* dt = Pool<DtMsg>::construct();
-      dt->set_t(msg->t());
-      dt->set_origin(ctxt.cc());
+      // If an agent has been defined, forward the data
+      // appropriately. IF not, and if the line is dirty, issue a
+      // write back to LLC before sending the snoop response.
+      const bool has_agent = (snpline->agent() != nullptr);
+      if (has_agent) {
 
-      issue_msg_to_noc(ctxt, cl, dt, snpline->agent());
+        // Data transfer, send data to requester.
+        DtMsg* dt = Pool<DtMsg>::construct();
+        dt->set_t(msg->t());
+        dt->set_origin(ctxt.cc());
+
+        issue_msg_to_noc(ctxt, cl, dt, snpline->agent());
+
+        do_emit_rsp = true;
+      } else {
+        // TODO
+        
+        // Agent is not defined; therefore
+        //LLCCmdMsg* llc = Pool<LLCCmdMsg>::construct();
+        //llc->set_opcode(LLCCmdOpcode::PutLine);
+        //llc->set_addr(tstate->addr());
+        //llc->set_agent(ctxt.cc());
+        // TODO: issue command to LLC
+        // path to do this does not exist at present.
+        do_emit_rsp = true;
+      }
     }
+
+    if (do_emit_rsp) {
+      // Forward response back to originating directory.
+      CohSnpRspMsg* rsp = Pool<CohSnpRspMsg>::construct();
+      rsp->set_t(msg->t());
+      rsp->set_origin(ctxt.cc());
+      rsp->set_dt(msg->dt());
+      rsp->set_pd(msg->pd());
+      rsp->set_is(msg->is());
+      rsp->set_wu(msg->wu());
+      issue_msg_to_noc(ctxt, cl, rsp, snpline->origin());
+    }
+
     // Consume and advance
     cl.next_and_do_consume(true);
   }

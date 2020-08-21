@@ -85,7 +85,7 @@ std::string CohSnpMsg::to_string() const {
   KVListRenderer r;
   render_msg_fields(r);
   r.add_field("opcode", cc::to_string(opcode()));
-  r.add_field("agent", agent()->path());
+  r.add_field("agent", agent() ? agent()->path() : "null");
   Hexer h;
   r.add_field("addr", h.to_hex(addr()));
   return r.to_string();

@@ -636,28 +636,32 @@ class DirAgent::RdisProcess : public AgentProcess {
     DirTState* tstate = new DirTState(k());
     tstate->set_addr(msg->addr());
     tstate->set_origin(msg->origin());
-    DirCacheModelSet set = cache->set(ah.set(tstate->addr()));
+    ctxt.set_owns_tstate(true);
+    ctxt.set_tstate(tstate);
+    const addr_t set_id = ah.set(msg->addr());
+    DirCacheModelSet set = cache->set(set_id);
     if (DirCacheModelLineIt it = set.find(ah.tag(tstate->addr()));
         it == set.end()) {
       // Line is not present in the cache.
       DirCacheModel::Evictor evictor;
       if (auto p = evictor.nominate(set.begin(), set.end()); p.second) {
         // Eviction required.
-        // TODO:
+        tstate->set_addr(ah.addr_from_set_tag(set_id, p.first->tag()));
+        tstate->set_line(p.first->t());
+        protocol->recall(ctxt, cl);
       } else {
         // Free line, or able to be evicted.
         tstate->set_line(protocol->construct_line());
         ctxt.set_owns_line(true);
+        // Execute protocol update.
+        protocol->apply(ctxt, cl);
       }
     } else {
       // Otherwise, lookup the line and assign to the new tstate.
       tstate->set_line(it->t());
+      // Execute protocol update.
+      protocol->apply(ctxt, cl);
     }
-    ctxt.set_tstate(tstate);
-    ctxt.set_owns_tstate(true);
-
-    // Execute protocol update.
-    protocol->apply(ctxt, cl);
   }
 
   void process_in_flight(DirContext& ctxt, DirCommandList& cl) const {

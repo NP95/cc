@@ -52,6 +52,12 @@ enum class AceCmdOpcode {
   WriteBack,
   WriteClean,
   Evict,
+
+  // Recall command (not a ACE opcode, but piggybacked to avoid the
+  // need to create a protocol specific opcode definition).
+  Recall,
+
+  // Invalid; placeholder
   Invalid
 };
 

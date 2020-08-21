@@ -231,16 +231,27 @@ class CCCoherenceAction {
 class CCTState {
  public:
   CCTState() = default;
-
   // Destruct/Return to pool
   void release() { delete this; }
 
-  //
+
+  // Protocol line
   CCLineState* line() const { return line_; }
-  //
+
+  // Current line address
+  addr_t addr() const { return addr_; }
+
+
+  // Set protocol line
   void set_line(CCLineState* line) { line_ = line; }
 
+  // Set cache line
+  void set_addr(addr_t addr) { addr_ = addr; }
+
  private:
+  // Address of current operation
+  addr_t addr_ = 0;
+  // 
   CCLineState* line_ = nullptr;
 };
 using CCTTable = Table<Transaction*, CCTState*>;
@@ -428,11 +439,18 @@ class CCSnpTState {
   // TState owns line
   bool owns_line() const { return owns_line_; }
 
+  // Current line address
+  addr_t addr() const { return addr_; }
+
+
   // Set snoop line
   void set_line(CCSnpLineState* line) { line_ = line; }
 
   // Set owns line
   void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
+
+  // Set addr
+  void set_addr(addr_t addr) { addr_ = addr; }
 
  private:
   // Destruct object using 'release' method
@@ -444,6 +462,9 @@ class CCSnpTState {
   // Flag denoting that the TState object has ownership of the line
   // and is therefore responsible for destructing the line.
   bool owns_line_ = false;
+
+  // Current line address
+  addr_t addr_ = 0;
 };
 
 //

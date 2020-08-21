@@ -69,6 +69,8 @@ const char* to_string(AceCmdOpcode opcode) {
       return "WriteClean";
     case AceCmdOpcode::Evict:
       return "Evict";
+    case AceCmdOpcode::Recall:
+      return "Recall";
     case AceCmdOpcode::Invalid:
       return "Invalid";
     default:

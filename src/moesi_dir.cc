@@ -437,6 +437,7 @@ class MOESIDirProtocol : public DirProtocol {
   //
   //
   void apply(DirContext& ctxt, DirCommandList& cl) const override {
+    const MessageClass cls = ctxt.msg()->cls();
     switch (ctxt.msg()->cls()) {
       case MessageClass::CohSrt: {
         apply(ctxt, cl, static_cast<const CohSrtMsg*>(ctxt.msg()));
@@ -456,6 +457,81 @@ class MOESIDirProtocol : public DirProtocol {
         log(msg);
       } break;
     }
+  }
+
+  // Recall currently nominated line.
+  void recall(DirContext& ctxt, DirCommandList& cl) const override {
+    DirTState* tstate = ctxt.tstate();
+    LineState* line = static_cast<LineState*>(tstate->line());
+
+    // New "recall" transaction started.
+    cl.push_back(DirOpcode::StartTransaction);
+
+    // All snoop messages emitted by the recall operation, inherit
+    // from the transaction of the initiating message. This is
+    // probably okay as this can logically be considered to be part
+    // of the overall load/store transaction (although this was not
+    // the initial intention).
+    const Message* msg = ctxt.mq()->peek();
+
+    // Set current operation: recall.
+    tstate->set_opcode(AceCmdOpcode::Recall);
+
+    // Issue recall message to CleanInvalid to all agents with the line.
+    CohSnpMsg* snp = nullptr;
+    std::size_t snoop_n = 0;
+
+    // Issue CleanInvalid to owner, if defined.
+    if (Agent* owner = line->owner(); owner != nullptr) {
+      snp = Pool<CohSnpMsg>::construct();
+      snp->set_t(msg->t());
+      snp->set_addr(ctxt.addr());
+      snp->set_origin(ctxt.dir());
+      snp->set_agent(nullptr);
+      snp->set_opcode(AceSnpOpcode::CleanInvalid);
+      issue_msg_to_noc(ctxt, cl, snp, owner);
+
+      ++snoop_n;
+    }
+
+    for (Agent* sharer : line->sharers()) {
+      snp = Pool<CohSnpMsg>::construct();
+      snp->set_t(msg->t());
+      snp->set_addr(ctxt.addr());
+      snp->set_origin(ctxt.dir());
+      snp->set_agent(nullptr);
+      snp->set_opcode(AceSnpOpcode::CleanInvalid);
+      issue_msg_to_noc(ctxt, cl, snp, sharer);
+
+      ++snoop_n;
+    }
+
+    // Set snoop response expected count.
+    cl.push_back(tstate->build_set_snoop_n(snoop_n));
+
+    // Compute next state
+    State next_state = State::X;
+    const State state = line->state();
+    switch (state) {
+      case State::S: { next_state = State::S_I; } break;
+      case State::M: { next_state = State::M_I; } break;
+      case State::E: { next_state = State::E_I; } break;
+      case State::O: { next_state = State::O_I; } break;
+      default: {
+        // TBD: if line is present in a transition state, need to stop
+        // the recall operation until line has reached an evictable state.
+      }
+    }
+    if (next_state != state) {
+      cl.push_back(line->build_update_state(next_state));
+    }
+
+    // The current message is blocked until the current recall
+    // operation, has completed.
+    cl.push_back(DirCommandBuilder::build_blocked_on_event(
+        ctxt.mq(), tstate->transaction_end()));
+    // Advance, but do not consume message.
+    cl.next_and_do_consume(false);
   }
 
   void apply(DirContext& ctxt, DirCommandList& cl, const CohSrtMsg* msg) const {
@@ -809,7 +885,6 @@ class MOESIDirProtocol : public DirProtocol {
         // Set expected snoop response count in transaction state
         // object.
         cl.push_back(tstate->build_set_snoop_n(snoop_n));
-        //issue_set_snoop_n(ctxt, cl, snoop_n);
         // Update state:
         //
         // Owner -> Modified or Exclusive.
@@ -1680,6 +1755,9 @@ class MOESIDirProtocol : public DirProtocol {
       case AceCmdOpcode::Evict: {
         handle_snp_evict(ctxt, cl, msg);
       } break;
+      case AceCmdOpcode::Recall: {
+        handle_snp_recall(ctxt, cl, msg);
+      } break;
       default: {
         // Unknown opcode; raise error.
         std::string reason = "Unsupported opcode received: ";
@@ -2114,6 +2192,47 @@ class MOESIDirProtocol : public DirProtocol {
     // a snoop response.
     cl.raise_error("Snoop response raised for command which does "
                    "not issue a snoop command");
+  }
+
+
+  void handle_snp_recall(DirContext& ctxt, DirCommandList& cl,
+                        const CohSnpRspMsg* msg) const {
+    DirTState* tstate = ctxt.tstate();
+    LineState* line = static_cast<LineState*>(tstate->line());
+    const State state = line->state();
+    switch (state) {
+      case State::S_I:
+      case State::M_I:
+      case State::E_I:
+      case State::O_I: {
+        Agent* origin = msg->origin();
+        if (origin == line->owner()) {
+          // Message originated from designated line owner, remove
+          cl.push_back(line->build_del_owner());
+        } else {
+          // Message originated from line sharer
+          cl.push_back(line->build_del_sharer(origin));
+        }
+
+        // Wait until final concensus can be reached.
+        if (!tstate->is_final_snoop(true)) return;
+
+        // Upon completion, no coherence response is emitted since the
+        // original operation was not initiated by an initial
+        // coherence command. Instead, we simply delete the line and
+        // end the transaction; which then causes the originate
+        // message to become unblocked.
+
+        // Line becomes invalid
+        cl.push_back(line->build_update_state(State::I));
+        // Delete line
+        cl.push_back(DirOpcode::RemoveLine);
+        // (Recall) Transaction is now complete
+        cl.push_back(DirOpcode::EndTransaction);
+      } break;
+      default: {
+      } break;
+    }
   }
 
   void issue_add_credit(DirContext& ctxt, DirCommandList& cl,

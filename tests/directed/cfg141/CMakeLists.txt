@@ -28,3 +28,4 @@
 set(test_prefix "cfg141_")
 
 create_test(basic.cc)
+create_test(recall.cc)

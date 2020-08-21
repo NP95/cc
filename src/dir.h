@@ -386,7 +386,6 @@ class DirContext {
   bool owns_tstate_ = false;
   //
   bool owns_line_ = false;
-
   //
   std::size_t dt_n_ = 0;
   //
@@ -431,6 +430,8 @@ class DirAgent : public Agent {
   // Lookup destination/ingress Messag Queue based upon MessageClass
   // and, additionally, origin agent where applicable.
   MessageQueue* mq_by_msg_cls(MessageClass cls, const Agent* origin) const;
+  // Point to module cache instance.
+  const DirCacheModel* cache() const { return cache_; }
 
  protected:
   // Build
@@ -456,7 +457,7 @@ class DirAgent : public Agent {
   // Directory arbiter instance.
   MQArb* arb() const { return arb_; }
   // Point to module cache instance.
-  DirCacheModel* cache() const { return cache_; }
+  DirCacheModel* cache() { return cache_; }
 
  private:
   // Queue selection arbiter

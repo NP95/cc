@@ -157,22 +157,38 @@ class CohSnpMsg : public Message {
 
   CohSnpMsg();
  public:
-  //
+  // Human readable version of message.
   std::string to_string() const override;
 
-  //
+  // Current snoop opcode
   AceSnpOpcode opcode() const { return opcode_; }
+
+  // Current destination agent
   Agent* agent() const { return agent_; }
+
+  // Current line address
   addr_t addr() const { return addr_; }
 
-  //
+
+  // Set snoop opcode
   void set_opcode(AceSnpOpcode opcode) { opcode_ = opcode; }
+
+  // Set agent to which intervention should be passed. Ifs set no
+  // nullptr (no agent defined), message denotes that line should be
+  // written back to LLC if presently dirty.
   void set_agent(Agent* agent) { agent_ = agent; }
+
+  // Cache line address
   void set_addr(addr_t addr) { addr_ = addr; }
 
  private:
+  // Command opcode.
   AceSnpOpcode opcode_ = AceSnpOpcode::Invalid;
+
+  // Agent to which intervention occurs
   Agent* agent_ = nullptr;
+
+  // Line address
   addr_t addr_ = 0;
 };
 
@@ -375,6 +391,10 @@ class DirProtocol : public kernel::Module {
   //
   //
   virtual void apply(DirContext& ctxt, DirCommandList& cl) const = 0;
+
+  //
+  //
+  virtual void recall(DirContext& ctxt, DirCommandList& cl) const = 0;
 };
 
 //
