@@ -204,6 +204,10 @@ void L1CommandList::push_back(L1Opcode opcode) {
 
 void L1CommandList::push_back(L1Command* cmd) { cmds_.push_back(cmd); }
 
+void L1CommandList::push_back(L1CoherenceAction* action) {
+  cmds_.push_back(L1CommandBuilder::from_action(action));
+}
+
 void L1CommandList::transaction_start(Transaction* t, bool is_blocking) {
   if (is_blocking) {
     // Blocking cache implementation:

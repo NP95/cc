@@ -251,6 +251,9 @@ class L1CommandList {
   // Push back from command
   void push_back(L1Command* cmd);
 
+  // Push back from action
+  void push_back(L1CoherenceAction* action);
+
   // Transaction starts
   void transaction_start(Transaction* t, bool is_blocking = true);
 

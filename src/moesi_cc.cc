@@ -467,14 +467,14 @@ class MOESICCProtocol : public CCProtocol {
                        const Message* msg) const {
     Line* line = static_cast<Line*>(ctxt.line());
     ApplyMsgAction* action = new ApplyMsgAction(msg, line);
-    cl.push_back(cb::from_action(action));
+    cl.push_back(action);
   }
 
   void issue_line_update(CCContext& ctxt, CCCommandList& cl,
                          LineUpdate update) const {
     Line* line = static_cast<Line*>(ctxt.line());
     LineUpdateAction* action = new LineUpdateAction(line, update);
-    cl.push_back(cb::from_action(action));
+    cl.push_back(action);
   }
 
   void issue_add_credit(CCContext& ctxt, CCCommandList& cl,

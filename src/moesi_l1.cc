@@ -521,7 +521,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
       default: {
       } break;
     }
-    cl.push_back(L1CommandBuilder::from_action(action));
+    cl.push_back(action);
   }
 
   void issue_update_state(L1CommandList& cl, MOESIL1LineState* line,
@@ -551,7 +551,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
       State state_;
     };
     L1CoherenceAction* action = new UpdateStateAction(line, state);
-    cl.push_back(cb::from_action(action));
+    cl.push_back(action);
   }
 };
 
