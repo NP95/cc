@@ -32,7 +32,7 @@
 #include "src/l1cache.h"
 #include "gtest/gtest.h"
 
-/*
+
 // Load4Unique
 // ===========
 //
@@ -96,8 +96,13 @@ TEST(Cfg141, Load4Unique) {
     EXPECT_TRUE(checker.is_hit(addr));
     // Expect line to be readable
     EXPECT_TRUE(checker.is_readable(addr));
-    // Expect not to be writeable (shared between caches)/
-    EXPECT_FALSE(checker.is_writeable(addr));
+    // Cache line may or may not be writeable after the initial load
+    // as the line may been installed in either the Exclusive or
+    // Shared states (even though the line is present in only one
+    // cache). In the current implementation, the line is guarenteed
+    // to be installed in an Exclusive state, but this may change in
+    // time.
+    EXPECT_TRUE(checker.is_writeable(addr));
   }
 
   // Validate expected transaction count.
@@ -106,7 +111,6 @@ TEST(Cfg141, Load4Unique) {
   // Validate that all transactions have retired at end-of-sim.
   EXPECT_EQ(stimulus->issue_n(), stimulus->retire_n());
 }
-*/
 
 // Load4Same
 // ===========
@@ -174,6 +178,154 @@ TEST(Cfg141, Load4Same) {
     EXPECT_TRUE(checker.is_readable(addr));
     // Expect not to be writeable (shared between caches)/
     EXPECT_FALSE(checker.is_writeable(addr));
+  }
+
+  // Validate expected transaction count.
+  EXPECT_EQ(stimulus->issue_n(), 4);
+
+  // Validate that all transactions have retired at end-of-sim.
+  EXPECT_EQ(stimulus->issue_n(), stimulus->retire_n());
+}
+
+// Store4Unique
+// ===========
+//
+// Description
+// -----------
+//
+//
+// Expected Behavior
+// -----------------
+//
+
+TEST(Cfg141, Store4Unique) {
+  test::ConfigBuilder cb;
+  cb.set_dir_n(1);
+  cb.set_cc_n(4);
+  cb.set_cpu_n(1);
+
+  cc::StimulusConfig stimulus_config;
+  stimulus_config.type = cc::StimulusType::Programmatic;
+  cb.set_stimulus(stimulus_config);
+
+  const cc::SocConfig cfg = cb.construct();
+
+  test::TbTop top(cfg);
+
+  std::size_t N = 4;
+  std::vector<cc::addr_t> addrs;
+  
+  // Issue a load to each CPU.
+  cc::ProgrammaticStimulus* stimulus =
+      static_cast<cc::ProgrammaticStimulus*>(top.stimulus());
+  for (std::size_t i = 0; i < N; i++) {
+    stimulus->advance_cursor(200);
+    addrs.push_back(1000 * i);
+    stimulus->push_stimulus(i, cc::CpuOpcode::Store, addrs.back());
+  }
+
+  // Run to exhaustion
+  top.run_all();
+
+  // Lookup CPU instance.
+  const std::array<const cc::L1CacheAgent*, 4> l1cs = {
+    // L1 Cache ID 0
+    top.lookup_by_path<cc::L1CacheAgent>(test::path_l1c_by_cpu_id(cfg, 0)),
+    // L1 Cache ID 1
+    top.lookup_by_path<cc::L1CacheAgent>(test::path_l1c_by_cpu_id(cfg, 1)),
+    // L1 Cache ID 2
+    top.lookup_by_path<cc::L1CacheAgent>(test::path_l1c_by_cpu_id(cfg, 2)),
+    // L1 Cache ID 3
+    top.lookup_by_path<cc::L1CacheAgent>(test::path_l1c_by_cpu_id(cfg, 3))
+  };
+
+  for (std::size_t i = 0; i < N; i++) {
+    const test::L1Checker checker(l1cs[i]);
+    const cc::addr_t addr = addrs[i];
+    // Expect line to be present in cache.
+    EXPECT_TRUE(checker.is_hit(addr));
+    // Expect line to be readable
+    EXPECT_TRUE(checker.is_readable(addr));
+    // Cache line may or may not be writeable after the initial load
+    // as the line may been installed in either the Exclusive or
+    // Shared states (even though the line is present in only one
+    // cache). In the current implementation, the line is guarenteed
+    // to be installed in an Exclusive state, but this may change in
+    // time.
+    EXPECT_TRUE(checker.is_writeable(addr));
+  }
+
+  // Validate expected transaction count.
+  EXPECT_EQ(stimulus->issue_n(), N);
+
+  // Validate that all transactions have retired at end-of-sim.
+  EXPECT_EQ(stimulus->issue_n(), stimulus->retire_n());
+}
+// Store4Same
+// ===========
+//
+// Description
+// -----------
+//
+//
+// Expected Behavior
+// -----------------
+//
+TEST(Cfg141, Store4Same) {
+  test::ConfigBuilder cb;
+  cb.set_dir_n(1);
+  cb.set_cc_n(4);
+  cb.set_cpu_n(1);
+
+  cc::StimulusConfig stimulus_config;
+  stimulus_config.type = cc::StimulusType::Programmatic;
+  cb.set_stimulus(stimulus_config);
+
+  const cc::SocConfig cfg = cb.construct();
+
+  test::TbTop top(cfg);
+
+  // Address of interest
+  const cc::addr_t addr = 0;
+
+  // Issue a load to each CPU.
+  cc::ProgrammaticStimulus* stimulus =
+      static_cast<cc::ProgrammaticStimulus*>(top.stimulus());
+  for (std::size_t i = 0; i < 4; i++) {
+    stimulus->advance_cursor(200);
+    stimulus->push_stimulus(i, cc::CpuOpcode::Store, addr);
+  }
+
+  // Run to exhaustion
+  top.run_all();
+
+  // Lookup CPU instance.
+  const std::array<const cc::L1CacheAgent*, 4> l1cs = {
+    // L1 Cache ID 0
+    top.lookup_by_path<cc::L1CacheAgent>(test::path_l1c_by_cpu_id(cfg, 0)),
+    // L1 Cache ID 1
+    top.lookup_by_path<cc::L1CacheAgent>(test::path_l1c_by_cpu_id(cfg, 1)),
+    // L1 Cache ID 2
+    top.lookup_by_path<cc::L1CacheAgent>(test::path_l1c_by_cpu_id(cfg, 2)),
+    // L1 Cache ID 3
+    top.lookup_by_path<cc::L1CacheAgent>(test::path_l1c_by_cpu_id(cfg, 3))
+  };
+
+
+  // Validate line state; line should be present in only the final
+  // line access.
+  for (std::size_t i = 0; i < 4; i++) {
+    const test::L1Checker checker(l1cs[i]);
+    if (i == 3) {
+      // Expect line to be present in cache.
+      EXPECT_TRUE(checker.is_hit(addr));
+      // Expect line to be readable
+      EXPECT_TRUE(checker.is_readable(addr));
+      // Expect not to be writeable (shared between caches)
+      EXPECT_TRUE(checker.is_writeable(addr));
+    } else {
+      EXPECT_FALSE(checker.is_hit(addr));
+    }
   }
 
   // Validate expected transaction count.
