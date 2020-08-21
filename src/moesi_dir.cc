@@ -2097,7 +2097,6 @@ class MOESIDirProtocol : public DirProtocol {
         cl.push_back(line->build_update_state(State::E));
         // Originator is now the owner.
         cl.push_back(line->build_set_owner(line->owner()));
-        //issue_set_owner(ctxt, cl, line->owner());
         // Delete line
         cl.push_back(DirOpcode::RemoveLine);
         // Transaction is complete
