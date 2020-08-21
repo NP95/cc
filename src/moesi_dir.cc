@@ -425,7 +425,7 @@ class MOESIDirProtocol : public DirProtocol {
   using cb = DirCommandBuilder;
 
  public:
-  MOESIDirProtocol(kernel::Kernel* k) : DirProtocol(k, "moesidir") {}
+  explicit MOESIDirProtocol(kernel::Kernel* k) : DirProtocol(k, "moesidir") {}
 
   //
   //

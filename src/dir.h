@@ -81,7 +81,7 @@ class DirCommand {
   friend class DirCommandBuilder;
 
  public:
-  DirCommand(DirOpcode opcode) : opcode_(opcode) {}
+  explicit DirCommand(DirOpcode opcode) : opcode_(opcode) {}
   virtual void release() const { delete this; }
 
   std::string to_string() const;
@@ -183,7 +183,7 @@ class DirCoherenceAction {
 //
 class DirTState {
  public:
-  DirTState(kernel::Kernel* k);
+  explicit DirTState(kernel::Kernel* k);
   // Destruct/Return to pool
   void release();
 
@@ -328,7 +328,7 @@ using DirTTable = Table<Transaction*, DirTState*>;
 //
 class DirContext {
  public:
-  DirContext() = default;
+  explicit DirContext() = default;
   ~DirContext();
 
   //

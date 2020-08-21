@@ -248,7 +248,7 @@ class MOESICCProtocol : public CCProtocol {
   using cb = CCCommandBuilder;
 
  public:
-  MOESICCProtocol(kernel::Kernel* k) : CCProtocol(k, "moesicc") {}
+  explicit MOESICCProtocol(kernel::Kernel* k) : CCProtocol(k, "moesicc") {}
 
   //
   //
