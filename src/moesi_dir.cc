@@ -1516,16 +1516,25 @@ class MOESIDirProtocol : public DirProtocol {
         // Only one DT since LLC would not have been queried if
         // an intervention had taken place.
         end->set_dt_n(1);
-        // Compute next sate
+        // Compute next state:
         State next_state = State::X;
         const State state = line->state();
         switch(line->state()) {
           case State::I_E: {
+            // LLC has been queried because the line is presently
+            // invalid (not present in any L2). The requester
+            // therefore receives the line in the Exclusive state.
             end->set_is(false);
             cl.push_back(line->build_set_owner(tstate->origin()));
             next_state = State::E;
           } break;
           case State::S: {
+            // LLC has been queried because the line is presently in
+            // the Shared state. Nominally, we could request an agent
+            // to forward the clean line to the requesting agent
+            // through intervention, but this adds a bit more
+            // complexity as we cannot assume the agent has the line
+            // as it may have been silently evicted.
             end->set_is(true);
             cl.push_back(line->build_add_sharer(tstate->origin()));
             next_state = State::S;
