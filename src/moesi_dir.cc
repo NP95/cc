@@ -633,8 +633,6 @@ class MOESIDirProtocol : public DirProtocol {
 
         // Issue Fill command to LLC.
         issue_msg_to_noc(ctxt, cl, cmd, ctxt.dir()->llc());
-        // Originator becomes owner.
-        // cl.push_back(line->build_set_owner(msg->origin()));
         // Update state
         cl.push_back(line->build_update_state(State::I_E));
 
@@ -656,8 +654,6 @@ class MOESIDirProtocol : public DirProtocol {
         cmd->set_addr(tstate->addr());
         cmd->set_agent(tstate->origin());
         issue_msg_to_noc(ctxt, cl, cmd, ctxt.dir()->llc());
-        // Requester now becomes a sharer.
-        //cl.push_back(line->build_add_sharer(msg->origin()));
         // Set flag awaiting LLC response
         cl.push_back(tstate->build_set_llc_cmd_opcode(cmd->opcode()));
         // Consume and advance
