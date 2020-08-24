@@ -84,7 +84,7 @@ evaluation method may be invoked. Evaluation is carried out
 sequentially and is not pre-emptible. Although it can be loosely
 classified as a thread of computation, internally it is implemented
 simply as a method call and not as a POSIX thread. Unlike SystemC,
-which implements the notion of an SC_THREAD, the basic Process class
+which implements the notion of an `SC_THREAD`, the basic Process class
 does not support co-routine behavior as this is non-trivial to
 implement, and otherwise can be easily approximately by using
 additional state to recall when the last evaluation completed, and
@@ -126,7 +126,7 @@ becomes free to remove the message from the head of the queue and
 begin processing.
 
 The communication approach differs slightly from that of SystemC which
-typically models the notion of a channel as a `sc_signal`. A sc_signal
+typically models the notion of a channel as a `sc_signal`. A `sc_signal`
 is similar in many respects to the notion of a wire/logic is a
 standard HDL simulator and is restricted by the fact that it can
 maintain only one value at any point during simulation. SystemC does
