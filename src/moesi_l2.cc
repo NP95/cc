@@ -1241,8 +1241,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
     // Form snoop response
     AceSnpRspMsg* rsp = Pool<AceSnpRspMsg>::construct();
     rsp->set_t(msg->t());
-    const State state = line->state();
-    switch (state) {
+    switch (const State state = line->state(); state) {
       case State::O:
       case State::M: {
         if (msg->opcode() != AceSnpOpcode::MakeInvalid) {

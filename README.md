@@ -129,7 +129,7 @@ and the time at which they are scheduled to occur.
 A simple trace driven simulation can be invoked using:
 
 ``` shell
-./driver/driver ../cfgs/base.trace
+./driver/driver ./cfgs/base.trace
 ```
 
 # Trace format
@@ -145,7 +145,7 @@ ADDR = [0-9]+
 
 COMMAND = LD | ST
 
-STATMENT = PATH_STATEMENT | TIME_STATEMENT | COMMAND_STATEMENT ';' '\n'
+STATMENT = PATH_STATEMENT | TIME_STATEMENT | COMMAND_STATEMENT
 
 PATH_STATEMENT = 'M' ':' CPU_ID ',' PATH '\n'
 
