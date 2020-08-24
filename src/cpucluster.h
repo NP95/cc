@@ -40,6 +40,7 @@ class CCAgent;
 class Cpu;
 class NocPort;
 class Monitor;
+class Statistics;
 
 class CpuCluster : public Agent {
   friend class SocTop;
@@ -62,6 +63,8 @@ class CpuCluster : public Agent {
   void build();
   // Register verification monitor.
   void register_monitor(Monitor* monitor);
+  // Register simulation statistics.
+  void register_statistics(Statistics* statistics);
   // Elaboration
   bool elab() override;
   // Set CC -> NOC message queue instance (NOC owned)

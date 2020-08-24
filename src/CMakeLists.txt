@@ -52,6 +52,7 @@ add_library(cc SHARED
   moesi_cc.cc
   moesi_dir.cc
   verif.cc
+  stats.cc
   )
 
 target_include_directories(cc PRIVATE ${CMAKE_SOURCE_DIR}/include/cc)

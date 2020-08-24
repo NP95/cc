@@ -85,6 +85,9 @@ cc::SocConfig ConfigBuilder::construct() const {
   // Enable self-checking.
   cfg.enable_verif = true;
 
+  // Enable statistics
+  cfg.enable_stats = true;
+
   return cfg;
 }
 

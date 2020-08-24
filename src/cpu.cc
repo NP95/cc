@@ -35,6 +35,7 @@
 #include "stimulus.h"
 #include "utility.h"
 #include "verif.h"
+#include "stats.h"
 
 namespace cc {
 
@@ -87,7 +88,11 @@ class Cpu::ProducerProcess : public kernel::Process {
     Transaction* t = cpu_->start_transaction();
     // Update monitor state
     CpuMonitor* monitor = cpu_->monitor();
-    if (monitor != nullptr) monitor->start_transaction_event(cpu_, t);
+    if (monitor != nullptr) { monitor->start_transaction_event(cpu_, t); }
+    // Update statistics
+    CpuStatistics* stat = cpu_->statistics();
+    if (stat != nullptr) { stat->start_transaction_event(cpu_); }
+    
     // Free space in the issue queue, form a message and issue.
     L1CmdMsg* msg = Pool<L1CmdMsg>::construct();
     const Command& cmd = f.cmd;
@@ -142,6 +147,9 @@ class Cpu::ConsumerProcess : public kernel::Process {
           // Update monitor state
           CpuMonitor* monitor = cpu_->monitor();
           if (monitor != nullptr) monitor->end_transaction_event(cpu_, t);
+          // Update statistics
+          CpuStatistics* stat = cpu_->statistics();
+          if (stat != nullptr) { stat->end_transaction_event(cpu_); }
           // Transaction is complete.
           cpu_->end_transaction(t);
           l1rspmsg->release();
@@ -214,8 +222,16 @@ void Cpu::set_stimulus(StimulusContext* stimulus) {
 // Register verification monitor.
 void Cpu::register_monitor(Monitor* monitor) {
   if (monitor == nullptr) return;
+
   monitor->register_client(this);
   monitor_ = monitor;
+}
+
+void Cpu::register_statistics(Statistics* statistics) {
+  if (statistics == nullptr) return;
+
+  statistics->register_client(this);
+  statistics_ = statistics;
 }
 
 void Cpu::set_cpu_l1__cmd_q(MessageQueue* mq) {

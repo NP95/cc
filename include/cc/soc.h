@@ -47,6 +47,7 @@ class CpuCluster;
 class MemCntrlModel;
 class Stimulus;
 class Monitor;
+class Statistics;
 
 //
 //
@@ -106,6 +107,9 @@ class SocTop : public kernel::TopModule {
 
   // Verification monitor
   Monitor* monitor_ = nullptr;
+
+  // Simulation statistics
+  Statistics* statistics_ = nullptr;
 
   // Elaboration pass
   std::size_t elab_pass_ = 0;

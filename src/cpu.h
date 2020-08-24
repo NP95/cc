@@ -45,6 +45,8 @@ class MessageQueue;
 class StimulusContext;
 class Monitor;
 class CpuMonitor;
+class Statistics;
+class CpuStatistics;
 
 //
 //
@@ -74,6 +76,8 @@ class Cpu : public Agent {
   std::set<Transaction*>* ts() { return &ts_; }
   // CPU monitor instance.
   CpuMonitor* monitor() const { return monitor_; }
+  // CPU statistics.
+  CpuStatistics* statistics() const { return statistics_; }
 
   // Construction:
   void build();
@@ -81,6 +85,8 @@ class Cpu : public Agent {
   void set_stimulus(StimulusContext* stimulus);
   // Register verification monitor
   void register_monitor(Monitor* monitor);
+  // Register simulation statistics
+  void register_statistics(Statistics* statistics);
 
   // Set parent L1 cache instance.
   void set_l1c(L1CacheAgent* l1c) { l1c_ = l1c; }
@@ -111,6 +117,8 @@ class Cpu : public Agent {
   std::set<Transaction*> ts_;
   // CPU Monitor instance.
   CpuMonitor* monitor_ = nullptr;
+  // CPU statistics
+  CpuStatistics* statistics_ = nullptr;
   // CPU Configuration.
   CpuConfig config_;
 };

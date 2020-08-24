@@ -277,6 +277,8 @@ struct SocConfig {
   ProtocolBuilder* pbuilder = nullptr;
   // Enable self-checking verification routines.
   bool enable_verif = false;
+  // Enable statistic gathering.
+  bool enable_stats = false;
 };
 
 }  // namespace cc

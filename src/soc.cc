@@ -38,6 +38,7 @@
 #include "protocol.h"
 #include "stimulus.h"
 #include "verif.h"
+#include "stats.h"
 
 namespace cc {
 
@@ -65,6 +66,7 @@ SocTop::~SocTop() {
   delete noc_;
   delete stimulus_;
   delete monitor_;
+  delete statistics_;
 }
 
 void SocTop::build(const SocConfig& cfg) {
@@ -73,6 +75,11 @@ void SocTop::build(const SocConfig& cfg) {
     // Self-checking module; install monitor.
     monitor_ = new Monitor(k(), "monitor");
     add_child_module(monitor_);
+  }
+
+  if (cfg.enable_stats) {
+    // Attach statistics:
+    statistics_ = new Statistics;
   }
   
   // Construct stimulus (as module)
@@ -96,6 +103,7 @@ void SocTop::build(const SocConfig& cfg) {
   for (const CpuClusterConfig& cccfg : cfg.ccls) {
     CpuCluster* cpuc = new CpuCluster(k(), cccfg, stimulus_);
     cpuc->register_monitor(monitor_);
+    cpuc->register_statistics(statistics_);
     // NOC end point is the coherence controller within the CPU
     // cluster; not the CPU cluster itself.
     noc_->register_agent(cpuc->cc());

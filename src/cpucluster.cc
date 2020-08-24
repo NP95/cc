@@ -95,6 +95,15 @@ void CpuCluster::register_monitor(Monitor* monitor) {
   }
 }
 
+// Register simulation statistics
+void CpuCluster::register_statistics(Statistics* statistics) {
+  if (statistics == nullptr) return;
+
+  for (std::size_t i = 0; i < config_.l1c_configs.size(); i++) {
+    cpus_[i]->register_statistics(statistics);
+  }  
+}
+
 //
 bool CpuCluster::elab() {
   // Elabration occurs top-down; therefore ensure that all agents are
