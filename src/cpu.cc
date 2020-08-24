@@ -87,7 +87,7 @@ class Cpu::ProducerProcess : public kernel::Process {
     Transaction* t = cpu_->start_transaction();
     // Update monitor state
     CpuMonitor* monitor = cpu_->monitor();
-    if (monitor != nullptr) monitor->start_transaction_event(t);
+    if (monitor != nullptr) monitor->start_transaction_event(cpu_, t);
     // Free space in the issue queue, form a message and issue.
     L1CmdMsg* msg = Pool<L1CmdMsg>::construct();
     const Command& cmd = f.cmd;
@@ -141,7 +141,7 @@ class Cpu::ConsumerProcess : public kernel::Process {
 
           // Update monitor state
           CpuMonitor* monitor = cpu_->monitor();
-          if (monitor != nullptr) monitor->end_transaction_event(t);
+          if (monitor != nullptr) monitor->end_transaction_event(cpu_, t);
           // Transaction is complete.
           cpu_->end_transaction(t);
           l1rspmsg->release();

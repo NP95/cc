@@ -46,6 +46,7 @@ class L2CacheAgent;
 class L1LineState;
 class L1CoherenceAction;
 class Monitor;
+class L1CacheMonitor;
 
 enum class L1CmdOpcode {
   // CPU initiates a Load to a region of memory of some unspecified
@@ -108,7 +109,33 @@ using L1CacheSet = L1Cache::Set;
 // Cache Line Iterator type.
 using L1CacheLineIt = L1Cache::LineIterator;
 
-// Opcode
+
+enum class L1CacheEvent {
+  // L1 cache installs a line in a shareable state.
+  InstallShareable,
+
+  // L1 cache installs a line in writeable state.
+  InstallWriteable,
+
+  // L1 cache experiences a read hit.
+  ReadHit,
+
+  // L1 cache experiences a write hit.
+  WriteHit,
+
+  // Line is invalidated.
+  InvalidateLine,
+
+  // Invalid; placehodler
+  Invalid
+};
+
+// Convert Event to humand readable format.
+const char* to_string(L1CacheEvent event);
+
+
+// L1 Interpreter opcode definition:
+//
 enum class L1Opcode {
 
   // Raise notification that a new transaction has begun.
@@ -143,6 +170,9 @@ enum class L1Opcode {
   // Reissue message contained within transaction state object.
   MsgReissue,
 
+  // Raise a cache event
+  RaiseEvent,
+  
   // Remove a line given by the current line address in the
   // Transaction State object.
   RemoveLine,
@@ -184,18 +214,45 @@ class L1Command {
   L1Command(L1Opcode opcode) : opcode_(opcode) {}
   virtual void release() const { delete this; }
 
+  // Convert to human-readable format
   std::string to_string() const;
 
+  // Getters:
+
+  // Current command opcode
   L1Opcode opcode() const { return opcode_; }
+
+  // Current coherence action instance.
   L1CoherenceAction* action() const { return oprands.action; }
+
+  // Current command address
   addr_t addr() const { return oprands.addr; }
+
+  // Command event
   kernel::Event* event() const { return oprands.event; }
+
+  // Command transaction object.
   Transaction* t() const { return oprands.t; }
 
-  // Setters
+  // Current cache event
+  L1CacheEvent cache_event() const { return oprands.cache_event; }
+
+
+  // Setters:
+
+  // Set address oprand.
   void set_addr(addr_t addr) { oprands.addr = addr; }
+
+  // Set event oprand.
   void set_event(kernel::Event* event) { oprands.event = event; }
+
+  // Set transaction oprand.
   void set_t(Transaction* t) { oprands.t = t; }
+
+  //  Set cache event condition.
+  void set_cache_event(L1CacheEvent cache_event) {
+    oprands.cache_event = cache_event;
+  }
 
  private:
   virtual ~L1Command();
@@ -205,6 +262,7 @@ class L1Command {
     addr_t addr;
     kernel::Event* event;
     Transaction* t;
+    L1CacheEvent cache_event;
   } oprands;
   //
   L1Opcode opcode_;
@@ -218,13 +276,15 @@ class L1CommandBuilder {
   static L1Command* from_opcode(L1Opcode opcode);
   // Build protocol defined command from action instance.
   static L1Command* from_action(L1CoherenceAction* action);
+  // Build cache 'event' command instance.
+  static L1Command* build_cache_event(L1CacheEvent event, addr_t addr);
   // Build remove line command from address addr.
   static L1Command* build_remove_line(addr_t addr);
-  //
+  // Build "blocked on event" command
   static L1Command* build_blocked_on_event(MessageQueue* mq, kernel::Event* e);
-  //
+  // Build "start transaction" command
   static L1Command* build_start_transaction(Transaction* t);
-  //
+  // Build "end transaction" command
   static L1Command* build_end_transaction(Transaction* t);
 };
 
@@ -474,6 +534,8 @@ class L1CacheAgent : public Agent {
   L1CacheAgentProtocol* protocol() const { return protocol_; }
   // Transaction table.
   L1TTable* tt() const { return tt_; }
+  // L1 Cache Monitor instance (if attached).
+  L1CacheMonitor* monitor() const { return monitor_; }
 
   // Build Phase:
   void build();
@@ -523,14 +585,14 @@ class L1CacheAgent : public Agent {
   L1TTable* tt_ = nullptr;
   // Main process of execution.
   MainProcess* main_ = nullptr;
-  // Cache Instance
+  // Cachpe Instance
   L1Cache* cache_ = nullptr;
   // Pointer to parent L2.
   L2CacheAgent* l2cache_ = nullptr;
   // L1 cache protocol
   L1CacheAgentProtocol* protocol_ = nullptr;
   // Verification monitor instance.
-  Monitor* monitor_ = nullptr;
+  L1CacheMonitor* monitor_ = nullptr;
   // Cache configuration.
   L1CacheAgentConfig config_;
 };

@@ -78,6 +78,25 @@ std::string L1CmdRspMsg::to_string() const {
   return r.to_string();
 }
 
+const char* to_string(L1CacheEvent event) {
+  switch (event) {
+    case L1CacheEvent::InstallShareable:
+      return "InstallShareable";
+    case L1CacheEvent::InstallWriteable:
+      return "InstallWriteable";
+    case L1CacheEvent::ReadHit:
+      return "ReadHit";
+    case L1CacheEvent::WriteHit:
+      return "WriteHit";
+    case L1CacheEvent::InvalidateLine:
+      return "InvalidateLine";
+    case L1CacheEvent::Invalid:
+      [[fallthrough]];
+    default:
+      return "Invalid";
+  }
+}
+
 const char* to_string(L1Opcode opcode) {
   switch (opcode) {
     case L1Opcode::StartTransaction:
@@ -96,6 +115,8 @@ const char* to_string(L1Opcode opcode) {
       return "MsgConsume";
     case L1Opcode::MsgReissue:
       return "MsgReissue";
+    case L1Opcode::RaiseEvent:
+      return "RaiseEvent";
     case L1Opcode::RemoveLine:
       return "RemoveLine";
     case L1Opcode::InvokeCoherenceAction:
@@ -134,6 +155,9 @@ std::string L1Command::to_string() const {
     case L1Opcode::InvokeCoherenceAction: {
       r.add_field("action", oprands.action->to_string());
     } break;
+    case L1Opcode::RaiseEvent: {
+      r.add_field("event", to_string(cache_event()));
+    } break;
     case L1Opcode::RemoveLine: {
       r.add_field("addr", h.to_hex(addr()));
     } break;
@@ -160,6 +184,13 @@ L1Command* L1CommandBuilder::from_opcode(L1Opcode opcode) {
 L1Command* L1CommandBuilder::from_action(L1CoherenceAction* action) {
   L1Command* cmd = new L1Command(L1Opcode::InvokeCoherenceAction);
   cmd->oprands.action = action;
+  return cmd;
+}
+
+L1Command* L1CommandBuilder::build_cache_event(L1CacheEvent event, addr_t addr) {
+  L1Command* cmd = new L1Command(L1Opcode::RaiseEvent);
+  cmd->set_cache_event(event);
+  cmd->set_addr(addr);
   return cmd;
 }
 
@@ -310,6 +341,9 @@ class L1CommandInterpreter {
       case L1Opcode::MsgReissue: {
         execute_msg_reissue(ctxt, cmd);
       } break;
+      case L1Opcode::RaiseEvent: {
+        execute_raise_event(ctxt, cmd);
+      } break;
       case L1Opcode::RemoveLine: {
         execute_remove_line(ctxt, cmd);
       } break;
@@ -418,6 +452,36 @@ class L1CommandInterpreter {
     }
   }
 
+  // Raise event:
+  //
+  // Raise notification of noteworthy events which occur during the
+  // execution of the simulation.
+  //
+  void execute_raise_event(L1CacheContext& ctxt, const L1Command* cmd) {
+    L1CacheAgent* l1cache = ctxt.l1cache();
+    L1CacheMonitor* monitor = l1cache->monitor();
+    if (monitor) {
+      const L1CacheEvent event = cmd->cache_event();
+      switch (event) {
+        case L1CacheEvent::InstallShareable: {
+          monitor->install_line(l1cache, cmd->addr());
+        } break;
+        case L1CacheEvent::InstallWriteable: {
+          monitor->install_line(l1cache, cmd->addr(), true);
+        } break;
+        case L1CacheEvent::ReadHit: {
+          monitor->read_hit(l1cache, cmd->addr());
+        } break;
+        case L1CacheEvent::WriteHit: {
+          monitor->write_hit(l1cache, cmd->addr());
+        } break;
+        default: {
+          // Unknown event
+        } break;
+      }
+    }
+  }
+
   // Derive addr from command opcode.
   void execute_remove_line(L1CacheContext& ctxt, const L1Command* cmd) {
     L1CacheModel* cache = ctxt.l1cache()->cache();
@@ -426,6 +490,9 @@ class L1CommandInterpreter {
     L1CacheModelSet set = cache->set(ah.set(addr));
     if (auto it = set.find(addr); it != set.end()) {
       set.evict(it);
+      // Update monitor state; line is now deleted.
+      L1CacheMonitor* monitor = ctxt.l1cache()->monitor();
+      if (monitor) { monitor->remove_line(ctxt.l1cache(), cmd->addr()); }
     } else {
       throw std::runtime_error("Cannot remove line, line is not present.");
     }
@@ -737,6 +804,7 @@ void L1CacheAgent::register_monitor(Monitor* monitor) {
   if (monitor == nullptr) return;
 
   monitor->register_client(this);
+  monitor_ = monitor;
 }
 
 void L1CacheAgent::set_l1_l2__cmd_q(MessageQueue* mq) {

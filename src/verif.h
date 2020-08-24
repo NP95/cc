@@ -28,8 +28,11 @@
 #ifndef CC_LIBCC_SRC_VERIF_H
 #define CC_LIBCC_SRC_VERIF_H
 
-#include "cc/kernel.h"
 #include <string>
+#include <set>
+
+#include "cc/kernel.h"
+#include "cc/types.h"
 
 namespace cc {
 
@@ -41,13 +44,36 @@ class DirAgent;
 class CCAgent;
 class Transaction;
 
+class LineState;
+
+// CPU Monitor Interface:
+//
 struct CpuMonitor {
+  // Event denoting start of a new transaction.
+  virtual void start_transaction_event(Cpu* cpu, Transaction* t) = 0;
 
-  virtual void start_transaction_event(Transaction* t) = 0;
-
-  virtual void end_transaction_event(Transaction* t) = 0;
+  // Event denoting the end of a in-flight transaction.
+  virtual void end_transaction_event(Cpu* cpu, Transaction* t) = 0;
 };
 
+
+// L1 Cache Monitor Interface:
+//
+struct L1CacheMonitor {
+  // Read hit to address
+  virtual void read_hit(L1CacheAgent* l1c, addr_t addr) = 0;
+
+  // Write hit to address
+  virtual void write_hit(L1CacheAgent* l1c, addr_t addr) = 0;
+  
+  // Install line in L1
+  virtual void install_line(L1CacheAgent* l1c, addr_t addr,
+                            bool is_writeable = false) = 0;
+
+  // Remove line from L1; line is presently consistent with L2 by
+  // definition, therefore no prior writeback is requried.
+  virtual void remove_line(L1CacheAgent* l1c, addr_t addr) = 0;
+};
 
 // Verification Monitor.
 //
@@ -57,7 +83,8 @@ struct CpuMonitor {
 // maintained).
 //
 class Monitor : public kernel::Module,
-                public CpuMonitor {
+                public CpuMonitor,
+                public L1CacheMonitor {
  public:
   Monitor(kernel::Kernel* k, const std::string& name);
   virtual ~Monitor() = default;
@@ -87,14 +114,29 @@ class Monitor : public kernel::Module,
   //
 
   // Notify start of transaction.
-  void start_transaction_event(Transaction* t) override;
+  void start_transaction_event(Cpu* cpu, Transaction* t) override;
 
   // Notify end of transaction.
-  void end_transaction_event(Transaction* t) override;
+  void end_transaction_event(Cpu* cpu, Transaction* t) override;
 
 
   // L1Cache Interface:
   //
+
+  // Read hit to address
+  void read_hit(L1CacheAgent* l1c, addr_t addr) override;
+
+  // Write hit to address
+  void write_hit(L1CacheAgent* l1c, addr_t addr) override;
+
+  // Install line in L1
+  void install_line(L1CacheAgent* l1c, addr_t addr,
+                    bool is_writeable = false) override;
+                    
+  // Remove line from L1; line is presently consistent with L2 by
+  // definition, therefore no prior writeback is requried.
+  void remove_line(L1CacheAgent* l1c, addr_t addr) override;
+  
 
   // L2Cache Interface:
   //
@@ -106,6 +148,27 @@ class Monitor : public kernel::Module,
  private:
   // Current inflight transaction set.
   std::set<Transaction*> ts_;
+
+  // Set of registered CPU
+  std::set<Cpu*> cpus_;
+
+  // Set of registered L1 caches
+  std::set<L1CacheAgent*> l1cs_;
+
+  // Set of registered L2 caches
+  std::set<L2CacheAgent*> l2cs_;
+
+  // Set of registered NOCs (interconnect.), nominally 1.
+  std::set<NocModel*> nocs_;
+
+  // Set of registered Directories
+  std::set<DirAgent*> dirs_;
+
+  // Set of registered Cache Controllers
+  std::set<CCAgent*> ccs_;
+
+  // Cache line registry.
+  std::map<addr_t, LineState*> line_registry_;
 };
 
 

@@ -49,7 +49,10 @@ enum class State {
   EI,
   // Modified
   M,
-  MI
+  MI,
+
+  // Invalid; placeholder
+  X 
 };
 
 //
@@ -318,6 +321,8 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             L1CmdRspMsg* rsp = Pool<L1CmdRspMsg>::construct();
             rsp->set_t(msg->t());
             issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp);
+            // Raise event
+            cl.push_back(cb::build_cache_event(L1CacheEvent::ReadHit, msg->addr()));
             // Advance to next
             cl.next_and_do_consume(true);
           } break;
@@ -352,6 +357,8 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             rsp->set_t(msg->t());
             // Issue response to CPU.
             issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp);
+            // Raise event
+            cl.push_back(cb::build_cache_event(L1CacheEvent::ReadHit, msg->addr()));
             // Advance to next and consume
             cl.next_and_do_consume(true);
           } break;
@@ -361,6 +368,8 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             rsp->set_t(msg->t());
             // Issue response to CPU.
             issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp);
+            // Raise event
+            cl.push_back(cb::build_cache_event(L1CacheEvent::WriteHit, msg->addr()));
             // Advance to next and consume
             cl.next_and_do_consume(true);
           } break;
@@ -376,6 +385,8 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             L1CmdRspMsg* rsp = Pool<L1CmdRspMsg>::construct();
             rsp->set_t(msg->t());
             issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp);
+            // Raise event
+            cl.push_back(cb::build_cache_event(L1CacheEvent::ReadHit, msg->addr()));
             // Advance to next and consume
             cl.next_and_do_consume(true);
           } break;
@@ -389,6 +400,8 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             // Write through to L2. such that L2 sees the transition
             // to M immediately.
             cl.push_back(L1Opcode::SetL2LineModified);
+            // Raise event
+            cl.push_back(cb::build_cache_event(L1CacheEvent::WriteHit, msg->addr()));
             // Advance to next and consume
             cl.next_and_do_consume(true);
           } break;
@@ -406,14 +419,20 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
   void apply(L1CacheContext& ctxt, L1CommandList& cl, MOESIL1LineState* line,
              const L2CmdRspMsg* msg) const {
     Transaction* t = msg->t();
+    const addr_t addr = ctxt.tstate()->addr();
     const State state = line->state();
     switch (state) {
       case State::IS: {
         // Update state
-        issue_update_state(cl, line, msg->is() ? State::S : State::E);
+        const State next_state = msg->is() ? State::S : State::E;
+        issue_update_state(cl, line, next_state);
 
         // Update transaction table; wake all blocked Message Queues
         // and delete context.
+        const L1CacheEvent l1event = (next_state == State::S) ?
+                                     L1CacheEvent::InstallShareable :
+                                     L1CacheEvent::InstallWriteable;
+        cl.push_back(cb::build_cache_event(l1event, addr));
         cl.transaction_end(t);
         // Advance to next and consume
         cl.next_and_do_consume(true);
@@ -421,6 +440,8 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
       case State::IE: {
         // Update state
         issue_update_state(cl, line, State::E);
+        // Raise event
+        cl.push_back(cb::build_cache_event(L1CacheEvent::InstallWriteable, addr));
         // Update transaction table; wake all blocked Message Queues
         // and delete context.
         cl.transaction_end(t);
@@ -432,6 +453,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
         issue_update_state(cl, line, State::E);
         // Update transaction table; wake all blocked Message Queues
         // and delete context.
+        cl.push_back(cb::build_cache_event(L1CacheEvent::InstallWriteable, addr));
         cl.transaction_end(t);
         // Advance to next and consume
         cl.next_and_do_consume(true);
@@ -452,10 +474,11 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
         // Transition back to Invalid state and evict line.
         issue_update_state(cl, line, State::I);
         // Remove line from cache as now invalid.
-        const addr_t addr = ctxt.tstate()->addr();
         cl.push_back(cb::build_remove_line(addr));
         // Transaction ends
         cl.transaction_end(t);
+        // Raise line is invalidate line.
+        cl.push_back(cb::build_cache_event(L1CacheEvent::InvalidateLine, addr));
         // Advance to next and consume
         cl.next_and_do_consume(true);
       } break;
