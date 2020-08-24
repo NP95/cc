@@ -126,11 +126,11 @@ becomes free to remove the message from the head of the queue and
 begin processing.
 
 The communication approach differs slightly from that of SystemC which
-typically models the notion of a channel as a sc_signal. A sc_signal
+typically models the notion of a channel as a `sc_signal`. A sc_signal
 is similar in many respects to the notion of a wire/logic is a
 standard HDL simulator and is restricted by the fact that it can
 maintain only one value at any point during simulation. SystemC does
-indeed have the notion of ScQueue channel types which roughly
+indeed have the notion of `sc_fifo` channel types which roughly
 approximate the MessageQueue seen here.
 
 ### Simulation Architecture
