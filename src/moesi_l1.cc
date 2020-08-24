@@ -25,7 +25,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#include "kernel.h"
+#include "cc/kernel.h"
 #include "l1cache.h"
 #include "l2cache.h"
 #include "protocol.h"

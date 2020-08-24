@@ -28,8 +28,8 @@
 #ifndef CC_LIBCC_CPUCLUSTER_H
 #define CC_LIBCC_CPUCLUSTER_H
 
-#include "cfgs.h"
-#include "kernel.h"
+#include "cc/cfgs.h"
+#include "cc/kernel.h"
 #include "sim.h"
 
 namespace cc {

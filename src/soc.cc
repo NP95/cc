@@ -29,6 +29,7 @@
 
 #include "cc/cfgs.h"
 #include "cc/kernel.h"
+#include "cc/stimulus.h"
 #include "ccntrl.h"
 #include "cpucluster.h"
 #include "dir.h"
@@ -36,7 +37,6 @@
 #include "mem.h"
 #include "noc.h"
 #include "protocol.h"
-#include "stimulus.h"
 #include "verif.h"
 #include "stats.h"
 

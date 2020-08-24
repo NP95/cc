@@ -32,7 +32,7 @@
 #include <vector>
 
 #include "cc/cfgs.h"
-#include "kernel.h"
+#include "cc/kernel.h"
 #include "msg.h"
 #include "sim.h"
 

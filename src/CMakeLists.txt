@@ -55,4 +55,4 @@ add_library(cc SHARED
   stats.cc
   )
 
-target_include_directories(cc PRIVATE ${CMAKE_SOURCE_DIR}/include/cc)
+target_include_directories(cc PRIVATE ${CMAKE_SOURCE_DIR}/include)

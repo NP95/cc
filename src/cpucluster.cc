@@ -31,7 +31,7 @@
 #include "cpu.h"
 #include "l1cache.h"
 #include "l2cache.h"
-#include "stimulus.h"
+#include "cc/stimulus.h"
 
 namespace cc {
 

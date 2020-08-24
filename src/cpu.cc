@@ -30,9 +30,9 @@
 #include <exception>
 #include <sstream>
 
+#include "cc/stimulus.h"
 #include "l1cache.h"
 #include "msg.h"
-#include "stimulus.h"
 #include "utility.h"
 #include "verif.h"
 #include "stats.h"

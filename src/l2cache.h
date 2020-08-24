@@ -31,8 +31,8 @@
 #include <vector>
 
 #include "cache.h"
-#include "cfgs.h"
-#include "kernel.h"
+#include "cc/cfgs.h"
+#include "cc/kernel.h"
 #include "msg.h"
 #include "protocol.h"
 #include "sim.h"
