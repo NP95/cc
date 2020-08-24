@@ -195,7 +195,7 @@ class NocEndpoint::MainProcess : public AgentProcess {
 
     // Set conditions for subsequent re-evaluations.
     if (!mq->empty()) {
-      // Wait for an epoch (cycle)/
+      // Wait for an epoch (cycle).
       wait_epoch();
     } else {
       // Not further work; await until noc ingress queue becomes non-full.
