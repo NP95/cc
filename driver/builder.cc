@@ -212,9 +212,10 @@ class SocConfigBuilderJson {
     // Set .name
     CHECK_AND_SET(name);
     // Set .type
-    CHECK_AND_SET(type);
+    // Type is presently an enum; convert from string.
+    //CHECK_AND_SET(type);
     // Parse type related options
-    if (c.type == StimulusType::Trace){
+    if (c.type == StimulusType::Trace) {
       // Set .filename
       CHECK(filename);
       const std::string filename = j["filename"];

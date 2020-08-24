@@ -327,7 +327,13 @@ void TraceStimulus::parse_tracefile() {
 
 std::vector<DequeueContext*> TraceStimulus::compute_index_table() {
   std::map<std::size_t, std::string> index_table;
-  enum class ScanState { Idle, ExpectColon, GetIndex, GetPath };
+  enum class ScanState {
+    Idle,
+    InLineComment,
+    ExpectColon,
+    GetIndex,
+    GetPath
+  };
 
   // To zeroth column
   col_ = -1;
@@ -344,61 +350,72 @@ std::vector<DequeueContext*> TraceStimulus::compute_index_table() {
     const char c = is_->peek();
     ++col_;
 
-    switch (state) {
-      case ScanState::Idle: {
-        if (c == 'M') {
-          state = ScanState::ExpectColon;
-        } else {
-          done = true;
-        }
-      } break;
-      case ScanState::ExpectColon: {
-        if (c == ':') {
-          state = ScanState::GetIndex;
-        } else {
-          // Error
-        }
-      } break;
-      case ScanState::GetIndex: {
-        if (std::isdigit(c)) {
-          ctxt.push_back(c);
-        } else if (c == ',') {
-          item.index = std::stoi(ctxt);
-          ctxt.clear();
-          state = ScanState::GetPath;
-        } else {
-          // Error
-        }
-      } break;
-      case ScanState::GetPath: {
-        if (c == '\n') {
-          item.path = ctxt;
+    // Skip whitespace
+    if (c != ' ') {
 
-          auto it = index_table.find(item.index);
-          if (it != index_table.end()) {
-            LogMessage msg("Index is already present in mapping table: ");
-            msg.append(std::to_string(item.index));
-            msg.level(Level::Warning);
-            log(msg);
+      switch (state) {
+        case ScanState::Idle: {
+          if (c == '/') {
+            state = ScanState::InLineComment;
+          } else if (c == 'M') {
+            state = ScanState::ExpectColon;
+          } else {
+            done = true;
           }
+        } break;
+        case ScanState::InLineComment: {
+          if (c == '\n') {
+            state = ScanState::Idle;
+          }
+        } break;
+        case ScanState::ExpectColon: {
+          if (c == ':') {
+            state = ScanState::GetIndex;
+          } else {
+            // Error
+          }
+        } break;
+        case ScanState::GetIndex: {
+          if (std::isdigit(c)) {
+            ctxt.push_back(c);
+          } else if (c == ',') {
+            item.index = std::stoi(ctxt);
+            ctxt.clear();
+            state = ScanState::GetPath;
+          } else {
+            // Error
+          }
+        } break;
+        case ScanState::GetPath: {
+          if (c == '\n') {
+            item.path = ctxt;
 
-          // Insert item in table.
-          index_table[item.index] = item.path;
+            auto it = index_table.find(item.index);
+            if (it != index_table.end()) {
+              LogMessage msg("Index is already present in mapping table: ");
+              msg.append(std::to_string(item.index));
+              msg.level(Level::Warning);
+              log(msg);
+            }
 
-          // Update indices
-          line_++;
-          col_ = -1;
+            // Insert item in table.
+            index_table[item.index] = item.path;
 
-          ctxt.clear();
-          state = ScanState::Idle;
-        } else {
-          // Accumulate path
-          ctxt.push_back(c);
-        }
-      } break;
-      default: {
-        // Error: unknown state entered.
-      } break;
+            // Update indices
+            line_++;
+            col_ = -1;
+
+            ctxt.clear();
+            state = ScanState::Idle;
+          } else {
+            // Accumulate path
+            ctxt.push_back(c);
+          }
+        } break;
+        default: {
+          // Error: unknown state entered.
+        } break;
+      }
     }
 
     if (!done) {

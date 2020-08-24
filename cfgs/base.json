@@ -44,6 +44,11 @@
             "top.cluster.cpu"
         ]
     },
+    "mcfgs" : [
+        {
+            "name" : "memory"
+        }
+    ],
     "noccfg" : {
         "name" : "noc"
     }
