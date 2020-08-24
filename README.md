@@ -69,12 +69,12 @@ performance model can be found at: [Architectural Spec](./doc/ARCH.md)
 ### Background
 
 This work was originally undertaken during the Covid-19 pandemic and
-was originally intended to demonstrate the author's comptenacy in
-their areas of software modelling of complex hardware systems. A work
-such as this is a large undertaking and is therefore difficult to
-complete when working independently and on a part-time basis. Please
-consider therefore that the work contained herein may be incomplete
-and should not serve the basis as a production quality verification
+is intended to demonstrate the author's competency in their areas of
+software modelling of computer architecture. An effort such as this is
+a large undertaking and is therefore difficult to complete when
+working independently and on a part-time basis. Please consider
+therefore that the work contained herein may be incomplete and should
+not serve the basis as a production quality verification
 model. Instead, please consider this work to be a work-in-progress.
 
 # Usage:
@@ -120,7 +120,7 @@ where this can be carried out.
 
 A relatively simple driver program has been implemented which allows
 for the test environment to be configured, and for stimulus to be
-defined. A top-level JSON configuration is provided, from which to
+defined. A top-level JSON configuration is provided, from which the
 top-level simulation environment is defined, constructed and
 elaborated. The associated trace-file defines the sequence of
 Load/Store commands to be issued by the CPU models in the simulation
@@ -151,7 +151,7 @@ PATH_STATEMENT = 'M' ':' CPU_ID ',' PATH '\n'
 
 TIME_STATEMENT = '+' TIME_DELTA '\n'
 
-COMMAND_STATEMENT = 'C' ':' CPU_ID ',' COMMAND ',' ADDR
+COMMAND_STATEMENT = 'C' ':' CPU_ID ',' COMMAND ',' ADDR '\n'
 
 ```
 
@@ -169,6 +169,9 @@ the simulation is only approximate as back-pressure may occur during
 the execution of prior commands, which then causes later commands to
 be delayed.
 
+There is limited ability to detect malformed trace files, therefore
+caution should be applied during their construction.
+
 ## Path Statement
 
 Path statements map a simulated CPU instance with a unique integer
@@ -179,7 +182,7 @@ commands. If the path cannot be found within the simulated design
 heirarchy, the model parse process is halted and the simulation
 terminated.
 
-The following path statement maps CPU_ID 0 to the simulated CPU
+The following path statement maps `CPU_ID` 0 to the simulated CPU
 instance located at: top.cluster.cpu.
 
 ```
@@ -210,7 +213,7 @@ indeterminate and assumed to be contained entirely within a single
 cache line. There is no ability within the simulation to fetch regions
 of memory which straddle multiple lines of memory.
 
-The following command statement, schedules CPU_ID 0 to issue a load
+The following command statement, schedules `CPU_ID` 0 to issue a load
 to address 0x1000:
 
 ```
