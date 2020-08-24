@@ -701,6 +701,8 @@ L1CacheAgent::~L1CacheAgent() {
   delete protocol_;
 }
 
+// Construct L1Cache model
+//
 void L1CacheAgent::build() {
   // Construct command request queue
   cpu_l1__cmd_q_ =
@@ -728,6 +730,11 @@ void L1CacheAgent::build() {
   // Set up protocol
   protocol_ = config_.pbuilder->create_l1(k());
   add_child_module(protocol_);
+}
+
+// Register Verification Monitor
+//
+void L1CacheAgent::register_monitor(Monitor* monitor) {
 }
 
 void L1CacheAgent::set_l1_l2__cmd_q(MessageQueue* mq) {

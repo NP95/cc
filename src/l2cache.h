@@ -49,6 +49,7 @@ class CacheModel;
 class CCAgent;
 class L2TState;
 class L2CoherenceAction;
+class Monitor;
 
 //
 //
@@ -426,6 +427,8 @@ class L2CacheAgent : public Agent {
   void build();
   // Add L1 cache child.
   void add_l1c(L1CacheAgent* l1c);
+  // Register verification monitor instance.
+  void register_monitor(Monitor* monitor);
 
   // Elaboration:
   bool elab() override;
@@ -479,6 +482,8 @@ class L2CacheAgent : public Agent {
   CCAgent* cc_ = nullptr;
   // L1 cache protocol
   L2CacheAgentProtocol* protocol_ = nullptr;
+  // Verification monitor instance.
+  Monitor* monitor_ = nullptr;
   // Main process of execution.
   MainProcess* main_;
 };

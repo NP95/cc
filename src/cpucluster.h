@@ -39,6 +39,7 @@ class L1CacheAgent;
 class CCAgent;
 class Cpu;
 class NocPort;
+class Monitor;
 
 class CpuCluster : public Agent {
   friend class SocTop;
@@ -59,6 +60,8 @@ class CpuCluster : public Agent {
  private:
   // Construction
   void build();
+  // Register verification monitor.
+  void register_monitor(Monitor* monitor);
   // Elaboration
   bool elab() override;
   // Set CC -> NOC message queue instance (NOC owned)
@@ -69,14 +72,16 @@ class CpuCluster : public Agent {
   // Design Rule Check (DRC)
   void drc() override;
 
-  //
+  // Cache controller instant
   CCAgent* cc_ = nullptr;
-  //
+  // L2 cache instances.
   L2CacheAgent* l2c_ = nullptr;
-  //
+  // L1 cache instances.
   std::vector<L1CacheAgent*> l1cs_;
-  //
+  // CPU child instances.
   std::vector<Cpu*> cpus_;
+  // Verification monitor instance, where applicable.
+  Monitor* monitor_ = nullptr;
   // Global stimulus instance
   Stimulus* stimulus_ = nullptr;
   // Cluster configuration.

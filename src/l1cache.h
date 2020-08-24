@@ -45,6 +45,7 @@ class L1CacheAgent;
 class L2CacheAgent;
 class L1LineState;
 class L1CoherenceAction;
+class Monitor;
 
 enum class L1CmdOpcode {
   // CPU initiates a Load to a region of memory of some unspecified
@@ -476,6 +477,8 @@ class L1CacheAgent : public Agent {
 
   // Build Phase:
   void build();
+  // Register Verification Monitor
+  void register_monitor(Monitor* monitor);
 
   // Elaboration Phase:
   bool elab() override;
@@ -526,6 +529,8 @@ class L1CacheAgent : public Agent {
   L2CacheAgent* l2cache_ = nullptr;
   // L1 cache protocol
   L1CacheAgentProtocol* protocol_ = nullptr;
+  // Verification monitor instance.
+  Monitor* monitor_ = nullptr;
   // Cache configuration.
   L1CacheAgentConfig config_;
 };

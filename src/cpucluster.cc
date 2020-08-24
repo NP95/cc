@@ -83,6 +83,18 @@ void CpuCluster::build() {
   }
 }
 
+// Register verification monitor.
+void CpuCluster::register_monitor(Monitor* monitor) {
+  if (monitor == nullptr) return;
+
+  cc_->register_monitor(monitor);
+  l2c_->register_monitor(monitor);
+  for (std::size_t i = 0; i < config_.l1c_configs.size(); i++) {
+    l1cs_[i]->register_monitor(monitor);
+    cpus_[i]->register_monitor(monitor);
+  }
+}
+
 //
 bool CpuCluster::elab() {
   // Elabration occurs top-down; therefore ensure that all agents are

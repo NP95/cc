@@ -49,30 +49,48 @@ class CoherenceList;
 class DirCoherenceAction;
 class DirNocEndpoint;
 class DirResources;
+class Monitor;
 
 enum class DirOpcode {
+
+  // Start new transaction.
   StartTransaction,
+
+  // Terminate current transaction
   EndTransaction,
+
+  // Consume Message at the head of currently selected Message Queue.
   MsgConsume,
+
+  // Remove line from cache.
   RemoveLine,
+
+  // Set Message Queue blocked on prior Transaction completion.
   MqSetBlockedOnTransaction,
+
+  // Set Message Queue blocked on Transaction Table entry
   MqSetBlockedOnTable,
+
+  // Set Message Queue blocked on Event.
   MqSetBlockedOnEvt,
+
+  // Invoke some coherency sub-system defined action.
   InvokeCoherenceAction,
 
-  //
+  // Wait on the arrival of another message.
   WaitOnMsg,
 
-  //
+  // Re-invoke process after another Epoch has elapsed.
   WaitNextEpoch,
 
-  //
+  // Raise error; invalid machine state
   Error,
 
   // Invalid opcode; place-holder
   Invalid
 };
 
+// Convert Opcode to human readable string.
 const char* to_string(DirOpcode opcode);
 
 //
@@ -439,6 +457,8 @@ class DirAgent : public Agent {
   // Build phase; register new command queue (belonging to
   // a distinct cache controller instance.
   void register_command_queue(const Agent* origin);
+  // Register verification monitor.
+  void register_monitor(Monitor* monitor);
   // Set asscoiated LLC instance.
   void set_llc(LLCModel* llc) { llc_ = llc; }
   // Elaboration
@@ -484,6 +504,8 @@ class DirAgent : public Agent {
   DirCacheModel* cache_ = nullptr;
   // Coherence protocol
   DirProtocol* protocol_ = nullptr;
+  // Verification monitor instance, where applicable.
+  Monitor* monitor_ = nullptr;
   // Current directory configuration.
   DirModelConfig config_;
 };

@@ -40,6 +40,7 @@ namespace cc {
 
 class MessageQueue;
 class MessageQueueArbiter;
+class Monitor;
 
 class NocMsg : public Message {
   template <typename>
@@ -183,6 +184,8 @@ class NocModel : public Agent {
   void build();
   // Construct new agent interface.
   void register_agent(Agent* agent);
+  // Register verification monitor.
+  void register_monitor(Monitor* monitor);
 
   // Elaboration Phase
   bool elab() override;
@@ -206,6 +209,8 @@ class NocModel : public Agent {
   std::map<Agent*, NocPort*> ports_;
   // Main thread of execution.
   MainProcess* main_ = nullptr;
+  // Verification monitor
+  Monitor* monitor_ = nullptr;
   // Timing model
   const NocTimingModel* tm_ = nullptr;
   // NOC Configuration

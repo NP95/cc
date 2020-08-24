@@ -896,7 +896,7 @@ void DirAgent::build() {
   add_child_module(protocol_);
 }
 
-//
+// Register (add) a child command queue.
 //
 void DirAgent::register_command_queue(const Agent* origin) {
   const std::string name = "cmdq" + std::to_string(cc_dir__cmd_q_.size());
@@ -905,7 +905,12 @@ void DirAgent::register_command_queue(const Agent* origin) {
   cc_dir__cmd_q_.insert(std::make_pair(origin, mq));
 }
 
+// Register a verification monitor instance.
 //
+void DirAgent::register_monitor(Monitor* monitor) {
+}
+
+// Elaborate Directory model
 //
 bool DirAgent::elab() {
   // Add message queues to arbiter

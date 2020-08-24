@@ -898,7 +898,12 @@ void CCAgent::build() {
   add_child_module(protocol_);
 }
 
-//
+// Register Verification model instance.
+void CCAgent::register_monitor(Monitor* monitor) {
+  if (monitor == nullptr) return;
+}
+
+// Elaborate Cache controller instance.
 //
 bool CCAgent::elab() {
   // Add ingress queues to arbitrator.

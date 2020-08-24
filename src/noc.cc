@@ -287,6 +287,10 @@ void NocModel::register_agent(Agent* agent) {
   ports_.insert(std::make_pair(agent, port));
 }
 
+void NocModel::register_monitor(Monitor* monitor) {
+  if (monitor == nullptr) return;
+}
+
 bool NocModel::elab() {
   for (std::pair<Agent*, NocPort*> pp : ports_) {
     NocPort* port = pp.second;

@@ -37,6 +37,7 @@
 #include "noc.h"
 #include "protocol.h"
 #include "stimulus.h"
+#include "verif.h"
 
 namespace cc {
 
@@ -63,15 +64,24 @@ SocTop::~SocTop() {
   delete dm_;
   delete noc_;
   delete stimulus_;
+  delete monitor_;
 }
 
 void SocTop::build(const SocConfig& cfg) {
+
+  if (cfg.enable_verif) {
+    // Self-checking module; install monitor.
+    monitor_ = new Monitor(k(), "monitor");
+    add_child_module(monitor_);
+  }
+  
   // Construct stimulus (as module)
   stimulus_ = stimulus_builder(k(), cfg.scfg);
   add_child_module(stimulus_);
 
   // Construct interconnect:
   noc_ = new NocModel(k(), cfg.noccfg);
+  noc_->register_monitor(monitor_);
   add_child_module(noc_);
 
   // Construct memory controller (s)
@@ -85,6 +95,7 @@ void SocTop::build(const SocConfig& cfg) {
   // Construct child CPU clusters
   for (const CpuClusterConfig& cccfg : cfg.ccls) {
     CpuCluster* cpuc = new CpuCluster(k(), cccfg, stimulus_);
+    cpuc->register_monitor(monitor_);
     // NOC end point is the coherence controller within the CPU
     // cluster; not the CPU cluster itself.
     noc_->register_agent(cpuc->cc());
@@ -95,6 +106,7 @@ void SocTop::build(const SocConfig& cfg) {
   // Construct child directories
   for (const DirModelConfig& dcfg : cfg.dcfgs) {
     DirAgent* dm = new DirAgent(k(), dcfg);
+    dm->register_monitor(monitor_);
     noc_->register_agent(dm);
     add_child_module(dm);
     dms_.push_back(dm);

@@ -46,6 +46,7 @@ class LLCModel;
 class CpuCluster;
 class MemCntrlModel;
 class Stimulus;
+class Monitor;
 
 //
 //
@@ -101,7 +102,10 @@ class SocTop : public kernel::TopModule {
   std::vector<MemCntrlModel*> mms_;
 
   // Stimulus "module" instance.
-  Stimulus* stimulus_;
+  Stimulus* stimulus_ = nullptr;
+
+  // Verification monitor
+  Monitor* monitor_ = nullptr;
 
   // Elaboration pass
   std::size_t elab_pass_ = 0;

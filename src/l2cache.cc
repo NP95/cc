@@ -699,6 +699,8 @@ void L2CacheAgent::add_l1c(L1CacheAgent* l1c) {
   l1cs_.push_back(l1c);
 }
 
+// Construct L2 Cache Model
+//
 void L2CacheAgent::build() {
   // CC -> L2 command queue.
   cc_l2__cmd_q_ = new MessageQueue(k(), "cc_l2__cmd_q", 16);
@@ -723,6 +725,13 @@ void L2CacheAgent::build() {
   add_child_module(protocol_);
 }
 
+// Register Verification Monitor
+void L2CacheAgent::register_monitor(Monitor* monitor) {
+  if (monitor == nullptr) return;
+}
+
+// Elaborate L2 cache model
+//
 bool L2CacheAgent::elab() {
   // Add command queues to arbiter
   arb_->add_requester(cc_l2__cmd_q_);

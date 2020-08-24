@@ -43,6 +43,7 @@ class Message;
 class L1CacheAgent;
 class MessageQueue;
 class StimulusContext;
+class Monitor;
 
 //
 //
@@ -75,6 +76,8 @@ class Cpu : public Agent {
   void build();
   // Set CPU instance stimulus context
   void set_stimulus(StimulusContext* stimulus);
+  // Register verification monitor
+  void register_monitor(Monitor* monitor);
 
   // Set parent L1 cache instance.
   void set_l1c(L1CacheAgent* l1c) { l1c_ = l1c; }
@@ -89,7 +92,7 @@ class Cpu : public Agent {
   void end_transaction(Transaction* t);
 
  private:
-  //
+  // Stimulus instance associated with CPU.
   StimulusContext* stimulus_ = nullptr;
   // CPU -> L1 message queue.
   MessageQueue* cpu_l1__cmd_q_ = nullptr;

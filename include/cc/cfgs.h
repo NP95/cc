@@ -274,7 +274,9 @@ struct SocConfig {
   // NOC/Interconnect configuration.
   NocModelConfig noccfg;
   // Protocol Builder
-  ProtocolBuilder* pbuilder;
+  ProtocolBuilder* pbuilder = nullptr;
+  // Enable self-checking verification routines.
+  bool enable_verif = false;
 };
 
 }  // namespace cc

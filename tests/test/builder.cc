@@ -82,9 +82,16 @@ cc::SocConfig ConfigBuilder::construct() const {
   // Set stimulus
   cfg.scfg = stimulus_config_;
 
+  // Enable self-checking.
+  cfg.enable_verif = true;
+
   return cfg;
 }
 
+// Construct a cost model for the NOC instance (cost-model annotates
+// all vertices in the system with timing information to model the
+// transport cost associated with communicating messages).
+//
 cc::NocModelConfig ConfigBuilder::construct_noc(const cc::SocConfig& cfg) const {
   // Default cost for all edges
   const cc::epoch_t cost = 10;

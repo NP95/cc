@@ -44,6 +44,7 @@ class CCProtocol;
 class CCAgent;
 class CCNocEndpoint;
 class CCCoherenceAction;
+class Monitor;
 
 enum class CCOpcode {
   // Raise notification that a new transaction has begun.
@@ -596,6 +597,9 @@ class CCAgent : public Agent {
   // Construction
   void build();
 
+  // Register Verification Monitor
+  void register_monitor(Monitor* monitor);
+
   // Elaboration
   bool elab() override;
 
@@ -687,6 +691,9 @@ class CCAgent : public Agent {
 
   // Cache controller protocol instance.
   CCProtocol* protocol_ = nullptr;
+
+  // Verification monitor instance.
+  Monitor* monitor_ = nullptr;
 
   // Cache controller configuration.
   CCConfig config_;

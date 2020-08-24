@@ -173,12 +173,14 @@ Cpu::~Cpu() {
   delete l1_cpu__rsp_q_;
 }
 
+// Construct CPU agent
 void Cpu::build() {
   // Response queue
   l1_cpu__rsp_q_ = new MessageQueue(k(), "l1_cpu__rsp_q", 3);
   add_child_module(l1_cpu__rsp_q_);
 }
 
+// Set stimulus source for the CPU instance.
 void Cpu::set_stimulus(StimulusContext* stimulus) {
   if (stimulus_ != nullptr) {
     LogMessage msg("Stimulus has already been defined: ");
@@ -194,6 +196,11 @@ void Cpu::set_stimulus(StimulusContext* stimulus) {
   // Construct consumer thread
   cp_ = new ConsumerProcess(k(), "consumer", this);
   add_child_process(cp_);
+}
+
+// Register verification monitor.
+void Cpu::register_monitor(Monitor* monitor) {
+  if (monitor == nullptr) return;
 }
 
 void Cpu::set_cpu_l1__cmd_q(MessageQueue* mq) {
