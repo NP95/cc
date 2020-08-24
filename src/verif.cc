@@ -152,6 +152,13 @@ void Monitor::end_transaction_event(Cpu* cpu, Transaction* t) {
 void Monitor::read_hit(L1CacheAgent* l1c, addr_t addr) {
   // TODO: Verify that line is aligned.
   if (auto line_it = line_registry_.find(addr); line_it != line_registry_.end()) {
+    LineState* lstate = line_it->second;
+    if (lstate->owner_l1c() != l1c && (lstate->sharer_l1cs().count(l1c) == 0)) {
+      // Cache is neither the owner, nor in the sharer set; it should
+      // therefore not have the line installed in the cache.
+      LOG_FATAL("Read hit to line; but line should not be present in "
+                "indicate cache instance.");
+    }
   } else {
     // Line is not presently registered, cannot therefore hit to
     // the line in the cache.
@@ -162,6 +169,11 @@ void Monitor::read_hit(L1CacheAgent* l1c, addr_t addr) {
 void Monitor::write_hit(L1CacheAgent* l1c, addr_t addr) {
   // TODO: Verify that line is aligned.
   if (auto line_it = line_registry_.find(addr); line_it != line_registry_.end()) {
+    LineState* lstate = line_it->second;
+    if (lstate->owner_l1c() != l1c) {
+      LOG_FATAL("Write hit to line; but line is not in a writeable state "
+                "in the indicated cache instance.");
+    }
   } else {
     // Line is not presently registered, cannot therefore hit to
     // the line in the cache.
