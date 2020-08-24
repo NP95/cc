@@ -44,6 +44,7 @@ class L1CacheAgent;
 class MessageQueue;
 class StimulusContext;
 class Monitor;
+class CpuMonitor;
 
 //
 //
@@ -71,6 +72,8 @@ class Cpu : public Agent {
   StimulusContext* stimulus() const { return stimulus_; }
   // Transaction table
   std::set<Transaction*>* ts() { return &ts_; }
+  // CPU monitor instance.
+  CpuMonitor* monitor() const { return monitor_; }
 
   // Construction:
   void build();
@@ -106,6 +109,8 @@ class Cpu : public Agent {
   L1CacheAgent* l1c_ = nullptr;
   // Transaction table.
   std::set<Transaction*> ts_;
+  // CPU Monitor instance.
+  CpuMonitor* monitor_ = nullptr;
   // CPU Configuration.
   CpuConfig config_;
 };

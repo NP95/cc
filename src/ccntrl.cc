@@ -34,6 +34,7 @@
 #include "primitives.h"
 #include "protocol.h"
 #include "utility.h"
+#include "verif.h"
 
 namespace cc {
 
@@ -901,6 +902,8 @@ void CCAgent::build() {
 // Register Verification model instance.
 void CCAgent::register_monitor(Monitor* monitor) {
   if (monitor == nullptr) return;
+
+  monitor->register_client(this);
 }
 
 // Elaborate Cache controller instance.

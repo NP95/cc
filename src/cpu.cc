@@ -34,6 +34,7 @@
 #include "msg.h"
 #include "stimulus.h"
 #include "utility.h"
+#include "verif.h"
 
 namespace cc {
 
@@ -84,8 +85,10 @@ class Cpu::ProducerProcess : public kernel::Process {
 
     // A new transaction starts.
     Transaction* t = cpu_->start_transaction();
+    // Update monitor state
+    CpuMonitor* monitor = cpu_->monitor();
+    if (monitor != nullptr) monitor->start_transaction_event(t);
     // Free space in the issue queue, form a message and issue.
-    // L1CmdMsg* msg = new L1CmdMsg;
     L1CmdMsg* msg = Pool<L1CmdMsg>::construct();
     const Command& cmd = f.cmd;
     msg->set_opcode(to_l1cache_opcode(cmd.opcode()));
@@ -128,18 +131,28 @@ class Cpu::ConsumerProcess : public kernel::Process {
     MessageQueue* mq = cpu_->l1_cpu__rsp_q();
     if (!mq->empty()) {
       const Message* msg = mq->dequeue();
+      const MessageClass cls = msg->cls();
       switch (msg->cls()) {
         case MessageClass::L1CmdRsp: {
           StimulusContext* stimulus = cpu_->stimulus();
           const L1CmdRspMsg* l1rspmsg = static_cast<const L1CmdRspMsg*>(msg);
 
           Transaction* t = l1rspmsg->t();
+
+          // Update monitor state
+          CpuMonitor* monitor = cpu_->monitor();
+          if (monitor != nullptr) monitor->end_transaction_event(t);
           // Transaction is complete.
           cpu_->end_transaction(t);
           l1rspmsg->release();
           stimulus->retire();
         } break;
         default: {
+          // Unknown message response class; fatal
+          LogMessage lm("Received message with unknown type: ");
+          lm.append(to_string(cls));
+          lm.level(Level::Fatal);
+          log(lm);
         } break;
       }
     }
@@ -201,6 +214,8 @@ void Cpu::set_stimulus(StimulusContext* stimulus) {
 // Register verification monitor.
 void Cpu::register_monitor(Monitor* monitor) {
   if (monitor == nullptr) return;
+  monitor->register_client(this);
+  monitor_ = monitor;
 }
 
 void Cpu::set_cpu_l1__cmd_q(MessageQueue* mq) {

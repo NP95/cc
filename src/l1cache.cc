@@ -34,8 +34,7 @@
 #include "primitives.h"
 #include "protocol.h"
 #include "utility.h"
-
-// #define VERBOSE_LOGGING
+#include "verif.h"
 
 namespace cc {
 
@@ -735,6 +734,9 @@ void L1CacheAgent::build() {
 // Register Verification Monitor
 //
 void L1CacheAgent::register_monitor(Monitor* monitor) {
+  if (monitor == nullptr) return;
+
+  monitor->register_client(this);
 }
 
 void L1CacheAgent::set_l1_l2__cmd_q(MessageQueue* mq) {

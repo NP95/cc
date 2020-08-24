@@ -37,6 +37,12 @@
 #include <utility>
 #include <vector>
 
+// Utility macro to indicate beginning of macro block.
+#define MACRO_BEGIN do {
+
+// Utility macro to indicate end of macro block.
+#define MACRO_END } while(false)
+
 namespace cc {
 
 using addr_t = std::uint64_t;

@@ -31,6 +31,7 @@
 
 #include "primitives.h"
 #include "utility.h"
+#include "verif.h"
 
 namespace cc {
 
@@ -289,6 +290,8 @@ void NocModel::register_agent(Agent* agent) {
 
 void NocModel::register_monitor(Monitor* monitor) {
   if (monitor == nullptr) return;
+
+  monitor->register_client(this);
 }
 
 bool NocModel::elab() {

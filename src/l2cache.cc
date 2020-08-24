@@ -31,6 +31,7 @@
 
 #include "l1cache.h"
 #include "utility.h"
+#include "verif.h"
 
 namespace cc {
 
@@ -728,6 +729,8 @@ void L2CacheAgent::build() {
 // Register Verification Monitor
 void L2CacheAgent::register_monitor(Monitor* monitor) {
   if (monitor == nullptr) return;
+
+  monitor->register_client(this);
 }
 
 // Elaborate L2 cache model

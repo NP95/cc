@@ -37,6 +37,7 @@
 #include "primitives.h"
 #include "protocol.h"
 #include "utility.h"
+#include "verif.h"
 
 namespace cc {
 
@@ -908,6 +909,9 @@ void DirAgent::register_command_queue(const Agent* origin) {
 // Register a verification monitor instance.
 //
 void DirAgent::register_monitor(Monitor* monitor) {
+  if (monitor == nullptr) return;
+
+  monitor->register_client(this);
 }
 
 // Elaborate Directory model
