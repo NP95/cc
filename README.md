@@ -132,6 +132,9 @@ A simple trace driven simulation can be invoked using:
 ./driver/driver ./cfgs/base.trace
 ```
 
+A full description of the trace-file format can be at:
+[TRACE](./doc/STIMULUS.md).
+
 ## Example
 
 For the example [JSON configuration](./cfgs/base.json.in), which is a
