@@ -64,6 +64,7 @@ enum class L2CmdOpcode {
   Invalid
 };
 
+// Convert to human-readable string
 const char* to_string(L2CmdOpcode opcode);
 
 //
@@ -74,22 +75,36 @@ class L2CmdMsg : public Message {
   L2CmdMsg();
 
  public:
-  //
+  // Convert to a humand-readable string
   std::string to_string() const override;
 
-  //
+  // Command opcode
   L2CmdOpcode opcode() const { return opcode_; }
+
+  // Command address
   addr_t addr() const { return addr_; }
+
+  // Originator L1cache instance.
   L1CacheAgent* l1cache() const { return l1cache_; }
 
+
+  // Set message opcode
   void set_opcode(L2CmdOpcode opcode) { opcode_ = opcode; }
+
+  // Set address
   void set_addr(addr_t addr) { addr_ = addr; }
+
+  // Set originator L1 cache instance
   void set_l1cache(L1CacheAgent* l1cache) { l1cache_ = l1cache; }
 
  private:
   // Originator L1 cache instance (for response message).
   L1CacheAgent* l1cache_ = nullptr;
-  L2CmdOpcode opcode_;
+
+  // Opcode
+  L2CmdOpcode opcode_ = L2CmdOpcode::Invalid;
+
+  // Address
   addr_t addr_;
 };
 
@@ -97,6 +112,7 @@ class L2CmdMsg : public Message {
 //
 enum class L2RspOpcode { L1InstallS, L1InstallE };
 
+// Command opcode.
 const char* to_string(L2RspOpcode opcode);
 
 //
@@ -107,19 +123,26 @@ class L2CmdRspMsg : public Message {
   L2CmdRspMsg();
 
  public:
-  //
+  // Convert to a humand-readable string
   std::string to_string() const override;
 
-  //
+  // Message opcode
   L2RspOpcode opcode() const { return opcode_; }
+
+  // Message IsShared flag
   bool is() const { return is_; }
 
-  //
+  // Set message opcode
   void set_opcode(L2RspOpcode opcode) { opcode_ = opcode; }
+
+  // Set message IsShared
   void set_is(bool is) { is_ = is; }
 
  private:
+  // Response opcode
   L2RspOpcode opcode_;
+
+  // IsShared flag
   bool is_ = false;
 };
 
@@ -130,65 +153,114 @@ using L2CacheModelSet = L2CacheModel::Set;
 // Cache Line Iterator type.
 using L2CacheModelLineIt = L2CacheModel::LineIterator;
 
+
+// Enumeration definition the opcodes which can be executed by the L2
+// cache interpreter.
+//
 enum class L2Opcode {
+
+  // Raise notification that a new transaction has begun.
   StartTransaction,
+
+  // Raise notification that the current transactio has completed.
   EndTransaction,
+
+  // Set blocked status of the currently selected message queue on
+  // a prior transaction to the same line.
   MqSetBlockedOnTransaction,
+  
+  // Set blocked status of the currently selected message queue on
+  // the availability of free entries within the agents transaction
+  // table.
   MqSetBlockedOnTable,
+
+  // Consume message at the head of the currently selected message
+  // queue.
   MsgConsume,
+
+  // Remove a line given by the current line address in the
+  // Transaction State object.
   RemoveLine,
+
+  // Invoke a coherence protocol defined action.
   InvokeCoherenceAction,
+
+  // Set corresponding line in L1 to the Shared state
   SetL1LinesShared,
+
+  // Set corresponding line in L1 to the Invalid state
   SetL1LinesInvalid,
+
+  // Wait on the arrival of a message from one of the agents ingress
+  // message queues.
   WaitOnMsg,
+
+  // Re-evaluate agent after an 'Epoch' has elapsed.
   WaitNextEpoch
 };
 
-//
-//
+
+// Convert Opcode to humand readable string
 const char* to_string(L2Opcode opcode);
 
-//
+// Command class which encapsulates the notion of some 'action' to be
+// performed on the L2 caches architectural state.
 //
 class L2Command {
   friend class L2CommandBuilder;
 
+  virtual ~L2Command();
  public:
   L2Command(L2Opcode opcode) : opcode_(opcode) {}
   virtual void release() const { delete this; }
 
+  // Convert to a human-readable string.
   std::string to_string() const;
 
+  // Accessors:
+  
   // Command opcode
   L2Opcode opcode() const { return opcode_; }
+
   // Command Coherence action
   L2CoherenceAction* action() const { return oprands.action; }
+
   // "Agent" keep out list.
-  std::vector<L1CacheAgent*>& agents() { return oprands.agents; }
   const std::vector<L1CacheAgent*>& agents() const { return oprands.agents; }
+
+  // Command address
   addr_t addr() const { return oprands.addr; }
 
-  // Setters
+  // Setters:
+
+  // Set command address
   void set_addr(addr_t addr) { oprands.addr = addr; }
 
+  // Agent keep out set.
+  std::vector<L1CacheAgent*>& agents() { return oprands.agents; }
+
  private:
-  virtual ~L2Command();
-  //
+
+  // Oprands associated with current opcode
   struct {
     addr_t addr;
     L2CoherenceAction* action;
     std::vector<L1CacheAgent*> agents;
   } oprands;
-  //
+
+  // Command opcode.
   L2Opcode opcode_;
 };
 
-//
+// Builder utility to construct instances of L2 commands.
 //
 class L2CommandBuilder {
  public:
+
+  // Construct an L2 command instance from an opcode.
   static L2Command* from_opcode(L2Opcode opcode);
 
+  // Construct an L2 command from some coherency-defined action.
   static L2Command* from_action(L2CoherenceAction* action);
 };
 
@@ -203,7 +275,12 @@ class L2CommandList {
   L2CommandList() = default;
   ~L2CommandList();
 
+  // Iterators ober command list:
+
+  // Iterator to beginning of the command list.
   const_iterator begin() const { return cmds_.begin(); }
+
+  // Iterator to one-past-the-end of the command list.
   const_iterator end() const { return cmds_.end(); }
 
   // Clear (and destroy) all commands contained in the list.
@@ -224,24 +301,42 @@ class L2CommandList {
   std::vector<L2Command*> cmds_;
 };
 
-//
+// Class to encapsulate the resources required by a pre-defined
+// CommandList.
 //
 class L2Resources {
  public:
   L2Resources(const L2CommandList& cl) { build(cl); }
 
   // Accessors:
+
+  // Number of transaction table entries required.
   std::size_t tt_entry_n() const { return tt_entry_n_; }
+
+  // Number of command credits required.
   std::size_t cc_cmd_n() const { return cc_cmd_n_; }
+
+  // Number of snoop responses required.
   std::size_t cc_snp_rsp_n() const { return cc_snp_rsp_n_; }
+
+  // Number of L1 responses required.
   std::size_t l1_rsp_n() const { return l1_rsp_n_; }
 
+
   // Setters:
+
+  // Set required transaction table entry count.
   void set_tt_entry_n(std::size_t tt_entry_n) { tt_entry_n_ = tt_entry_n; }
+
+  // Set command credit count
   void set_cc_cmd_n(std::size_t cc_cmd_n) { cc_cmd_n_ = cc_cmd_n; }
+
+  // Set snoop response credit count.
   void set_cc_snp_rsp_n(std::size_t cc_snp_rsp_n) {
     cc_snp_rsp_n_ = cc_snp_rsp_n;
   }
+
+  // Set L1 response queue credit count.
   void set_l1_rsp_n(std::size_t l1_rsp_n) { l1_rsp_n_ = l1_rsp_n; }
 
  private:
@@ -256,6 +351,7 @@ class L2Resources {
   // L1 Response Queue.
   std::size_t l1_rsp_n_ = 0;
 };
+
 
 //
 //
@@ -275,7 +371,8 @@ class L2CoherenceAction {
   virtual ~L2CoherenceAction() = default;
 };
 
-//
+
+// Class to encapsulate the Transaction state.
 //
 class L2TState {
  public:
@@ -285,9 +382,12 @@ class L2TState {
   // Destruct/Return to pool
   void release() { delete this; }
 
-  //
+  // Event indicating the start of a transaction.
   kernel::Event* transaction_start() const { return transaction_start_; }
+
+  // Event indiciating the end of a transaction.
   kernel::Event* transaction_end() const { return transaction_end_; }
+
 
   // Get current cache line
   L2LineState* line() const { return line_; }
@@ -297,6 +397,7 @@ class L2TState {
   L2CmdOpcode opcode() const { return opcode_; }
   // L1 cache instance
   L1CacheAgent* l1cache() const { return l1cache_; }
+
 
   // Set current cache line
   void set_line(L2LineState* line) { line_ = line; }
@@ -308,17 +409,26 @@ class L2TState {
   void set_l1cache(L1CacheAgent* l1cache) { l1cache_ = l1cache; }
 
  private:
-  //
-  kernel::Event* transaction_start_;
-  kernel::Event* transaction_end_;
+
+  // Event notified upon the installation of the transaction in the
+  // transaction table.
+  kernel::Event* transaction_start_ = nullptr;
+
+  // Event notified upon the removall of the transaction from the
+  // transaction table.
+  kernel::Event* transaction_end_ = nullptr;
+
   // Cache line on which current transaction is executing. (Can
   // otherwise be recovered from the address, but this simply saves
   // the lookup into the cache structure).
   L2LineState* line_ = nullptr;
+
   // Current transaction addres
   addr_t addr_;
+
   // Current transaction opcode
   L2CmdOpcode opcode_;
+
   // Originating L1Cache instance.
   L1CacheAgent* l1cache_ = nullptr;
 };
@@ -327,38 +437,77 @@ class L2TState {
 //
 using L2TTable = Table<Transaction*, L2TState*>;
 
-//
+// Context class which encapsulates all of the state which persists
+// through a coherence action. 
 //
 class L2CacheContext {
  public:
   L2CacheContext() = default;
   ~L2CacheContext();
 
-  //
+  // Accesors:
+  
+  // Current transaction address
   addr_t addr() const { return addr_; }
+
+  // Current arbitration tournament
   MQArbTmt t() const { return t_; }
+
+  // Current message being processed.
   const Message* msg() const { return mq_->peek(); }
+
+  // Currently nomianted message queue
   MessageQueue* mq() const { return mq_; }
+
+  // Owning L2 cache instance.
   L2CacheAgent* l2cache() const { return l2cache_; }
+
+  // Flag indicating the context owns the current cache line.
   bool owns_line() const { return owns_line_; }
+
+  // L2 line state.
   L2LineState* line() const { return line_; }
+
+  // Flag indicating that the line has been silently evicted.
   bool silently_evicted() const { return silently_evicted_; }
 
+  // Flag indciating that the context owns the current transaction state
+  // object.
   bool owns_tstate() const { return owns_tstate_; }
+
+  // Current transaction state object.
   L2TState* tstate() const { return tstate_; }
 
-  //
+
+  // Setters:
+
+  // Set current address
   void set_addr(addr_t addr) { addr_ = addr; }
+
+  // Set current arbitration tournament.
   void set_t(MQArbTmt t) { t_ = t; }
+
+  // Set current message queue
   void set_mq(MessageQueue* mq) { mq_ = mq; }
+
+  // Set current L2 cache instance.
   void set_l2cache(L2CacheAgent* l2cache) { l2cache_ = l2cache; }
+
+  // Set flag indicating that context owns cache line.
   void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
+
+  // Set cache line
   void set_line(L2LineState* line) { line_ = line; }
+
+  // Set silently evicted line.
   void set_silently_evicted(bool silently_evicted) {
     silently_evicted_ = silently_evicted;
   }
 
+  // Set transaction state.
   void set_tstate(L2TState* tstate) { tstate_ = tstate; }
+
+  // Set flag indicating that context owns current transaction state.
   void set_owns_tstate(bool owns_tstate) { owns_tstate_ = owns_tstate; }
 
  private:
@@ -366,9 +515,10 @@ class L2CacheContext {
   addr_t addr_ = 0;
   // Current Message Queue arbiter tournament.
   MQArbTmt t_;
-  //
+  // Flag indicating that the context owns the line (and is therefore
+  // responsible for its destruction).
   bool owns_line_ = false;
-  //
+  // Cache line state
   L2LineState* line_ = nullptr;
   // Current Message Queue
   MessageQueue* mq_ = nullptr;
@@ -443,7 +593,7 @@ class L2CacheAgent : public Agent {
   void set_l2_cc__snprsp_q(MessageQueue* mq);
 
   // Design Rule Check (DRC) callback
-  virtual void drc() override;
+  void drc() override;
 
   // "Back-door" write-through cache related method(s):
 

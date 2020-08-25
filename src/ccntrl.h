@@ -72,9 +72,12 @@ enum class CCOpcode {
   WaitNextEpoch
 };
 
+// Convert to humand-readable string
 const char* to_string(CCOpcode opcode);
 
-//
+
+// Command class which encapsulates the notion of some 'action' to be
+// performed on the cache controller's architectural state.
 //
 class CCCommand {
   friend class CCCommandBuilder;
@@ -83,45 +86,69 @@ class CCCommand {
   CCCommand(CCOpcode opcode) : opcode_(opcode) {}
   virtual void release() const { delete this; }
 
+  // Convert to a humand readable string.
   std::string to_string() const;
 
   // Accessors
+
+  // Opcode
   CCOpcode opcode() const { return opcode_; }
+
+  // Coherence action instance.
   CCCoherenceAction* action() const { return oprands_.action; }
+
+  // Transaction instance.
   Transaction* t() const { return oprands_.t; }
+
+  // Associated event
   kernel::Event* event() const { return oprands_.e; }
 
-  // Setters
+
+  // Setters:
+
+  // Set transaction instance
   void set_t(Transaction* t) { oprands_.t = t; }
+
+  // Set event isntance.
   void set_event(kernel::Event* e) { oprands_.e = e; }
 
  private:
   virtual ~CCCommand();
-  //
+
+  // Oprand associated with current opcode.
   struct {
     CCCoherenceAction* action;
     Transaction* t;
     kernel::Event* e;
   } oprands_;
-  //
+
+  // Opcode
   CCOpcode opcode_;
 };
 
-//
+
+// Helper class to construct/build CCCommand instances.
 //
 class CCCommandBuilder {
  public:
+
+  // Construct somple command from an opcode.
   static CCCommand* from_opcode(CCOpcode opcode);
 
+  // Construct command from a coherency-defined action.
   static CCCommand* from_action(CCCoherenceAction* action);
 
+  // Construct transaction end command.
   static CCCommand* build_transaction_end(Transaction* t);
 
+  // Construct "block on event" action.
   static CCCommand* build_blocked_on_event(MessageQueue* mq,
                                            kernel::Event* evt);
 };
 
-//
+
+// Class with encapsulates the notion of a sequence of commands to be
+// applied to the cache controller's architectural state.
 //
 class CCCommandList {
   using cb = CCCommandBuilder;
@@ -162,7 +189,8 @@ class CCCommandList {
   std::vector<CCCommand*> cmds_;
 };
 
-//
+// Class to encapsulate the cache controller resources required to
+// perform a given command list.
 //
 class CCResources {
   using key_map = std::map<const Agent*, std::size_t>;
@@ -170,26 +198,57 @@ class CCResources {
  public:
   CCResources(const CCCommandList& cl) { build(cl); }
 
+
   // Accessors:
+
+  // NOC credits requried for cl
   std::size_t noc_credit_n() const { return noc_credit_n_; }
+
+  //
   std::size_t cmd_q_n() const { return cmd_q_n_; }
+
+  //
   std::size_t rsp_q_n() const { return rsp_q_n_; }
+
+  // CohSrt credits required for 'agent'
   std::size_t coh_srt_n(const Agent* agent) const;
+
+  // CohCmd credits require for 'agent'
   std::size_t coh_cmd_n(const Agent* agent) const;
+
+  // Dt credits required for 'agent'
   std::size_t dt_n(const Agent* agent) const;
 
+  // CohSrt keymap
   const key_map& coh_srt() const { return coh_srt_; }
+
+  // CohCmd keymap
   const key_map& coh_cmd() const { return coh_cmd_; }
+
+  // Dt keymap
   const key_map& dt() const { return dt_; }
 
+
   // Setters:
+
+  // Set NOC credits required
   void set_noc_credit_n(std::size_t noc_credit_n) {
     noc_credit_n_ = noc_credit_n;
   }
+
+  // Set command queue entries required
   void set_cmd_q_n(std::size_t cmd_q_n) { cmd_q_n_ = cmd_q_n; }
+
+  // Set response queue entries required
   void set_rsp_q_n(std::size_t rsp_q_n) { rsp_q_n_ = rsp_q_n; }
+
+  // Set CohSrt credits required per agent
   void set_coh_srt_n(const Agent* agent, std::size_t coh_srt_n);
+
+  // Set CohCmd credits required per agent.
   void set_coh_cmd_n(const Agent* agent, std::size_t coh_cmd_n);
+
+  // Set Dt credits required per agent.
   void set_dt_n(const Agent* agent, std::size_t dt_n);
 
  private:
@@ -197,15 +256,20 @@ class CCResources {
 
   // NOC credits required (Messages Emitted).
   std::size_t noc_credit_n_ = 0;
-  //
+
+  // Command queue entries required
   std::size_t cmd_q_n_ = 0;
-  //
+
+  // Response queue entries required
   std::size_t rsp_q_n_ = 0;
-  //
+
+  // CohSrt agent to credit mapping
   key_map coh_srt_;
-  //
+
+  // CohCmd agent to credit mapping
   key_map coh_cmd_;
-  //
+
+  // Dt agent to credit mapping
   key_map dt_;
 };
 
@@ -255,9 +319,12 @@ class CCTState {
   // 
   CCLineState* line_ = nullptr;
 };
+
 using CCTTable = Table<Transaction*, CCTState*>;
 
-//
+
+// Class with encapsulates the state associate with some cache
+// controller action.
 //
 class CCContext {
  public:
@@ -478,12 +545,24 @@ class CCSnpContext {
  public:
   CCSnpContext() = default;
 
-  //
+  // Accesors:
+  
+  // Current snoop arbitration tournament
   MQArbTmt t() const { return t_; }
+
+  // Current cache controller instance.
   CCAgent* cc() const { return cc_; }
+
+  // Currently nominated Message Queue
   MessageQueue* mq() const { return mq_; }
+
+  // Currently message at the head of the nomianted message queue.
   const Message* msg() const { return mq_->peek(); }
+
+  // Currenty transaction state
   CCSnpTState* tstate() const { return tstate_; }
+
+  // Flag indiating that context owns the current transaction state.
   bool owns_tstate() const { return owns_tstate_; }
 
   // Invoking process
@@ -492,12 +571,24 @@ class CCSnpContext {
   // Current time cursor.
   time_t cursor() const { return cursor_; }
 
-  //
+  // Setters:
+  
+  // Set current arbitration tournament
   void set_t(MQArbTmt t) { t_ = t; }
+
+  // Set current cache controller instance.
   void set_cc(CCAgent* cc) { cc_ = cc; }
+
+  // Set currently nomianted message queue
   void set_mq(MessageQueue* mq) { mq_ = mq; }
+
+  // Set current transaction state
   void set_tstate(CCSnpTState* tstate) { tstate_ = tstate; }
+
+  // Set flag indicating that context owns transaction state
   void set_owns_tstate(bool owns_tstate) { owns_tstate_ = owns_tstate; }
+
+  // Set currently executing procsss handle.
   void set_process(AgentProcess* process) { process_ = process; }
 
   // Advance cursor by delta units.
@@ -510,7 +601,7 @@ class CCSnpContext {
   MessageQueue* mq_ = nullptr;
   // L2 cache instance
   CCAgent* cc_ = nullptr;
-  //
+  // Snp transaction state.
   CCSnpTState* tstate_ = nullptr;
   // Flag indiciating that current context owns the tstate and must
   // release the state upon destruction.
