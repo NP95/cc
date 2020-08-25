@@ -36,6 +36,7 @@
 
 namespace cc {
 
+class DirMapper;
 class MessageQueue;
 class NocPort;
 class L2CacheAgent;

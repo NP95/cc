@@ -122,7 +122,7 @@ class SocTop : public kernel::TopModule {
 //
 class Soc {
  public:
-  Soc(const SocConfig& soccfg);
+  explicit Soc(const SocConfig& soccfg);
   ~Soc();
 
   // SOC configuration as defined during construction

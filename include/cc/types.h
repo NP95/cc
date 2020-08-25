@@ -27,7 +27,6 @@
 #ifndef CC_INCLUDE_CC_TYPES_H
 #define CC_INCLUDE_CC_TYPES_H
 
-#include <cstddef>
 #include <cstdint>
 
 namespace cc {

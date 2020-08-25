@@ -47,6 +47,7 @@ class Monitor;
 class CpuMonitor;
 class Statistics;
 class CpuStatistics;
+class Stimulus;
 
 //
 //

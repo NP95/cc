@@ -42,31 +42,47 @@ namespace cc {
 
 // Forwards:
 class Cpu;
-class TraceStimulusContext;
+class Stimulus;
 
+// Enumeration representing CPU opcode types.
 enum class CpuOpcode { Invalid, Load, Store };
 
+// Convert to human readable string
 std::string to_string(CpuOpcode opcode);
 
 // Basic (load/store) command class.
 //
 class Command {
  public:
-  Command() {}
+  explicit Command() = default;
+
+  // Construct Load/Store instruction to address
   Command(CpuOpcode opcode, addr_t addr) : opcode_(opcode), addr_(addr) {}
 
+  // Accessors:
+  
+  // Command address oprand
   addr_t addr() const { return addr_; }
+
+  // Command opcode.
   CpuOpcode opcode() const { return opcode_; }
 
  private:
+  // Command address
   addr_t addr_ = 0;
+
+  // Opcode (Load/Store)
   CpuOpcode opcode_ = CpuOpcode::Invalid;
 };
 
-// TODO: cleanup.
+
 // Transaction frontier record.
+//
 struct Frontier {
+  // Time at which issue occurs.
   kernel::Time time;
+
+  // Command to be issued.
   Command cmd;
 };
 
@@ -193,25 +209,34 @@ class TraceStimulus : public Stimulus {
   ~TraceStimulus();
 
  private:
-  // Phases
+  // Build phase
   void build();
+
+  // Elaborate phase
   bool elab() override;
+
+  // Design Rule Check (DRC) phase
   void drc() override;
 
   // Stimulus:
   StimulusContext* register_cpu(Cpu* cpu) override;
 
+  // Parse trace file
   void parse_tracefile();
 
+  // Parse trace file header mappping CPU ID to path.
   std::vector<DequeueContext*> compute_index_table();
 
-  // Registered CPU
+  // Registered CPU -> Context mapping.
   std::map<Cpu*, DequeueContext*> cpumap_;
-  // Trace input
+
+  // Trace input stream
   std::istream* is_ = nullptr;
-  //
+
+  // Current line in trace file
   std::size_t line_ = 0;
-  //
+
+  // Current column in trace file
   std::size_t col_ = 0;
 };
 
@@ -232,12 +257,14 @@ class ProgrammaticStimulus : public Stimulus {
   ProgrammaticStimulus(kernel::Kernel* k, const StimulusConfig& config);
   ~ProgrammaticStimulus();
 
+  // Register a new CPU instance stimulus object.
   StimulusContext* register_cpu(Cpu* cpu) override;
 
-  //
+  // Return CPU_ID for provided CPU agent instance.
   std::uint64_t get_cpu_id(const Cpu* cpu);
 
-  //
+  // Push new stimulus item to cpu CPU_ID at the time denoted by the
+  // current cursor.
   void push_stimulus(std::uint64_t cpu_id, CpuOpcode opcode, addr_t addr);
 
   // Advance the current stimulus cursor to the current simulation
@@ -260,8 +287,7 @@ class ProgrammaticStimulus : public Stimulus {
   std::map<const Cpu*, std::uint64_t> id_map_;
 };
 
-//
-//
+// Stimulus factory; construct appropriate stimulus for configuration.
 Stimulus* stimulus_builder(kernel::Kernel* k, const StimulusConfig& cfg);
 
 }  // namespace cc

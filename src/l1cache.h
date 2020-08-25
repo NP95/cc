@@ -49,6 +49,7 @@ class Monitor;
 class L1CacheMonitor;
 class Statistics;
 class L1CacheStatistics;
+class L1CacheAgentProtocol;
 
 enum class L1CmdOpcode {
   // CPU initiates a Load to a region of memory of some unspecified

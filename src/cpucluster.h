@@ -41,6 +41,8 @@ class Cpu;
 class NocPort;
 class Monitor;
 class Statistics;
+class DirMapper;
+class Stimulus;
 
 class CpuCluster : public Agent {
   friend class SocTop;

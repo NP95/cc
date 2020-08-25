@@ -37,11 +37,6 @@
 namespace cc {
 
 // Forwards
-class Stimulus;
-class L1CacheAgentProtocol;
-class L2CacheAgentProtocol;
-class DirProtocol;
-class DirMapper;
 class ProtocolBuilder;
 
 //

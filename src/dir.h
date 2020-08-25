@@ -49,6 +49,7 @@ class CoherenceList;
 class DirCoherenceAction;
 class DirNocEndpoint;
 class DirResources;
+class DirProtocol;
 class Monitor;
 
 enum class DirOpcode {

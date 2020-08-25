@@ -45,6 +45,7 @@ class MessageQueue;
 class LLCNocEndpoint;
 class CpuCluster;
 class NocPort;
+class Stimulus;
 
 //
 //
