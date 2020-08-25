@@ -149,7 +149,69 @@ which contains the line of interest.
 
 #### Load to a Shared Cache Line
 
+1. CPU initiates a Load to a cache line.
+2. L1 consumes L1Cmd issued by child CPU and identifies that the line
+   is not present in its cache. L1 issues a L2Cmd to its owning L2
+   instance which instructs L2 that it requires the line in a Shared
+   state. As the initiating L1 command cannot complete, the message
+   queue through which it originated is marked as blocked until
+   completion of the current transaction.
+3. L2 consumes L2Cmd issued by child L1 and identifies that the line
+   is not present in its cache. L2 initiates a fill operation by
+   issuing a ReadShared AceCmd to its AR channel.
+4. The AceCmd is consumed by the owning cache controller instance and
+   a new coherent transaction is started. A CohSrt message is issued
+   to the directory which is home to the addressed cache
+   line. Immediately after the CohSrt, a CohCmd is issued to the same
+   directory containing the ReadShared opcode.
+5. The directory consumes the CohSrt and CohCmd messages and
+   identifies that the requested line is present in some number of
+   caches within the system. The directory issues SnpMsg to each of
+   the sharer caches.
+6. Sharer L2 caches receive an snoop message indicating a ReadShared
+   command. A sharer cache may choose to either transfer a copy of its
+   line to the requesting agent, or it may not choose to transfer.
+   Additionally, the agent may choose to either retain the line or
+   remove it. In the case of silent evictions, a snooped agent may no
+   longer have the line resident in its cache. The snooped agent
+   issued a SnpCmdRspMsg back to the directory indicating its
+   nominated decision.
+7. The directory receives all snoop responses and computes the overall
+   coherence "consensus" indicating the final state of the line. If no
+   snooped agents have transfered the line to the requestor agent, the
+   directory instructions the LLC to forward the line to the
+   requestor. The directory forms the overall snoop response message
+   back to the requestor, indicating the number of Dt messages it can
+   expect to receive before the overall operation is completed.
+8. Upon reception of the CmdEnd message, the cache controller forms
+   the final ACE result back to the L2 through the R channel, which
+   eventually causes the missing load instruction to be replayed and
+   completed.
+
 #### Store to a Shared Cache Line
+
+1. As before; directory receives a message indicating that originator
+   agent requests a cache line in an Unique state. The directories
+   state indicates that the line is present in some number of agents
+   within the system. An agent within the system may have been the
+   nominated owner of the cache line as it is dirty with respect to
+   the backing store (LLC).
+2. The directory issues snoop commands to the agents identified as
+   having the cache line. Agents which have the line in the Shared
+   state may transfer data (intervention) to the requestor agent
+   through a DtMsg. The owning agent may either perform a writeback to
+   memory and then optionally send the line in a clean state to the
+   requestor in a clean state, or it may choose to pass ownership of
+   the line to the requesting agent. Assuming the originator agent has
+   indicated that it may receive ownership of the line, the originator
+   then accepts the line responsibility of updating the backing-store
+   when the line is evicted from its cache.
+3. The overall coherence result is computed and the number of expected
+   data transfers to the originator agent is computed. The directory
+   indicates that the originator agent has become the owner.
+4. The originator agent receives notification that it has received in
+   the line in an Exclusive state, the failed Store instruction is
+   replayed and committed. The transaction completes.
 
 ## Agents
 
