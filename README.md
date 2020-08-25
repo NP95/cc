@@ -1,4 +1,4 @@
-# Cache Coherency Performance and Validation Model
+# "CC": A Cache Coherency Performance and Validation Model
 
 ## Synopsis
 
@@ -22,7 +22,8 @@ which can at time lead to significant problems. Indeed, from the
 author's own experience, a very large semiconductor company (beginning
 with a Q.) produced an ARM-based SOC which exhitbited a very serious
 coherence protocol deadlock which was not detected until the near
-complete RTL had reached emulation.
+complete RTL had reached emulation. The project was eventually
+cancelled and the team laid-off.
 
 ## Discussion
 
@@ -36,16 +37,15 @@ aspects:
 * The context of a coherency model is system-wide, which necessitates
   either functional RTL or behavioral models of a large portion of the
   system. Such models are either large and difficult to simulate, or
-  they arriveo only relatively late into the overall development
-  process.
+  they arrive only late into the overall development process.
 * The functional correctness of coherency protocols is incredibly
-  important and bugs can cause either data corruption or, in the worst
-  case, a complete system hang in the case of a protocol deadlock.
+  important and bugs can cause, at best, data corruption or, at worst,
+  a complete system hang in the case of a protocol deadlock.
 * Coherency protocols play a role in the overall performance of a
   multi-processor system as their behavior directly influences the
   ability of CPU to share state between caches and to source state
   through intervention.
-* There are many tuneable characteristics of a coherence sub-system
+* There are many tuneable characteristics of a coherence sub-systems
   that may impact performance in difficult to understand ways. The
   number of commands which may be inflight from a CPU may affect
   performance if too small, whereas it may have a negative power and
@@ -62,7 +62,6 @@ the presence of completed RTL, complex scenarios can be debugged in
 the context of a lightweight and fast simulation environment, than be
 debugged quicker than a large waveform dump.
 
-
 A detailed (work in progress) architectural specification of the
 performance model can be found at: [Architectural Spec](./doc/ARCH.md)
 
@@ -75,7 +74,7 @@ a large undertaking and is therefore difficult to complete when
 working independently and on a part-time basis. Please consider
 therefore that the work contained herein may be incomplete and should
 not serve the basis as a production quality verification
-model. Instead, please consider this work to be a work-in-progress.
+model.
 
 # Usage:
 
@@ -85,9 +84,12 @@ limited dependencies on outside libraries. SystemC has not been used.
 To compile:
 
 ``` shell
+# Clone and initialize working repository
 git clone http://www.github.com/stephenry/cc
 pushd cc
 git submodule update
+
+# Build project
 mkdir build
 pushd build
 cmake ..
@@ -142,30 +144,31 @@ very simple single CPU system, following trace causes the zeroth CPU
 to emit a `LOAD` instruction at time `200` to address `0x1000`, and a
 subsequent `LOAD` to the same line at time `400`.
 
-
 ```
 // Set paths
 M:0,top.cluster.cpu
-// Advance cursor
+// Advance cursor to 200
 +200
-// Issue Load to 0
+// Issue Load to 0x1000
 C:0,LD,0x1000
-// Advance cursor
+// Advance cursor to 400
 +200
-// Issue Load to 0
+// Issue Load to 0x1000
 C:0,LD,0x1000
 ```
 
-The first `LOAD` instruction causes a compulsary miss in the CPU's
-associated cache, which initiates the fill operation. The line is
-eventually installed in the cache in the `Exclusive` state, and the
-`LOAD` replayed. Sometime later, the second `LOAD` instruction is
-issued, hits in the cache and commits immediately (after some small
-cache lookup penalty).
+The first `LOAD` instruction causes a compulsary miss in the CPU's L1
+cache, which initiates the fill operation. The line is eventually
+installed in the cache in the `Exclusive` state, and the `LOAD`
+replayed. Sometime later, the second `LOAD` instruction is issued,
+hits in the cache and commits immediately (after some small cache
+lookup penalty).
 
 The simulate emits a full trace of all messages communicated during
 the execution of the stimulus. Upon completion, gathered statistics
-are emitted, below:
+are emitted from which it can be seen that one load miss took place
+(the initial compulsory miss), followed by two hits corresponding to
+the replayed instruction and the subsequent load to the same line.
 
 ```
 [410.2:FI;top.statistics (M)]:CPU statistics path top.cluster.cpu: '{transaction_count:2}
@@ -173,5 +176,5 @@ are emitted, below:
 ```
 
 The example trace-file can be readily extended as necessary, but as
-the simulator remains a work-in-progress, complicated or non-trivial
-sequences are not yet guarenteed to complete successfully.
+the simulator remains a work-in-progress, non-trivial sequences are
+not yet guarenteed to complete successfully.
