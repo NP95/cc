@@ -1,6 +1,8 @@
 {
     "name" : "top",
     "protocol" : "moesi",
+    "enable_verif" : true,
+    "enable_stats" : true,
     "ccls" : [
         {
             "name" : "cluster",

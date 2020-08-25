@@ -100,6 +100,7 @@ void CpuCluster::register_statistics(Statistics* statistics) {
   if (statistics == nullptr) return;
 
   for (std::size_t i = 0; i < config_.l1c_configs.size(); i++) {
+    l1cs_[i]->register_statistics(statistics);
     cpus_[i]->register_statistics(statistics);
   }  
 }

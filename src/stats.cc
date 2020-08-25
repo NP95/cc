@@ -34,6 +34,46 @@
 
 namespace cc {
 
+std::string CpuStatisticsState::to_string() const {
+  using std::to_string;
+  KVListRenderer r;
+  r.add_field("transaction_count", to_string(transaction_count));
+  return r.to_string();
+}
+
+std::string L1CacheStatisticsState::to_string() const {
+  using std::to_string;
+  KVListRenderer r;
+  r.add_field("store_hit_n", to_string(store_hit_n));
+  r.add_field("store_miss_n", to_string(store_miss_n));
+  r.add_field("load_hit_n", to_string(load_hit_n));
+  r.add_field("load_miss_n", to_string(load_miss_n));
+  return r.to_string();
+}
+
+Statistics::Statistics(kernel::Kernel* k, const std::string& name)
+    : Module(k, name) {
+  struct ReporterProcess : kernel::Process {
+    ReporterProcess(kernel::Kernel* k, const std::string& name)
+        : Process(k, name) {}
+    // 
+    void set_statistics(Statistics* s) { s_ = s; }
+
+    // Callbacks
+    void fini() override {
+      s_->report_statistics();
+    }
+    
+   private:
+    Statistics* s_ = nullptr;
+  };
+  
+  ReporterProcess* r = new ReporterProcess(k, "reporter");
+  r->set_statistics(this);
+  reporter_ = r;
+  add_child_process(r);
+}
+
 Statistics::~Statistics() {
   // Destruct CPU statistics
   for (const std::pair<Cpu*, CpuStatisticsState*>& p : cpu_stats_) {
@@ -43,6 +83,7 @@ Statistics::~Statistics() {
   for (const std::pair<L1CacheAgent*, L1CacheStatisticsState*>& p : l1c_stats_) {
     delete p.second;
   }
+  delete reporter_;
 }
 
 const CpuStatisticsState* Statistics::cpu_state(Cpu* cpu) const {
@@ -103,21 +144,44 @@ void Statistics::end_transaction_event(Cpu* cpu) {
   }
 }
 
-void Statistics::write_hit_event(L1CacheAgent* l1c) {
+void Statistics::event(L1CacheStatistics::Event event, L1CacheAgent* l1c) {
   if (auto it = l1c_stats_.find(l1c); it != l1c_stats_.end()) {
     L1CacheStatisticsState* s = it->second;
-    s->write_hit_n++;
+    switch (event) {
+      case L1CacheStatistics::StoreHit: {
+        s->store_hit_n++;
+      } break;
+      case L1CacheStatistics::LoadHit: {
+        s->load_hit_n++;
+      } break;
+      case L1CacheStatistics::StoreMiss: {
+        s->store_miss_n++;
+      } break;
+      case L1CacheStatistics::LoadMiss: {
+        s->load_miss_n++;
+      } break;
+    }
   } else {
     // 
   }
 }
 
-void Statistics::read_hit_event(L1CacheAgent* l1c) {
-  if (auto it = l1c_stats_.find(l1c); it != l1c_stats_.end()) {
-    L1CacheStatisticsState* s = it->second;
-    s->read_hit_n++;
-  } else {
-    // 
+void Statistics::report_statistics() const {
+  // Report CPu stastics
+  for (const auto& p : cpu_stats_) {
+    LogMessage msg("CPU statistics path ");
+    msg.append(p.first->path());
+    msg.append(": ");
+    msg.append(p.second->to_string());
+    log(msg);
+  }
+  // Report L1 Cache statistics
+  for (const auto& p : l1c_stats_) {
+    LogMessage msg("L1 Cache statistics ");
+    msg.append(p.first->path());
+    msg.append(": ");
+    msg.append(p.second->to_string());
+    log(msg);
   }
 }
 

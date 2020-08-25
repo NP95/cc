@@ -232,6 +232,10 @@ class SocConfigBuilderJson {
     CHECK_AND_SET(name);
     // Set .protocol
     CHECK(protocol);
+    // Set .enable_verif
+    CHECK_AND_SET(enable_verif);
+    // Set .enable_stats
+    CHECK_AND_SET(enable_stats);
     // Construct protocol definition.
     const std::string protocol = jtop_["protocol"];
     pb_ = construct_protocol_builder(protocol);

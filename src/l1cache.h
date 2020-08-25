@@ -47,6 +47,8 @@ class L1LineState;
 class L1CoherenceAction;
 class Monitor;
 class L1CacheMonitor;
+class Statistics;
+class L1CacheStatistics;
 
 enum class L1CmdOpcode {
   // CPU initiates a Load to a region of memory of some unspecified
@@ -118,10 +120,16 @@ enum class L1CacheEvent {
   InstallWriteable,
 
   // L1 cache experiences a read hit.
-  ReadHit,
+  LoadHit,
+
+  // L1 cache experiences a read miss.
+  LoadMiss,
 
   // L1 cache experiences a write hit.
-  WriteHit,
+  StoreHit,
+
+  // L1 cache experiences a write miss.
+  StoreMiss,
 
   // Line is invalidated.
   InvalidateLine,
@@ -536,11 +544,15 @@ class L1CacheAgent : public Agent {
   L1TTable* tt() const { return tt_; }
   // L1 Cache Monitor instance (if attached).
   L1CacheMonitor* monitor() const { return monitor_; }
+  // L1 Cache Statistics
+  L1CacheStatistics* statistics() const { return statistics_; }
 
   // Build Phase:
   void build();
   // Register Verification Monitor
   void register_monitor(Monitor* monitor);
+  // Register L1 cache statistics.
+  void register_statistics(Statistics* statistics);
 
   // Elaboration Phase:
   bool elab() override;
@@ -593,6 +605,8 @@ class L1CacheAgent : public Agent {
   L1CacheAgentProtocol* protocol_ = nullptr;
   // Verification monitor instance.
   L1CacheMonitor* monitor_ = nullptr;
+  // Register statistics
+  L1CacheStatistics* statistics_ = nullptr;
   // Cache configuration.
   L1CacheAgentConfig config_;
 };

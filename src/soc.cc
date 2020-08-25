@@ -79,7 +79,8 @@ void SocTop::build(const SocConfig& cfg) {
 
   if (cfg.enable_stats) {
     // Attach statistics:
-    statistics_ = new Statistics;
+    statistics_ = new Statistics(k(), "statistics");
+    add_child_module(statistics_);
   }
   
   // Construct stimulus (as module)

@@ -283,12 +283,18 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             issue_update_state(cl, line, State::IS);
             // Issue GetS
             l2cmdmsg->set_opcode(L2CmdOpcode::L1GetS);
+            // Raise Event
+            cl.push_back(cb::build_cache_event(L1CacheEvent::LoadMiss,
+                                               msg->addr()));
           } break;
           case L1CmdOpcode::CpuStore: {
             // Update state I -> IE
             issue_update_state(cl, line, State::IE);
             // Issue GetS
             l2cmdmsg->set_opcode(L2CmdOpcode::L1GetE);
+            // Raise Event
+            cl.push_back(cb::build_cache_event(L1CacheEvent::StoreMiss,
+                                               msg->addr()));
           } break;
           default: {
           } break;
@@ -322,7 +328,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             rsp->set_t(msg->t());
             issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp);
             // Raise event
-            cl.push_back(cb::build_cache_event(L1CacheEvent::ReadHit, msg->addr()));
+            cl.push_back(cb::build_cache_event(L1CacheEvent::LoadHit, msg->addr()));
             // Advance to next
             cl.next_and_do_consume(true);
           } break;
@@ -341,6 +347,9 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             issue_msg_to_queue(L1EgressQueue::L2CmdQ, cl, ctxt, l2cmdmsg);
             // Start new transaction
             cl.transaction_start(msg->t(), config.is_blocking_cache);
+            // Raise Event
+            cl.push_back(cb::build_cache_event(L1CacheEvent::StoreMiss,
+                                               msg->addr()));
             // State transitions to SE state.
             issue_update_state(cl, line, State::SE);
           } break;
@@ -358,7 +367,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             // Issue response to CPU.
             issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp);
             // Raise event
-            cl.push_back(cb::build_cache_event(L1CacheEvent::ReadHit, msg->addr()));
+            cl.push_back(cb::build_cache_event(L1CacheEvent::LoadHit, msg->addr()));
             // Advance to next and consume
             cl.next_and_do_consume(true);
           } break;
@@ -369,7 +378,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             // Issue response to CPU.
             issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp);
             // Raise event
-            cl.push_back(cb::build_cache_event(L1CacheEvent::WriteHit, msg->addr()));
+            cl.push_back(cb::build_cache_event(L1CacheEvent::StoreHit, msg->addr()));
             // Advance to next and consume
             cl.next_and_do_consume(true);
           } break;
@@ -386,7 +395,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             rsp->set_t(msg->t());
             issue_msg_to_queue(L1EgressQueue::CpuRspQ, cl, ctxt, rsp);
             // Raise event
-            cl.push_back(cb::build_cache_event(L1CacheEvent::ReadHit, msg->addr()));
+            cl.push_back(cb::build_cache_event(L1CacheEvent::LoadHit, msg->addr()));
             // Advance to next and consume
             cl.next_and_do_consume(true);
           } break;
@@ -401,7 +410,7 @@ class MOESIL1CacheProtocol : public L1CacheAgentProtocol {
             // to M immediately.
             cl.push_back(L1Opcode::SetL2LineModified);
             // Raise event
-            cl.push_back(cb::build_cache_event(L1CacheEvent::WriteHit, msg->addr()));
+            cl.push_back(cb::build_cache_event(L1CacheEvent::StoreHit, msg->addr()));
             // Advance to next and consume
             cl.next_and_do_consume(true);
           } break;

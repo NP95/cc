@@ -35,6 +35,7 @@
 #include "protocol.h"
 #include "utility.h"
 #include "verif.h"
+#include "stats.h"
 
 namespace cc {
 
@@ -84,10 +85,14 @@ const char* to_string(L1CacheEvent event) {
       return "InstallShareable";
     case L1CacheEvent::InstallWriteable:
       return "InstallWriteable";
-    case L1CacheEvent::ReadHit:
-      return "ReadHit";
-    case L1CacheEvent::WriteHit:
-      return "WriteHit";
+    case L1CacheEvent::LoadHit:
+      return "LoadHit";
+    case L1CacheEvent::LoadMiss:
+      return "LoadMiss";
+    case L1CacheEvent::StoreHit:
+      return "StoreHit";
+    case L1CacheEvent::StoreMiss:
+      return "StoreMiss";
     case L1CacheEvent::InvalidateLine:
       return "InvalidateLine";
     case L1CacheEvent::Invalid:
@@ -459,26 +464,50 @@ class L1CommandInterpreter {
   //
   void execute_raise_event(L1CacheContext& ctxt, const L1Command* cmd) {
     L1CacheAgent* l1cache = ctxt.l1cache();
+    
     L1CacheMonitor* monitor = l1cache->monitor();
-    if (monitor) {
-      const L1CacheEvent event = cmd->cache_event();
-      switch (event) {
-        case L1CacheEvent::InstallShareable: {
+    L1CacheStatistics* statistics = l1cache->statistics();
+    const L1CacheEvent event = cmd->cache_event();
+    switch (event) {
+      case L1CacheEvent::InstallShareable: {
+        if (monitor) {
           monitor->install_line(l1cache, cmd->addr());
-        } break;
-        case L1CacheEvent::InstallWriteable: {
+        }
+      } break;
+      case L1CacheEvent::InstallWriteable: {
+        if (monitor) {
           monitor->install_line(l1cache, cmd->addr(), true);
-        } break;
-        case L1CacheEvent::ReadHit: {
+        }
+      } break;
+      case L1CacheEvent::LoadHit: {
+        if (monitor) {
           monitor->read_hit(l1cache, cmd->addr());
-        } break;
-        case L1CacheEvent::WriteHit: {
+        }
+        if (statistics) {
+          statistics->event(L1CacheStatistics::LoadHit, l1cache);
+        }
+      } break;
+      case L1CacheEvent::LoadMiss: {
+        if (statistics) {
+          statistics->event(L1CacheStatistics::LoadMiss, l1cache);
+        }
+      } break;
+      case L1CacheEvent::StoreHit: {
+        if (monitor) {
           monitor->write_hit(l1cache, cmd->addr());
-        } break;
-        default: {
-          // Unknown event
-        } break;
-      }
+        }
+        if (statistics) {
+          statistics->event(L1CacheStatistics::StoreHit, l1cache);
+        }
+      } break;
+      case L1CacheEvent::StoreMiss: {
+        if (statistics) {
+          statistics->event(L1CacheStatistics::StoreMiss, l1cache);
+        }
+      } break;
+      default: {
+        // Unknown event
+      } break;
     }
   }
 
@@ -805,6 +834,13 @@ void L1CacheAgent::register_monitor(Monitor* monitor) {
 
   monitor->register_client(this);
   monitor_ = monitor;
+}
+
+void L1CacheAgent::register_statistics(Statistics* statistics) {
+  if (statistics == nullptr) return;
+
+  statistics->register_client(this);
+  statistics_ = statistics;
 }
 
 void L1CacheAgent::set_l1_l2__cmd_q(MessageQueue* mq) {

@@ -28,6 +28,7 @@
 #ifndef CC_LIBCC_SRC_STATS_H
 #define CC_LIBCC_SRC_STATS_H
 
+#include "cc/kernel.h"
 #include <set>
 #include <map>
 
@@ -51,6 +52,9 @@ struct CpuStatistics {
 
 
 struct CpuStatisticsState {
+  // Convert to humand-readable format.
+  std::string to_string() const;
+  
   // Total number of transaction that have completed.
   std::size_t transaction_count = 0;
 };
@@ -58,28 +62,37 @@ struct CpuStatisticsState {
 
 
 struct L1CacheStatistics {
-  // Write hit event
-  virtual void write_hit_event(L1CacheAgent* l1c) = 0;
+  enum Event {
+    StoreHit, LoadHit, StoreMiss, LoadMiss
+  };
 
-  // Read hit event
-  virtual void read_hit_event(L1CacheAgent* l1c) = 0;
+  virtual void event(Event event, L1CacheAgent* l1c) = 0;
 };
 
 struct L1CacheStatisticsState {
-  // Total number of write hits
-  std::size_t write_hit_n = 0;
+  // Convert to humand-readable format.
+  std::string to_string() const;
+  
+  // Total number of store hits
+  std::size_t store_hit_n = 0;
 
-  // Total number of read hits
-  std::size_t read_hit_n = 0;
+  // Total number of store misses.
+  std::size_t store_miss_n = 0;
+
+  // Total number of load hits
+  std::size_t load_hit_n = 0;
+
+  // total number of load misses.
+  std::size_t load_miss_n = 0;
 };
 
 
-class Statistics : public CpuStatistics,
+class Statistics : public kernel::Module,
+                   public CpuStatistics,
                    public L1CacheStatistics {
  public:
-  Statistics() = default;
+  Statistics(kernel::Kernel* k, const std::string& name);
   virtual ~Statistics();
-
 
   // Accumulated statistics:
 
@@ -122,12 +135,14 @@ class Statistics : public CpuStatistics,
 
   // L1 Cache statistics:
   //
+  void event(L1CacheStatistics::Event event, L1CacheAgent* agent) override;
 
+  
   // Write hit
-  void write_hit_event(L1CacheAgent* l1c) override;
+  // void write_hit_event(L1CacheAgent* l1c) override;
 
   // Read hit
-  void read_hit_event(L1CacheAgent* l1c) override;
+  //void read_hit_event(L1CacheAgent* l1c) override;
   
 
   // L2 Cache statistics:
@@ -148,6 +163,8 @@ class Statistics : public CpuStatistics,
 
 
  private:
+  void report_statistics() const;
+  
   // Set of register CPU instances.
   std::set<Cpu*> cpus_;
   
@@ -159,6 +176,9 @@ class Statistics : public CpuStatistics,
 
   // L1 Cache -> statistic map
   std::map<L1CacheAgent*, L1CacheStatisticsState*> l1c_stats_;
+
+  // Reporter process
+  kernel::Process* reporter_ = nullptr;
 };
 
 } // namespace cc
