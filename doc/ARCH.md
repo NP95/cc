@@ -219,7 +219,7 @@ and therefore one is forced do so in an automated manner. Within the
 context of the current architectural model, the following steps have
 been made to mitigate the presence of protocol deadlocks:
 
-1. Virtual Channels
+### Virtual Channels
 
 As messages arrive at a coherent agent, they are enqueued to await
 processing. As some function of the current architectural state of the
@@ -240,7 +240,7 @@ messages belonging to different classes. As each, independent, queue
 is arbitrated independently, messages which arrive later in time, can
 overtake prior messages which may be blocked.
 
-2. Guaranteed Forward Process for certain Message Classes
+### Guaranteed Forward Process for certain Message Classes
 
 Transactional messages which are dependent upon the architectural
 state of the system may become blocked awaiting the completion of some
@@ -253,7 +253,7 @@ have the architectural guarantee of forward progress are those which
 have guarenteed resources reserved before issue, such as in the case
 of snoop responses.
 
-3. Resource reservation
+### Resource reservation
 
 Coherency protocols often exhibit expansionary behavior, where a
 single message can cause the creation of some number of child messages

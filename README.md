@@ -132,90 +132,43 @@ A simple trace driven simulation can be invoked using:
 ./driver/driver ./cfgs/base.trace
 ```
 
-# Trace format
+## Example
 
-Stimulation stimulus can be defined using the following grammar:
+For the example [JSON configuration](./cfgs/base.json.in), which is a
+very simple single CPU system, following trace causes the zeroth CPU
+to emit a `LOAD` instruction at time `200` to address `0x1000`, and a
+subsequent `LOAD` to the same line at time `400`.
 
-```
-CPU_ID = [0-9]+
-
-TIME_DELTA = [0-9]+
-
-ADDR = [0-9]+
-
-COMMAND = LD | ST
-
-STATMENT = PATH_STATEMENT | TIME_STATEMENT | COMMAND_STATEMENT
-
-PATH_STATEMENT = 'M' ':' CPU_ID ',' PATH '\n'
-
-TIME_STATEMENT = '+' TIME_DELTA '\n'
-
-COMMAND_STATEMENT = 'C' ':' CPU_ID ',' COMMAND ',' ADDR '\n'
 
 ```
-
-Load and store instructions are issued to each CPU instance in the
-simulation. At present, there is little ability for the stimulus to
-control the ACE commands emitted by the cache controller as this is
-itself some function of prior instructions and the implementation. CPU
-are identified by a unique ID which is defined by map statements
-prepended to the header of the stimulus file. These map statements
-form a relation between a unique integer ID, and the CPU path within
-the simulation object heirarchy. The time at which stimulus is emitted
-by the CPU is approximated by a cursor present which advances in
-response to a time statement. The time at which commands issue into
-the simulation is only approximate as back-pressure may occur during
-the execution of prior commands, which then causes later commands to
-be delayed.
-
-There is limited ability to detect malformed trace files, therefore
-caution should be applied during their construction.
-
-## Path Statement
-
-Path statements map a simulated CPU instance with a unique integer
-ID. By performing the map between ID and path once at the start of the
-simulation, the costly instance resolution process, which requires the
-path string to be parsed, can be avoided for all subsequent
-commands. If the path cannot be found within the simulated design
-heirarchy, the model parse process is halted and the simulation
-terminated.
-
-The following path statement maps `CPU_ID` 0 to the simulated CPU
-instance located at: top.cluster.cpu.
-
-```
+// Set paths
 M:0,top.cluster.cpu
-```
-
-## Time Statement
-
-Time statements advance the time at which commands present in the
-stimulus issue. Time statements are relative to prior time statements
-and can only advance simulation time. Instructions which are issued
-concurrent at the same time to the same CPU are issued sequentially in
-the order in which they appear in the simulation file.
-
-The following time statement advances simulation time by 200 time units.
-
-```
+// Advance cursor
 +200
-```
-
-## Command Statement
-
-Command statements describe a load or store instruction issued by a
-simulated CPU instance to its associated L1 cache. Two opcodes are
-supported, `LD` which denotes a load instruction and `ST` which
-denotes a store instruction. The width of the operation is
-indeterminate and assumed to be contained entirely within a single
-cache line. There is no ability within the simulation to fetch regions
-of memory which straddle multiple lines of memory.
-
-The following command statement, schedules `CPU_ID` 0 to issue a load
-to address 0x1000:
-
-```
+// Issue Load to 0
+C:0,LD,0x1000
+// Advance cursor
++200
+// Issue Load to 0
 C:0,LD,0x1000
 ```
+
+The first `LOAD` instruction causes a compulsary miss in the CPU's
+associated cache, which initiates the fill operation. The line is
+eventually installed in the cache in the `Exclusive` state, and the
+`LOAD` replayed. Sometime later, the second `LOAD` instruction is
+issued, hits in the cache and commits immediately (after some small
+cache lookup penalty).
+
+The simulate emits a full trace of all messages communicated during
+the execution of the stimulus. Upon completion, gathered statistics
+are emitted, below:
+
+```
+[410.2:FI;top.statistics (M)]:CPU statistics path top.cluster.cpu: '{transaction_count:2}
+[410.2:FI;top.statistics (M)]:L1 Cache statistics top.cluster.l1cache: '{store_hit_n:0, store_miss_n:0, load_hit_n:2, load_miss_n:1}
+```
+
+The example trace-file can be readily extended as necessary, but as
+the simulator remains a work-in-progress, complicated or non-trivial
+sequences are not yet guarenteed to complete successfully.

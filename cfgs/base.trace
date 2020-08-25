@@ -3,8 +3,9 @@ M:0,top.cluster.cpu
 // Advance cursor
 +200
 // Issue Load to 0
-C:0,LD,0
+C:0,LD,0x1000
 // Advance cursor
 +200
 // Issue Load to 0
-C:0,LD,0
+C:0,LD,0x1000
+
