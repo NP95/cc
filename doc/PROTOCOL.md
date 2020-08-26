@@ -1,4 +1,4 @@
-# "CC" Protocol Specification
+# CC Protocol Specification
 
 CC implements a standard MOESI protocol using the ARM ACE 4.0
 Specification.

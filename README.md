@@ -7,25 +7,26 @@
 Cache coherency protocols are the architectural mechanisms by which
 the Single Writer/Multiple Reader (SWMR) invariant in cached,
 multiprocessors systems is managed. Although the performance and
-functionaly correctness of such protocols form a central aspect of the
+functional correctness of such protocols form a central aspect of the
 modern-day System-On-Chip (SOC) design, there is often inability to
 model either the performance characteristics or validate the
 functional correctness of such protocols in the absence of working
 RTL. Very often there is insufficient time to fully understand the
 minutae of a top-level design before important architectural decisions
 or trade-offs must be made. In addition, quite often teams lack
-individuals with the cross-disciplined skillset required by the nature
-of the activity, including: a detailed understanding of computer
+individuals with the cross-disciplined skillset required to accomplish
+the task, including: a detailed understanding of computer
 architecture, knowledge of software design, hardware design, and
 domain knowledge (coherency). Often decisions are made to commit to
 some incremental version of a design which has gone before, without
-truely understand the true performance and/or functional trade-offs,
-which only become known until after a large commitment has been
-made. From the author's own experience, a very large and well-known
-semiconductor company (beginning with a Q.) produced an ARM-based SOC
-which exhibited a very serious (system halting) protocol deadlock
-which was not detected until the near complete RTL had reached
-emulation. The project was eventually cancelled and the team laid-off.
+truely understanding the performance and/or functional trade-offs,
+which only become known until after a large development committment
+has already been made. From the author's own experience, a very large
+and well-known semiconductor company (beginning with a Q.) produced an
+ARM-based SOC which exhibited a very serious (system halting) protocol
+deadlock which was not detected until the near complete RTL had
+reached emulation. The project was eventually cancelled and the team
+laid-off.
 
 ## Discussion
 
