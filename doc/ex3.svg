@@ -15,9 +15,170 @@
    version="1.1"
    id="svg9025"
    inkscape:version="0.92.5 (2060ec1f9f, 2020-04-08)"
-   sodipodi:docname="ex1.svg">
+   sodipodi:docname="ex2.svg">
   <defs
-     id="defs9019" />
+     id="defs9019">
+    <marker
+       inkscape:stockid="TriangleOutM"
+       orient="auto"
+       refY="0.0"
+       refX="0.0"
+       id="marker16135"
+       style="overflow:visible"
+       inkscape:isstock="true">
+      <path
+         id="path16133"
+         d="M 5.77,0.0 L -2.88,5.0 L -2.88,-5.0 L 5.77,0.0 z "
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1;fill:#000000;fill-opacity:1"
+         transform="scale(0.4)" />
+    </marker>
+    <marker
+       inkscape:isstock="true"
+       style="overflow:visible"
+       id="marker15981"
+       refX="0.0"
+       refY="0.0"
+       orient="auto"
+       inkscape:stockid="TriangleOutM"
+       inkscape:collect="always">
+      <path
+         transform="scale(0.4)"
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1;fill:#000000;fill-opacity:1"
+         d="M 5.77,0.0 L -2.88,5.0 L -2.88,-5.0 L 5.77,0.0 z "
+         id="path15979" />
+    </marker>
+    <marker
+       inkscape:isstock="true"
+       style="overflow:visible"
+       id="marker15863"
+       refX="0.0"
+       refY="0.0"
+       orient="auto"
+       inkscape:stockid="TriangleOutM">
+      <path
+         transform="scale(0.4)"
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1;fill:#000000;fill-opacity:1"
+         d="M 5.77,0.0 L -2.88,5.0 L -2.88,-5.0 L 5.77,0.0 z "
+         id="path15861" />
+    </marker>
+    <marker
+       inkscape:stockid="TriangleOutM"
+       orient="auto"
+       refY="0.0"
+       refX="0.0"
+       id="marker15733"
+       style="overflow:visible"
+       inkscape:isstock="true"
+       inkscape:collect="always">
+      <path
+         id="path15731"
+         d="M 5.77,0.0 L -2.88,5.0 L -2.88,-5.0 L 5.77,0.0 z "
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1;fill:#000000;fill-opacity:1"
+         transform="scale(0.4)" />
+    </marker>
+    <marker
+       inkscape:stockid="TriangleOutM"
+       orient="auto"
+       refY="0.0"
+       refX="0.0"
+       id="marker15639"
+       style="overflow:visible"
+       inkscape:isstock="true">
+      <path
+         id="path15637"
+         d="M 5.77,0.0 L -2.88,5.0 L -2.88,-5.0 L 5.77,0.0 z "
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1;fill:#000000;fill-opacity:1"
+         transform="scale(0.4)" />
+    </marker>
+    <marker
+       inkscape:isstock="true"
+       style="overflow:visible"
+       id="marker15533"
+       refX="0.0"
+       refY="0.0"
+       orient="auto"
+       inkscape:stockid="TriangleOutM"
+       inkscape:collect="always">
+      <path
+         transform="scale(0.4)"
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1;fill:#000000;fill-opacity:1"
+         d="M 5.77,0.0 L -2.88,5.0 L -2.88,-5.0 L 5.77,0.0 z "
+         id="path15531" />
+    </marker>
+    <marker
+       inkscape:isstock="true"
+       style="overflow:visible"
+       id="marker15463"
+       refX="0.0"
+       refY="0.0"
+       orient="auto"
+       inkscape:stockid="TriangleOutM">
+      <path
+         transform="scale(0.4)"
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1;fill:#000000;fill-opacity:1"
+         d="M 5.77,0.0 L -2.88,5.0 L -2.88,-5.0 L 5.77,0.0 z "
+         id="path15461" />
+    </marker>
+    <marker
+       inkscape:stockid="TriangleOutM"
+       orient="auto"
+       refY="0.0"
+       refX="0.0"
+       id="marker15381"
+       style="overflow:visible"
+       inkscape:isstock="true"
+       inkscape:collect="always">
+      <path
+         id="path15379"
+         d="M 5.77,0.0 L -2.88,5.0 L -2.88,-5.0 L 5.77,0.0 z "
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1;fill:#000000;fill-opacity:1"
+         transform="scale(0.4)" />
+    </marker>
+    <marker
+       inkscape:stockid="TriangleOutM"
+       orient="auto"
+       refY="0.0"
+       refX="0.0"
+       id="marker15335"
+       style="overflow:visible"
+       inkscape:isstock="true">
+      <path
+         id="path15333"
+         d="M 5.77,0.0 L -2.88,5.0 L -2.88,-5.0 L 5.77,0.0 z "
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1;fill:#000000;fill-opacity:1"
+         transform="scale(0.4)" />
+    </marker>
+    <marker
+       inkscape:isstock="true"
+       style="overflow:visible"
+       id="marker15277"
+       refX="0.0"
+       refY="0.0"
+       orient="auto"
+       inkscape:stockid="TriangleOutM"
+       inkscape:collect="always">
+      <path
+         transform="scale(0.4)"
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1;fill:#000000;fill-opacity:1"
+         d="M 5.77,0.0 L -2.88,5.0 L -2.88,-5.0 L 5.77,0.0 z "
+         id="path15275" />
+    </marker>
+    <marker
+       inkscape:stockid="TriangleOutM"
+       orient="auto"
+       refY="0.0"
+       refX="0.0"
+       id="TriangleOutM"
+       style="overflow:visible"
+       inkscape:isstock="true"
+       inkscape:collect="always">
+      <path
+         id="path5078"
+         d="M 5.77,0.0 L -2.88,5.0 L -2.88,-5.0 L 5.77,0.0 z "
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1;fill:#000000;fill-opacity:1"
+         transform="scale(0.4)" />
+    </marker>
+  </defs>
   <sodipodi:namedview
      id="base"
      pagecolor="#ffffff"
@@ -25,9 +186,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="3.959798"
-     inkscape:cx="352.94586"
-     inkscape:cy="489.49985"
+     inkscape:zoom="0.9899495"
+     inkscape:cx="336.63221"
+     inkscape:cy="286.7317"
      inkscape:document-units="mm"
      inkscape:current-layer="layer1"
      showgrid="true"
@@ -56,7 +217,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -67,22 +228,22 @@
      transform="translate(17.7625,-18.622913)">
     <path
        style="fill:none;stroke:#000000;stroke-width:0.52916664px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       d="m 50.270833,180.58332 v 21.16666 h 21.166668 v -21.16666 z"
+       d="m -10.583334,180.58332 v 21.16666 h 21.166668 v -21.16666 z"
        id="path9048"
        inkscape:connector-curvature="0" />
     <path
        style="fill:none;stroke:#000000;stroke-width:0.52916664px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       d="M 50.270833,175.29167 H 71.437501 V 154.12499 H 50.270833 Z"
+       d="M -10.583334,175.29167 H 10.583334 V 154.12499 H -10.583334 Z"
        id="path9050"
        inkscape:connector-curvature="0" />
     <path
        style="fill:none;stroke:#000000;stroke-width:0.52916664px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       d="m 50.270833,148.83332 h 95.249997 v -31.75 H 50.270833 Z"
+       d="m -10.583334,148.83332 h 95.249997 v -31.75 h -95.249997 z"
        id="path9052"
        inkscape:connector-curvature="0" />
     <path
        style="fill:none;stroke:#000000;stroke-width:0.52916664px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       d="m 87.3125,111.79167 h 21.16667 V 90.624988 H 87.3125 v 21.166682"
+       d="m 26.458333,111.79167 h 21.16667 V 90.624987 h -21.16667 v 21.166683"
        id="path9054"
        inkscape:connector-curvature="0" />
     <path
@@ -108,45 +269,45 @@
     <text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.05555534px;line-height:1.25;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.52916664"
-       x="55.237942"
+       x="-5.6162248"
        y="199.01242"
        id="text9094"><tspan
          sodipodi:role="line"
          id="tspan9092"
-         x="55.237942"
+         x="-5.6162248"
          y="199.01242"
          style="font-size:7.05555534px;stroke-width:0.52916664">CPU0</tspan></text>
     <text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.05555534px;line-height:1.25;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.52916664"
-       x="62.857944"
+       x="2.0037777"
        y="172.64581"
        id="text9094-8"><tspan
          sodipodi:role="line"
          id="tspan9092-3"
-         x="62.857944"
+         x="2.0037777"
          y="172.64581"
          style="font-size:7.05555534px;stroke-width:0.52916664">L1</tspan></text>
     <text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.05555534px;line-height:1.25;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.52916664"
-       x="135.61836"
+       x="74.764198"
        y="146.18748"
        id="text9094-8-0"><tspan
          sodipodi:role="line"
          id="tspan9092-3-1"
-         x="135.61836"
+         x="74.764198"
          y="146.18748"
          style="font-size:7.05555534px;stroke-width:0.52916664">L2</tspan></text>
     <text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.05555534px;line-height:1.25;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.52916664"
-       x="100.21711"
+       x="39.362942"
        y="109.0541"
        id="text9094-8-0-7"><tspan
          sodipodi:role="line"
          id="tspan9092-3-1-8"
-         x="100.21711"
+         x="39.362942"
          y="109.0541"
          style="font-size:7.05555534px;stroke-width:0.52916664">CC</tspan></text>
     <text
@@ -189,8 +350,269 @@
        inkscape:connector-curvature="0" />
     <path
        style="fill:none;stroke:#000000;stroke-width:0.52916664px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       d="M 47.625,204.39582 V 87.979155 H 148.16666 V 204.39582 Z"
+       d="M -13.229167,204.39582 V 87.979154 H 87.312493 V 204.39582 Z"
        id="path9180"
        inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.52916664px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 106.09792,180.8479 v 21.16666 h 21.16667 V 180.8479 Z"
+       id="path9048-1"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.52916664px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 106.09792,175.55625 h 21.16667 v -21.16668 h -21.16667 z"
+       id="path9050-9"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.52916664px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 106.09792,149.0979 h 95.24999 v -31.75 h -95.24999 z"
+       id="path9052-0"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.52916664px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 143.13958,112.05625 h 21.16668 V 90.88957 h -21.16668 v 21.16668"
+       id="path9054-5"
+       inkscape:connector-curvature="0" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.05555534px;line-height:1.25;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.52916664"
+       x="111.06503"
+       y="199.27699"
+       id="text9094-6"><tspan
+         sodipodi:role="line"
+         id="tspan9092-7"
+         x="111.06503"
+         y="199.27699"
+         style="font-size:7.05555534px;stroke-width:0.52916664">CPU0</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.05555534px;line-height:1.25;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.52916664"
+       x="118.68503"
+       y="172.91039"
+       id="text9094-8-7"><tspan
+         sodipodi:role="line"
+         id="tspan9092-3-4"
+         x="118.68503"
+         y="172.91039"
+         style="font-size:7.05555534px;stroke-width:0.52916664">L1</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.05555534px;line-height:1.25;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.52916664"
+       x="191.44545"
+       y="146.45207"
+       id="text9094-8-0-0"><tspan
+         sodipodi:role="line"
+         id="tspan9092-3-1-6"
+         x="191.44545"
+         y="146.45207"
+         style="font-size:7.05555534px;stroke-width:0.52916664">L2</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.05555534px;line-height:1.25;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.52916664"
+       x="156.04419"
+       y="109.31869"
+       id="text9094-8-0-7-4"><tspan
+         sodipodi:role="line"
+         id="tspan9092-3-1-8-7"
+         x="156.04419"
+         y="109.31869"
+         style="font-size:7.05555534px;stroke-width:0.52916664">CC</tspan></text>
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.52916664px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="M 103.45208,204.6604 V 88.243737 H 203.99374 V 204.6604 Z"
+       id="path9180-4"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.26499999;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#TriangleOutM)"
+       d="M -5.2916669,183.22915 V 172.64582"
+       id="path14548"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.26458332px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;marker-end:url(#marker15381)"
+       d="M -5.2916669,156.77082 V 146.18748"
+       id="path14550"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.26458332px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;marker-end:url(#marker15463)"
+       d="M 29.104167,119.72915 V 109.14582"
+       id="path14552"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.26458332px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;marker-end:url(#marker16135)"
+       d="m 29.104167,93.270819 v -15.875 H 161.39583 V 66.812486"
+       id="path14554"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.26458332px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;marker-end:url(#marker15639)"
+       d="M 186.53125,66.812486 V 82.687485 H 161.39583 V 93.270819"
+       id="path14556"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.26458332px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;marker-end:url(#marker15733)"
+       d="M 158.75,93.270819 V 80.041652 h 25.13541 V 66.812486"
+       id="path14558"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.26458332px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;marker-end:url(#marker15981)"
+       d="M 42.333333,93.270819 V 80.041652 H 156.10416 v 13.229167"
+       id="path14562"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.26458332px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;marker-end:url(#marker15863)"
+       d="M 153.45833,93.270819 V 82.687485 H 44.979166 v 10.583334"
+       id="path14564"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.26458332px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="M 164.04166,66.812486 V 78.718735 H 31.75 v 14.552084"
+       id="path14566"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.26458332px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;marker-end:url(#marker15533)"
+       d="m 34.395833,109.14582 v 10.58333"
+       id="path14568"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.26458332px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;marker-end:url(#marker15335)"
+       d="m -2.9461286e-7,146.18748 v 10.58334"
+       id="path14570"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.26499999;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker15277)"
+       d="m -2.9461286e-7,172.64582 v 10.58333"
+       id="path14572"
+       inkscape:connector-curvature="0" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.05555534px;line-height:1.25;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.52916664"
+       x="-5.5562501"
+       y="185.87498"
+       id="text9094-8-8"><tspan
+         sodipodi:role="line"
+         id="tspan9092-3-5"
+         x="-5.5562501"
+         y="185.87498"
+         style="font-size:3.52777767px;stroke-width:0.52916664">1</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.05555534px;line-height:1.25;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.52916664"
+       x="34.131248"
+       y="107.82291"
+       id="text9094-8-8-8"><tspan
+         sodipodi:role="line"
+         id="tspan9092-3-5-2"
+         x="34.131248"
+         y="107.82291"
+         style="font-size:3.52777767px;stroke-width:0.52916664">10</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.05555534px;line-height:1.25;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.52916664"
+       x="-2.9104166"
+       y="171.32291"
+       id="text9094-8-8-6"><tspan
+         sodipodi:role="line"
+         id="tspan9092-3-5-0"
+         x="-2.9104166"
+         y="171.32291"
+         style="font-size:3.52777767px;stroke-width:0.52916664">12</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.05555534px;line-height:1.25;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.52916664"
+       x="165.10001"
+       y="66.812485"
+       id="text9094-8-8-62"><tspan
+         sodipodi:role="line"
+         id="tspan9092-3-5-8"
+         x="165.10001"
+         y="66.812485"
+         style="font-size:3.52777767px;stroke-width:0.52916664">9</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.05555534px;line-height:1.25;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.52916664"
+       x="186.26666"
+       y="65.489571"
+       id="text9094-8-8-9"><tspan
+         sodipodi:role="line"
+         id="tspan9092-3-5-6"
+         x="186.26666"
+         y="65.489571"
+         style="font-size:3.52777767px;stroke-width:0.52916664">5</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.05555534px;line-height:1.25;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.52916664"
+       x="27.559"
+       y="122.37498"
+       id="text9094-8-8-0"><tspan
+         sodipodi:role="line"
+         id="tspan9092-3-5-7"
+         x="27.559"
+         y="122.37498"
+         style="font-size:3.52777767px;stroke-width:0.52916664">3</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.05555534px;line-height:1.25;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.52916664"
+       x="158.48541"
+       y="95.916656"
+       id="text9094-8-8-01"><tspan
+         sodipodi:role="line"
+         id="tspan9092-3-5-01"
+         x="158.48541"
+         y="95.916656"
+         style="font-size:3.52777767px;stroke-width:0.52916664">8</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.05555534px;line-height:1.25;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.52916664"
+       x="151.87083"
+       y="95.916656"
+       id="text9094-8-8-3"><tspan
+         sodipodi:role="line"
+         id="tspan9092-3-5-77"
+         x="151.87083"
+         y="95.916656"
+         style="font-size:3.52777767px;stroke-width:0.52916664">6</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.05555534px;line-height:1.25;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.52916664"
+       x="-5.5562501"
+       y="159.41666"
+       id="text9094-8-8-2"><tspan
+         sodipodi:role="line"
+         id="tspan9092-3-5-64"
+         x="-5.5562501"
+         y="159.41666"
+         style="font-size:3.52777767px;stroke-width:0.52916664">2</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.05555534px;line-height:1.25;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.52916664"
+       x="-0.26458332"
+       y="144.86456"
+       id="text9094-8-8-5"><tspan
+         sodipodi:role="line"
+         id="tspan9092-3-5-20"
+         x="-0.26458332"
+         y="144.86456"
+         style="font-size:3.52777767px;stroke-width:0.52916664">11</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.05555534px;line-height:1.25;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.52916664"
+       x="28.839582"
+       y="95.916656"
+       id="text9094-8-8-29"><tspan
+         sodipodi:role="line"
+         id="tspan9092-3-5-09"
+         x="28.839582"
+         y="95.916656"
+         style="font-size:3.52777767px;stroke-width:0.52916664">4</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.05555534px;line-height:1.25;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.52916664"
+       x="40.883415"
+       y="95.916656"
+       id="text9094-8-8-29-8"><tspan
+         sodipodi:role="line"
+         id="tspan9092-3-5-09-8"
+         x="40.883415"
+         y="95.916656"
+         style="font-size:3.52777767px;stroke-width:0.52916664">7</tspan></text>
   </g>
 </svg>
