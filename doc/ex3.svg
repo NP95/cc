@@ -187,8 +187,8 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="0.9899495"
-     inkscape:cx="336.63221"
-     inkscape:cy="286.7317"
+     inkscape:cx="365.11727"
+     inkscape:cy="304.33765"
      inkscape:document-units="mm"
      inkscape:current-layer="layer1"
      showgrid="true"
@@ -614,5 +614,27 @@
          x="40.883415"
          y="95.916656"
          style="font-size:3.52777767px;stroke-width:0.52916664">7</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.05555534px;line-height:1.25;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.52916664"
+       x="46.185802"
+       y="201.65826"
+       id="text9094-60"><tspan
+         sodipodi:role="line"
+         id="tspan9092-4"
+         x="46.185802"
+         y="201.65826"
+         style="font-size:7.05555534px;stroke-width:0.52916664">CPUCLUSTER0</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.05555534px;line-height:1.25;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.52916664"
+       x="162.60246"
+       y="201.65826"
+       id="text9094-60-6"><tspan
+         sodipodi:role="line"
+         id="tspan9092-4-7"
+         x="162.60246"
+         y="201.65826"
+         style="font-size:7.05555534px;stroke-width:0.52916664">CPUCLUSTER1</tspan></text>
   </g>
 </svg>
