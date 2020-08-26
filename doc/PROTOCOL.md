@@ -102,6 +102,8 @@ which contains the line of interest.
 
 #### Load to a Unique Cache Line
 
+![ex1](ex1.svg)
+
 1. CPU initiates a Load to a cache line.
 2. L1 consumes L1Cmd issued by child CPU and identifies that the line
    is not present in its cache. L1 issues a L2Cmd to its owning L2
@@ -149,6 +151,8 @@ which contains the line of interest.
 
 #### Load to a Shared Cache Line
 
+![ex2](ex2.svg)
+
 1. CPU initiates a Load to a cache line.
 2. L1 consumes L1Cmd issued by child CPU and identifies that the line
    is not present in its cache. L1 issues a L2Cmd to its owning L2
@@ -189,6 +193,8 @@ which contains the line of interest.
    completed.
 
 #### Store to a Shared Cache Line
+
+![ex3](ex3.svg)
 
 1. As before; directory receives a message indicating that originator
    agent requests a cache line in an Unique state. The directories
