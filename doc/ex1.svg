@@ -334,9 +334,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="0.7"
-     inkscape:cx="759.80215"
-     inkscape:cy="168.22028"
+     inkscape:zoom="1.979899"
+     inkscape:cx="648.95534"
+     inkscape:cy="492.33643"
      inkscape:document-units="mm"
      inkscape:current-layer="layer1"
      showgrid="true"
@@ -758,5 +758,16 @@
        d="m 170.65625,56.229155 v 21.166666 h -68.79167 v 15.875"
        id="path13637"
        inkscape:connector-curvature="0" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.05555534px;line-height:1.25;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.52916664"
+       x="200.69528"
+       y="82.595757"
+       id="text9174-3"><tspan
+         sodipodi:role="line"
+         id="tspan9172-1"
+         x="200.69528"
+         y="82.595757"
+         style="stroke-width:0.52916664">NOC</tspan></text>
   </g>
 </svg>
