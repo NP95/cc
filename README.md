@@ -31,7 +31,7 @@ laid-off.
 ## Discussion
 
 Cache coherency protocols are fundamental to multiprocessor
-system-on-chips. Their implmentation is complicated by the following
+system-on-chips. Their implementation is complicated by the following
 aspects:
 
 * The state space of a coherency model is very large and there are
@@ -64,9 +64,9 @@ context of a simplified, but representative, behavioral
 simulation. Issues relating to functional correctness or performance
 can be analysed and debugged ahead of the final RTL implementation. In
 the presence of completed RTL, complex scenarios can be debugged in
-the context of a lightweight and fast simulation environment, which is
-more efficient than when attempted using a large and unweldy waveform
-dump.
+the context of a lightweight and fast simulation environment, which
+provides far greater visibility into the architectural behavior of the
+protocol than a very low-level RTL waveform dump.
 
 A detailed (work in progress) architectural specification of the
 performance model can be found at: [Architectural Spec](./doc/ARCH.md)
