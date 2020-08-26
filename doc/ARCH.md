@@ -198,7 +198,9 @@ the outset. In the absence of this, the Agent may deadlock awaiting
 resources that may never become available.
 
 
-## Protocol
+## Agent
+
+![agent](agent.svg)
 
 ## Protocol Deadlock Avoidance
 
