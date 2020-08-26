@@ -105,18 +105,18 @@ which contains the line of interest.
 ![ex1](ex1.svg)
 
 1. CPU initiates a Load to a cache line.
-2. L1 consumes L1Cmd issued by child CPU and identifies that the line
-   is not present in its cache. L1 issues a L2Cmd to its owning L2
-   instance which instructs L2 that it requires the line in a Shared
-   state. As the initiating L1 command cannot complete, the message
-   queue through which it originated is marked as blocked until
-   completion of the current transaction.
-3. L2 consumes L2Cmd issued by child L1 and identifies that the line
-   is not present in its cache. L2 initiates a fill operation by
-   issuing a ReadShared AceCmd to its AR channel.
-4. The AceCmd is consumed by the owning cache controller instance and
-   a new coherent transaction is started. A CohSrt message is issued
-   to the directory which is home to the addressed cache
+2. The L1 cache consumes the L1Cmd message issued its child CPU and
+   identifies that the line is not present. L1 issues a L2Cmd to its
+   owning L2 instance which instructs L2 that it requires the line in
+   a Shared state. As the initiating L1 command cannot complete, the
+   message queue through which it originated is marked as blocked
+   until completion of the current transaction.
+3. The L2 cache consumes the L2Cmd message issued by its child L1 and
+   identifies that the line is not present. L2 initiates a fill
+   operation by issuing a ReadShared AceCmd to its AR channel.
+4. The AceCmd is consumed by the associated cache controller and a new
+   coherent transaction is initiated. A CohSrt message is issued to
+   the directory which is home to the addressed cache
    line. Immediately after the CohSrt, a CohCmd is issued to the same
    directory containing the ReadShared opcode.
 5. The directory consumes the CohSrt and CohCmd messages and
@@ -124,30 +124,39 @@ which contains the line of interest.
    within the system. A line is allocated within the directory and a
    LLC fill command is issued to the LLC to instruct for it to read
    the line from the memory controller which owns the line.
-6. Notification is received by the LLC indicating that the line is now
-   present in the LLC. The directory instructs the LLC to forward the
-   cache line to the requesting agent (CC). The line is transfered to
-   the agent and a response is received by the directory indicating
-   that the operation has completed.
-7. The originator CC is now in receipt of one Dt which contains the
-   cache line. The directory computes the final coherence result which
-   indicates that the requester now has the line in an Exclusive state
-   (even though it had only originally been requested in the Shared
-   state) and sends the terminal CohEnd message to the originator CC.
-8. The CC receives the CohEnd message and forwards a AceCmdRsp
-   response to its owning L2. The message indicates that the line is
-   passed as not shared and not dirty.
-9. The line is installed in the L2 in the Exclusive state and the
+6. The LLC issues a read line command to the memory controller which
+   owns the line.
+7. The memory controller fetches the line from off chip and forwards
+   the data as a DtMsg message to the initiating LLC.
+8. Notification is received by the LLC indicating that the line is now
+   present in the LLC. The LLC informs the directory which had
+   originally initated the fill that the operation is now complete.
+9. The directory instructs the LLC to forward the line to the cache
+   controller of interest.
+10. The LLC transfers the line to the cache controller indicated by
+    the LLCFwd command.
+11. The cache controller accepts receipt of the DtMsg message
+    containing the line state, and responds to the LLC to acknowledge
+    the transfer.
+12. The LLC responds to the initiating directory indicating that the
+    transfer is now complete and that the nominated cache controller
+    has accepted recipt of the line.
+13. As final state of the cache line is now known by the directory the
+   the final coherence response message can be issued to the
+   initiating cache controller. As the initating cache controller is
+   the only agent in the system with the line, the line is promoted
+   from the originally requested Shared state, to the more permissive
+   Exclusive state.
+14. The line is installed in the L2 in the Exclusive state and the
    originator L1 is indicated as the owner of the line. A L2CmdRsp
    message is issued to the L1 containing the line state.
-10. The line is installed in the L1 in the Exclusive state. The
+16. The line is installed in the L1 in the Exclusive state. The
     message queue containing the initiating Load instruction is marked
-    unblocked.
-11. The load instruction is rearbitrated and issued to L1. As the line
-    is now present in the L1, the load completes and the result passed
-    to the L1.
-12. The originator CPU receives the L1CmdRsp from its L1 and the
-    instruction commits. The overall transaction is complete.
+    unblocked. The load instruction is rearbitrated and issued to
+    L1. As the line is now present in the L1, the load completes and
+    the result passed to the L1. The originator CPU receives the
+    L1CmdRsp from its L1 and the instruction commits. The overall
+    transaction is complete.
 
 #### Load to a Shared Cache Line
 
