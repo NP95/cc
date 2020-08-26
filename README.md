@@ -1,5 +1,7 @@
 # "CC": A Cache Coherency Performance and Validation Model
 
+![top](./doc/top.svg)
+
 ## Synopsis
 
 Cache coherency protocols are the architectural mechanisms by which
