@@ -178,9 +178,11 @@ AceSnpMsg::AceSnpMsg() : Message(MessageClass::AceSnoop) {}
 //
 //
 std::string AceSnpMsg::to_string() const {
+  using cc::to_string;
+
   KVListRenderer r;
   render_msg_fields(r);
-  r.add_field("opcode", cc::to_string(opcode()));
+  r.add_field("opcode", to_string(opcode()));
   Hexer h;
   r.add_field("addr", h.to_hex(addr()));
   return r.to_string();
