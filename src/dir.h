@@ -94,6 +94,7 @@ enum class DirOpcode {
 // Convert Opcode to human readable string.
 const char* to_string(DirOpcode opcode);
 
+
 //
 //
 class DirCommand {
@@ -106,11 +107,17 @@ class DirCommand {
   std::string to_string() const;
 
   // Accessors:
+
+  // Command opcode
   DirOpcode opcode() const { return opcode_; }
+
+  // Coherence action oprand associated with command.
   DirCoherenceAction* action() const { return oprands.action; }
+
+  // Event oprand associated with command.
   kernel::Event* event() const { return oprands.e; }
 
-  // Setters
+  // Setters:
 
   // Set (blocked on) event instance
   void set_event(kernel::Event* e) { oprands.e = e; }
@@ -120,30 +127,43 @@ class DirCommand {
 
  private:
   virtual ~DirCommand();
-  //
+
+  // Commands oprands, where applicable
   struct {
-    DirCoherenceAction* action;
-    kernel::Event* e;
+    // Action oprand
+    DirCoherenceAction* action = nullptr;
+
+    // Event oprand
+    kernel::Event* e = nullptr;
+
+    // Error reason message
     std::string reason;
   } oprands;
-  //
-  DirOpcode opcode_;
+
+  // Current command opcode
+  DirOpcode opcode_ = DirOpcode::Invalid;
 };
 
-//
+
+// Command builder helper class.
 //
 class DirCommandBuilder {
  public:
+  // Construct command instance from opcode
   static DirCommand* from_opcode(DirOpcode opcode);
 
+  // Construct command instance from coherence action
   static DirCommand* from_action(DirCoherenceAction* action);
 
+  // Construct blocked on event instance.
   static DirCommand* build_blocked_on_event(MessageQueue* mq, kernel::Event* e);
 
+  // Construct error command instance.
   static DirCommand* build_error(const std::string& reason);
 };
 
-//
+
+// Directory command list.
 //
 class DirCommandList {
   using vector_type = std::vector<DirCommand*>;
@@ -177,6 +197,7 @@ class DirCommandList {
   void next_and_do_consume(bool do_consume = false);
 
  private:
+  // Command list.
   std::vector<DirCommand*> cmds_;
 };
 
@@ -273,7 +294,6 @@ class DirTState {
 
   // Current opcode issued to LLC (or invalid)
   LLCCmdOpcode llc_cmd_opcode() const { return llc_cmd_opcode_; }
-
 
 
   // Setters:
