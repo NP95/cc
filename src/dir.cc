@@ -580,7 +580,7 @@ class DirAgent::RdisProcess : public AgentProcess {
       default: {
         LogMessage lmsg("Invalid message class received: ");
         lmsg.append(cc::to_string(ctxt.msg()->cls()));
-        lmsg.level(Level::Error);
+        lmsg.set_level(Level::Error);
         log(lmsg);
       } break;
     }
@@ -589,7 +589,7 @@ class DirAgent::RdisProcess : public AgentProcess {
 
     LogMessage lm("Execute message: ");
     lm.append(ctxt.msg()->to_string());
-    lm.level(Level::Debug);
+    lm.set_level(Level::Debug);
     log(lm);
 
     execute(ctxt, cl);
@@ -628,7 +628,7 @@ class DirAgent::RdisProcess : public AgentProcess {
       // Transaction is already present in the transaction table;
       // attempting to reinstall the transaction.
       LogMessage msg("Transation is already present in table.");
-      msg.level(Level::Fatal);
+      msg.set_level(Level::Fatal);
       log(msg);
     }
   }
@@ -761,7 +761,7 @@ class DirAgent::RdisProcess : public AgentProcess {
       for (const DirCommand* cmd : cl) {
         LogMessage lm("Executing command: ");
         lm.append(cmd->to_string());
-        lm.level(Level::Debug);
+        lm.set_level(Level::Debug);
         log(lm);
 
         interpreter.execute(ctxt, cmd);
@@ -769,7 +769,7 @@ class DirAgent::RdisProcess : public AgentProcess {
     } catch (const std::runtime_error& ex) {
       LogMessage lm("Interpreter encountered an error: ");
       lm.append(ex.what());
-      lm.level(Level::Fatal);
+      lm.set_level(Level::Fatal);
       log(lm);
     }
   }
@@ -784,7 +784,7 @@ class DirAgent::RdisProcess : public AgentProcess {
       // Expect to find a entry in the transaction table. If an entry
       // is not present bail.
       LogMessage msg("Transaction not found in table.");
-      msg.level(Level::Fatal);
+      msg.set_level(Level::Fatal);
       log(msg);
     }
     return st;
@@ -843,7 +843,7 @@ class DirNocEndpoint : public NocEndpoint {
     if (ret == nullptr) {
       LogMessage lm("End point not register for class: ");
       lm.append(cc::to_string(msg->cls()));
-      lm.level(Level::Fatal);
+      lm.set_level(Level::Fatal);
       log(lm);
     }
     return ret;

@@ -451,14 +451,14 @@ class L2CacheAgent::MainProcess : public AgentProcess {
       default: {
         LogMessage lmsg("Invalid message class received: ");
         lmsg.append(cc::to_string(ctxt.msg()->cls()));
-        lmsg.level(Level::Fatal);
+        lmsg.set_level(Level::Fatal);
         log(lmsg);
       } break;
     }
 
     LogMessage lm("Execute message: ");
     lm.append(ctxt.msg()->to_string());
-    lm.level(Level::Debug);
+    lm.set_level(Level::Debug);
     log(lm);
 
     check_resources(ctxt, cl);
@@ -482,7 +482,7 @@ class L2CacheAgent::MainProcess : public AgentProcess {
       LogMessage msg(
           "L1 attempts to set modified state of cache line but "
           "cache line is not resident in L2.");
-      msg.level(Level::Fatal);
+      msg.set_level(Level::Fatal);
       log(msg);
     }
     execute(ctxt, cl);
@@ -550,7 +550,7 @@ class L2CacheAgent::MainProcess : public AgentProcess {
           LogMessage msg(
               "L1 requests eviction of line which is not present "
               "in L2; simulation assumes inclusive cache model.");
-          msg.level(Level::Fatal);
+          msg.set_level(Level::Fatal);
           log(msg);
         }
       } break;
@@ -571,7 +571,7 @@ class L2CacheAgent::MainProcess : public AgentProcess {
     } else {
       LogMessage lm("Cannot find transaction table entry for ");
       lm.append(to_string(t));
-      lm.level(Level::Fatal);
+      lm.set_level(Level::Fatal);
       log(lm);
     }
   }
@@ -595,7 +595,7 @@ class L2CacheAgent::MainProcess : public AgentProcess {
       LogMessage msg(
           "Expect line to be installed in cache for snoops "
           "when silent evictions have not be enabled.");
-      msg.level(Level::Fatal);
+      msg.set_level(Level::Fatal);
       log(msg);
     }
     ctxt.set_owns_line(false);
@@ -639,7 +639,7 @@ class L2CacheAgent::MainProcess : public AgentProcess {
       for (const L2Command* cmd : cl) {
         LogMessage lm("Executing command: ");
         lm.append(cmd->to_string());
-        lm.level(Level::Debug);
+        lm.set_level(Level::Debug);
         log(lm);
 
         interpreter.execute(ctxt, cmd);
@@ -647,7 +647,7 @@ class L2CacheAgent::MainProcess : public AgentProcess {
     } catch (const std::runtime_error& ex) {
       LogMessage lm("Interpreter encountered an error: ");
       lm.append(ex.what());
-      lm.level(Level::Fatal);
+      lm.set_level(Level::Fatal);
       log(lm);
     }
   }
@@ -680,7 +680,7 @@ MessageQueue* L2CacheAgent::l2_l1__rsp_q(L1CacheAgent* l1cache) const {
     mq = it->second;
   } else {
     LogMessage msg("Cannot find l2_lq__rsp_qs proxy instance for l1cache.");
-    msg.level(Level::Fatal);
+    msg.set_level(Level::Fatal);
     log(msg);
   }
   return mq;

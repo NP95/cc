@@ -56,7 +56,7 @@ TEST(Trace, Cfg111_SimpleRead) {
   cc::SocTop top(&k, cfg);
 
   // Run to exhaustion
-  k.run();
+  cc::kernel::SimSequencer{&k}.run();
 
   // Validation.
 
@@ -99,7 +99,7 @@ TEST(Trace, Cfg121_SimpleRead) {
   cc::SocTop top(&k, cfg);
 
   // Run to exhaustion
-  k.run();
+  cc::kernel::SimSequencer{&k}.run();
 
   // Validation.
 

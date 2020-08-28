@@ -38,14 +38,23 @@ namespace cc::kernel {
 
 const char* to_string(Phase phases) {
   switch (phases) {
-#define __declare_to_string(__name) \
-  case Phase::__name:               \
-    return #__name;                 \
-    break;
-    PHASES(__declare_to_string)
+    case Phase::Build:
+      return "Build";
+    case Phase::PreElabDrc:
+      return "PreElabDrc";
+    case Phase::Elab:
+      return "Elab";
+    case Phase::Drc:
+      return "Drc";
+    case Phase::Init:
+      return "Init";
+    case Phase::Run:
+      return "Run";
+    case Phase::Fini:
+      return "Fini";
+    default:
+      return "Invalid";
   }
-#undef __declare_to_string
-  return "Invalid";
 }
 
 Time operator+(const Time& lhs, const Time& rhs) {
@@ -142,27 +151,23 @@ void LogContext::info(const std::string& name, bool nl) {
   }
 }
 
+// Helper class to compare the two FrontierItems in time.
+struct Kernel::FrontierItemComparer {
+  bool operator()(const FrontierItem& lhs, const FrontierItem& rhs) {
+    const Time& lhs_time = lhs.time;
+    const Time& rhs_time = rhs.time;
+    // TODO: create operators
+    if (lhs_time.time > rhs_time.time) return true;
+    if (lhs_time.time < rhs_time.time) return false;
+    return lhs_time.delta < rhs_time.delta;
+  }
+};
+
 Kernel::Kernel(seed_type seed) : random_source_(seed), Module(this, "kernel") {}
 
-void Kernel::run(RunMode r, Time t) {
-  // Build phase is already complete by this stage and it is assume
-  // that the object heirarchy has been correct constructed at this point.
-
-  // Build and elaborate simulation environment.
-  invoke_elab();
-  // Run Design Rule Check to validate environment correctness.
-  invoke_drc();
-  // Invoke initialization phase.
-  invoke_init();
-  // Run simulation.
-  invoke_run(r, t);
-  // Run finalization.
-  invoke_fini();
-}
-
 void Kernel::add_action(Time t, Action* a) {
-  eq_.push_back(Event{t, a});
-  std::push_heap(eq_.begin(), eq_.end(), EventComparer{});
+  eq_.push_back(FrontierItem{t, a});
+  std::push_heap(eq_.begin(), eq_.end(), FrontierItemComparer{});
 }
 
 void Kernel::set_seed(seed_type seed) { random_source_ = RandomSource(seed); }
@@ -206,11 +211,14 @@ void Kernel::invoke_drc() {
   visitor.iterate(top());
 }
 
+
+// Invoke initialization visitor
+struct InvokeInitVisitor : ObjectVisitor {
+  void visit(Process* o) override { o->invoke_init(); }
+};
+
 void Kernel::invoke_init() {
   set_phase(Phase::Init);
-  struct InvokeInitVisitor : ObjectVisitor {
-    void visit(Process* o) override { o->invoke_init(); }
-  };
   InvokeInitVisitor visitor;
   visitor.iterate(top());
 }
@@ -224,11 +232,11 @@ void Kernel::invoke_run(RunMode r, Time t) {
       // IF a fatal error has occurred, terminate the simulation immediately.
       if (fatal()) break;
 
-      const Event e = eq_.front();
+      const FrontierItem e = eq_.front();
       // If simulation time has elapsed, terminate.
       if (r == RunMode::ForTime && t < e.time) break;
 
-      std::pop_heap(eq_.begin(), eq_.end(), EventComparer{});
+      std::pop_heap(eq_.begin(), eq_.end(), FrontierItemComparer{});
       eq_.pop_back();
       if (e.time < current_time) {
         // TODO: Kernel should eventually become the top-level module.
@@ -299,6 +307,29 @@ bool Object::add_child(Object* c) {
   return true;
 }
 
+const char* Loggable::Level::str() const {
+  switch (level_) {
+    case Debug:
+      return "DEBUG";
+      break;
+    case Info:
+      return "INFO";
+      break;
+    case Warning:
+      return "WARNING";
+      break;
+    case Error:
+      return "ERROR";
+      break;
+    case Fatal:
+      return "FATAL";
+      break;
+    default:
+      return "Invalid";
+      break;
+  }
+}
+
 Loggable::LogMessage& Loggable::LogMessage::append(const std::string& str) {
   msg_ += str;
   return *this;
@@ -338,7 +369,7 @@ void ProcessHost::add_child_process(Process* p) {
     LogMessage msg("Object with name: ");
     msg.append(p->name());
     msg.append(" is already present in the design heirarchy.");
-    msg.level(Level::Fatal);
+    msg.set_level(Level::Fatal);
     log(msg);
   }
   ps_.push_back(p);
@@ -352,25 +383,28 @@ Event::~Event() {
   }
 }
 
+// Invoke Evaluate Process action.
+struct EvalProcessAction : Action {
+  EvalProcessAction(Kernel* k, Process* p)
+      : Action(k, "EvalProcessAction"), p_(p) {}
+  bool eval() override {
+    p_->invoke_eval();
+    // Discard after evaluation.
+    return true;
+  }
+  Process* p_ = nullptr;
+};
+
 void Event::add_waitee(Process* p) {
-  struct EvalProcessAction : Action {
-    EvalProcessAction(Kernel* k, Process* p)
-        : Action(k, "EvalProcessAction"), p_(p) {}
-    bool eval() override {
-      p_->invoke_eval();
-      // Discard after evaluation.
-      return true;
-    }
-    Process* p_ = nullptr;
-  };
   as_.push_back(new EvalProcessAction(k(), p));
 }
 
 void Event::notify() {
   const Time current_time{k()->time()};
   const Time time{current_time.time, current_time.delta + 1};
+  const ActionAdder aa(k());
   for (Action* a : as_) {
-    k()->add_action(time, a);
+    aa.add_action(time, a);
   }
   as_.clear();
 }
@@ -451,7 +485,7 @@ void Module::add_child_module(Module* m) {
     LogMessage msg("Object with name: ");
     msg.append(m->name());
     msg.append(" is already present in the design heirarchy.");
-    msg.level(Level::Fatal);
+    msg.set_level(Level::Fatal);
     log(msg);
   }
   ms_.push_back(m);
@@ -460,6 +494,54 @@ void Module::add_child_module(Module* m) {
 TopModule::TopModule(kernel::Kernel* k, const std::string& name)
     : Module(k, name) {
   set_top();
+}
+
+// Invoke elaboration
+void SimPhaseRunner::elab() const {
+  k_->invoke_elab();
+}
+
+// Invoke Design Rule Check
+void SimPhaseRunner::drc() const {
+  k_->invoke_drc();
+}
+
+// Invoke initialization.
+void SimPhaseRunner::init() const {
+  k_->invoke_init();
+}
+
+// Invoke run.
+void SimPhaseRunner::run(RunMode r, Time time) const {
+  k_->invoke_run(r, time);
+}
+
+// Invoke initialization.
+void SimPhaseRunner::fini() const {
+  k_->invoke_fini();
+}
+
+// Run/Invoke simulation.
+void SimSequencer::run(RunMode r, Time time) const {
+  // Build phase is already complete by this stage and it is assume
+  // that the object heirarchy has been correct constructed at this point.
+  SimPhaseRunner runner(k_);
+
+  // Build and elaborate simulation environment.
+  runner.elab();
+  // Run Design Rule Check to validate environment correctness.
+  runner.drc();
+  // Invoke initialization phase.
+  runner.init();
+  // Run simulation.
+  runner.run(r, time);
+  // Run finalization.
+  runner.fini();
+}
+
+// Add action to kernel instance.
+void ActionAdder::add_action(Time t, Action* a) const {
+  k_->add_action(t, a);
 }
 
 }  // namespace cc::kernel

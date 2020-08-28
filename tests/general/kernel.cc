@@ -50,19 +50,21 @@ TEST(Kernel, BasicScheduling) {
     };
 
     Top(cc::kernel::Kernel* k) : cc::kernel::TopModule(k, "top") {
-      k->add_action(cc::kernel::Time{0, 0}, new TickAction(k, 0));
-      k->add_action(cc::kernel::Time{10, 0}, new TickAction(k, 10));
-      k->add_action(cc::kernel::Time{20, 0}, new TickAction(k, 20));
-      k->add_action(cc::kernel::Time{30, 0}, new TickAction(k, 30));
-      k->add_action(cc::kernel::Time{40, 0}, new TickAction(k, 40));
-      k->add_action(cc::kernel::Time{50, 0}, new TickAction(k, 50));
+      cc::kernel::ActionAdder aa(k);
+      aa.add_action(cc::kernel::Time{0, 0}, new TickAction(k, 0));
+      aa.add_action(cc::kernel::Time{10, 0}, new TickAction(k, 10));
+      aa.add_action(cc::kernel::Time{20, 0}, new TickAction(k, 20));
+      aa.add_action(cc::kernel::Time{30, 0}, new TickAction(k, 30));
+      aa.add_action(cc::kernel::Time{40, 0}, new TickAction(k, 40));
+      aa.add_action(cc::kernel::Time{50, 0}, new TickAction(k, 50));
     }
     void validate() {
     }
   };
   cc::kernel::Kernel k;
   Top top(&k);
-  k.run();
+  cc::kernel::SimSequencer{&k}.run();
+
   top.validate();
 }
 
@@ -94,8 +96,9 @@ TEST(Kernel, RandomEventScheduling) {
                 r.uniform<cc::kernel::Time::delta_type>()};
         });
 
+      cc::kernel::ActionAdder aa(k);
       for (const cc::kernel::Time& time : random_times)
-        k->add_action(time, new CheckTime(k, &prior_time));
+        aa.add_action(time, new CheckTime(k, &prior_time));
     }
     void validate() {
     }
@@ -105,7 +108,7 @@ TEST(Kernel, RandomEventScheduling) {
 
   cc::kernel::Kernel k;
   Top top(&k);
-  k.run();
+  cc::kernel::SimSequencer{&k}.run();
   top.validate();
 }
 
@@ -128,7 +131,7 @@ TEST(Kernel, FatalError) {
   };
   auto k = std::make_unique<cc::kernel::Kernel>();
   auto top = std::make_unique<TopModule>(k.get());
-  k->run();
+  cc::kernel::SimSequencer{k.get()}.run();
   ASSERT_TRUE(k->fatal());
   const cc::kernel::Time time = k->time();
   ASSERT_EQ(time.time, 100);
@@ -224,7 +227,7 @@ TEST(Kernel, EventOr) {
   };
   cc::kernel::Kernel k;
   Top top(&k, 3, 10);
-  k.run();
+  cc::kernel::SimSequencer{&k}.run();
   top.validate();
 };
 

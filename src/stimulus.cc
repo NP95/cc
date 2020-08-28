@@ -212,7 +212,7 @@ void TraceStimulus::parse_tracefile() {
             msg.append(", ");
             msg.append(std::to_string(col_));
             msg.append(")");
-            msg.level(Level::Fatal);
+            msg.set_level(Level::Fatal);
             log(msg);
           }
         } break;
@@ -223,7 +223,7 @@ void TraceStimulus::parse_tracefile() {
           msg.append(", ");
           msg.append(std::to_string(col_));
           msg.append(")");
-          msg.level(Level::Fatal);
+          msg.set_level(Level::Fatal);
           log(msg);
         } break;
       }
@@ -249,7 +249,7 @@ void TraceStimulus::parse_tracefile() {
               msg.append(", ");
               msg.append(std::to_string(col_));
               msg.append(")");
-              msg.level(Level::Fatal);
+              msg.set_level(Level::Fatal);
               log(msg);
             }
             // Advance to opcode.
@@ -274,7 +274,7 @@ void TraceStimulus::parse_tracefile() {
               msg.append(", ");
               msg.append(std::to_string(col_));
               msg.append(")");
-              msg.level(Level::Fatal);
+              msg.set_level(Level::Fatal);
               log(msg);
             }
             ctxt.clear();
@@ -303,7 +303,7 @@ void TraceStimulus::parse_tracefile() {
                 msg.append(", ");
                 msg.append(std::to_string(col_));
                 msg.append(")");
-                msg.level(Level::Fatal);
+                msg.set_level(Level::Fatal);
                 log(msg);
               }
             } break;
@@ -320,7 +320,7 @@ void TraceStimulus::parse_tracefile() {
     msg.append(", ");
     msg.append(std::to_string(col_));
     msg.append(")");
-    msg.level(Level::Fatal);
+    msg.set_level(Level::Fatal);
     log(msg);
   }
 }
@@ -394,7 +394,7 @@ std::vector<DequeueContext*> TraceStimulus::compute_index_table() {
             if (it != index_table.end()) {
               LogMessage msg("Index is already present in mapping table: ");
               msg.append(std::to_string(item.index));
-              msg.level(Level::Warning);
+              msg.set_level(Level::Warning);
               log(msg);
             }
 
@@ -453,7 +453,7 @@ std::vector<DequeueContext*> TraceStimulus::compute_index_table() {
       // CPU with path was not found.
       LogMessage msg("Cannot find cpu path: ");
       msg.append(cpu_path);
-      msg.level(Level::Fatal);
+      msg.set_level(Level::Fatal);
       log(msg);
     }
   }

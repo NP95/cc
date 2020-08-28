@@ -438,7 +438,7 @@ class MOESIDirProtocol : public DirProtocol {
   //
   void apply(DirContext& ctxt, DirCommandList& cl) const override {
     const MessageClass cls = ctxt.msg()->cls();
-    switch (ctxt.msg()->cls()) {
+    switch (cls) {
       case MessageClass::CohSrt: {
         apply(ctxt, cl, static_cast<const CohSrtMsg*>(ctxt.msg()));
       } break;
@@ -453,7 +453,7 @@ class MOESIDirProtocol : public DirProtocol {
       } break;
       default: {
         LogMessage msg("Invalid message class received!");
-        msg.level(Level::Fatal);
+        msg.set_level(Level::Fatal);
         log(msg);
       } break;
     }

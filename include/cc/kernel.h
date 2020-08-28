@@ -35,37 +35,33 @@
 #include <sstream>
 #include <vector>
 
+// Forwards:
 namespace cc {
 class Soc;
+class MessageQueue;
 }
 
 namespace cc::kernel {
 
 // Forwards
 class Kernel;
-
-// clang-format off
-#define KERNEL_TYPES(__func)			\
-  __func(Module)				\
-  __func(ProcessHost)				\
-  __func(Process)				\
-  __func(Action)				\
-  __func(Loggable)				\
-  __func(Object)
-// clang-format on
-
-#define __declare_forwards(__type) class __type;
-KERNEL_TYPES(__declare_forwards)
-#undef __declare_forwards
+class Module;
+class Process;
+class ProcessHost;
+class Action;
+class Loggable;
+class Object;
 
 struct ObjectVisitor {
   virtual ~ObjectVisitor() = default;
   void iterate(Object* root);
 
-#define __declare_visit_method(__type) \
-  virtual void visit(__type* o) {}
-  KERNEL_TYPES(__declare_visit_method)
-#undef __declare_visit_method
+  virtual void visit(Module* o) {}
+  virtual void visit(ProcessHost* o) {}
+  virtual void visit(Process* o) {}
+  virtual void visit(Action* o) {}
+  virtual void visit(Loggable* o) {}
+  virtual void visit(Object* o) {}
 };
 
 #define DECLARE_VISITEE(__name)                 \
@@ -87,6 +83,7 @@ struct Time {
   delta_type delta = 0;
 };
 
+// Convert time to human readable string.
 std::string to_string(const Time& t);
 
 Time operator+(const Time& lhs, const Time& rhs);
@@ -139,27 +136,18 @@ class LogContext {
   std::ostream* os_ = nullptr;
 };
 
+// Stimulation run-mode (halting condition).
 enum class RunMode { ToExhaustion, ForTime };
 
-// clang-format off
-#define PHASES(__func)				\
-  __func(Build)					\
-  __func(PreElabDrc)		                \
-  __func(Elab)					\
-  __func(Drc)					\
-  __func(Init)					\
-  __func(Run)					\
-  __func(Fini)
-// clang-format on
+// Simulation phasea
+enum class Phase { Build, PreElabDrc, Elab, Drc, Init, Run, Fini };
 
-enum class Phase {
-#define __declare_enum(__name) __name,
-  PHASES(__declare_enum)
-#undef __declare_enum
-};
-
+// Phase to human readable string
 const char* to_string(Phase phases);
 
+// Basic Object class denoting an addressable item in the simulations
+// object heirarchy.
+//
 class Object {
   friend class ObjectVisitor;
   DECLARE_VISITEE(Object);
@@ -168,27 +156,41 @@ class Object {
   Object(Kernel* k, const std::string& name);
   virtual ~Object();
 
+  // Accessors:
+
   // Current kernel instance.
   Kernel* k() const { return k_; }
+
   // Flag indicating is current object is the root of the object tree.
   bool is_top() const { return parent_ == nullptr; }
+
   // Object path in object model
   std::string path() const;
+
   // Object name
   std::string name() const { return name_; }
 
+
+  // Setters:
+
   // Set current object as object top.
   void set_top();
+
   // Set parent object.
   void set_parent(Object* o) { parent_ = o; }
+
   // Add child object.
   bool add_child(Object* c);
+
+  // Search for an object relative to the current item and return a
+  // pointer to the item, or nullptr if not found.
   Object* find_path(const std::string& path);
 
  protected:
   void iterate_children(ObjectVisitor* visitor);
 
  private:
+  // Find item in object heirarchy from split list of paths.
   Object* find_path(std::vector<std::string>& path);
 
   // Kernel
@@ -203,60 +205,91 @@ class Object {
   std::string name_;
 };
 
+// Object from which log messages can be issued.
+//
 class Loggable : public Object {
   DECLARE_VISITEE(Loggable);
 
  protected:
+
+  
   struct Level {
-    enum : int { Fatal = 0, Error, Warning, Info, Debug };
+    enum : std::uint32_t { Fatal = 0, Error, Warning, Info, Debug };
+
+    // Default level
     Level() : level_(Debug) {}
-    Level(int level) : level_(level) {}
-    operator int() const { return level_; }
-    int level() const { return level_; }
-    char to_char() const { return str()[0]; }
-    const char* str() const {
-      switch (level_) {
-        case Debug:
-          return "DEBUG";
-          break;
-        case Info:
-          return "INFO";
-          break;
-        case Warning:
-          return "WARNING";
-          break;
-        case Error:
-          return "ERROR";
-          break;
-        case Fatal:
-          return "FATAL";
-          break;
-        default:
-          return "X";
-          break;
-      }
-    }
+
+    // From level as integer
+    Level(std::uint32_t level) : level_(level) {}
+
+    // Implicit conversion to integer.
+    operator std::uint32_t() const { return level_; }
+
+    // Accessors:
+
+    // Level as integer.
+    std::uint32_t level() const { return level_; }
+
+    // To single character.
+    char to_char() const { return "FEWID"[level_]; }
+
+    // To human readable string
+    const char* str() const;
 
    private:
-    int level_;
+    // Current level
+    std::uint32_t level_;
   };
 
+
+  // Log Message
+  //
   struct LogMessage {
+
+    // Construct empty message
     LogMessage() = default;
+
+    // Construct message with 'msg' at level 'level'
     LogMessage(const std::string& msg, Level level = Level::Info)
         : msg_(msg), level_(level) {}
+
+
+    // Accessors:
+
+    // Message level.
     Level level() const { return level_; }
+
+    // Message string.
     std::string msg() const { return msg_; }
 
+    // Flag indiciating that exceptions have been surpressed for
+    // current message.
     bool suppress_except() const { return suppress_except_; }
-    void suppress_except(bool s = true) { suppress_except_ = s; }
-    void level(Level level) { level_ = level; }
+
+
+    // Setters:
+
+    // Set current message level.
+    void set_level(Level level) { level_ = level; }
+
+    // Set suppress exceptions.
+    void set_suppress_except(bool s = true) { suppress_except_ = s; }
+
+
+    // Append string to current message
     LogMessage& append(const std::string& str);
+
+    // Clear message
     void clear() { msg_.clear(); }
 
    private:
+    // Suppress exception associated with level (if applicable)
     bool suppress_except_ = false;
+
+    // Message string
     std::string msg_;
+
+    // Message level
     Level level_;
   };
 
@@ -264,19 +297,31 @@ class Loggable : public Object {
   //
   Loggable(Kernel* k, const std::string& name);
 
-  Level level() const { return level_; }
-  void level(const Level& level) { level_ = level; }
+  // Accessors:
 
-  //
+  // Current log level.
+  Level level() const { return level_; }
+
+
+  // Setters:
+
+  // Set current log level.
+  void set_level(const Level& level) { level_ = level; }
+
+
+  // Issue log message to logger.
   void log(const LogMessage& msg) const;
 
  private:
+  // Write standard log prefix.
   void log_prefix(Level l, std::ostream& os) const;
 
-  Level level_;
+  // Current log level.
+  Level level_ = Level::Debug;
 };
 
-//
+// Base schedulable object class. Derive 'actions' to be scheduled and
+// executed at some future time by the simulation kernel.
 //
 class Action : public Loggable {
   friend class Process;
@@ -286,11 +331,17 @@ class Action : public Loggable {
   Action(Kernel* k, const std::string& name);
   virtual ~Action() = default;
 
+  // Evaluate action; override in derived class.
   virtual bool eval() = 0;
+
+  // Release (deallocate) object.
   virtual void release();
 };
 
-//
+
+// Event; Observer class from which processes can be sensitive. When
+// notified, processes registered with the class are scheduled to be
+// evaluated in the following simulation delta-cycle,
 //
 class Event : public Loggable {
   friend class Process;
@@ -309,8 +360,10 @@ class Event : public Loggable {
   void add_notify_action(Action* a) { as_.push_back(a); }
 
  private:
+  // Add process to set of entites awaiting notification.
   void add_waitee(Process* p);
-  //
+
+  // Set of actions to be evaluated on notification.
   std::vector<Action*> as_;
 };
 
@@ -325,13 +378,20 @@ class EventOr : public Event {
   void finalize();
 
  private:
+  // Child events which when triggered cause the current EventOr to
+  // itself be triggered.
   std::vector<Event*> childs_;
 };
 
-//
+
+// Basic schedulable item base class; derive from this some class
+// which defines some independent thread of execution.
 //
 class Process : public Loggable {
   friend class Module;
+  friend class InvokeInitVisitor;
+  friend class EvalProcessAction;
+  
   DECLARE_VISITEE(Process);
 
  public:
@@ -359,14 +419,19 @@ class Process : public Loggable {
   // Suspend/Re-evaluate process upon the notification of event.
   virtual void wait_on(Event* event);
 
-  //
+ private:
+  // Invoke initialization phase; detect whether a wait condition has
+  // been set upon completion.
   virtual void invoke_init();
 
-  //
+  // Invoke evaluation phase; detect whether a wait condition has
+  // been set upon completion.
   virtual void invoke_eval();
 };
 
-//
+
+// Object which is capable of hosting some number of execution
+// contexts (Processes).
 //
 class ProcessHost : public Loggable {
   DECLARE_VISITEE(ProcessHost);
@@ -380,6 +445,7 @@ class ProcessHost : public Loggable {
  private:
   std::vector<Process*> ps_;
 };
+
 
 //
 //
@@ -412,64 +478,86 @@ class Kernel : public Module {
   friend class Process;
   friend class Module;
   friend class Object;
-
-  friend class cc::Soc;
+  friend class SimPhaseRunner;
+  friend class ActionAdder;
 
   using seed_type = std::mt19937_64::result_type;
 
-  struct Event {
+  struct FrontierItem {
     Time time;
     Action* action;
   };
 
-  struct EventComparer {
-    bool operator()(const Event& lhs, const Event& rhs) {
-      // TODO: create operators
-      if (lhs.time.time > rhs.time.time) return true;
-      if (lhs.time.time < rhs.time.time) return false;
-      return lhs.time.delta < rhs.time.delta;
-    }
-  };
+  struct FrontierItemComparer;
 
  public:
   Kernel(seed_type seed = 1);
 
-  // Observers
+  // Accessors:
+
+  // Current simulation time.
   Time time() const { return time_; }
+
+  // Number of actions presently in the event queue.
   std::size_t events_n() const { return eq_.size(); }
+
+  // Flag indicating that a fatal error has occurred.
   bool fatal() const { return fatal_; }
+
+  // Reference to current randomization state.
   RandomSource& random_source() { return random_source_; }
+
+  // Reference to current logging context.
   LogContext& log_context() { return log_context_; }
+
+  // Current simulation phase.
   Phase phase() const { return phase_; }
+
+  // Top-level module instance.
   Object* top() const { return top_; }
 
-  // Deprecate this method;
-  void run(RunMode r = RunMode::ToExhaustion, Time t = Time{});
-  void add_action(Time t, Action* a);
   void raise_fatal() { fatal_ = true; }
+
+  // Set random ssed.
   void set_seed(seed_type seed);
 
  private:
+  // Add action 'a' to be invoked at time 't'.
+  void add_action(Time t, Action* a);
+
   // Set current simulation phase.
   void set_phase(Phase phase) { phase_ = phase; }
+
+  // Set simulation top-level
   void set_top(Object* top) { top_ = top; }
 
-  // Simulation phases invocations.
+  // Simulation phases invocations:
+
+  // Invoke elaboration
   void invoke_elab();
+
+  // Invoke Design Rule Check (DRC)
   void invoke_drc();
+
+  // Invoke initialization
   void invoke_init();
+
+  // Invoke run
   void invoke_run(RunMode r, Time t = Time{});
+
+  // Invoke finalization.
   void invoke_fini();
 
+
   // Simulation event queue.
-  std::vector<Event> eq_;
+  std::vector<FrontierItem> eq_;
   // Current simulation time.
   Time time_;
   // Flag denoting that a fatal error has occurred.
   bool fatal_{false};
   // Current random state.
   RandomSource random_source_;
-  //
+  // Log context
   LogContext log_context_;
   // Current simulation phase.
   Phase phase_{Phase::Build};
@@ -477,13 +565,70 @@ class Kernel : public Module {
   Object* top_{nullptr};
 };
 
-//
+// Class to represent, top-level module in the object-hierarchy (an
+// object with no parent).
 //
 class TopModule : public Module {
   DECLARE_VISITEE(TopModule);
 
  public:
   TopModule(Kernel* k, const std::string& name);
+};
+
+
+// Helper class to invoke various simulation phases within the
+// simulation kernel instance.
+//
+class SimPhaseRunner {
+ public:
+  SimPhaseRunner(Kernel* k) : k_(k) {}
+
+  // Invoke elaboration
+  void elab() const;
+
+  // Invoke Design Rule Check
+  void drc() const;
+
+  // Invoke initialization.
+  void init() const;
+
+  // Invoke run.
+  void run(RunMode r = RunMode::ToExhaustion, Time time = Time{}) const;
+
+  // Invoke initialization.
+  void fini() const;
+
+ private:
+  // Kernel instance
+  Kernel* k_ = nullptr;
+};
+
+// Invoke simulation phases on kernel instance. Helper class to all
+// relevant state to be hidden from the top-level Kernel class.
+//
+class SimSequencer {
+ public:
+  SimSequencer(Kernel* k) : k_(k) {}
+  
+  // Run/Invoke simulation.
+  void run(RunMode r = RunMode::ToExhaustion, Time time = Time{}) const;
+
+ private:
+  // Kernel instance.
+  Kernel* k_ = nullptr;
+};
+
+// Helper class to hide the add_action method from the top-level
+// kernel instance.
+class ActionAdder {
+ public:
+  ActionAdder(Kernel* k) : k_(k) {}
+
+  // Add action to kernel instance.
+  void add_action(Time t, Action* a) const;
+
+ private:
+  Kernel* k_ = nullptr;
 };
 
 }  // namespace cc::kernel

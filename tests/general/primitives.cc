@@ -39,7 +39,7 @@ TEST(Primitives, BasicClock) {
     }
     void eval() override {
       LogMessage msg("On rising edge: ");
-      msg.append(std::to_string(n_)).level(Level::Debug);
+      msg.append(std::to_string(n_)).set_level(Level::Debug);
       log(msg);
       wait_on(clk_->rising_edge_event());
       n_++;
@@ -75,7 +75,7 @@ TEST(Primitives, BasicClock) {
     cc::kernel::Kernel* k = new cc::kernel::Kernel;
     cc::kernel::RandomSource& r = k->random_source();
     TopLevel* top = new TopLevel(k, r.uniform<int>(1, 1000));
-    k->run();
+    cc::kernel::SimSequencer{k}.run();
     top->validate();
     // Check that outstanding event queue has been exhausted.
     EXPECT_EQ(k->events_n(), 0);
@@ -165,7 +165,7 @@ TEST(Primitives, QueueDequeueImmediately) {
 
   auto k = std::make_unique<cc::kernel::Kernel>();
   auto top = std::make_unique<Top>(k.get());
-  k->run();
+  cc::kernel::SimSequencer{k.get()}.run();
   top->validate();
 }
 
@@ -193,7 +193,7 @@ TEST(Primitives, QueueBurst) {
           EXPECT_TRUE(q_->enqueue(actual));
           LogMessage msg("Enqueue: ");
           msg.append(std::to_string(actual));
-          msg.level(Level::Debug);
+          msg.set_level(Level::Debug);
           log(msg);
           d_->push_back(actual);
         }
@@ -238,7 +238,7 @@ TEST(Primitives, QueueBurst) {
         EXPECT_TRUE(q_->dequeue(actual));
         LogMessage msg("Dequeue: ");
         msg.append(std::to_string(actual));
-        msg.level(Level::Debug);
+        msg.set_level(Level::Debug);
         log(msg);
         EXPECT_EQ(actual, expected);
       }
@@ -287,7 +287,7 @@ TEST(Primitives, QueueBurst) {
 
   auto k = std::make_unique<cc::kernel::Kernel>();
   auto top = std::make_unique<Top>(k.get());
-  k->run();
+  cc::kernel::SimSequencer{k.get()}.run();
   top->validate();
 }
 

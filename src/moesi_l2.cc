@@ -451,7 +451,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
       case State::M: {
         LogMessage msg(
             "Attempt to set modified status of line already in M state.");
-        msg.level(Level::Warning);
+        msg.set_level(Level::Warning);
         log(msg);
       }
         [[fallthrough]];
@@ -464,7 +464,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
       } break;
       default: {
         LogMessage msg("Unable to set modified state; line is not owned.");
-        msg.level(Level::Fatal);
+        msg.set_level(Level::Fatal);
         log(msg);
       } break;
     }
@@ -916,7 +916,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
       default: {
         LogMessage lm("Unknown opcode received: ");
         lm.append(cc::to_string(msg->opcode()));
-        lm.level(Level::Fatal);
+        lm.set_level(Level::Fatal);
         log(lm);
       } break;
     }

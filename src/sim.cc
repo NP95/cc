@@ -60,7 +60,7 @@ bool MessageQueue::issue(const Message* msg, cursor_t cursor) {
     bool eval() override {
       if (!q_->enqueue(msg_)) {
         LogMessage lm("Attempt to push new message to full queue.");
-        lm.level(Level::Fatal);
+        lm.set_level(Level::Fatal);
         log(lm);
       }
       return true;
@@ -74,7 +74,9 @@ bool MessageQueue::issue(const Message* msg, cursor_t cursor) {
   if (full()) return false;
   // Issue action:
   const kernel::Time execute_time = k()->time() + kernel::Time{cursor, 0};
-  k()->add_action(execute_time, new EnqueueAction(k(), q_, msg));
+
+  const kernel::ActionAdder aa(k());
+  aa.add_action(execute_time, new EnqueueAction(k(), q_, msg));
 
   return true;
 }
@@ -87,7 +89,7 @@ void MessageQueue::resize(std::size_t n) {
     LogMessage msg(
         "Attempt to resize Message Queue but is currently "
         "non-empty.");
-    msg.level(Level::Fatal);
+    msg.set_level(Level::Fatal);
     log(msg);
   }
   q_->resize(n);
@@ -134,7 +136,7 @@ const Message* MessageQueue::dequeue() {
     lm.append(msg->to_string());
     lm.append(" queue state: ");
     lm.append(to_string());
-    lm.level(Level::Debug);
+    lm.set_level(Level::Debug);
     log(lm);
   }
   return msg;
@@ -173,7 +175,7 @@ void AgentProcess::invoke_init() {
   init();
   if (!wait_set_) {
     LogMessage msg("Wait condition not set; process terminates.");
-    msg.level(Level::Fatal);
+    msg.set_level(Level::Fatal);
     log(msg);
   }
 }
@@ -183,7 +185,7 @@ void AgentProcess::invoke_eval() {
   eval();
   if (!wait_set_) {
     LogMessage msg("Wait condition not set; process terminates.");
-    msg.level(Level::Fatal);
+    msg.set_level(Level::Fatal);
     log(msg);
   }
 }
@@ -207,7 +209,7 @@ void CreditCounter::credit() {
     r.add_field("i", to_string(i()));
     r.add_field("n", to_string(n()));
     msg.append(r.to_string());
-    msg.level(Level::Fatal);
+    msg.set_level(Level::Fatal);
     log(msg);
   }
   // Add credit
@@ -223,7 +225,7 @@ void CreditCounter::debit() {
     r.add_field("i", to_string(i()));
     r.add_field("n", to_string(n()));
     msg.append(r.to_string());
-    msg.level(Level::Fatal);
+    msg.set_level(Level::Fatal);
     log(msg);
   }
   // Deduct credit

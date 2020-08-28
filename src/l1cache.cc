@@ -607,14 +607,14 @@ class L1CacheAgent::MainProcess : public AgentProcess {
       default: {
         LogMessage lmsg("Invalid message class received: ");
         lmsg.append(cc::to_string(ctxt.msg()->cls()));
-        lmsg.level(Level::Error);
+        lmsg.set_level(Level::Error);
         log(lmsg);
       } break;
     }
 
     LogMessage lm("Execute message: ");
     lm.append(ctxt.msg()->to_string());
-    lm.level(Level::Debug);
+    lm.set_level(Level::Debug);
     log(lm);
 
     check_resources(ctxt, cl);
@@ -638,7 +638,7 @@ class L1CacheAgent::MainProcess : public AgentProcess {
       LogMessage msg("L2 sets cache line status to ");
       msg.append(shared ? "Shared" : "Invalid");
       msg.append(" but line is not present in the cache.");
-      msg.level(Level::Fatal);
+      msg.set_level(Level::Fatal);
       log(msg);
     }
     execute(ctxt, cl);
@@ -697,7 +697,7 @@ class L1CacheAgent::MainProcess : public AgentProcess {
     } else {
       LogMessage lm("Cannot find transaction table entry for ");
       lm.append(to_string(t));
-      lm.level(Level::Fatal);
+      lm.set_level(Level::Fatal);
       log(lm);
     }
   }
@@ -764,14 +764,14 @@ class L1CacheAgent::MainProcess : public AgentProcess {
       for (const L1Command* cmd : cl) {
         LogMessage lm("Executing cmd: ");
         lm.append(cmd->to_string());
-        lm.level(Level::Debug);
+        lm.set_level(Level::Debug);
         log(lm);
         interpreter.execute(ctxt, cmd);
       }
     } catch (const std::runtime_error& ex) {
       LogMessage lm("Interpreter encountered an error: ");
       lm.append(ex.what());
-      lm.level(Level::Fatal);
+      lm.set_level(Level::Fatal);
       log(lm);
     }
   }
@@ -863,12 +863,12 @@ bool L1CacheAgent::elab() {
 void L1CacheAgent::drc() {
   if (l1_l2__cmd_q_ == nullptr) {
     LogMessage msg("L2 message queue has not been bound.");
-    msg.level(Level::Fatal);
+    msg.set_level(Level::Fatal);
     log(msg);
   }
   if (l1_cpu__rsp_q_ == nullptr) {
     LogMessage msg("L1 to CPU response message queue.");
-    msg.level(Level::Fatal);
+    msg.set_level(Level::Fatal);
     log(msg);
   }
   if (cpu_ == nullptr) {

@@ -75,7 +75,7 @@ class NocModel::MainProcess : public AgentProcess {
     // unrecoverable.
     if (t.deadlock()) {
       LogMessage msg("A protocol deadlock has been detected.");
-      msg.level(Level::Fatal);
+      msg.set_level(Level::Fatal);
       log(msg);
     }
     MessageQueue* mq = t.winner();
@@ -93,7 +93,7 @@ class NocModel::MainProcess : public AgentProcess {
         NocPort* dest_port = model_->get_agent_port(nocmsg->dest());
         if (dest_port == nullptr) {
           LogMessage lmsg("Unable to resolve destination port.");
-          lmsg.level(Level::Fatal);
+          lmsg.set_level(Level::Fatal);
           log(lmsg);
         }
 
@@ -122,7 +122,7 @@ class NocModel::MainProcess : public AgentProcess {
         // message arrives, this is a fatal error.
         LogMessage lmsg("Invalid message class recieved: ");
         lmsg.append(to_string(msg->cls()));
-        lmsg.level(Level::Fatal);
+        lmsg.set_level(Level::Fatal);
         log(lmsg);
       } break;
     }
@@ -175,7 +175,7 @@ class NocEndpoint::MainProcess : public AgentProcess {
     if (nocmsg->cls() != MessageClass::Noc) {
       LogMessage lmsg("Received invalid message class: ");
       lmsg.append(to_string(nocmsg->cls()));
-      lmsg.level(Level::Fatal);
+      lmsg.set_level(Level::Fatal);
       log(lmsg);
     }
 
@@ -185,7 +185,7 @@ class NocEndpoint::MainProcess : public AgentProcess {
     if (proxy == nullptr) {
       LogMessage lmsg("Message queue not found for class: ");
       lmsg.append(cc::to_string(msg->cls()));
-      lmsg.level(Level::Fatal);
+      lmsg.set_level(Level::Fatal);
       log(lmsg);
     }
 
@@ -309,7 +309,7 @@ void NocModel::drc() {
       Agent* agent = pp.first;
       LogMessage msg("Egress port has not been bound for agent: ");
       msg.append(agent->path());
-      msg.level(Level::Fatal);
+      msg.set_level(Level::Fatal);
       log(msg);
     }
   }

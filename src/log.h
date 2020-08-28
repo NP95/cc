@@ -35,7 +35,7 @@ namespace cc {
 #define LOG_FATAL(__msg)                        \
   MACRO_BEGIN                                   \
   LogMessage msg(__msg);                        \
-  msg.level(Level::Fatal);                      \
+  msg.set_level(Level::Fatal);                  \
   log(msg);                                     \
   MACRO_END
 

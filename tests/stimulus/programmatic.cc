@@ -53,7 +53,7 @@ TEST(Programmatic, Cfg111_SimpleRead) {
   stimulus->push_stimulus(0, cc::CpuOpcode::Load, 0);
 
   // Run to exhaustion
-  k.run();
+  cc::kernel::SimSequencer{&k}.run();
 
   // Validate expected transaction count.
   EXPECT_EQ(stimulus->issue_n(), 1);
@@ -89,7 +89,7 @@ TEST(Programmatic, Cfg121_SimpleRead) {
   stimulus->push_stimulus(1, cc::CpuOpcode::Load, 0);
 
   // Run to exhaustion
-  k.run();
+  cc::kernel::SimSequencer{&k}.run();
 
   // Validate expected transaction count.
   EXPECT_EQ(stimulus->issue_n(), 2);
@@ -115,6 +115,7 @@ TEST(Programmatic, Cfg111_BadCpuID) {
 
   cc::kernel::Kernel k;
   cc::SocTop top(&k, cfg);
+  cc::kernel::SimSequencer{&k}.run();
 
   // Stimulus: single load instruction to some address.
   cc::ProgrammaticStimulus* stimulus =

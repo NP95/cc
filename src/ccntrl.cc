@@ -332,7 +332,7 @@ class CCAgent::RdisProcess : public AgentProcess {
       default: {
         LogMessage lmsg("Invalid message class received: ");
         lmsg.append(cc::to_string(ctxt.msg()->cls()));
-        lmsg.level(Level::Error);
+        lmsg.set_level(Level::Error);
         log(lmsg);
       } break;
     }
@@ -340,7 +340,7 @@ class CCAgent::RdisProcess : public AgentProcess {
     if (check_resources(ctxt, cl)) {
       LogMessage lm("Execute message: ");
       lm.append(ctxt.msg()->to_string());
-      lm.level(Level::Debug);
+      lm.set_level(Level::Debug);
       log(lm);
 
       // Execution is a two-phased process.
@@ -490,7 +490,7 @@ class CCAgent::RdisProcess : public AgentProcess {
     } catch (const std::runtime_error& ex) {
       LogMessage lm("Interpreter encountered an error: ");
       lm.append(ex.what());
-      lm.level(Level::Fatal);
+      lm.set_level(Level::Fatal);
       log(lm);
     }
   }
@@ -505,7 +505,7 @@ class CCAgent::RdisProcess : public AgentProcess {
       // Expect to find a entry in the transaction table. If an entry
       // is not present bail.
       LogMessage msg("Transaction not found in table.");
-      msg.level(Level::Fatal);
+      msg.set_level(Level::Fatal);
       log(msg);
     }
     return tstate;
@@ -719,14 +719,14 @@ class CCAgent::SnpProcess : public AgentProcess {
       default: {
         LogMessage lmsg("Invalid message class received: ");
         lmsg.append(cc::to_string(ctxt.msg()->cls()));
-        lmsg.level(Level::Fatal);
+        lmsg.set_level(Level::Fatal);
         log(lmsg);
       } break;
     }
     if (can_execute(cl)) {
       LogMessage lm("Execute message: ");
       lm.append(ctxt.msg()->to_string());
-      lm.level(Level::Debug);
+      lm.set_level(Level::Debug);
       log(lm);
 
       execute(ctxt, cl);
@@ -752,7 +752,7 @@ class CCAgent::SnpProcess : public AgentProcess {
       protocol->apply(ctxt, cl);
     } else {
       LogMessage lm("Transaction not found in Transaction table.");
-      lm.level(Level::Fatal);
+      lm.set_level(Level::Fatal);
       log(lm);
     }
   }
@@ -770,7 +770,7 @@ class CCAgent::SnpProcess : public AgentProcess {
     } catch (const std::runtime_error& ex) {
       LogMessage lm("Interpreter encountered an error: ");
       lm.append(ex.what());
-      lm.level(Level::Fatal);
+      lm.set_level(Level::Fatal);
       log(lm);
     }
   }
@@ -806,7 +806,7 @@ class CCNocEndpoint : public NocEndpoint {
     } else {
       LogMessage lm("End point not register for class: ");
       lm.append(cc::to_string(msg->cls()));
-      lm.level(Level::Fatal);
+      lm.set_level(Level::Fatal);
       log(lm);
     }
     return nullptr;

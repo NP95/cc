@@ -150,7 +150,7 @@ class MemCntrlAgent::RequestDispatcherProcess : public AgentProcess {
 
     LogMessage lm("Execute message: ");
     lm.append(cmdmsg->to_string());
-    lm.level(Level::Debug);
+    lm.set_level(Level::Debug);
     log(lm);
 
     MemRspMsg* rspmsg = Pool<MemRspMsg>::construct();
@@ -165,7 +165,7 @@ class MemCntrlAgent::RequestDispatcherProcess : public AgentProcess {
       default: {
         LogMessage lmsg("Invalid message opcode received: ");
         lmsg.append(to_string(cmdmsg->opcode()));
-        lmsg.level(Level::Fatal);
+        lmsg.set_level(Level::Fatal);
         log(lmsg);
       } break;
     }
@@ -219,7 +219,7 @@ class MemNocEndpoint : public NocEndpoint {
     } else {
       LogMessage lm("End point not register for origin: ");
       lm.append(msg->origin()->path());
-      lm.level(Level::Fatal);
+      lm.set_level(Level::Fatal);
       log(lm);
     }
     return nullptr;
@@ -288,7 +288,7 @@ void MemCntrlAgent::set_mem_noc__port(NocPort* port) {
 void MemCntrlAgent::drc() {
   if (mem_noc__port_ == nullptr) {
     LogMessage msg("NOC egress message queue has not been bound");
-    msg.level(Level::Fatal);
+    msg.set_level(Level::Fatal);
     log(msg);
   }
 }

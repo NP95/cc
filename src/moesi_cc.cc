@@ -281,7 +281,7 @@ class MOESICCProtocol : public CCProtocol {
       default: {
         LogMessage msg("Invalid message class received: ");
         msg.append(cc::to_string(cls));
-        msg.level(Level::Fatal);
+        msg.set_level(Level::Fatal);
         log(msg);
       } break;
     }
@@ -325,7 +325,7 @@ class MOESICCProtocol : public CCProtocol {
       default: {
         LogMessage msg("Invalid message class received: ");
         msg.append(cc::to_string(cls));
-        msg.level(Level::Fatal);
+        msg.set_level(Level::Fatal);
         log(msg);
       } break;
     }

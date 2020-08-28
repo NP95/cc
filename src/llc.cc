@@ -172,7 +172,7 @@ class LLCAgent::RdisProcess : public AgentProcess {
       LogMessage lm;
       lm.append("Execute message: ");
       lm.append(msg->to_string());
-      lm.level(Level::Debug);
+      lm.set_level(Level::Debug);
       log(lm);
 
       switch (msg->cls()) {
@@ -190,7 +190,7 @@ class LLCAgent::RdisProcess : public AgentProcess {
           // Unknown message class
           LogMessage lm("Unknown message received: ");
           lm.append(to_string(msg->cls()));
-          lm.level(Level::Fatal);
+          lm.set_level(Level::Fatal);
           log(lm);
         } break;
       }
@@ -291,7 +291,7 @@ class LLCAgent::RdisProcess : public AgentProcess {
     std::map<Transaction*, LLCTState*>* tt = model_->tt();
     if (auto pp = tt->insert(std::make_pair(t, tstate)); !pp.second) {
       LogMessage msg("Could not install transaction state.");
-      msg.level(Level::Fatal);
+      msg.set_level(Level::Fatal);
       log(msg);
     }
   }
@@ -304,7 +304,7 @@ class LLCAgent::RdisProcess : public AgentProcess {
       // Expect to find a entry in the transaction table. If an entry
       // is not present bail.
       LogMessage msg("Transaction not found in table.");
-      msg.level(Level::Fatal);
+      msg.set_level(Level::Fatal);
       log(msg);
     }
     return st;
@@ -316,7 +316,7 @@ class LLCAgent::RdisProcess : public AgentProcess {
       tt->erase(it);
     } else {
       LogMessage msg("Transaction not found in table.");
-      msg.level(Level::Fatal);
+      msg.set_level(Level::Fatal);
       log(msg);
     }
   }
@@ -357,7 +357,7 @@ class LLCNocEndpoint : public NocEndpoint {
     } else {
       LogMessage lm("End point not register for class: ");
       lm.append(cc::to_string(msg->cls()));
-      lm.level(Level::Fatal);
+      lm.set_level(Level::Fatal);
       log(lm);
     }
     return nullptr;
@@ -433,7 +433,7 @@ bool LLCAgent::elab() {
 void LLCAgent::drc() {
   if (llc_noc__port_ == nullptr) {
     LogMessage msg("LLC to NOC egress queue has not been bound.");
-    msg.level(Level::Fatal);
+    msg.set_level(Level::Fatal);
     log(msg);
   }
 }

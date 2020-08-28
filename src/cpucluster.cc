@@ -176,7 +176,7 @@ void CpuCluster::drc() {
     msg.append(") and CPU (");
     msg.append(std::to_string(cpus_.size()));
     msg.append(")");
-    msg.level(Level::Fatal);
+    msg.set_level(Level::Fatal);
     log(msg);
   }
 }

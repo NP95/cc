@@ -159,7 +159,7 @@ class Cpu::ConsumerProcess : public kernel::Process {
           // Unknown message response class; fatal
           LogMessage lm("Received message with unknown type: ");
           lm.append(to_string(cls));
-          lm.level(Level::Fatal);
+          lm.set_level(Level::Fatal);
           log(lm);
         } break;
       }
@@ -206,7 +206,7 @@ void Cpu::set_stimulus(StimulusContext* stimulus) {
   if (stimulus_ != nullptr) {
     LogMessage msg("Stimulus has already been defined: ");
     msg.append(stimulus->path());
-    msg.level(Level::Fatal);
+    msg.set_level(Level::Fatal);
     log(msg);
   }
 
@@ -255,7 +255,7 @@ Transaction* Cpu::start_transaction() {
 
   LogMessage msg("Transaction starts: ");
   msg.append(t->to_string());
-  msg.level(Level::Info);
+  msg.set_level(Level::Info);
   log(msg);
 
   return t;
@@ -267,14 +267,14 @@ void Cpu::end_transaction(Transaction* t) {
     // TODO:
     LogMessage msg("Transaction ends: ");
     msg.append(t->to_string());
-    msg.level(Level::Info);
+    msg.set_level(Level::Info);
     log(msg);
 
     (*it)->release();
     ts_.erase(it);
   } else {
     LogMessage lmsg("Unknown transaction consumed!");
-    lmsg.level(Level::Fatal);
+    lmsg.set_level(Level::Fatal);
     log(lmsg);
   }
 }

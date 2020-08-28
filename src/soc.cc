@@ -201,7 +201,7 @@ void SocTop::elab_bind_ports() {
       // NOC instance before attempting to bind to the port.
       LogMessage msg("Cannot bind to port on: ");
       msg.append(cpuc->cc()->path());
-      msg.level(Level::Fatal);
+      msg.set_level(Level::Fatal);
       log(msg);
     }
     // NOC -> CC message queue
@@ -366,16 +366,21 @@ Soc::~Soc() {
 }
 
 void Soc::initialize() {
-  kernel_->invoke_elab();
-  kernel_->invoke_drc();
-  kernel_->invoke_init();
+  kernel::SimPhaseRunner runner(kernel_);
+  runner.elab();
+  runner.drc();
+  runner.init();
 }
 
 void Soc::run(cc::kernel::RunMode r, cc::kernel::Time time) {
-  kernel_->invoke_run(r, time);
+  kernel::SimPhaseRunner runner(kernel_);
+  runner.run(r, time);
 }
 
-void Soc::finalize() { kernel_->invoke_fini(); }
+void Soc::finalize() {
+  kernel::SimPhaseRunner runner(kernel_);
+  runner.fini();
+}
 
 void Soc::build(const SocConfig& cfg) {
   // Construct simulation kernel
