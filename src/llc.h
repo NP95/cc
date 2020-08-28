@@ -46,6 +46,7 @@ class LLCNocEndpoint;
 class CpuCluster;
 class NocPort;
 class Stimulus;
+class LLCTState;
 
 //
 //
@@ -60,9 +61,10 @@ enum class LLCCmdOpcode {
   Invalid
 };
 
+// Convert Opcode to some human readable string.
 const char* to_string(LLCCmdOpcode opcode);
 
-//
+// LLC Command Message class
 //
 class LLCCmdMsg : public Message {
   template <typename>
@@ -71,32 +73,52 @@ class LLCCmdMsg : public Message {
   LLCCmdMsg();
  public:
 
-  //
+  // Represent message as a humand-readable string.
   std::string to_string() const override;
 
-  //
+
+  // Accessors:
+  
+  // Opcode
   LLCCmdOpcode opcode() const { return opcode_; }
+
+  // Address
   addr_t addr() const { return addr_; }
+
+  // Destination agent (where applicable).
   Agent* agent() const { return agent_; }
 
-  //
+
+  // Setter:
+  
+  // Set current opcode
   void set_opcode(LLCCmdOpcode opcode) { opcode_ = opcode; }
+
+  // Set current address
   void set_addr(addr_t addr) { addr_ = addr; }
+
+  // Set current agent
   void set_agent(Agent* agent) { agent_ = agent; }
 
  private:
-  addr_t addr_;
-  LLCCmdOpcode opcode_;
+  // Address
+  addr_t addr_ = 0;
+
+  // Command opcode.
+  LLCCmdOpcode opcode_ = LLCCmdOpcode::Invalid;
+
+  // Destination agent
   Agent* agent_ = nullptr;
 };
 
-//
-//
+
+// LLC response status; presently always Okay
 enum class LLCRspStatus { Okay, Invalid };
 
+// Convert status to humand-readable string.
 const char* to_string(LLCRspStatus status);
 
-//
+// LLC Command Response Message class.
 //
 class LLCCmdRspMsg : public Message {
   template <typename>
@@ -125,10 +147,6 @@ class LLCCmdRspMsg : public Message {
   LLCRspStatus status_ = LLCRspStatus::Invalid;
 };
 
-class LLCTState;
-
-//
-using LLCTTable = std::map<Transaction*, LLCTState*>;
 
 //
 //
@@ -176,7 +194,7 @@ class LLCAgent : public Agent {
   // Queue arbiter:
   MQArb* arb() const { return arb_; }
   //
-  LLCTTable* tt() const { return tt_; }
+  std::map<Transaction*, LLCTState*>* tt() const { return tt_; }
 
  private:
   // LLC -> NOC command queue (NOC owned)
@@ -194,7 +212,7 @@ class LLCAgent : public Agent {
   // Home directory.
   DirAgent* dir_ = nullptr;
   // Transaction table.
-  LLCTTable* tt_ = nullptr;
+  std::map<Transaction*, LLCTState*>* tt_ = nullptr;
   // Request distruction process.
   RdisProcess* rdis_proc_ = nullptr;
   // NOC endpoint

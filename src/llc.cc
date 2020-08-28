@@ -130,7 +130,7 @@ class LLCTState {
 
  private:
   // Transactor state
-  State state_;
+  State state_ = State::Idle;
   // Originator agent
   Agent* origin_ = nullptr;
   // LLC command opcode
@@ -288,7 +288,7 @@ class LLCAgent::RdisProcess : public AgentProcess {
   }
 
   void install_state_or_fatal(Transaction* t, LLCTState* tstate) {
-    LLCTTable* tt = model_->tt();
+    std::map<Transaction*, LLCTState*>* tt = model_->tt();
     if (auto pp = tt->insert(std::make_pair(t, tstate)); !pp.second) {
       LogMessage msg("Could not install transaction state.");
       msg.level(Level::Fatal);
@@ -296,7 +296,7 @@ class LLCAgent::RdisProcess : public AgentProcess {
     }
   }
   LLCTState* lookup_state_or_fatal(Transaction* t) const {
-    LLCTTable* tt = model_->tt();
+    std::map<Transaction*, LLCTState*>* tt = model_->tt();
     LLCTState* st = nullptr;
     if (auto it = tt->find(t); it != tt->end()) {
       st = it->second;
@@ -310,7 +310,7 @@ class LLCAgent::RdisProcess : public AgentProcess {
     return st;
   }
   void erase_state_or_fatal(Transaction* t) {
-    LLCTTable* tt = model_->tt();
+    std::map<Transaction*, LLCTState*>* tt = model_->tt();
     if (auto it = tt->find(t); it != tt->end()) {
       delete it->second;
       tt->erase(it);
@@ -404,7 +404,7 @@ void LLCAgent::build() {
   noc_endpoint_->set_epoch(config_.epoch);
   add_child_module(noc_endpoint_);
   // Construct transaction table.
-  tt_ = new LLCTTable;
+  tt_ = new std::map<Transaction*, LLCTState*>;
 }
 
 void LLCAgent::register_cc(CpuCluster* cc) {
