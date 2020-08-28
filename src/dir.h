@@ -334,26 +334,37 @@ class DirTState {
  private:
   // Event notified on transation start.
   kernel::Event* transaction_start_ = nullptr;
+
   // Event notified on transaction end.
   kernel::Event* transaction_end_ = nullptr;
+
   // Current directory line.
   DirLineState* line_ = nullptr;
+
   // Current line address
   addr_t addr_;
+
   // Originating cache controller origin.
   Agent* origin_ = nullptr;
+
   // Current Ace comamnd begin processed.
   AceCmdOpcode opcode_ = AceCmdOpcode::Invalid;
+
   // The total expected number of snoop responses
   std::size_t snoop_n_ = 0;
+
   // The total number of snoop responses received.
   std::size_t snoop_i_ = 0;
+
   // The total number of data transfers
   std::size_t dt_i_ = 0;
+
   // Snoop was Passed Dirty flag
   std::size_t pd_i_ = 0;
+
   // Snoop was Is Shared flag
   std::size_t is_i_ = 0;
+
   // Awaiting LLC Command.
   LLCCmdOpcode llc_cmd_opcode_ = LLCCmdOpcode::Invalid;
 };
@@ -534,40 +545,55 @@ class DirAgent : public Agent {
 
   // LLC owned by current directory
   LLCAgent* llc() const { return llc_; }
+
   // NOC -> DIR message queue
   MessageQueue* endpoint();
+
   // DIR -> NOC message queue
   NocPort* dir_noc__port() const { return dir_noc__port_; }
+
   // Coherence protocol
   DirProtocol* protocol() const { return protocol_; }
+
   // Transaction table.
   Table<Transaction*, DirTState*>* tt() const { return tt_; }
+
   // Credit Counters
   const std::map<MessageClass, ccntr_map>& ccntrs_map() const {
     return ccntrs_map_;
   }
+
   // Lookup Credit Counter by Message Class and agent
   CreditCounter* cc_by_cls_agent(MessageClass cls, const Agent* agent) const;
+
   // Lookup destination/ingress Messag Queue based upon MessageClass
   // and, additionally, origin agent where applicable.
   MessageQueue* mq_by_msg_cls(MessageClass cls, const Agent* origin) const;
+
   // Point to module cache instance.
   const CacheModel<DirLineState*>* cache() const { return cache_; }
 
  protected:
+
   // Build
   void build();
+
   // Build phase; register new command queue (belonging to
   // a distinct cache controller instance.
   void register_command_queue(const Agent* origin);
+
   // Register verification monitor.
   void register_monitor(Monitor* monitor);
+
   // Set asscoiated LLC instance.
   void set_llc(LLCAgent* llc) { llc_ = llc; }
+
   // Elaboration
   bool elab() override;
+
   // Set Dir -> NOC message queue (NOC owned).
   void set_dir_noc__port(NocPort* port);
+
   // Register credit counter for MessageClass 'cls' in Agent 'agent' with
   // an initial value of 'n' credits.
   void register_credit_counter(MessageClass cls, Agent* dest, std::size_t n);
@@ -579,51 +605,69 @@ class DirAgent : public Agent {
 
   // Directory arbiter instance.
   MQArb* arb() const { return arb_; }
+
   // Point to module cache instance.
   CacheModel<DirLineState*>* cache() { return cache_; }
 
  private:
   // Queue selection arbiter
   MQArb* arb_ = nullptr;
+
   // DIR -> NOC message queue (owned by NOC)
   NocPort* dir_noc__port_ = nullptr;
+
   // CPU -> DIR command queue (owned by DIR)
   std::map<const Agent*, MessageQueue*> cc_dir__cmd_q_;
+
   // LLC -> DIR response queue (owned by DIR)
   MessageQueue* llc_dir__rsp_q_ = nullptr;
+
   // CC -> DIR snoop response queue.
   MessageQueue* cc_dir__snprsp_q_ = nullptr;
+
   // Agent credit counters (keyed on Message class)
   std::map<MessageClass, ccntr_map> ccntrs_map_;
+
   // NOC endpoint
   DirNocEndpoint* noc_endpoint_ = nullptr;
+
   // request dispatcher process
   RdisProcess* rdis_proc_ = nullptr;
+
   // Last Level Cache instance (where applicable).
   LLCAgent* llc_ = nullptr;
+
   // Transaction table
   Table<Transaction*, DirTState*>* tt_ = nullptr;
+
   // Cache Instance
   CacheModel<DirLineState*>* cache_ = nullptr;
+
   // Coherence protocol
   DirProtocol* protocol_ = nullptr;
+
   // Verification monitor instance, where applicable.
   Monitor* monitor_ = nullptr;
+
   // Current directory configuration.
   DirAgentConfig config_;
 };
 
-//
+// Abstract based class to relate a line address to a directory
+// instance.
 //
 class DirMapper {
  public:
   DirMapper() = default;
   virtual ~DirMapper() = default;
 
+  // Return directory instance for a given address.
   virtual DirAgent* lookup(addr_t addr) const = 0;
 };
 
-//
+// Simple example of directory mapper class used in the single
+// directory case. Maps the entire domain of address to a single
+// directory instance.
 //
 class SingleDirMapper : public DirMapper {
  public:
