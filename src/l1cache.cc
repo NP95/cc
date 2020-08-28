@@ -289,8 +289,7 @@ L1Resources::L1Resources(const L1CommandList& list) { build(list); }
 
 void L1Resources::build(const L1CommandList& list) {
   for (L1Command* cmd : list) {
-    const L1Opcode opcode = cmd->opcode();
-    switch (opcode) {
+    switch (const L1Opcode opcode = cmd->opcode(); opcode) {
       case L1Opcode::StartTransaction: {
         ++tt_entry_n_;
       } break;
@@ -320,8 +319,7 @@ class L1CommandInterpreter {
   L1CommandInterpreter() = default;
 
   void execute(L1CacheContext& ctxt, const L1Command* cmd) {
-    const L1Opcode opcode = cmd->opcode();
-    switch (opcode) {
+    switch (const L1Opcode opcode = cmd->opcode(); opcode) {
       case L1Opcode::StartTransaction: {
         execute_start_transaction(ctxt, cmd);
       } break;
@@ -467,8 +465,7 @@ class L1CommandInterpreter {
     
     L1CacheMonitor* monitor = l1cache->monitor();
     L1CacheStatistics* statistics = l1cache->statistics();
-    const L1CacheEvent event = cmd->cache_event();
-    switch (event) {
+    switch (const L1CacheEvent event = cmd->cache_event(); event) {
       case L1CacheEvent::InstallShareable: {
         if (monitor) {
           monitor->install_line(l1cache, cmd->addr());
@@ -597,7 +594,7 @@ class L1CacheAgent::MainProcess : public AgentProcess {
     ctxt.set_mq(ctxt.t().winner());
 
     // Dispatch to appropriate handler based upon message class.
-    switch (ctxt.msg()->cls()) {
+    switch (const MessageClass cls = ctxt.msg()->cls(); cls) {
       case MessageClass::L1Cmd:
         process_l1cmd(ctxt, cl);
         break;
@@ -605,8 +602,10 @@ class L1CacheAgent::MainProcess : public AgentProcess {
         process_l2cmdrsp(ctxt, cl);
         break;
       default: {
+        using cc::to_string;
+
         LogMessage lmsg("Invalid message class received: ");
-        lmsg.append(cc::to_string(ctxt.msg()->cls()));
+        lmsg.append(to_string(cls));
         lmsg.set_level(Level::Error);
         log(lmsg);
       } break;
@@ -628,9 +627,8 @@ class L1CacheAgent::MainProcess : public AgentProcess {
     ctxt.set_addr(addr);
     L1Cache* cache = model_->cache();
     const CacheAddressHelper ah = cache->ah();
-    L1CacheSet set = cache->set(ah.set(addr));
-    L1CacheLineIt it = set.find(ah.tag(addr));
-    if (it != set.end()) {
+    const auto set = cache->set(ah.set(addr));
+    if (auto it = set.find(ah.tag(addr)); it != set.end()) {
       ctxt.set_line(it->t());
       const L1CacheAgentProtocol* protocol = model_->protocol();
       protocol->set_line_shared_or_invalid(ctxt, cl, shared);
@@ -714,8 +712,8 @@ class L1CacheAgent::MainProcess : public AgentProcess {
     // Flag denoting that resource requirements have not been met.
     bool fail = false;
 
-    TransactionTable<L1TState*>* tt = model_->tt();
-    if (!tt->has_at_least(res.tt_entry_n())) {
+    if (TransactionTable<L1TState*>* tt = model_->tt();
+        !tt->has_at_least(res.tt_entry_n())) {
       // No transaction table entries available. Block Process until
       // sufficient space has been attained.
 
@@ -820,7 +818,7 @@ void L1CacheAgent::build() {
   main_ = new MainProcess(k(), "main", this);
   main_->set_epoch(config_.epoch);
   add_child_process(main_);
-  //
+  // Underlying cache instance.
   cache_ = new L1Cache(config_.cconfig);
   // Set up protocol
   protocol_ = config_.pbuilder->create_l1(k());

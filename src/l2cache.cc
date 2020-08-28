@@ -93,7 +93,6 @@ std::string L2CmdRspMsg::to_string() const {
 
 L2CacheContext::~L2CacheContext() {
   if (owns_line_) {
-    // line_->release();
     delete line_;
   }
 
@@ -193,8 +192,7 @@ void L2CommandList::clear() {
 void L2Resources::build(const L2CommandList& cl) {
   // Compute set of resources required for current Command List.
   for (L2Command* cmd : cl) {
-    const L2Opcode opcode = cmd->opcode();
-    switch (opcode) {
+    switch (const L2Opcode opcode = cmd->opcode(); opcode) {
       case L2Opcode::StartTransaction: {
         ++tt_entry_n_;
       } break;
@@ -275,8 +273,7 @@ class L2CommandInterpreter {
       L2CacheModel* cache = model_->cache();
       const CacheAddressHelper ah = cache->ah();
       L2CacheModelSet set = cache->set(ah.set(tstate->addr()));
-      if (L2CacheModelLineIt it = set.find(ah.tag(tstate->addr()));
-          it == set.end()) {
+      if (auto it = set.find(ah.tag(tstate->addr())); it == set.end()) {
         L2CacheModel::Evictor evictor;
         if (auto p = evictor.nominate(set.begin(), set.end()); !p.second) {
           // A way in the set has been nominated, install cache line.
@@ -474,8 +471,7 @@ class L2CacheAgent::MainProcess : public AgentProcess {
     const CacheAddressHelper ah = cache->ah();
 
     L2CacheModelSet set = cache->set(ah.set(addr));
-    L2CacheModelLineIt it = set.find(ah.tag(addr));
-    if (it != set.end()) {
+    if (auto it = set.find(ah.tag(addr));it != set.end()) {
       ctxt.set_line(it->t());
       protocol->set_modified_status(ctxt, cl);
     } else {
@@ -509,8 +505,7 @@ class L2CacheAgent::MainProcess : public AgentProcess {
     L2CacheModelSet set = cache->set(ah.set(cmd->addr()));
     L2CacheModelLineIt it = set.find(ah.tag(cmd->addr()));
     const bool has_cache_line = (it != set.end());
-    const L2CmdOpcode opcode = cmd->opcode();
-    switch (opcode) {
+    switch (const L2CmdOpcode opcode = cmd->opcode(); opcode) {
       case L2CmdOpcode::L1GetS:
       case L2CmdOpcode::L1GetE: {
         if (!has_cache_line) {
@@ -583,9 +578,8 @@ class L2CacheAgent::MainProcess : public AgentProcess {
     const CacheAddressHelper ah = cache->ah();
     const AceSnpMsg* msg = static_cast<const AceSnpMsg*>(ctxt.msg());
     ctxt.set_addr(msg->addr());
-    L2CacheModelSet set = cache->set(ah.set(msg->addr()));
-    L2CacheModelLineIt it = set.find(ah.tag(msg->addr()));
-    if (it != set.end()) {
+    const auto set = cache->set(ah.set(msg->addr()));
+    if (auto it = set.find(ah.tag(msg->addr())); it != set.end()) {
       // Found line in cache; set constext
       ctxt.set_line(it->t());
     } else if (opt_allow_silent_evictions) {
@@ -609,8 +603,7 @@ class L2CacheAgent::MainProcess : public AgentProcess {
     // Flag denoting that resource requirements have not been met.
     bool fail = false;
 
-    L2TTable* tt = model_->tt();
-    if (!tt->has_at_least(res.tt_entry_n())) {
+    if (L2TTable* tt = model_->tt(); !tt->has_at_least(res.tt_entry_n())) {
       // Destory prior CommandList.
       cl.clear();
       // Message Queue becomes blocks awaiting the availability of an
