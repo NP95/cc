@@ -683,8 +683,8 @@ class DirAgent::RdisProcess : public AgentProcess {
     // Lookup transaction table or bail if not found.
     const DirProtocol* protocol = model_->protocol();
     DirTState* tstate = lookup_state_or_fatal(ctxt.msg()->t());
-    const Message* msg = ctxt.mq()->peek();
-    if (msg->cls() == MessageClass::CohCmd) {
+    if (const Message* msg = ctxt.mq()->peek();
+        msg->cls() == MessageClass::CohCmd) {
       // Grab anciliary state on the Coherence Command message.
       const CohCmdMsg* coh = static_cast<const CohCmdMsg*>(msg);
       tstate->set_addr(coh->addr());
