@@ -187,7 +187,8 @@ void CCResources::set_dt_n(const Agent* agent, std::size_t dt_n) {
 
 void CCResources::build(const CCCommandList& cl) {}
 
-//
+// Cache Controller Interpreter; execute the comand sequence and
+// update the associated architectural state in the agent.
 //
 class CCCommandInterpreter {
  public:
@@ -484,12 +485,6 @@ class CCAgent::RdisProcess : public AgentProcess {
     try {
       CCCommandInterpreter interpreter;
       for (const CCCommand* cmd : cl) {
-#if 0
-        LogMessage lm("Executing command: ");
-        lm.append(cmd->to_string());
-        lm.level(Level::Debug);
-        log(lm);
-#endif
         interpreter.execute(ctxt, cmd);
       }
     } catch (const std::runtime_error& ex) {
@@ -592,7 +587,9 @@ CCSnpCommandList::~CCSnpCommandList() {
   }
 }
 
-//
+// Cache Controller Snoop Interpreter; execute a snoop command
+// sequence and update the associated architectural state in the
+// agent.
 //
 class CCSnpCommandInterpreter {
  public:
@@ -768,12 +765,6 @@ class CCAgent::SnpProcess : public AgentProcess {
       interpreter.set_cc(model_);
       interpreter.set_process(this);
       for (const CCSnpCommand* cmd : cl) {
-#if 0
-        LogMessage lm("Executing command: ");
-        lm.append(cmd->to_string());
-        lm.level(Level::Debug);
-        log(lm);
-#endif
         interpreter.execute(ctxt, cmd);
       }
     } catch (const std::runtime_error& ex) {
@@ -787,7 +778,9 @@ class CCAgent::SnpProcess : public AgentProcess {
   CCAgent* model_ = nullptr;
 };
 
-//
+// NOC endpoint. Forward ingress Messages from the NOC and redirect
+// messages to their associated MessageQueue in the controller
+// instance.
 //
 class CCNocEndpoint : public NocEndpoint {
  public:

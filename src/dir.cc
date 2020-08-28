@@ -161,7 +161,8 @@ const char* to_string(TStateUpdateOpcode action) {
   }
 }
 
-//
+// Coherence action which applies the state updates to the directory's
+// transaction state
 //
 struct TStateUpdateAction : public DirCoherenceAction {
   TStateUpdateAction(DirTState* tstate, TStateUpdateOpcode action)
@@ -184,12 +185,21 @@ struct TStateUpdateAction : public DirCoherenceAction {
     return r.to_string();
   }
 
-  // Getters
+  // Accessors:
+
+  // Current update action
   TStateUpdateOpcode action() const { return action_; }
+
+  // Current snoop count.
   std::size_t snoop_n() const { return snoop_n_; }
 
-  // Setters
+
+  // Setters:
+
+  // Set snoop count.
   void set_snoop_n(std::size_t snoop_n) { snoop_n_ = snoop_n; }
+
+  // Set LLC Command opcode.
   void set_llc_cmd_opcode(LLCCmdOpcode opcode) { llc_cmd_opcode_ = opcode; }
 
   bool execute() override {
@@ -220,13 +230,13 @@ struct TStateUpdateAction : public DirCoherenceAction {
   }
 
  private:
-  //
+  // Pending LLC command
   LLCCmdOpcode llc_cmd_opcode_ = LLCCmdOpcode::Invalid;
-  //
+  // Pointer to transaction state instance.
   DirTState* tstate_ = nullptr;
-  //
+  // Snoop count
   std::size_t snoop_n_ = 0;
-  //
+  // Requests state update action.
   TStateUpdateOpcode action_ = TStateUpdateOpcode::Invalid;
 };
 
@@ -484,11 +494,13 @@ class DirCommandInterpreter {
     process_->wait_epoch();
   }
 
-  //
+  // Simulation kernel instance
   kernel::Kernel* k_ = nullptr;
-  //
+
+  // Invoke process context
   AgentProcess* process_ = nullptr;
-  //
+
+  // Directory agent instance.
   DirAgent* model_ = nullptr;
 };
 
@@ -790,7 +802,10 @@ class DirAgent::RdisProcess : public AgentProcess {
   DirAgent* model_ = nullptr;
 };
 
-//
+// NOC Endpoint class to accept a message from the NOC and forward the
+// message to the appropriate message queue. Nominally, this is done
+// solely on the MessageClass associated with the message, but may
+// also consider the originator agent.
 //
 class DirNocEndpoint : public NocEndpoint {
  public:
