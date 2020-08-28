@@ -7,20 +7,20 @@
 Cache coherency protocols are the architectural mechanisms by which
 the Single Writer/Multiple Reader (SWMR) invariant in cached,
 multiprocessors systems is managed. Although the performance and
-functional correctness of such protocols form a central aspect of the
-modern-day System-On-Chip (SOC) design, there is often inability to
-model either the performance characteristics or validate the
-functional correctness of such protocols in the absence of working
+functional correctness of such protocols form a central aspect in the design of
+modern-day System-On-Chip (SOC), there is often some inability to
+model either the performance characteristics of such protocols or validate their
+functional correctness in the absence of working
 RTL. Very often there is insufficient time to fully understand the
 minutae of a top-level design before important architectural decisions
-or trade-offs must be made. In addition, quite often teams lack
+or trade-offs must be made. In addition, quite often even large and established teams lack
 individuals with the cross-disciplined skillset required to accomplish
 the task, including: a detailed understanding of computer
 architecture, knowledge of software design, hardware design, and
-domain knowledge (coherency). Often decisions are made to commit to
-some incremental version of a design which has gone before, without
+domain knowledge (coherency). Decisions are often made to commit to
+some incremental version of a prior design without
 truely understanding the performance and/or functional trade-offs,
-which only become known until after a large development committment
+which can only become known until after a large development commitment
 has already been made. From the author's own experience, a very large
 and well-known semiconductor company (beginning with a Q.) produced an
 ARM-based SOC which exhibited a very serious (system halting) protocol
@@ -35,26 +35,26 @@ system-on-chips. Their implementation is complicated by the following
 aspects:
 
 * The state space of a coherency model is very large and there are
-  many distinct scenarios to consider when verifying its
+  many distinct scenarios and corner-cases to consider when verifying its
   correctness.
 * The context of a coherency protocol is system-wide, which
-  necessitates either functional RTL of the full system or accurate
+  necessitates either functional RTL of the full system or accurate and
   fast behavioral models. Such models are either large and costly to
   simulate, they may arrive only late into the overall development
-  process, or in the case of accurate behavorial models, may not
-  arrive at all.
+  process, or may not arrive at all.
 * The functional correctness of coherency protocols is incredibly
-  important as bugs can result in data corruption (at best) or a
-  system hang (at worst) in the case of a protocol deadlock.
+  important as bugs can result in data corruption or a
+  system hang in the case of a protocol deadlock.
 * Coherency protocols play a role in the overall performance of a
   multi-processor system as their behavior directly influences the
   ability of CPU to share state between caches and to source state
-  through intervention.
+  through intervention. In the absence of coherence traffic, overall system performance
+  can be impacted too as the status of lines must be reflected in their associated snoop-filter cache, which may result in conflict evictions if misconfigured.
 * There are many tuneable characteristics of a coherence sub-systems
   that may result in costly and unnecessary performance
   bottlenecks. The number of commands which may be inflight from a CPU
   may affect performance if too small, whereas it may have a negative
-  power and area cost if too large. An inefficient directory cache
+  power and area cost if too large. Similarly, an inefficient directory cache
   layout may necessitate cause unnecessary snoops, or it may cause
   useful state to be evicted from caches because of recalls.
 
@@ -64,9 +64,9 @@ context of a simplified, but representative, behavioral
 simulation. Issues relating to functional correctness or performance
 can be analysed and debugged ahead of the final RTL implementation. In
 the presence of completed RTL, complex scenarios can be debugged in
-the context of a lightweight and fast simulation environment, which
-provides far greater visibility into the architectural behavior of the
-protocol than a very low-level RTL waveform dump.
+the context of a lightweight and fast simulation environment. Such an environment 
+affords far greater visibility into the architectural behavior of the
+protocol, than a unweldy low-level RTL waveform dump.
 
 A detailed (work in progress) architectural specification of the
 performance model can be found at: [Architectural Spec](./doc/ARCH.md)
