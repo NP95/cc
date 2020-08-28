@@ -132,7 +132,7 @@ class SocConfigBuilderJson {
     // TODO: edges
   }
 
-  void build(LLCModelConfig& c, json j) {
+  void build(LLCAgentConfig& c, json j) {
     // Set .name
     CHECK_AND_SET(name);
     // Set .epoch
@@ -150,7 +150,7 @@ class SocConfigBuilderJson {
     CHECK_AND_SET_OPTIONAL(epoch);
   }
 
-  void build(DirModelConfig& c, json j) {
+  void build(DirAgentConfig& c, json j) {
     // Set .name
     CHECK_AND_SET(name);
     // Set .epoch
@@ -169,7 +169,7 @@ class SocConfigBuilderJson {
     build(c.llcconfig, j["llcconfig"]);
   }
 
-  void build(CCConfig& c, json j) {
+  void build(CCAgentConfig& c, json j) {
     // Set .name
     CHECK_AND_SET(name);
   }
@@ -253,10 +253,10 @@ class SocConfigBuilderJson {
     if (c.ccls.empty()) {
       throw BuilderException("No CPU clusters configured.");
     }
-    // Set .dcfgs (DirModelConfig)
+    // Set .dcfgs (DirAgentConfig)
     CHECK(dcfgs);
     for (const auto& item : j["dcfgs"]) {
-      DirModelConfig dmc;
+      DirAgentConfig dmc;
       build(dmc, item);
       c.dcfgs.push_back(dmc);
     }
@@ -285,7 +285,7 @@ class SocConfigBuilderJson {
     for (CpuClusterConfig& c : cfg.ccls) {
       post(c);
     }
-    for (DirModelConfig& c : cfg.dcfgs) {
+    for (DirAgentConfig& c : cfg.dcfgs) {
       post(c);
     }
     cfg.pbuilder = pb_;
@@ -299,7 +299,7 @@ class SocConfigBuilderJson {
     }
   }
 
-  void post(CCConfig& cfg) {
+  void post(CCAgentConfig& cfg) {
     cfg.pbuilder = pb_;
   }
 
@@ -311,7 +311,7 @@ class SocConfigBuilderJson {
     cfg.pbuilder = pb_;
   }
 
-  void post(DirModelConfig& c) {
+  void post(DirAgentConfig& c) {
     c.pbuilder = pb_;
   }
   //

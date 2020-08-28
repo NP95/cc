@@ -824,7 +824,7 @@ class CCNocEndpoint : public NocEndpoint {
   std::map<MessageClass, MessageQueue*> endpoints_;
 };
 
-CCAgent::CCAgent(kernel::Kernel* k, const CCConfig& config)
+CCAgent::CCAgent(kernel::Kernel* k, const CCAgentConfig& config)
     : Agent(k, config.name), config_(config) {
   build();
 }

@@ -127,7 +127,7 @@ struct NocModelConfig {
 
 //
 //
-struct LLCModelConfig {
+struct LLCAgentConfig {
   // LLC name
   std::string name = "llc";
 
@@ -153,7 +153,7 @@ struct MemModelConfig {
 
 //
 //
-struct DirModelConfig {
+struct DirAgentConfig {
   // Directory name
   std::string name = "dir";
 
@@ -181,7 +181,7 @@ struct DirModelConfig {
 
   // In the non-Null filter case, the directory maintains the LLC. The
   // LLC cache configuration matches the directory one-to-one.
-  LLCModelConfig llcconfig;
+  LLCAgentConfig llcconfig;
 
   // Protocol builder instance.
   ProtocolBuilder* pbuilder = nullptr;
@@ -189,7 +189,7 @@ struct DirModelConfig {
 
 //
 //
-struct CCConfig {
+struct CCAgentConfig {
   // Controller name
   std::string name = "ccntrl";
 
@@ -213,7 +213,7 @@ struct CpuClusterConfig {
   std::string name = "cluster";
 
   // Cache Controller config;
-  CCConfig cc_config;
+  CCAgentConfig cc_config;
 
   // L2 cache configuration.
   L2CacheAgentConfig l2c_config;
@@ -261,7 +261,7 @@ struct SocConfig {
   // Cpu Cluster configuration.
   std::vector<CpuClusterConfig> ccls;
   // Directory configuration.
-  std::vector<DirModelConfig> dcfgs;
+  std::vector<DirAgentConfig> dcfgs;
   // Memory configurations
   std::vector<MemModelConfig> mcfgs;
   // Stimulus configuration.

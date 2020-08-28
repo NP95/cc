@@ -139,9 +139,9 @@ class LLCTState {
 
 //
 //
-class LLCModel::RdisProcess : public AgentProcess {
+class LLCAgent::RdisProcess : public AgentProcess {
  public:
-  RdisProcess(kernel::Kernel* k, const std::string& name, LLCModel* model)
+  RdisProcess(kernel::Kernel* k, const std::string& name, LLCAgent* model)
       : AgentProcess(k, name), model_(model) {}
 
  private:
@@ -337,7 +337,7 @@ class LLCModel::RdisProcess : public AgentProcess {
   }
 
   // Pointer to owning LLC instance.
-  LLCModel* model_ = nullptr;
+  LLCAgent* model_ = nullptr;
 };
 
 //
@@ -368,12 +368,12 @@ class LLCNocEndpoint : public NocEndpoint {
   std::map<MessageClass, MessageQueue*> endpoints_;
 };
 
-LLCModel::LLCModel(kernel::Kernel* k, const LLCModelConfig& config)
+LLCAgent::LLCAgent(kernel::Kernel* k, const LLCAgentConfig& config)
     : Agent(k, config.name), config_(config) {
   build();
 }
 
-LLCModel::~LLCModel() {
+LLCAgent::~LLCAgent() {
   delete dir_llc__cmd_q_;
   delete mem_llc__rsp_q_;
   delete arb_;
@@ -385,7 +385,7 @@ LLCModel::~LLCModel() {
   delete tt_;
 }
 
-void LLCModel::build() {
+void LLCAgent::build() {
   // DIR -> LLC command queue
   dir_llc__cmd_q_ = new MessageQueue(k(), "dir_llc__cmd_q", 30);
   add_child_module(dir_llc__cmd_q_);
@@ -407,14 +407,14 @@ void LLCModel::build() {
   tt_ = new LLCTTable;
 }
 
-void LLCModel::register_cc(CpuCluster* cc) {
+void LLCAgent::register_cc(CpuCluster* cc) {
   const std::string mq_name = cc->name() + "_mq";
   MessageQueue* mq = new MessageQueue(k(), mq_name, 30);
   add_child_module(mq);
   cc_llc__rsp_qs_.push_back(mq);
 }
 
-bool LLCModel::elab() {
+bool LLCAgent::elab() {
   arb_->add_requester(dir_llc__cmd_q_);
   arb_->add_requester(mem_llc__rsp_q_);
   for (MessageQueue* mq : cc_llc__rsp_qs_) {
@@ -430,7 +430,7 @@ bool LLCModel::elab() {
   return false;
 }
 
-void LLCModel::drc() {
+void LLCAgent::drc() {
   if (llc_noc__port_ == nullptr) {
     LogMessage msg("LLC to NOC egress queue has not been bound.");
     msg.level(Level::Fatal);
@@ -438,9 +438,9 @@ void LLCModel::drc() {
   }
 }
 
-MessageQueue* LLCModel::endpoint() const { return noc_endpoint_->ingress_mq(); }
+MessageQueue* LLCAgent::endpoint() const { return noc_endpoint_->ingress_mq(); }
 
-void LLCModel::set_llc_noc__port(NocPort* port) {
+void LLCAgent::set_llc_noc__port(NocPort* port) {
   llc_noc__port_ = port;
   add_child_module(llc_noc__port_);
 }

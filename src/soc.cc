@@ -56,10 +56,10 @@ SocTop::~SocTop() {
   for (DirAgent* dm : dms_) {
     delete dm;
   }
-  for (LLCModel* llc : llcs_) {
+  for (LLCAgent* llc : llcs_) {
     delete llc;
   }
-  for (MemCntrlModel* mm : mms_) {
+  for (MemCntrlAgent* mm : mms_) {
     delete mm;
   }
   delete dm_;
@@ -94,7 +94,7 @@ void SocTop::build(const SocConfig& cfg) {
 
   // Construct memory controller (s)
   for (const MemModelConfig& mcfg : cfg.mcfgs) {
-    MemCntrlModel* mm = new MemCntrlModel(k(), mcfg);
+    MemCntrlAgent* mm = new MemCntrlAgent(k(), mcfg);
     noc_->register_agent(mm);
     add_child_module(mm);
     mms_.push_back(mm);
@@ -113,7 +113,7 @@ void SocTop::build(const SocConfig& cfg) {
   }
 
   // Construct child directories
-  for (const DirModelConfig& dcfg : cfg.dcfgs) {
+  for (const DirAgentConfig& dcfg : cfg.dcfgs) {
     DirAgent* dm = new DirAgent(k(), dcfg);
     dm->register_monitor(monitor_);
     noc_->register_agent(dm);
@@ -122,11 +122,11 @@ void SocTop::build(const SocConfig& cfg) {
 
     if (!dcfg.is_null_filter) {
       // Construct corresponding LLC
-      LLCModel* llc = new LLCModel(k(), dcfg.llcconfig);
+      LLCAgent* llc = new LLCAgent(k(), dcfg.llcconfig);
       // Register LLC with memory controllers; assumes that all LLC can
       // reach all Memory Controllers which may or may not be the case
       // in a real system.
-      for (MemCntrlModel* mm : mms_) {
+      for (MemCntrlAgent* mm : mms_) {
         mm->register_agent(llc);
       }
       noc_->register_agent(llc);
@@ -216,9 +216,9 @@ void SocTop::elab_bind_ports() {
     // DIR -> NOC message queue
     dm->set_dir_noc__port(dm_port);
 
-    const DirModelConfig& cfg = dm->config();
+    const DirAgentConfig& cfg = dm->config();
     if (!cfg.is_null_filter) {
-      LLCModel* llc = dm->llc();
+      LLCAgent* llc = dm->llc();
       // Bind memory controller
       llc->set_mc(mms_.front());
       // Bind directory
@@ -232,7 +232,7 @@ void SocTop::elab_bind_ports() {
       llc->set_llc_noc__port(llc_port);
     }
   }
-  for (MemCntrlModel* mm : mms_) {
+  for (MemCntrlAgent* mm : mms_) {
     NocPort* port = noc_->get_agent_port(mm);
     // NOC -> MEM
     port->set_egress(mm->endpoint());
@@ -246,7 +246,7 @@ void SocTop::elab_bind_ports() {
   }
   // Register CC <-> LLC ports
   for (DirAgent* dm : dms_) {
-    LLCModel* llc = dm->llc();
+    LLCAgent* llc = dm->llc();
     for (CpuCluster* cc : ccs_) {
       llc->register_cc(cc);
     }
@@ -262,12 +262,12 @@ void SocTop::elab_credit_counts() {
   // Update CPU Cluster to Directory credit paths.
   for (CpuCluster* cpuc : ccs_) {
     CCAgent* cc = cpuc->cc();
-    const CCConfig& ccfg = cc->config();
+    const CCAgentConfig& ccfg = cc->config();
 
     // Register edge from Cpu Cluster to directories
     for (DirAgent* dm : dms_) {
       // Directory model configuration.
-      const DirModelConfig& dcfg = dm->config();
+      const DirAgentConfig& dcfg = dm->config();
       // Coherence start message
       cc->register_credit_counter(MessageClass::CohSrt, dm,
                                   dcfg.coh_srt_credits_n);
@@ -305,7 +305,7 @@ void SocTop::elab_credit_counts() {
   for (DirAgent* dm : dms_) {
     for (CpuCluster* cpuc : ccs_) {
       CCAgent* cc = cpuc->cc();
-      const CCConfig& ccfg = cc->config();
+      const CCAgentConfig& ccfg = cc->config();
 
       dm->register_credit_counter(MessageClass::CohSnp, cc, ccfg.snp_credits_n);
       mq = cc->mq_by_msg_cls(MessageClass::CohSnp);

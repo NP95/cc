@@ -42,9 +42,9 @@ class ProtocolBuilder;
 class DirMapper;
 class NocModel;
 class DirAgent;
-class LLCModel;
+class LLCAgent;
 class CpuCluster;
-class MemCntrlModel;
+class MemCntrlAgent;
 class Stimulus;
 class Monitor;
 class Statistics;
@@ -94,13 +94,13 @@ class SocTop : public kernel::TopModule {
   std::vector<DirAgent*> dms_;
 
   // LLC Models 1-to-1 relationship with non-Null Filter directories.
-  std::vector<LLCModel*> llcs_;
+  std::vector<LLCAgent*> llcs_;
 
   // CPU Cluster instances
   std::vector<CpuCluster*> ccs_;
 
   // Memory Controller instances.
-  std::vector<MemCntrlModel*> mms_;
+  std::vector<MemCntrlAgent*> mms_;
 
   // Stimulus "module" instance.
   Stimulus* stimulus_ = nullptr;

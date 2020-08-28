@@ -841,7 +841,7 @@ class DirNocEndpoint : public NocEndpoint {
   std::map<MessageClass, std::map<const Agent*, MessageQueue*> > origin_eps_;
 };
 
-DirAgent::DirAgent(kernel::Kernel* k, const DirModelConfig& config)
+DirAgent::DirAgent(kernel::Kernel* k, const DirAgentConfig& config)
     : Agent(k, config.name), config_(config) {
   build();
 }

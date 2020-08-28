@@ -627,11 +627,11 @@ class CCAgent : public Agent {
  public:
   using ccntr_map = std::map<const Agent*, CreditCounter*>;
 
-  CCAgent(kernel::Kernel* k, const CCConfig& config);
+  CCAgent(kernel::Kernel* k, const CCAgentConfig& config);
   ~CCAgent();
 
   // Obtain cache controller configuration.
-  const CCConfig& config() const { return config_; }
+  const CCAgentConfig& config() const { return config_; }
 
   // L2 -> Controller (Transaction) Command Queue (owning)
   MessageQueue* l2_cc__cmd_q() const { return l2_cc__cmd_q_; }
@@ -788,7 +788,7 @@ class CCAgent : public Agent {
   Monitor* monitor_ = nullptr;
 
   // Cache controller configuration.
-  CCConfig config_;
+  CCAgentConfig config_;
 };
 
 }  // namespace cc

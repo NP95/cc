@@ -40,7 +40,7 @@
 namespace cc {
 
 // Forwards
-class LLCModel;
+class LLCAgent;
 class DirAgent;
 class DirLineState;
 class NocPort;
@@ -504,16 +504,16 @@ class DirAgent : public Agent {
  public:
   using ccntr_map = std::map<const Agent*, CreditCounter*>;
 
-  DirAgent(kernel::Kernel* k, const DirModelConfig& config);
+  DirAgent(kernel::Kernel* k, const DirAgentConfig& config);
   ~DirAgent();
 
   // Current directory configuration.
-  const DirModelConfig& config() const { return config_; }
+  const DirAgentConfig& config() const { return config_; }
 
   // Accessors:
 
   // LLC owned by current directory
-  LLCModel* llc() const { return llc_; }
+  LLCAgent* llc() const { return llc_; }
   // NOC -> DIR message queue
   MessageQueue* endpoint();
   // DIR -> NOC message queue
@@ -543,7 +543,7 @@ class DirAgent : public Agent {
   // Register verification monitor.
   void register_monitor(Monitor* monitor);
   // Set asscoiated LLC instance.
-  void set_llc(LLCModel* llc) { llc_ = llc; }
+  void set_llc(LLCAgent* llc) { llc_ = llc; }
   // Elaboration
   bool elab() override;
   // Set Dir -> NOC message queue (NOC owned).
@@ -580,7 +580,7 @@ class DirAgent : public Agent {
   // request dispatcher process
   RdisProcess* rdis_proc_ = nullptr;
   // Last Level Cache instance (where applicable).
-  LLCModel* llc_ = nullptr;
+  LLCAgent* llc_ = nullptr;
   // Transaction table
   Table<Transaction*, DirTState*>* tt_ = nullptr;
   // Cache Instance
@@ -590,7 +590,7 @@ class DirAgent : public Agent {
   // Verification monitor instance, where applicable.
   Monitor* monitor_ = nullptr;
   // Current directory configuration.
-  DirModelConfig config_;
+  DirAgentConfig config_;
 };
 
 //

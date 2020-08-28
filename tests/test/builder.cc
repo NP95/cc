@@ -41,7 +41,7 @@ cc::SocConfig ConfigBuilder::construct() const {
     cc::CpuClusterConfig cpuc_cfg;
     cpuc_cfg.name += std::to_string(cc);
 
-    cc::CCConfig cc_cfg;
+    cc::CCAgentConfig cc_cfg;
     cc_cfg.pbuilder = pb;
     cpuc_cfg.cc_config = cc_cfg;
 
@@ -69,7 +69,7 @@ cc::SocConfig ConfigBuilder::construct() const {
 
   // Define Directory model
   for (std::size_t d = 0; d < dir_n_; d++) {
-    cc::DirModelConfig dcfg;
+    cc::DirAgentConfig dcfg;
     dcfg.name += std::to_string(d);
     dcfg.pbuilder = pb;
 
@@ -114,7 +114,7 @@ cc::NocModelConfig ConfigBuilder::construct_noc(const cc::SocConfig& cfg) const 
 
     vs.pop_back();
     vs.pop_back();
-    for (const cc::DirModelConfig& dir_config : cfg.dcfgs) {
+    for (const cc::DirAgentConfig& dir_config : cfg.dcfgs) {
       // Directory name
       vs.push_back(dir_config.name);
       // Compute destination path
@@ -125,7 +125,7 @@ cc::NocModelConfig ConfigBuilder::construct_noc(const cc::SocConfig& cfg) const 
   }
 
   // DIR -> CPU
-  for (const cc::DirModelConfig& dir_config : cfg.dcfgs) {
+  for (const cc::DirAgentConfig& dir_config : cfg.dcfgs) {
     // Directory name
     vs.push_back(dir_config.name);
     // Compute destination path

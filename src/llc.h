@@ -38,7 +38,7 @@
 namespace cc {
 
 // Forwards:
-class MemCntrlModel;
+class MemCntrlAgent;
 class DirAgent;
 class Message;
 class MessageQueue;
@@ -132,17 +132,17 @@ using LLCTTable = std::map<Transaction*, LLCTState*>;
 
 //
 //
-class LLCModel : public Agent {
+class LLCAgent : public Agent {
   class RdisProcess;
 
   friend class SocTop;
 
  public:
-  LLCModel(kernel::Kernel* k, const LLCModelConfig& config);
-  ~LLCModel();
+  LLCAgent(kernel::Kernel* k, const LLCAgentConfig& config);
+  ~LLCAgent();
 
   // Return model configuration.
-  const LLCModelConfig& config() const { return config_; }
+  const LLCAgentConfig& config() const { return config_; }
 
   // Accessors:
   // NOC -> LLC message queue
@@ -150,7 +150,7 @@ class LLCModel : public Agent {
   // LLC -> NOC message queue
   NocPort* llc_noc__port() const { return llc_noc__port_; }
   // Home memory controller
-  MemCntrlModel* mc() const { return mc_; }
+  MemCntrlAgent* mc() const { return mc_; }
   // Directory model instance.
   DirAgent* dir() const { return dir_; }
 
@@ -165,7 +165,7 @@ class LLCModel : public Agent {
   // NOC -> LLC message queue
   void set_llc_noc__port(NocPort* port);
   // Set memory controller.
-  void set_mc(MemCntrlModel* mc) { mc_ = mc; }
+  void set_mc(MemCntrlAgent* mc) { mc_ = mc; }
   // Set owner directory.
   void set_dir(DirAgent* dir) { dir_ = dir; }
 
@@ -190,7 +190,7 @@ class LLCModel : public Agent {
   // Queue selector arbiter
   MQArb* arb_ = nullptr;
   // Home memory controller
-  MemCntrlModel* mc_ = nullptr;
+  MemCntrlAgent* mc_ = nullptr;
   // Home directory.
   DirAgent* dir_ = nullptr;
   // Transaction table.
@@ -200,7 +200,7 @@ class LLCModel : public Agent {
   // NOC endpoint
   LLCNocEndpoint* noc_endpoint_ = nullptr;
   // LLC Cache configuration
-  LLCModelConfig config_;
+  LLCAgentConfig config_;
 };
 
 }  // namespace cc

@@ -112,10 +112,10 @@ std::string DtRspMsg::to_string() const {
 
 //
 //
-class MemCntrlModel::RequestDispatcherProcess : public AgentProcess {
+class MemCntrlAgent::RequestDispatcherProcess : public AgentProcess {
  public:
   RequestDispatcherProcess(kernel::Kernel* k, const std::string& name,
-                           MemCntrlModel* model)
+                           MemCntrlAgent* model)
       : AgentProcess(k, name), model_(model) {}
 
  private:
@@ -198,7 +198,7 @@ class MemCntrlModel::RequestDispatcherProcess : public AgentProcess {
   }
 
   //
-  MemCntrlModel* model_ = nullptr;
+  MemCntrlAgent* model_ = nullptr;
 };
 
 //
@@ -230,12 +230,12 @@ class MemNocEndpoint : public NocEndpoint {
   std::map<Agent*, MessageQueue*> endpoints_;
 };
 
-MemCntrlModel::MemCntrlModel(kernel::Kernel* k, const MemModelConfig& config)
+MemCntrlAgent::MemCntrlAgent(kernel::Kernel* k, const MemModelConfig& config)
     : Agent(k, "mem"), config_(config) {
   build();
 }
 
-MemCntrlModel::~MemCntrlModel() {
+MemCntrlAgent::~MemCntrlAgent() {
   // Cleanup request dispatcher thread.
   delete rdis_proc_;
   delete rdis_arb_;
@@ -246,7 +246,7 @@ MemCntrlModel::~MemCntrlModel() {
   delete noc_endpoint_;
 }
 
-void MemCntrlModel::build() {
+void MemCntrlAgent::build() {
   // NOC endpoint
   noc_endpoint_ = new MemNocEndpoint(k(), "noc_ep");
   noc_endpoint_->set_epoch(config_.epoch);
@@ -260,14 +260,14 @@ void MemCntrlModel::build() {
   add_child_module(rdis_arb_);
 }
 
-void MemCntrlModel::register_agent(Agent* agent) {
+void MemCntrlAgent::register_agent(Agent* agent) {
   const std::string mq_name = agent->name() + "_mq";
   MessageQueue* mq = new MessageQueue(k(), mq_name, 3);
   add_child_module(mq);
   rdis_mq_.insert(std::make_pair(agent, mq));
 }
 
-bool MemCntrlModel::elab() {
+bool MemCntrlAgent::elab() {
   for (const std::pair<Agent*, MessageQueue*>& pp : rdis_mq_) {
     MessageQueue* mq = pp.second;
     rdis_arb_->add_requester(mq);
@@ -280,12 +280,12 @@ bool MemCntrlModel::elab() {
   return false;
 }
 
-void MemCntrlModel::set_mem_noc__port(NocPort* port) {
+void MemCntrlAgent::set_mem_noc__port(NocPort* port) {
   mem_noc__port_ = port;
   add_child_module(mem_noc__port_);
 }
 
-void MemCntrlModel::drc() {
+void MemCntrlAgent::drc() {
   if (mem_noc__port_ == nullptr) {
     LogMessage msg("NOC egress message queue has not been bound");
     msg.level(Level::Fatal);
@@ -293,7 +293,7 @@ void MemCntrlModel::drc() {
   }
 }
 
-MessageQueue* MemCntrlModel::endpoint() const {
+MessageQueue* MemCntrlAgent::endpoint() const {
   return noc_endpoint_->ingress_mq();
 }
 

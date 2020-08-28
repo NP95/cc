@@ -25,8 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_SRC_DIR_H
-#define CC_SRC_DIR_H
+#ifndef CC_SRC_MEM_H
+#define CC_SRC_MEM_H
 
 #include <map>
 
@@ -39,10 +39,19 @@ namespace cc {
 class NocPort;
 class MemNocEndpoint;
 
-//
-//
-enum class MemCmdOpcode { Read, Write };
+// Memory command opcodes:
+enum class MemCmdOpcode {
+  // Read some data from memory.
+  Read,
 
+  // Write some data to memory.
+  Write,
+
+  // Invalid; place-holder.
+  Invalid
+};
+
+// Convert opcode to human readable string.
 const char* to_string(MemCmdOpcode opcode);
 
 //
@@ -53,28 +62,51 @@ class MemCmdMsg : public Message {
 
   MemCmdMsg();
  public:
-
-  //
+  // Produce human-readable string of message.
   std::string to_string() const override;
 
-  //
+  // Accessors:
+  
+  // Command opcode
   MemCmdOpcode opcode() const { return opcode_; }
+
+  // Command destination agent (of Dt, where applicable)
   Agent* dest() const { return dest_; }
 
-  //
+
+  // Setters:
+
+  // Set message opcode
   void set_opcode(MemCmdOpcode opcode) { opcode_ = opcode; }
+
+  // Set message destination Agent.
   void set_dest(Agent* dest) { dest_ = dest; }
 
  private:
-  MemCmdOpcode opcode_;
+  // Command opcode
+  MemCmdOpcode opcode_ = MemCmdOpcode::Invalid;
+
+  // Destination agent.
   Agent* dest_ = nullptr;
 };
 
-//
-//
-enum class MemRspOpcode { ReadOkay, WriteOkay };
 
+// Memory response opcodes.
+//
+enum class MemRspOpcode {
+  // Read completed okay
+  ReadOkay,
+
+  // Write completed okay
+  WriteOkay,
+
+  // Invalid; place-holder.
+  Invalid
+};
+
+// Convert to a humand-readable string.
 const char* to_string(MemRspOpcode opcode);
+
 
 //
 //
@@ -85,20 +117,28 @@ class MemRspMsg : public Message {
   MemRspMsg();
  public:
 
-  //
+  // Produce humand-readable string of message. 
   std::string to_string() const override;
 
-  //
+  // Accessors:
+  
+  // Response opcode.
   MemRspOpcode opcode() const { return opcode_; }
 
-  //
+
+  // Setters:
+  
+  // Set opcode
   void set_opcode(MemRspOpcode opcode) { opcode_ = opcode; }
 
  private:
-  MemRspOpcode opcode_;
+  // Response opcode.
+  MemRspOpcode opcode_ = MemRspOpcode::Invalid;
 };
 
-//
+
+// Message encapsulating the notion of the transfer of one cache-line
+// of memory between agents.
 //
 class DtMsg : public Message {
   template <typename>
@@ -106,11 +146,13 @@ class DtMsg : public Message {
 
   DtMsg();
  public:
-  //
+  // Produce human-readable string of message.
   std::string to_string() const override;
 };
 
-//
+
+// Message encapsulating the notion of a response to a prior Data
+// Transfer message.
 //
 class DtRspMsg : public Message {
   template <typename>
@@ -119,20 +161,20 @@ class DtRspMsg : public Message {
   DtRspMsg();
  public:
 
-  //
+  // Produce human-readable string of message.
   std::string to_string() const override;
 };
 
 // Memory Controller Model
 //
-class MemCntrlModel : public Agent {
+class MemCntrlAgent : public Agent {
   class RequestDispatcherProcess;
 
   friend class SocTop;
 
  public:
-  MemCntrlModel(kernel::Kernel* k, const MemModelConfig& config);
-  ~MemCntrlModel();
+  MemCntrlAgent(kernel::Kernel* k, const MemModelConfig& config);
+  ~MemCntrlAgent();
 
   // Accessors:
   MessageQueue* endpoint() const;
