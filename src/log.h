@@ -25,8 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_LIBCC_SRC_LOG_H
-#define CC_LIBCC_SRC_LOG_H
+#ifndef CC_SRC_LOG_H
+#define CC_SRC_LOG_H
 
 #include "utility.h"
 

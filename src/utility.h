@@ -25,8 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_INCLUDE_CC_COMMON_H
-#define CC_INCLUDE_CC_COMMON_H
+#ifndef CC_SRC_COMMON_H
+#define CC_SRC_COMMON_H
 
 #include <cstddef>
 #include <cstdint>

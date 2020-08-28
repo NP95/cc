@@ -25,8 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_LIBCC_CPUCLUSTER_H
-#define CC_LIBCC_CPUCLUSTER_H
+#ifndef CC_SRC_CPUCLUSTER_H
+#define CC_SRC_CPUCLUSTER_H
 
 #include "cc/cfgs.h"
 #include "cc/kernel.h"

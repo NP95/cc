@@ -25,8 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_LIBCC_MSG_H
-#define CC_LIBCC_MSG_H
+#ifndef CC_SRC_MSG_H
+#define CC_SRC_MSG_H
 
 #include <string>
 

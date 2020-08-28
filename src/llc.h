@@ -25,8 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_LIBCC_LLC_H
-#define CC_LIBCC_LLC_H
+#ifndef CC_SRC_LLC_H
+#define CC_SRC_LLC_H
 
 #include <map>
 

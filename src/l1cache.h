@@ -25,8 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_LIBCC_L1CACHE_H
-#define CC_LIBCC_L1CACHE_H
+#ifndef CC_SRC_L1CACHE_H
+#define CC_SRC_L1CACHE_H
 
 #include <string>
 

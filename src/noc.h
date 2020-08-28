@@ -25,8 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_LIBCC_NOC_H
-#define CC_LIBCC_NOC_H
+#ifndef CC_SRC_NOC_H
+#define CC_SRC_NOC_H
 
 #include <map>
 #include <vector>

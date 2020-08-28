@@ -25,8 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_LIBCC_SRC_STATS_H
-#define CC_LIBCC_SRC_STATS_H
+#ifndef CC_SRC_STATS_H
+#define CC_SRC_STATS_H
 
 #include "cc/kernel.h"
 #include <set>

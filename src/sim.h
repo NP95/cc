@@ -25,8 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_LIBCC_SIM_H
-#define CC_LIBCC_SIM_H
+#ifndef CC_SRC_SIM_H
+#define CC_SRC_SIM_H
 
 #include "msg.h"
 #include "primitives.h"

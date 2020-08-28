@@ -25,8 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_LIBCC_MOESI_MOESI_CC_H
-#define CC_LIBCC_MOESI_MOESI_CC_H
+#ifndef CC_SRC_MOESI_CC_H
+#define CC_SRC_MOESI_CC_H
 
 namespace cc {
 

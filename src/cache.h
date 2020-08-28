@@ -25,8 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_LIBCC_CACHE_H
-#define CC_LIBCC_CACHE_H
+#ifndef CC_SRC_CACHE_H
+#define CC_SRC_CACHE_H
 
 #include <tuple>
 #include <vector>

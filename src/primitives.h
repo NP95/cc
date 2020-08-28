@@ -25,8 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_LIBCC_PRIMITIVES_H
-#define CC_LIBCC_PRIMITIVES_H
+#ifndef CC_SRC_PRIMITIVES_H
+#define CC_SRC_PRIMITIVES_H
 
 #include <vector>
 

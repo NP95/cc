@@ -25,8 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_LIBCC_PROTOCOL_H
-#define CC_LIBCC_PROTOCOL_H
+#ifndef CC_SRC_PROTOCOL_H
+#define CC_SRC_PROTOCOL_H
 
 #include <deque>
 #include <map>

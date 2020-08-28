@@ -25,8 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_LIBCC_DIR_H
-#define CC_LIBCC_DIR_H
+#ifndef CC_SRC_DIR_H
+#define CC_SRC_DIR_H
 
 #include "amba.h"
 #include "cache.h"

@@ -25,8 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_LIBCC_CCNTRL_H
-#define CC_LIBCC_CCNTRL_H
+#ifndef CC_SRC_CCNTRL_H
+#define CC_SRC_CCNTRL_H
 
 #include "cc/cfgs.h"
 #include "cc/kernel.h"

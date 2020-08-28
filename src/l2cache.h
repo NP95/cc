@@ -25,8 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_LIBCC_L2CACHE_H
-#define CC_LIBCC_L2CACHE_H
+#ifndef CC_SRC_L2CACHE_H
+#define CC_SRC_L2CACHE_H
 
 #include <vector>
 

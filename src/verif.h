@@ -25,8 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_LIBCC_SRC_VERIF_H
-#define CC_LIBCC_SRC_VERIF_H
+#ifndef CC_SRC_VERIF_H
+#define CC_SRC_VERIF_H
 
 #include <string>
 #include <set>

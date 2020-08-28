@@ -25,8 +25,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //========================================================================== //
 
-#ifndef CC_LIBCC_CPU_H
-#define CC_LIBCC_CPU_H
+#ifndef CC_SRC_CPU_H
+#define CC_SRC_CPU_H
 
 #include <set>
 
