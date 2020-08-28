@@ -55,8 +55,8 @@ aspects:
   bottlenecks. The number of commands which may be inflight from a CPU
   may affect performance if too small, whereas it may have a negative
   power and area cost if too large. Similarly, an inefficient directory cache
-  layout may necessitate cause unnecessary snoops, or it may cause
-  useful state to be evicted from caches because of recalls.
+  layout may necessitate redundant snoops, or
+  useful state may be evicted from caches because of line recall operations.
 
 The availability of a software-based performance and verification
 model allows for each of these characteristics to be evaluated in the
