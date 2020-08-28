@@ -70,8 +70,10 @@ CCCommand::~CCCommand() {
 }
 
 std::string CCCommand::to_string() const {
+  using cc::to_string;
+
   KVListRenderer r;
-  r.add_field("opcode", cc::to_string(opcode()));
+  r.add_field("opcode", to_string(opcode()));
   switch (opcode()) {
     case CCOpcode::InvokeCoherenceAction: {
       r.add_field("action", oprands_.action->to_string());
@@ -330,8 +332,10 @@ class CCAgent::RdisProcess : public AgentProcess {
         process_dt(ctxt, cl);
       } break;
       default: {
+        using cc::to_string;
+
         LogMessage lmsg("Invalid message class received: ");
-        lmsg.append(cc::to_string(ctxt.msg()->cls()));
+        lmsg.append(to_string(ctxt.msg()->cls()));
         lmsg.set_level(Level::Error);
         log(lmsg);
       } break;
@@ -545,8 +549,10 @@ CCSnpCommand::~CCSnpCommand() {
 }
 
 std::string CCSnpCommand::to_string() const {
+  using cc::to_string;
+
   KVListRenderer r;
-  r.add_field("opcode", cc::to_string(opcode()));
+  r.add_field("opcode", to_string(opcode()));
   return r.to_string();
 }
 
@@ -717,8 +723,10 @@ class CCAgent::SnpProcess : public AgentProcess {
         process_in_flight(ctxt, cl);
       } break;
       default: {
+        using cc::to_string;
+
         LogMessage lmsg("Invalid message class received: ");
-        lmsg.append(cc::to_string(ctxt.msg()->cls()));
+        lmsg.append(to_string(ctxt.msg()->cls()));
         lmsg.set_level(Level::Fatal);
         log(lmsg);
       } break;
@@ -804,8 +812,10 @@ class CCNocEndpoint : public NocEndpoint {
     if (auto it = endpoints_.find(msg->cls()); it != endpoints_.end()) {
       return it->second;
     } else {
+      using cc::to_string;
+
       LogMessage lm("End point not register for class: ");
-      lm.append(cc::to_string(msg->cls()));
+      lm.append(to_string(msg->cls()));
       lm.set_level(Level::Fatal);
       log(lm);
     }

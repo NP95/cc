@@ -155,7 +155,7 @@ std::string L1Command::to_string() const {
   using std::to_string;
   Hexer h;
   KVListRenderer r;
-  r.add_field("opcode", cc::to_string(opcode()));
+  r.add_field("opcode", to_string(opcode()));
   switch (opcode()) {
     case L1Opcode::InvokeCoherenceAction: {
       r.add_field("action", oprands.action->to_string());
@@ -616,7 +616,12 @@ class L1CacheAgent::MainProcess : public AgentProcess {
     lm.set_level(Level::Debug);
     log(lm);
 
+    // Check that sufficient resources exist to execute current
+    // command list. If not, command list is permuted to an
+    // appropriate 'wait' list.
     check_resources(ctxt, cl);
+
+    // Execute computed command list
     execute(ctxt, cl);
   }
 

@@ -81,8 +81,10 @@ DirCommand::~DirCommand() {
 }
 
 std::string DirCommand::to_string() const {
+  using cc::to_string;
+
   KVListRenderer r;
-  r.add_field("opcode", cc::to_string(opcode()));
+  r.add_field("opcode", to_string(opcode()));
   switch (opcode()) {
     case DirOpcode::InvokeCoherenceAction: {
       r.add_field("action", oprands.action->to_string());
@@ -578,8 +580,10 @@ class DirAgent::RdisProcess : public AgentProcess {
         process_in_flight(ctxt, cl);
       } break;
       default: {
+        using cc::to_string;
+
         LogMessage lmsg("Invalid message class received: ");
-        lmsg.append(cc::to_string(ctxt.msg()->cls()));
+        lmsg.append(to_string(ctxt.msg()->cls()));
         lmsg.set_level(Level::Error);
         log(lmsg);
       } break;
@@ -841,8 +845,10 @@ class DirNocEndpoint : public NocEndpoint {
   MessageQueue* lookup_mq(const Message* msg) const override {
     MessageQueue* ret = lookup_endpoint(msg->cls(), msg->origin());
     if (ret == nullptr) {
+      using cc::to_string;
+
       LogMessage lm("End point not register for class: ");
-      lm.append(cc::to_string(msg->cls()));
+      lm.append(to_string(msg->cls()));
       lm.set_level(Level::Fatal);
       log(lm);
     }

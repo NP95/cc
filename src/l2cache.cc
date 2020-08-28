@@ -141,8 +141,10 @@ L2Command::~L2Command() {
 }
 
 std::string L2Command::to_string() const {
+  using cc::to_string;
+
   KVListRenderer r;
-  r.add_field("opcode", cc::to_string(opcode()));
+  r.add_field("opcode", to_string(opcode()));
   switch (opcode()) {
     case L2Opcode::InvokeCoherenceAction: {
       r.add_field("action", oprands.action->to_string());
@@ -446,8 +448,10 @@ class L2CacheAgent::MainProcess : public AgentProcess {
         process_acesnoop(ctxt, cl);
       } break;
       default: {
+        using cc::to_string;
+
         LogMessage lmsg("Invalid message class received: ");
-        lmsg.append(cc::to_string(ctxt.msg()->cls()));
+        lmsg.append(to_string(ctxt.msg()->cls()));
         lmsg.set_level(Level::Fatal);
         log(lmsg);
       } break;
