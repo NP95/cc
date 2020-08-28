@@ -376,7 +376,7 @@ class L1CommandInterpreter {
  private:
   void execute_start_transaction(L1CacheContext& ctxt, const L1Command* cmd) {
     L1TState* tstate = ctxt.tstate();
-    L1TTable* tt = ctxt.l1cache()->tt();
+    TransactionTable<L1TState*>* tt = ctxt.l1cache()->tt();
     tt->install(cmd->t(), tstate);
     ctxt.set_owns_tstate(false);
 
@@ -385,9 +385,9 @@ class L1CommandInterpreter {
       CacheModel<L1LineState*>* cache = ctxt.l1cache()->cache();
       const CacheAddressHelper ah = cache->ah();
       const addr_t addr = tstate->addr();
-      L1CacheModelSet set = cache->set(ah.set(addr));
-      if (L1CacheModelLineIt it = set.find(ah.tag(addr)); it == set.end()) {
-        L1CacheModel::Evictor evictor;
+      auto set = cache->set(ah.set(addr));
+      if (auto it = set.find(ah.tag(addr)); it == set.end()) {
+        CacheModel<L1LineState*>::Evictor evictor;
         if (auto p = evictor.nominate(set.begin(), set.end()); !p.second) {
           // A way in the set has been nominated, install cache line.
           set.install(p.first, ah.tag(addr), tstate->line());
@@ -413,7 +413,7 @@ class L1CommandInterpreter {
     L1TState* tstate = ctxt.tstate();
     tstate->transaction_end()->notify();
     // Delete transaction from transaction table.
-    L1TTable* tt = ctxt.l1cache()->tt();
+    TransactionTable<L1TState*>* tt = ctxt.l1cache()->tt();
     tt->remove(cmd->t());
     tstate->release();
   }
@@ -434,7 +434,7 @@ class L1CommandInterpreter {
   void execute_mq_set_blocked_on_table(L1CacheContext& ctxt,
                                        const L1Command* cmd) {
     // TODO: implement in terms of blocked on event
-    L1TTable* tt = ctxt.l1cache()->tt();
+    TransactionTable<L1TState*>* tt = ctxt.l1cache()->tt();
     ctxt.mq()->set_blocked_until(tt->non_full_event());
   }
 
@@ -513,10 +513,10 @@ class L1CommandInterpreter {
 
   // Derive addr from command opcode.
   void execute_remove_line(L1CacheContext& ctxt, const L1Command* cmd) {
-    L1CacheModel* cache = ctxt.l1cache()->cache();
+    CacheModel<L1LineState*>* cache = ctxt.l1cache()->cache();
     const CacheAddressHelper ah = cache->ah();
     const addr_t addr = cmd->addr();
-    L1CacheModelSet set = cache->set(ah.set(addr));
+    auto set = cache->set(ah.set(addr));
     if (auto it = set.find(addr); it != set.end()) {
       set.evict(it);
       // Update monitor state; line is now deleted.
@@ -687,8 +687,8 @@ class L1CacheAgent::MainProcess : public AgentProcess {
 
   void process_l2cmdrsp(L1CacheContext& ctxt, L1CommandList& cl) const {
     Transaction* t = ctxt.msg()->t();
-    L1TTable* tt = model_->tt();
-    if (L1TTable::iterator it = tt->find(t); it != tt->end()) {
+    TransactionTable<L1TState*>* tt = model_->tt();
+    if (auto it = tt->find(t); it != tt->end()) {
       const L1CacheAgentProtocol* protocol = model_->protocol();
       const L1TState* st = it->second;
       ctxt.set_line(st->line());
@@ -714,7 +714,7 @@ class L1CacheAgent::MainProcess : public AgentProcess {
     // Flag denoting that resource requirements have not been met.
     bool fail = false;
 
-    L1TTable* tt = model_->tt();
+    TransactionTable<L1TState*>* tt = model_->tt();
     if (!tt->has_at_least(res.tt_entry_n())) {
       // No transaction table entries available. Block Process until
       // sufficient space has been attained.
@@ -814,7 +814,7 @@ void L1CacheAgent::build() {
   arb_ = new MQArb(k(), "arb");
   add_child_module(arb_);
   // Transaction table.
-  tt_ = new L1TTable(k(), "tt", config_.tt_entries_n);
+  tt_ = new TransactionTable<L1TState*>(k(), "tt", config_.tt_entries_n);
   add_child_module(tt_);
   // Main thread of execution
   main_ = new MainProcess(k(), "main", this);

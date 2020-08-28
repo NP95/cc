@@ -393,18 +393,17 @@ class DirCommandInterpreter {
     DirTState* tstate = ctxt.tstate();
 
     // Install in the transaction table.
-    DirTTable* tt = model_->tt();
+    Table<Transaction*, DirTState*>* tt = model_->tt();
     tt->install(ctxt.msg()->t(), tstate);
     ctxt.set_owns_tstate(false);
 
     if (ctxt.owns_line()) {
       // Install line in the dache.
-      DirCacheModel* cache = model_->cache();
+      CacheModel<DirLineState*>* cache = model_->cache();
       const CacheAddressHelper ah = cache->ah();
-      DirCacheModelSet set = cache->set(ah.set(tstate->addr()));
-      if (DirCacheModelLineIt it = set.find(ah.tag(tstate->addr()));
-          it == set.end()) {
-        DirCacheModel::Evictor evictor;
+      auto set = cache->set(ah.set(tstate->addr()));
+      if (auto it = set.find(ah.tag(tstate->addr())); it == set.end()) {
+        CacheModel<DirLineState*>::Evictor evictor;
         if (auto p = evictor.nominate(set.begin(), set.end()); !p.second) {
           // A way in the set has been nominated, install cache line.
           set.install(p.first, ah.tag(tstate->addr()), tstate->line());
@@ -429,7 +428,7 @@ class DirCommandInterpreter {
     // awaiting completion of current transaction.
     ctxt.tstate()->transaction_end()->notify();
     // Delete transaction from transaction table.
-    DirTTable* tt = model_->tt();
+    Table<Transaction*, DirTState*>* tt = model_->tt();
     tt->remove(ctxt.msg()->t());
     ctxt.tstate()->release();
   }
@@ -443,9 +442,9 @@ class DirCommandInterpreter {
   }
 
   void execute_remove_line(DirContext& ctxt, const DirCommand* cmd) {
-    DirCacheModel* cache = model_->cache();
+    CacheModel<DirLineState*>* cache = model_->cache();
     const CacheAddressHelper ah = cache->ah();
-    DirCacheModelSet set = cache->set(ah.set(ctxt.addr()));
+    auto set = cache->set(ah.set(ctxt.addr()));
     if (auto it = set.find(ah.tag(ctxt.addr())); it != set.end()) {
       set.evict(it);
     } else {
@@ -599,7 +598,7 @@ class DirAgent::RdisProcess : public AgentProcess {
         cl.push_back(DirOpcode::MqSetBlockedOnTransaction);
         // Advance
         cl.next_and_do_consume(false);
-      } else if (DirTTable* tt = model_->tt(); !tt->full()) {
+      } else if (Table<Transaction*, DirTState*>* tt = model_->tt(); !tt->full()) {
         // Transaction has not already been initiated, there is no
         // pending transaction to this line, AND, there are free
         // entries in the transaction table: the command can proceed
@@ -630,7 +629,7 @@ class DirAgent::RdisProcess : public AgentProcess {
     // if set is full, need to consider either evicting a line
     // presently in an evictable state, or blocking until one of the
     // transactions in the set completes.
-    DirCacheModel* cache = model_->cache();
+    CacheModel<DirLineState*>* cache = model_->cache();
     const CacheAddressHelper ah = cache->ah();
     const DirProtocol* protocol = model_->protocol();
     // Construct new transactions state object.
@@ -640,11 +639,10 @@ class DirAgent::RdisProcess : public AgentProcess {
     ctxt.set_owns_tstate(true);
     ctxt.set_tstate(tstate);
     const addr_t set_id = ah.set(msg->addr());
-    DirCacheModelSet set = cache->set(set_id);
-    if (DirCacheModelLineIt it = set.find(ah.tag(tstate->addr()));
-        it == set.end()) {
+    auto set = cache->set(set_id);
+    if (auto it = set.find(ah.tag(tstate->addr())); it == set.end()) {
       // Line is not present in the cache.
-      DirCacheModel::Evictor evictor;
+      CacheModel<DirLineState*>::Evictor evictor;
       if (auto p = evictor.nominate(set.begin(), set.end()); p.second) {
         // Eviction required.
         tstate->set_addr(ah.addr_from_set_tag(set_id, p.first->tag()));
@@ -686,7 +684,7 @@ class DirAgent::RdisProcess : public AgentProcess {
     bool has_resources = true;
 
     // Check table resources
-    DirTTable* tt = model_->tt();
+    Table<Transaction*, DirTState*>* tt = model_->tt();
     if (!tt->has_at_least(res.tt_entry_n())) {
       cl.clear();
       // Blocks on table occupancy; wait until table becomes free.
@@ -766,7 +764,7 @@ class DirAgent::RdisProcess : public AgentProcess {
 
   DirTState* lookup_state_or_fatal(Transaction* t,
                                    bool allow_fatal = true) const {
-    DirTTable* tt = model_->tt();
+    Table<Transaction*, DirTState*>* tt = model_->tt();
     DirTState* st = nullptr;
     if (auto it = tt->find(t); it != tt->end()) {
       st = it->second;
@@ -880,9 +878,9 @@ void DirAgent::build() {
   add_child_module(arb_);
   // Dir state cache
   CacheModelConfig cfg;
-  cache_ = new DirCacheModel(cfg);
+  cache_ = new CacheModel<DirLineState*>(cfg);
   // Construct transaction table.
-  tt_ = new DirTTable(k(), "tt", 16);
+  tt_ = new Table<Transaction*, DirTState*>(k(), "tt", 16);
   add_child_module(tt_);
   // Construct NOC ingress module.
   noc_endpoint_ = new DirNocEndpoint(k(), "noc_ep");

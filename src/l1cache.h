@@ -441,42 +441,77 @@ class L1TState {
 
 //
 //
-using L1TTable = TransactionTable<L1TState*>;
-
-//
-//
 class L1CacheContext {
  public:
   L1CacheContext() = default;
   ~L1CacheContext();
 
-  //
+  // Accessors:
+
+  // Current executing context
   AgentProcess* process() const { return process_; }
+
+  // Current address
   addr_t addr() const { return addr_; }
+
+  // Current arbitration tournament.
   MQArbTmt t() const { return t_; }
-  const Message* msg() const { return mq_->peek(); }
+
+  // Currently nominated Message Queue
   MessageQueue* mq() const { return mq_; }
+
+  // Current message at the head of the nominated Message Queue
+  const Message* msg() const { return mq_->peek(); }
+
+  // Current L1 cache instance.
   L1CacheAgent* l1cache() const { return l1cache_; }
-  // REMOVE
+
+  // Current L1 cache line.
   L1LineState* line() const { return line_; }
+
+  // Flag indicating that context owns line.
   bool owns_line() const { return owns_line_; }
+
+  // Current transaction state
   L1TState* tstate() const { return tstate_; }
+
+  // Flag indicating that context owns cache line.
   bool owns_tstate() const { return owns_tstate_; }
+
+
+  // Setters:
 
   //
   void set_process(AgentProcess* process) { process_ = process; }
+
+  // Set current address
   void set_addr(addr_t addr) { addr_ = addr; }
+
+  // Set current tournament
   void set_t(MQArbTmt t) { t_ = t; }
+
+  // Set currently nominated message queue
   void set_mq(MessageQueue* mq) { mq_ = mq; }
+
+  // Set L1 cache instance.
   void set_l1cache(L1CacheAgent* l1cache) { l1cache_ = l1cache; }
+
+  // Set L1 Cache line state
   void set_line(L1LineState* line) { line_ = line; }
+
+  // Set context owns line flag.
   void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
+
+  // Set current Transaction State instance.
   void set_tstate(L1TState* tstate) { tstate_ = tstate; }
+
+  // Set tstate owns line.
   void set_owns_tstate(bool owns_tstate) { owns_tstate_ = owns_tstate; }
 
  private:
   // Current invoke process instance.
   AgentProcess* process_ = nullptr;
+  // Current address.
   addr_t addr_;
   // Current Message Queue arbiter tournament.
   MQArbTmt t_;
@@ -494,13 +529,6 @@ class L1CacheContext {
   // L1 cache instance
   L1CacheAgent* l1cache_ = nullptr;
 };
-
-// Cache data type
-using L1CacheModel = CacheModel<L1LineState*>;
-// Cache Set data type
-using L1CacheModelSet = L1CacheModel::Set;
-// Cache Line Iterator type.
-using L1CacheModelLineIt = L1CacheModel::LineIterator;
 
 //
 //
@@ -542,7 +570,7 @@ class L1CacheAgent : public Agent {
   // Protocol
   L1CacheAgentProtocol* protocol() const { return protocol_; }
   // Transaction table.
-  L1TTable* tt() const { return tt_; }
+  TransactionTable<L1TState*>* tt() const { return tt_; }
   // L1 Cache Monitor instance (if attached).
   L1CacheMonitor* monitor() const { return monitor_; }
   // L1 Cache Statistics
@@ -595,7 +623,7 @@ class L1CacheAgent : public Agent {
   // Message servicing arbiter.
   MQArb* arb_ = nullptr;
   // Transaction table.
-  L1TTable* tt_ = nullptr;
+  TransactionTable<L1TState*>* tt_ = nullptr;
   // Main process of execution.
   MainProcess* main_ = nullptr;
   // Cachpe Instance

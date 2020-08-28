@@ -207,6 +207,8 @@ class DirTState {
   void release();
 
 
+  // Builder methods:
+
   // Build action to set the LLC comand opcode.
   DirCommand* build_set_llc_cmd_opcode(LLCCmdOpcode opcode);
 
@@ -226,9 +228,18 @@ class DirTState {
   DirCommand* build_inc_snoop_i();
   
 
+
   // Events denoting the initiation and completion of the transaction.
+
+  // Transaction start event; notified on start of transaction.
   kernel::Event* transaction_start() const { return transaction_start_; }
+
+  // Transaction end event; notified on end of transaction.
   kernel::Event* transaction_end() const { return transaction_end_; }
+
+
+
+  // Accessors:
 
   // Flag indicating that this is the final snoop
   bool is_final_snoop(bool is_snoop_rsp) const;
@@ -260,36 +271,59 @@ class DirTState {
   // Current transaction opcode.
   AceCmdOpcode opcode() const { return opcode_; }
 
-  //
+  // Current opcode issued to LLC (or invalid)
   LLCCmdOpcode llc_cmd_opcode() const { return llc_cmd_opcode_; }
 
 
+
+  // Setters:
+
+  // Set number of snoop commands.
   void set_snoop_n(std::size_t snoop_n) { snoop_n_ = snoop_n; }
+
+  // Set number of snoop commands (received so far).
   void set_snoop_i(std::size_t snoop_i) { snoop_i_ = snoop_i; }
+
+  // Set Data Transfer flag count.
   void set_dt_i(std::size_t dt_i) { dt_i_ = dt_i; }
+
+  // Set Pass Dirty flag count.
   void set_pd_i(std::size_t pd_i) { pd_i_ = pd_i; }
+
+  // Set Is Shared flag count.
   void set_is_i(std::size_t is_i) { is_i_ = is_i; }
+
+  // Set line instance.
   void set_line(DirLineState* line) { line_ = line; }
+
+  // Set transaction address.
   void set_addr(addr_t addr) { addr_ = addr; }
+
+  // Set originator agent.
   void set_origin(Agent* origin) { origin_ = origin; }
+
+  // Set current ACE command opcode
   void set_opcode(AceCmdOpcode opcode) { opcode_ = opcode; }
+
+  // Set current LLC command opcode (where applicable).
   void set_llc_cmd_opcode(LLCCmdOpcode opcode) { llc_cmd_opcode_ = opcode; }
 
  protected:
   virtual ~DirTState();
 
  private:
-  //
+  // Event notified on transation start.
   kernel::Event* transaction_start_ = nullptr;
+  // Event notified on transaction end.
   kernel::Event* transaction_end_ = nullptr;
-  //
+  // Current directory line.
   DirLineState* line_ = nullptr;
+  // Current line address
   addr_t addr_;
   // Originating cache controller origin.
   Agent* origin_ = nullptr;
-  //
+  // Current Ace comamnd begin processed.
   AceCmdOpcode opcode_ = AceCmdOpcode::Invalid;
-
   // The total expected number of snoop responses
   std::size_t snoop_n_ = 0;
   // The total number of snoop responses received.
@@ -304,26 +338,42 @@ class DirTState {
   LLCCmdOpcode llc_cmd_opcode_ = LLCCmdOpcode::Invalid;
 };
 
-//
+
+// Class to encapsulate the notion of the resources associated with a
+// given CommandList
 //
 class DirResources {
   using key_map = std::map<const Agent*, std::size_t>;
 
  public:
+  // Construct (compute) resource set required by CommandList.
   DirResources(const DirCommandList& cl);
 
   // Accessors:
+
+  // Required number of Transaction Table entries.
   std::size_t tt_entry_n() const { return tt_entry_n_; }
+
+  // Required number of NOC credits (messages) emitted to the
+  // interconnect.
   std::size_t noc_credit_n() const { return noc_credit_n_; }
+
+  // Required number of snoops (for a given destination agent).
   std::size_t coh_snp_n(const Agent* agent) const;
 
+  // Agent to credit count map.
   const key_map& coh_snp_n() const { return coh_snp_n_; }
 
-  // Setters
+  // Setters:
+
+  // Set NOC credit count.
   void set_noc_credit_n(std::size_t n) { noc_credit_n_ = n; }
+
+  // Set Snoop count.
   void set_coh_snp_n(const Agent* agent, std::size_t n);
 
  private:
+  // Compute resource set.
   void build(const DirCommandList& cl);
 
   // Transaction table entries required.
@@ -334,15 +384,6 @@ class DirResources {
   key_map coh_snp_n_;
 };
 
-// Cache data type
-using DirCacheModel = CacheModel<DirLineState*>;
-// Cache Set data type
-using DirCacheModelSet = DirCacheModel::Set;
-// Cache Line Iterator type.
-using DirCacheModelLineIt = DirCacheModel::LineIterator;
-//
-using DirTTable = Table<Transaction*, DirTState*>;
-
 //
 //
 class DirContext {
@@ -350,14 +391,31 @@ class DirContext {
   explicit DirContext() = default;
   ~DirContext();
 
-  //
+  // Accessors:
+
+  // Current address
   addr_t addr() const { return addr_; }
+
+  // Current Arbiter tournament
   MQArbTmt t() const { return t_; }
+
+  // Message at the head of the nominated message queue.
   const Message* msg() const { return mq_->peek(); }
+
+  // Currently nominated message queue.
   MessageQueue* mq() const { return mq_; }
+
+  // Directory agent instance.
   DirAgent* dir() const { return dir_; }
+
+  // Current transaction state instance.
   DirTState* tstate() const { return tstate_; }
+
+  // Flag indicating that context owns transaction state instance.
   bool owns_tstate() const { return owns_tstate_; }
+
+  // Flag indicating that context owns line within transaction state
+  // instance.
   bool owns_line() const { return owns_line_; }
 
   // Consensus: data was transfers.
@@ -378,16 +436,37 @@ class DirContext {
   // Current "Is Shared" (IS) count.
   std::size_t is_n() const { return is_n_; }
 
-  //
+
+  // Setters:
+
+  // Set current address
   void set_addr(addr_t addr) { addr_ = addr; }
+
+  // Set current arbitration tournament
   void set_t(MQArbTmt t) { t_ = t; }
+
+  // Set current Message Queue
   void set_mq(MessageQueue* mq) { mq_ = mq; }
+
+  // Set directory instance
   void set_dir(DirAgent* dir) { dir_ = dir; }
+
+  // Set Transaction State instance.
   void set_tstate(DirTState* tstate) { tstate_ = tstate; }
+
+  // Set flag indicating that context owns the Transaction state
   void set_owns_tstate(bool owns_tstate) { owns_tstate_ = owns_tstate; }
+
+  // Set flag indicating that context owns line
   void set_owns_line(bool owns_line) { owns_line_ = owns_line; }
+
+  // Set Data Transfer count
   void set_dt_n(std::size_t dt_n) { dt_n_ = dt_n; }
+
+  // Set Pass Dirty count
   void set_pd_n(std::size_t pd_n) { pd_n_ = pd_n; }
+
+  // Set Is Shared count
   void set_is_n(std::size_t is_n) { is_n_ = is_n; }
 
  private:
@@ -399,21 +478,22 @@ class DirContext {
   MessageQueue* mq_ = nullptr;
   // L2 cache instance
   DirAgent* dir_ = nullptr;
-  //
+  // Transaction state
   DirTState* tstate_ = nullptr;
-  //
+  // Context owns transaction state
   bool owns_tstate_ = false;
-  //
+  // Context owns lint
   bool owns_line_ = false;
-  //
+  // Data Transfer count
   std::size_t dt_n_ = 0;
-  //
+  // Pass Dirty count
   std::size_t pd_n_ = 0;
-  //
+  // Is Shared count
   std::size_t is_n_ = 0;
 };
 
-//
+
+// Directory Agent class.
 //
 class DirAgent : public Agent {
   friend class SocTop;
@@ -427,9 +507,11 @@ class DirAgent : public Agent {
   DirAgent(kernel::Kernel* k, const DirModelConfig& config);
   ~DirAgent();
 
+  // Current directory configuration.
   const DirModelConfig& config() const { return config_; }
 
-  // accessors:
+  // Accessors:
+
   // LLC owned by current directory
   LLCModel* llc() const { return llc_; }
   // NOC -> DIR message queue
@@ -439,7 +521,7 @@ class DirAgent : public Agent {
   // Coherence protocol
   DirProtocol* protocol() const { return protocol_; }
   // Transaction table.
-  DirTTable* tt() const { return tt_; }
+  Table<Transaction*, DirTState*>* tt() const { return tt_; }
   // Credit Counters
   const std::map<MessageClass, ccntr_map>& ccntrs_map() const {
     return ccntrs_map_;
@@ -450,7 +532,7 @@ class DirAgent : public Agent {
   // and, additionally, origin agent where applicable.
   MessageQueue* mq_by_msg_cls(MessageClass cls, const Agent* origin) const;
   // Point to module cache instance.
-  const DirCacheModel* cache() const { return cache_; }
+  const CacheModel<DirLineState*>* cache() const { return cache_; }
 
  protected:
   // Build
@@ -478,7 +560,7 @@ class DirAgent : public Agent {
   // Directory arbiter instance.
   MQArb* arb() const { return arb_; }
   // Point to module cache instance.
-  DirCacheModel* cache() { return cache_; }
+  CacheModel<DirLineState*>* cache() { return cache_; }
 
  private:
   // Queue selection arbiter
@@ -500,9 +582,9 @@ class DirAgent : public Agent {
   // Last Level Cache instance (where applicable).
   LLCModel* llc_ = nullptr;
   // Transaction table
-  DirTTable* tt_ = nullptr;
+  Table<Transaction*, DirTState*>* tt_ = nullptr;
   // Cache Instance
-  DirCacheModel* cache_ = nullptr;
+  CacheModel<DirLineState*>* cache_ = nullptr;
   // Coherence protocol
   DirProtocol* protocol_ = nullptr;
   // Verification monitor instance, where applicable.
