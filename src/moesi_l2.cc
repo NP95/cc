@@ -38,7 +38,8 @@ namespace {
 
 using namespace cc;
 
-//
+// Permissible L2 line states where X_Y denotes the transition state 
+// X and Y, where X and Y are considered to be two stable states.
 //
 enum class State {
   // Invalid
@@ -121,13 +122,19 @@ bool is_stable(State state) {
   }
 }
 
-//
-//
+// L2 Egress Queue identifies:
 enum class L2EgressQueue { CCCmdQ, CCSnpRspQ, L1RspQ, Invalid };
 
 const char* to_string(L2EgressQueue q) {
   switch (q) {
+    case L2EgressQueue::CCCmdQ:
+      return "CCCmdQ";
+    case L2EgressQueue::CCSnpRspQ:
+      return "CCSnpRspQ";
+    case L2EgressQueue::L1RspQ:
+      return "L1RspQ";
     case L2EgressQueue::Invalid:
+      [[fallthrough]];
     default:
       return "Invalid";
   }
@@ -137,7 +144,6 @@ const char* to_string(L2EgressQueue q) {
 //
 class LineState : public L2LineState {
  public:
-
   LineState() = default;
 
 
@@ -162,6 +168,8 @@ class LineState : public L2LineState {
   // Builder command to clear sharer set
   L2Command* build_clr_sharer();
 
+
+  // Accessors:
  
   // Stable state status. deprecate
   bool is_stable() const { return true; }
@@ -175,6 +183,8 @@ class LineState : public L2LineState {
   // Current sharing Agent set.
   const std::set<Agent*>& sharers() const { return sharers_; }
 
+
+  // Setters:
 
   // Set current line state
   void set_state(State state) { state_ = state; }
@@ -216,6 +226,8 @@ class LineState : public L2LineState {
   std::set<Agent*> sharers_;
 };
 
+
+// Line update action opcode.
 enum class LineUpdateOpcode {
   // Set current line state
   SetState,
@@ -262,7 +274,8 @@ const char* to_string(LineUpdateOpcode opcode) {
   }
 }
 
-//
+// Action class to perform architectural update the L2's internal
+// state.
 //
 struct LineUpdateAction : public L2CoherenceAction {
   LineUpdateAction(LineState* line, LineUpdateOpcode opcode)
@@ -1345,13 +1358,16 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
       bool execute() override { return mq_->issue(msg_); }
 
      private:
-      //
+      // EgressQueue Id (for resource calculation).
       L2EgressQueue eq_ = L2EgressQueue::Invalid;
-      //
+      // Destination Message Queue.
       MessageQueue* mq_ = nullptr;
-      //
+      // Message to be issued.
       const Message* msg_ = nullptr;
     };
+
+    // Construct "issue" message action to be performance message
+    // issue L1/CC to agent.
     EmitMessageActionProxy* action = new EmitMessageActionProxy;
     action->set_eq(eq);
     action->set_msg(msg);
@@ -1373,6 +1389,7 @@ class MOESIL2CacheProtocol : public L2CacheAgentProtocol {
       } break;
     }
     action->set_mq(mq);
+    // Schedule current issue action in current command list.
     cl.push_back(L2CommandBuilder::from_action(action));
   }
 };
