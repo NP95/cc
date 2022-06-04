@@ -31,7 +31,7 @@ laid-off.
 ## Discussion
 
 Cache coherency protocols are fundamental to multiprocessor
-system-on-chips. Their implementation is complicated by the following
+system-on-chips. Their implementation are complicated by the following
 aspects:
 
 * The state space of a coherency model is very large and there are
