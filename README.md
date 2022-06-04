@@ -2,8 +2,6 @@
 
 ![CC Badge](https://github.com/stephenry/cc/workflows/CI/badge.svg)
 
-![top](./doc/top.svg)
-
 ## Synopsis
 
 Cache coherency protocols are the architectural mechanisms by which
