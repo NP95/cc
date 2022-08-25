@@ -38,16 +38,11 @@ namespace cc {
 
 const char* to_string(LLCCmdOpcode opcode) {
   switch (opcode) {
-    case LLCCmdOpcode::Fill:
-      return "Fill";
-    case LLCCmdOpcode::Evict:
-      return "Evict";
-    case LLCCmdOpcode::PutLine:
-      return "PutLine";
-    case LLCCmdOpcode::Invalid:
-      [[fallthrough]];
-    default:
-      return "Invalid";
+    case LLCCmdOpcode::Fill:    return "Fill";
+    case LLCCmdOpcode::Evict:   return "Evict";
+    case LLCCmdOpcode::PutLine: return "PutLine";
+    case LLCCmdOpcode::Invalid: [[fallthrough]];
+    default:                    return "Invalid";
   }
 }
 
@@ -97,14 +92,10 @@ enum class State { FillAwaitMemRsp, PutAwaitCCDtRsp, PutAwaitMemDtRsp, Idle };
 
 const char* to_string(State state) {
   switch (state) {
-    case State::FillAwaitMemRsp:
-      return "FillAwaitMemRsp";
-    case State::PutAwaitCCDtRsp:
-      return "PutAwaitCCDtRsp";
-    case State::PutAwaitMemDtRsp:
-      return "PutAwaitMemDtRsp";
-    default:
-      return "Idle";
+    case State::FillAwaitMemRsp:  return "FillAwaitMemRsp";
+    case State::PutAwaitCCDtRsp:  return "PutAwaitCCDtRsp";
+    case State::PutAwaitMemDtRsp: return "PutAwaitMemDtRsp";
+    default:                      return "Idle";
   }
 }
 

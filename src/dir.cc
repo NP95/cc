@@ -43,30 +43,18 @@ namespace cc {
 
 const char* to_string(DirOpcode opcode) {
   switch (opcode) {
-    case DirOpcode::StartTransaction:
-      return "StartTransaction";
-    case DirOpcode::EndTransaction:
-      return "EndTransaction";
-    case DirOpcode::MsgConsume:
-      return "MsgConsume";
-    case DirOpcode::RemoveLine:
-      return "RemoveLine";
-    case DirOpcode::MqSetBlockedOnTransaction:
-      return "MqSetBlockedOnTransaction";
-    case DirOpcode::MqSetBlockedOnTable:
-      return "MqSetBlockedOnTable";
-    case DirOpcode::MqSetBlockedOnEvt:
-      return "MqSetBlockedOnEvt";
-    case DirOpcode::InvokeCoherenceAction:
-      return "InvokeCoherenceAction";
-    case DirOpcode::WaitOnMsg:
-      return "WaitOnMsg";
-    case DirOpcode::WaitNextEpoch:
-      return "WaitNextEpoch";
-    case DirOpcode::Invalid:
-      return "Invalid";
-    default:
-      return "Invalid";
+    case DirOpcode::StartTransaction:          return "StartTransaction";
+    case DirOpcode::EndTransaction:            return "EndTransaction";
+    case DirOpcode::MsgConsume:                return "MsgConsume";
+    case DirOpcode::RemoveLine:                return "RemoveLine";
+    case DirOpcode::MqSetBlockedOnTransaction: return "MqSetBlockedOnTransaction";
+    case DirOpcode::MqSetBlockedOnTable:       return "MqSetBlockedOnTable";
+    case DirOpcode::MqSetBlockedOnEvt:         return "MqSetBlockedOnEvt";
+    case DirOpcode::InvokeCoherenceAction:     return "InvokeCoherenceAction";
+    case DirOpcode::WaitOnMsg:                 return "WaitOnMsg";
+    case DirOpcode::WaitNextEpoch:             return "WaitNextEpoch";
+    case DirOpcode::Invalid:                   [[fallthrough]];
+    default:                                   return "Invalid";
   }
 }
 
@@ -144,22 +132,14 @@ enum class TStateUpdateOpcode {
 
 const char* to_string(TStateUpdateOpcode action) {
   switch (action) {
-    case TStateUpdateOpcode::SetSnoopN:
-      return "SetSnoopN"; 
-    case TStateUpdateOpcode::IncSnoopI:
-      return "IncSnoopI";
-    case TStateUpdateOpcode::IncDt:
-      return "IncDt";
-    case TStateUpdateOpcode::IncPd:
-      return "IncPd";
-    case TStateUpdateOpcode::IncIs:
-      return "IncIs";
-    case TStateUpdateOpcode::SetLLC:
-      return "SetLLC";
-    case TStateUpdateOpcode::Invalid:
-      [[fallthrough]];
-    default:
-      return "Invalid";
+    case TStateUpdateOpcode::SetSnoopN: return "SetSnoopN"; 
+    case TStateUpdateOpcode::IncSnoopI: return "IncSnoopI";
+    case TStateUpdateOpcode::IncDt:     return "IncDt";
+    case TStateUpdateOpcode::IncPd:     return "IncPd";
+    case TStateUpdateOpcode::IncIs:     return "IncIs";
+    case TStateUpdateOpcode::SetLLC:    return "SetLLC";
+    case TStateUpdateOpcode::Invalid:   [[fallthrough]];
+    default:                            return "Invalid";
   }
 }
 

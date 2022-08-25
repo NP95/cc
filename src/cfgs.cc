@@ -37,14 +37,10 @@ SocConfig::~SocConfig() {
 
 const char* to_string(StimulusType t) {
   switch (t) {
-    case StimulusType::Trace:
-      return "Trace";
-    case StimulusType::Programmatic:
-      return "Programmatic";
-    case StimulusType::Invalid:
-      return "Invalid";
-    default:
-      return "Unknown";
+    case StimulusType::Trace:        return "Trace";
+    case StimulusType::Programmatic: return "Programmatic";
+    case StimulusType::Invalid:      return "Invalid";
+    default:                         return "Unknown";
   }
 }
 

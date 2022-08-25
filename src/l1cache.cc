@@ -81,63 +81,37 @@ std::string L1CmdRspMsg::to_string() const {
 
 const char* to_string(L1CacheEvent event) {
   switch (event) {
-    case L1CacheEvent::InstallShareable:
-      return "InstallShareable";
-    case L1CacheEvent::InstallWriteable:
-      return "InstallWriteable";
-    case L1CacheEvent::LoadHit:
-      return "LoadHit";
-    case L1CacheEvent::LoadMiss:
-      return "LoadMiss";
-    case L1CacheEvent::StoreHit:
-      return "StoreHit";
-    case L1CacheEvent::StoreMiss:
-      return "StoreMiss";
-    case L1CacheEvent::InvalidateLine:
-      return "InvalidateLine";
-    case L1CacheEvent::Invalid:
-      [[fallthrough]];
-    default:
-      return "Invalid";
+    case L1CacheEvent::InstallShareable: return "InstallShareable";
+    case L1CacheEvent::InstallWriteable: return "InstallWriteable";
+    case L1CacheEvent::LoadHit:          return "LoadHit";
+    case L1CacheEvent::LoadMiss:         return "LoadMiss";
+    case L1CacheEvent::StoreHit:         return "StoreHit";
+    case L1CacheEvent::StoreMiss:        return "StoreMiss";
+    case L1CacheEvent::InvalidateLine:   return "InvalidateLine";
+    case L1CacheEvent::Invalid:          [[fallthrough]];
+    default:                             return "Invalid";
   }
 }
 
 const char* to_string(L1Opcode opcode) {
   switch (opcode) {
-    case L1Opcode::StartTransaction:
-      return "StartTransaction";
-    case L1Opcode::EndTransaction:
-      return "EndTransaction";
-    case L1Opcode::MqSetBlockedOnEvent:
-      return "MqSetBlockedOnEvent";
-    case L1Opcode::MqSetBlockedOnTransaction:
-      return "MqSetBlockedOnTransaction";
-    case L1Opcode::MqSetBlockedOnTable:
-      return "MqSetBlockedOnTable";
-    case L1Opcode::MsgDequeue:
-      return "MsgDequeue";
-    case L1Opcode::MsgConsume:
-      return "MsgConsume";
-    case L1Opcode::MsgReissue:
-      return "MsgReissue";
-    case L1Opcode::RaiseEvent:
-      return "RaiseEvent";
-    case L1Opcode::RemoveLine:
-      return "RemoveLine";
-    case L1Opcode::InvokeCoherenceAction:
-      return "InvokeCoherenceAction";
-    case L1Opcode::WaitOnMsg:
-      return "WaitOnMsg";
-    case L1Opcode::WaitNextEpoch:
-      return "WaitNextEpoch";
-    case L1Opcode::SetL2LineModified:
-      return "SetL2LineModified";
-    case L1Opcode::ReserveReplaySlot:
-      return "ReserveReplaySlot";
-    case L1Opcode::Invalid:
-      return "Invalid";
-    default:
-      return "Invalid";
+    case L1Opcode::StartTransaction:          return "StartTransaction";
+    case L1Opcode::EndTransaction:            return "EndTransaction";
+    case L1Opcode::MqSetBlockedOnEvent:       return "MqSetBlockedOnEvent";
+    case L1Opcode::MqSetBlockedOnTransaction: return "MqSetBlockedOnTransaction";
+    case L1Opcode::MqSetBlockedOnTable:       return "MqSetBlockedOnTable";
+    case L1Opcode::MsgDequeue:                return "MsgDequeue";
+    case L1Opcode::MsgConsume:                return "MsgConsume";
+    case L1Opcode::MsgReissue:                return "MsgReissue";
+    case L1Opcode::RaiseEvent:                return "RaiseEvent";
+    case L1Opcode::RemoveLine:                return "RemoveLine";
+    case L1Opcode::InvokeCoherenceAction:     return "InvokeCoherenceAction";
+    case L1Opcode::WaitOnMsg:                 return "WaitOnMsg";
+    case L1Opcode::WaitNextEpoch:             return "WaitNextEpoch";
+    case L1Opcode::SetL2LineModified:         return "SetL2LineModified";
+    case L1Opcode::ReserveReplaySlot:         return "ReserveReplaySlot";
+    case L1Opcode::Invalid:                   [[fallthrough]];
+    default:                                  return "Invalid";
   }
 }
 

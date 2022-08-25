@@ -103,30 +103,18 @@ L2CacheContext::~L2CacheContext() {
 
 const char* to_string(L2Opcode opcode) {
   switch (opcode) {
-    case L2Opcode::StartTransaction:
-      return "StartTransaction";
-    case L2Opcode::EndTransaction:
-      return "EndTransaction";
-    case L2Opcode::MqSetBlockedOnTransaction:
-      return "MqSetBlockedOnTransaction";
-    case L2Opcode::MqSetBlockedOnTable:
-      return "MqSetBlockedOnTable";
-    case L2Opcode::MsgConsume:
-      return "MsgConsume";
-    case L2Opcode::InvokeCoherenceAction:
-      return "InvokeCoherenceAction";
-    case L2Opcode::SetL1LinesShared:
-      return "SetL1LinesShared";
-    case L2Opcode::SetL1LinesInvalid:
-      return "SetL1LinesInvalid";
-    case L2Opcode::RemoveLine:
-      return "RemoveLine";
-    case L2Opcode::WaitOnMsg:
-      return "WaitOnMsg";
-    case L2Opcode::WaitNextEpoch:
-      return "WaitNextEpoch";
-    default:
-      return "Invalid";
+    case L2Opcode::StartTransaction:          return "StartTransaction";
+    case L2Opcode::EndTransaction:            return "EndTransaction";
+    case L2Opcode::MqSetBlockedOnTransaction: return "MqSetBlockedOnTransaction";
+    case L2Opcode::MqSetBlockedOnTable:       return "MqSetBlockedOnTable";
+    case L2Opcode::MsgConsume:                return "MsgConsume";
+    case L2Opcode::InvokeCoherenceAction:     return "InvokeCoherenceAction";
+    case L2Opcode::SetL1LinesShared:          return "SetL1LinesShared";
+    case L2Opcode::SetL1LinesInvalid:         return "SetL1LinesInvalid";
+    case L2Opcode::RemoveLine:                return "RemoveLine";
+    case L2Opcode::WaitOnMsg:                 return "WaitOnMsg";
+    case L2Opcode::WaitNextEpoch:             return "WaitNextEpoch";
+    default:                                  return "Invalid";
   }
 }
 

@@ -35,46 +35,26 @@ namespace cc {
 
 const char* to_string(AceCmdOpcode opcode) {
   switch (opcode) {
-    case AceCmdOpcode::ReadNoSnoop:
-      return "ReadNoSnoop";
-    case AceCmdOpcode::ReadOnce:
-      return "ReadOnce";
-    case AceCmdOpcode::ReadClean:
-      return "ReadClean";
-    case AceCmdOpcode::ReadNotSharedDirty:
-      return "ReadNotSharedDirty";
-    case AceCmdOpcode::ReadShared:
-      return "ReadShared";
-    case AceCmdOpcode::ReadUnique:
-      return "ReadUnique";
-    case AceCmdOpcode::CleanUnique:
-      return "CleanUnique";
-    case AceCmdOpcode::CleanShared:
-      return "CleanShared";
-    case AceCmdOpcode::CleanInvalid:
-      return "CleanInvalid";
-    case AceCmdOpcode::MakeUnique:
-      return "MakeUnique";
-    case AceCmdOpcode::MakeInvalid:
-      return "MakeInvalid";
-    case AceCmdOpcode::WriteNoSnoop:
-      return "WriteNoSnoop";
-    case AceCmdOpcode::WriteUnique:
-      return "WriteUnique";
-    case AceCmdOpcode::WriteLineUnique:
-      return "WriteLineUnique";
-    case AceCmdOpcode::WriteBack:
-      return "WriteBack";
-    case AceCmdOpcode::WriteClean:
-      return "WriteClean";
-    case AceCmdOpcode::Evict:
-      return "Evict";
-    case AceCmdOpcode::Recall:
-      return "Recall";
-    case AceCmdOpcode::Invalid:
-      return "Invalid";
-    default:
-      return "Invalid";
+    case AceCmdOpcode::ReadNoSnoop:        return "ReadNoSnoop";
+    case AceCmdOpcode::ReadOnce:           return "ReadOnce";
+    case AceCmdOpcode::ReadClean:          return "ReadClean";
+    case AceCmdOpcode::ReadNotSharedDirty: return "ReadNotSharedDirty";
+    case AceCmdOpcode::ReadShared:         return "ReadShared";
+    case AceCmdOpcode::ReadUnique:         return "ReadUnique";
+    case AceCmdOpcode::CleanUnique:        return "CleanUnique";
+    case AceCmdOpcode::CleanShared:        return "CleanShared";
+    case AceCmdOpcode::CleanInvalid:       return "CleanInvalid";
+    case AceCmdOpcode::MakeUnique:         return "MakeUnique";
+    case AceCmdOpcode::MakeInvalid:        return "MakeInvalid";
+    case AceCmdOpcode::WriteNoSnoop:       return "WriteNoSnoop";
+    case AceCmdOpcode::WriteUnique:        return "WriteUnique";
+    case AceCmdOpcode::WriteLineUnique:    return "WriteLineUnique";
+    case AceCmdOpcode::WriteBack:          return "WriteBack";
+    case AceCmdOpcode::WriteClean:         return "WriteClean";
+    case AceCmdOpcode::Evict:              return "Evict";
+    case AceCmdOpcode::Recall:             return "Recall";
+    case AceCmdOpcode::Invalid:            return "Invalid";
+    default:                               return "Invalid";
   }
 }
 
@@ -113,26 +93,16 @@ std::string AceCmdRspMsg::to_string() const {
 //
 const char* to_string(AceSnpOpcode opcode) {
   switch (opcode) {
-    case AceSnpOpcode::ReadOnce:
-      return "ReadOnce";
-    case AceSnpOpcode::ReadClean:
-      return "ReadClean";
-    case AceSnpOpcode::ReadNotSharedDirty:
-      return "ReadNotSharedDirty";
-    case AceSnpOpcode::ReadShared:
-      return "ReadShared";
-    case AceSnpOpcode::ReadUnique:
-      return "ReadUnique";
-    case AceSnpOpcode::CleanInvalid:
-      return "CleanInvalid";
-    case AceSnpOpcode::MakeInvalid:
-      return "MakeInvalid";
-    case AceSnpOpcode::CleanShared:
-      return "CleanShared";
-    case AceSnpOpcode::Invalid:
-      return "Invalid";
-    default:
-      return "Invalid";
+    case AceSnpOpcode::ReadOnce:           return "ReadOnce";
+    case AceSnpOpcode::ReadClean:          return "ReadClean";
+    case AceSnpOpcode::ReadNotSharedDirty: return "ReadNotSharedDirty";
+    case AceSnpOpcode::ReadShared:         return "ReadShared";
+    case AceSnpOpcode::ReadUnique:         return "ReadUnique";
+    case AceSnpOpcode::CleanInvalid:       return "CleanInvalid";
+    case AceSnpOpcode::MakeInvalid:        return "MakeInvalid";
+    case AceSnpOpcode::CleanShared:        return "CleanShared";
+    case AceSnpOpcode::Invalid:            return "Invalid";
+    default:                               return "Invalid";
   }
 }
 
@@ -141,33 +111,19 @@ const char* to_string(AceSnpOpcode opcode) {
 AceSnpOpcode to_snp_opcode(AceCmdOpcode opcode) {
   // AMBA reference C5-1
   switch (opcode) {
-    case AceCmdOpcode::ReadOnce:
-      return AceSnpOpcode::ReadOnce;
-    case AceCmdOpcode::ReadClean:
-      return AceSnpOpcode::ReadClean;
-    case AceCmdOpcode::ReadNotSharedDirty:
-      return AceSnpOpcode::ReadNotSharedDirty;
-    case AceCmdOpcode::ReadShared:
-      return AceSnpOpcode::ReadShared;
-    case AceCmdOpcode::ReadUnique:
-      return AceSnpOpcode::ReadUnique;
-    case AceCmdOpcode::CleanUnique:
-      return AceSnpOpcode::CleanInvalid;
-    case AceCmdOpcode::CleanShared:
-      return AceSnpOpcode::CleanShared;
-    case AceCmdOpcode::CleanInvalid:
-      return AceSnpOpcode::CleanInvalid;
-    case AceCmdOpcode::MakeUnique:
-      return AceSnpOpcode::MakeInvalid;
-    case AceCmdOpcode::MakeInvalid:
-      return AceSnpOpcode::MakeInvalid;
-    case AceCmdOpcode::WriteUnique:
-      return AceSnpOpcode::CleanInvalid;
-    case AceCmdOpcode::WriteLineUnique:
-      return AceSnpOpcode::MakeInvalid;
-    default:
-      // Either original command is "Not Snooped", or bad opcode.
-      return AceSnpOpcode::Invalid;
+    case AceCmdOpcode::ReadOnce:           return AceSnpOpcode::ReadOnce;
+    case AceCmdOpcode::ReadClean:          return AceSnpOpcode::ReadClean;
+    case AceCmdOpcode::ReadNotSharedDirty: return AceSnpOpcode::ReadNotSharedDirty;
+    case AceCmdOpcode::ReadShared:         return AceSnpOpcode::ReadShared;
+    case AceCmdOpcode::ReadUnique:         return AceSnpOpcode::ReadUnique;
+    case AceCmdOpcode::CleanUnique:        return AceSnpOpcode::CleanInvalid;
+    case AceCmdOpcode::CleanShared:        return AceSnpOpcode::CleanShared;
+    case AceCmdOpcode::CleanInvalid:       return AceSnpOpcode::CleanInvalid;
+    case AceCmdOpcode::MakeUnique:         return AceSnpOpcode::MakeInvalid;
+    case AceCmdOpcode::MakeInvalid:        return AceSnpOpcode::MakeInvalid;
+    case AceCmdOpcode::WriteUnique:        return AceSnpOpcode::CleanInvalid;
+    case AceCmdOpcode::WriteLineUnique:    return AceSnpOpcode::MakeInvalid;
+    default:                               return AceSnpOpcode::Invalid;
   }
 }
 
